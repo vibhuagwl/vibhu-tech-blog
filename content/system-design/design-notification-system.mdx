@@ -1,0 +1,77 @@
+---
+slug: design-notification-system
+title: Design a Notification System
+ description: Design a multi-channel notification platform for push, email and SMS with templates, preferences, retries and delivery tracking.
+category: System Design
+difficulty: Advanced
+tags: [Kafka, Async Processing, Reliability, APIs]
+readingTime: 22 min
+publishedAt: 2026-08-10
+---
+
+## The problem
+
+A single user action may need an email, push notification and SMS. Sending all three synchronously makes the product request slow and couples the core service to every provider.
+
+## Architecture
+
+```text
+Producer → Notification API → Kafka → Channel Workers
+                                  ├→ Push Provider
+                                  ├→ Email Provider
+                                  └→ SMS Provider
+                                        |
+                                  Delivery Events
+```
+
+The API validates the request and publishes a durable notification command. Channel workers handle provider-specific retries and rate limits.
+
+## Data model
+
+```text
+Notification(id, user_id, template, channel, status, created_at)
+Preference(user_id, channel, enabled)
+DeliveryAttempt(id, notification_id, provider, status, attempted_at)
+```
+
+## Idempotency
+
+A notification event needs a stable business key. If a worker retries after an uncertain provider response, it should not send duplicates when the provider supports idempotency. Otherwise, the platform needs a policy for acceptable duplicate risk.
+
+## Ordering and priority
+
+Not every notification has equal urgency. Use separate topics or priority queues for security alerts versus marketing messages. Do not let a large marketing campaign consume all worker capacity.
+
+## Reliability
+
+Retries should distinguish transient provider failures from permanent failures. Exponential backoff with jitter prevents synchronized retry storms. A DLQ captures messages that cannot be processed automatically.
+
+## Scaling
+
+Workers scale independently per channel. Provider quotas become external bottlenecks, so the worker layer needs rate limiting and circuit breakers.
+
+## Trade-offs
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| Kafka | Durable decoupling | Operational overhead |
+| Channel workers | Independent scaling | More services |
+| Template service | Central consistency | Runtime dependency |
+| Provider abstraction | Easy switching | Lowest-common-denominator APIs |
+
+## Interviewer follow-ups
+
+1. How do you avoid duplicate notifications?
+2. What if an email provider is down?
+3. How do you enforce provider rate limits?
+4. How do you prioritize security alerts?
+5. How do you handle user preferences?
+6. How do you retry safely?
+7. What belongs in a DLQ?
+8. How do you monitor delivery success?
+9. How do you support scheduled notifications?
+10. How do you isolate one provider's outage?
+
+## Staff-level discussion
+
+The platform should make delivery policy explicit: priority, retry budget, provider limits, user preferences, auditability and failure isolation. The core product should not be coupled to any single provider.
