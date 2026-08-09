@@ -1,0 +1,67 @@
+---
+slug: consistent-hashing
+title: Consistent Hashing: Scaling Distributed Caches Without Moving Everything
+description: Understand consistent hashing, virtual nodes, rebalancing and hot partitions through a distributed cache example.
+category: Distributed Systems
+difficulty: Advanced
+tags: [Consistent Hashing, Sharding, Caching]
+readingTime: 15 min
+publishedAt: 2026-08-10
+---
+
+## The problem
+
+Suppose a cache has four nodes. A simple strategy is `hash(key) % 4`. It works until a fifth node is added. Now almost every key maps to a different node and the cache loses most of its warm data.
+
+## Consistent hashing
+
+Imagine a circular hash space from 0 to N. Both nodes and keys are mapped onto the ring. A key is owned by the first node encountered clockwise.
+
+```text
+          Node A
+            ●
+       key → ○
+   Node D ●       ● Node B
+            ●
+          Node C
+```
+
+When a node is added, only the keys between that node and its predecessor need to move rather than the entire dataset.
+
+## Virtual nodes
+
+A physical node can own many points on the ring. Virtual nodes reduce uneven distribution and make capacity changes smoother.
+
+## Hot partitions
+
+Consistent hashing distributes keys, not necessarily traffic. If one key receives most requests, its node can still become hot. Hot-key replication or application-level request coalescing may be needed.
+
+## Failure
+
+When a node disappears, its key ranges move to the next healthy owners. Replicas can reduce the amount of data unavailable during failure.
+
+## Trade-offs
+
+| Choice | Benefit | Cost |
+|---|---|---|
+| Modulo hashing | Very simple | Large remapping |
+| Consistent hashing | Limited movement | More routing complexity |
+| Virtual nodes | Better distribution | More metadata |
+| Replication | Better availability | More memory / writes |
+
+## Interviewer follow-ups
+
+1. Why does modulo hashing remap keys?
+2. How do virtual nodes help?
+3. What if one key is extremely hot?
+4. How do you handle node failure?
+5. How would you rebalance gradually?
+6. What happens when node capacity differs?
+7. How does replication interact with hashing?
+8. How would you monitor skew?
+9. Where would you use consistent hashing?
+10. Why not just use a centralized router?
+
+## Staff-level discussion
+
+The design should expose capacity and ownership as operational concepts. Rebalancing needs throttling, observability and rollback so adding capacity does not create a second outage.
