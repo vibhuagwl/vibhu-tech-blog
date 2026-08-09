@@ -1,0 +1,83 @@
+---
+slug: redis-internals-and-distributed-caching
+title: Redis Internals and Distributed Caching
+description: Design a production cache with Redis using cache-aside, TTL, eviction, hot-key protection and failure isolation.
+category: Caching
+difficulty: Advanced
+tags: [Redis, Caching, Distributed Systems]
+readingTime: 16 min
+publishedAt: 2026-08-10
+---
+
+## Start with the problem
+
+A product page is read millions of times while its underlying data changes only occasionally. Sending every request to the database wastes I/O and increases latency. A cache moves hot data closer to the application, but now you have a second copy of the data and therefore a consistency problem.
+
+## Architecture
+
+```text
+Client → Load Balancer → Application → Redis
+                                  ↘ Database
+```
+
+On a cache hit, the request avoids the database. On a miss, the application reads the source of truth and populates Redis.
+
+## Cache-aside
+
+```text
+value = redis.get(key)
+if value exists:
+    return value
+value = database.get(id)
+redis.set(key, value, TTL)
+return value
+```
+
+The application owns population and invalidation. This is simple and widely applicable.
+
+## TTL and eviction
+
+TTL controls freshness. Eviction controls what happens when memory pressure requires Redis to remove keys. LRU favors recency; LFU favors frequency. A cache-only workload often uses an eviction policy that can remove expiring keys.
+
+## Hot keys
+
+A single extremely popular key can overload one Redis shard even when the cluster has plenty of total capacity. Mitigations include local caching, key replication, request coalescing and traffic shaping.
+
+## Stampede protection
+
+When a hot key expires, thousands of requests may miss simultaneously. Use locks or single-flight requests so only one request rebuilds the value, plus TTL jitter to avoid synchronized expiry.
+
+## Failure handling
+
+Redis is an acceleration layer. If it becomes unavailable, the application needs a deliberate fallback: database reads with protection, degraded responses, or temporary failure depending on the endpoint. Do not allow a cache outage to become a database outage.
+
+## Consistency
+
+Choose invalidation based on business requirements. Delete-on-write with a short TTL may be enough for a catalog. A financial balance may require a stronger design and should not depend on an eventually consistent cache as the source of truth.
+
+## Trade-offs
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| Redis | Very low latency | Memory cost |
+| Cache-aside | Simple ownership | Invalidation complexity |
+| TTL | Automatic freshness bound | Stale window |
+| Cluster | Horizontal capacity | Routing and operations |
+| Local + Redis | Lower latency | Multiple cache layers |
+
+## Interviewer follow-ups
+
+1. Why Redis instead of a database?
+2. What happens when Redis reaches max memory?
+3. LRU versus LFU?
+4. How do you prevent a stampede?
+5. How do you handle a hot key?
+6. What happens if Redis is completely unavailable?
+7. How do you invalidate data after a database write?
+8. How would you design 1M cache requests/sec?
+9. How do you monitor cache health?
+10. When should you avoid caching?
+
+## Staff-level discussion
+
+The Staff-level answer is about failure isolation, memory economics, freshness contracts, hot-key behavior, capacity planning and operational ownership—not memorizing Redis commands.
