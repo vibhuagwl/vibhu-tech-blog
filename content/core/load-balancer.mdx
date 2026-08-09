@@ -1,0 +1,85 @@
+---
+slug: how-load-balancers-work
+title: How Load Balancers Work: From One Server to Horizontal Scale
+description: A practical guide to load balancing, health checks, routing and failure handling in scalable backend systems.
+category: Infrastructure
+difficulty: Intermediate
+tags: [Load Balancer, Availability, Scaling]
+readingTime: 11 min
+publishedAt: 2026-08-10
+---
+
+## The story
+
+A single API server works until traffic becomes larger than one machine can safely handle. Adding a second server is easy; deciding which server should receive each request, what happens when one fails, and how connections behave during deployment is the real design problem.
+
+## Naive architecture
+
+```text
+Client → API Server → Database
+```
+
+The server is both a capacity limit and a failure point.
+
+## Evolving architecture
+
+```text
+Clients
+   |
+   v
+DNS / CDN
+   |
+   v
+Load Balancer
+  /   |   \
+API  API  API
+  \   |   /
+   Database
+```
+
+The load balancer distributes traffic across healthy instances.
+
+## Routing strategies
+
+- **Round robin:** simple and predictable.
+- **Least connections:** useful when request duration varies.
+- **Weighted routing:** useful when instances have different capacity.
+- **Consistent hashing:** useful when session affinity or key locality matters.
+
+## Health checks
+
+A production health check should distinguish between "process is alive" and "instance can safely receive traffic." A readiness endpoint can verify critical dependencies or local state without making the load balancer depend on every downstream service.
+
+## Failure path
+
+If an instance fails its health checks, new traffic should stop flowing to it. Existing connections may fail and clients need timeouts and retry policies that do not create a retry storm.
+
+## Scaling
+
+Horizontal scaling is usually safer than continuously making one server larger. But scaling the application tier does not automatically scale the database. Always identify the next bottleneck.
+
+## Trade-offs
+
+| Choice | Benefit | Cost |
+|---|---|---|
+| L4 balancing | Fast, simple | Less application awareness |
+| L7 balancing | Content-aware routing | More processing |
+| Sticky sessions | Simple session state | Uneven load / failover complexity |
+| Stateless services | Easy horizontal scale | State moves to shared stores |
+
+## Interviewer follow-ups
+
+1. What happens when a node dies mid-request?
+2. How do you prevent retries from amplifying load?
+3. Why prefer stateless services?
+4. How would you deploy without dropping traffic?
+5. Where should TLS terminate?
+6. How do health checks avoid false positives?
+7. What becomes the bottleneck after application scaling?
+8. How would you route by tenant?
+9. How do you handle WebSocket connections?
+10. What changes in multi-region deployment?
+
+## Staff-level discussion
+
+Discuss failure domains, deployment safety, capacity headroom, observability, cost, and who owns the load-balancing layer. Architecture is also an operational boundary.
