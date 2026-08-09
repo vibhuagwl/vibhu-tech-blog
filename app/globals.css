@@ -82,3 +82,12 @@ a{text-decoration:none}
 .dark .prose-design :not(pre) > code{background:#1e293b;color:#e2e8f0}
 .dark .prose-design pre{background:#020617;border:1px solid #1e293b}
 .dark .prose-design blockquote{background:#172554;color:#cbd5e1}
+
+.problem-nav{
+  scrollbar-width:thin;
+  scrollbar-color:#cbd5e1 transparent;
+}
+.problem-nav::-webkit-scrollbar{width:6px}
+.problem-nav::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}
+.dark .problem-nav{scrollbar-color:#334155 transparent}
+.dark .problem-nav::-webkit-scrollbar-thumb{background:#334155}
