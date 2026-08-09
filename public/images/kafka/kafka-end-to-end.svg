@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="520" viewBox="0 0 1600 520">
+<rect width="1600" height="520" fill="#fff"/>
+<text x="800" y="48" text-anchor="middle" font-family="Arial" font-size="30" font-weight="700">Kafka End-to-End: One Message's Journey</text>
+<g font-family="Arial" font-size="20">
+<rect x="40" y="150" width="190" height="100" rx="18" fill="#e8f0fe" stroke="#2b579a" stroke-width="3"/><text x="135" y="190" text-anchor="middle" font-weight="700">Producer App</text><text x="135" y="220" text-anchor="middle">serialize + key</text>
+<rect x="290" y="150" width="190" height="100" rx="18" fill="#fef3c7" stroke="#b7791f" stroke-width="3"/><text x="385" y="190" text-anchor="middle" font-weight="700">Partitioner</text><text x="385" y="220" text-anchor="middle">key → partition</text>
+<rect x="540" y="110" width="300" height="180" rx="18" fill="#ecfdf5" stroke="#247a4b" stroke-width="3"/><text x="690" y="150" text-anchor="middle" font-weight="700">Broker Cluster</text><text x="690" y="185" text-anchor="middle">Leader appends record</text><text x="690" y="215" text-anchor="middle">Followers replicate</text><text x="690" y="245" text-anchor="middle">acks / ISR / durability</text>
+<rect x="900" y="150" width="190" height="100" rx="18" fill="#f3e8ff" stroke="#6b46c1" stroke-width="3"/><text x="995" y="190" text-anchor="middle" font-weight="700">Consumer Group</text><text x="995" y="220" text-anchor="middle">fetch by offset</text>
+<rect x="1150" y="150" width="190" height="100" rx="18" fill="#fee2e2" stroke="#b91c1c" stroke-width="3"/><text x="1245" y="190" text-anchor="middle" font-weight="700">Consumer</text><text x="1245" y="220" text-anchor="middle">process + commit</text>
+<rect x="1400" y="150" width="160" height="100" rx="18" fill="#f1f5f9" stroke="#475569" stroke-width="3"/><text x="1480" y="190" text-anchor="middle" font-weight="700">Business DB</text><text x="1480" y="220" text-anchor="middle">side effect</text>
+<g stroke="#334155" stroke-width="4" fill="none"><path d="M230 200h60"/><path d="M480 200h60"/><path d="M840 200h60"/><path d="M1090 200h60"/><path d="M1340 200h60"/></g>
+<g fill="#334155"><path d="M290 200l-14-9v18z"/><path d="M540 200l-14-9v18z"/><path d="M900 200l-14-9v18z"/><path d="M1150 200l-14-9v18z"/><path d="M1400 200l-14-9v18z"/></g>
+<text x="800" y="350" text-anchor="middle" font-size="22" font-weight="700">Failure points to remember</text>
+<text x="100" y="395">Producer retry → duplicate risk</text><text x="430" y="395">Broker failure → leader election</text><text x="800" y="395">Consumer crash → redelivery / rebalance</text><text x="1180" y="395">Slow DB → consumer lag</text>
+<text x="800" y="455" text-anchor="middle" font-size="18">Ordering is per partition • offsets are positions • replication protects broker data • idempotency protects business side effects</text>
+</g></svg>
