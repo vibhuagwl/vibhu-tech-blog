@@ -1,0 +1,75 @@
+---
+slug: kafka-internals
+title: Kafka Internals: Partitions, Consumer Groups and Failure Recovery
+description: Understand Kafka from producer to partition to consumer, including ordering, offsets, rebalancing, replication and DLQ strategies.
+category: Messaging
+difficulty: Advanced
+tags: [Kafka, Event Streaming, Reliability]
+readingTime: 17 min
+publishedAt: 2026-08-10
+---
+
+## The problem
+
+A payment API should not wait for every downstream system to finish before returning. We need durable asynchronous processing, horizontal consumers and a way to recover failed messages.
+
+## Architecture
+
+```text
+Producer → Topic → Partition → Consumer Group → Service
+                 |        |
+                 +→ Replica
+                 +→ Offset
+```
+
+A topic is divided into partitions. Ordering is guaranteed within a partition, not globally across a topic.
+
+## Why partitions matter
+
+Partitions are the unit of parallelism. A consumer group can process multiple partitions concurrently, but a single partition is assigned to at most one active consumer within that group at a time.
+
+## Offsets
+
+Consumers track progress using offsets. A crash before a commit can cause a message to be processed again. Therefore consumers should be designed for idempotency when duplicate delivery is possible.
+
+## Rebalancing
+
+When consumers join or leave a group, partitions may be reassigned. Rebalances are necessary for availability but can temporarily reduce processing throughput. Modern consumer configurations and cooperative assignment can reduce disruption.
+
+## Delivery semantics
+
+At-least-once processing is common because it favors not losing events. Exactly-once semantics require a much broader system-level design and should not be claimed simply because a producer uses an idempotent setting.
+
+## Failure recovery
+
+A failed event should not block the entire partition forever. Use bounded retries, backoff and a dead-letter workflow when the error is not transient. A replay tool should preserve the original event context and avoid creating an uncontrolled retry loop.
+
+## Scaling
+
+Scale by adding partitions and consumers while preserving useful keys. Choose partition keys around ordering requirements and load distribution. A bad key can create a hot partition even when the cluster has spare capacity.
+
+## Trade-offs
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| More partitions | More parallelism | More metadata / operational cost |
+| At-least-once | Strong durability posture | Duplicate processing |
+| Larger batches | Better throughput | Higher latency |
+| Async processing | Isolation | Eventual consistency |
+
+## Interviewer follow-ups
+
+1. Why does Kafka use partitions?
+2. How is ordering guaranteed?
+3. What happens after consumer failure?
+4. What causes consumer lag?
+5. How do you avoid duplicate side effects?
+6. When would you use a DLQ?
+7. How do you replay failed events safely?
+8. What makes a partition hot?
+9. How would you handle schema evolution?
+10. How would you design cross-region replication?
+
+## Staff-level discussion
+
+Discuss event contracts, ownership, replayability, operational tooling, backpressure, retention cost, observability and the difference between broker-level guarantees and end-to-end business correctness.
