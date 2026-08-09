@@ -1,0 +1,56 @@
+---
+slug: sync-vs-async-and-pull-vs-push
+title: Sync vs Async and Pull vs Push — Communication Trade-offs
+description: Decide between synchronous and asynchronous calls, and pull vs push delivery — with latency, backpressure, reliability and interview decision tables.
+category: Fundamentals
+difficulty: Intermediate
+tags: [Async, Kafka, WebSocket, Interview]
+readingTime: 14 min
+publishedAt: "2026-08-13"
+---
+
+## Sync vs async
+
+### Sync
+
+Caller waits. Simple mental model. Failure couples systems.
+
+**Use when:** authorization, payment auth, strongly needed user answer.
+
+### Async
+
+Accept work, process later. Better isolation and spike absorption.
+
+**Use when:** notifications, indexing, fan-out, non-critical side effects.
+
+```text
+Sync:  User → API → Dependency → User
+Async: User → API → Durable queue → Workers
+```
+
+## Pull vs push
+
+| Mode | Idea | Strength | Weakness |
+|---|---|---|---|
+| Pull | Consumer asks | Natural backpressure | Poll delay |
+| Push | Producer sends | Low latency notify | Overload risk |
+
+Examples:
+
+- Kafka consumers mostly **pull**
+- Webhooks **push**
+- Long polling / SSE / WebSockets — push-ish variants with different trade-offs
+
+## Decision table
+
+| Requirement | Prefer |
+|---|---|
+| User needs immediate answer | Sync |
+| Spike isolation | Async + queue |
+| Browser live updates | WebSocket/SSE |
+| Public integrations | Webhooks + retries |
+| Stream processing | Log/queue pull consumers |
+
+## Remember This
+
+Async without durability and idempotency is just delayed data loss.

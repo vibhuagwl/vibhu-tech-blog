@@ -1,0 +1,126 @@
+---
+slug: system-design-master-index
+title: System Design Master Index — FAANG Staff/Principal Curriculum
+description: A complete map of system-design interview preparation — frameworks, building blocks, designs, FinTech, cheat sheets, and a recommended study order for Staff and Principal interviews.
+category: Fundamentals
+difficulty: Staff
+tags: [Interview, Curriculum, HLD, Framework]
+readingTime: 18 min
+publishedAt: "2026-08-14"
+---
+
+## What this curriculum is
+
+This is not a list of technologies to memorize. It is a **first-principles operating system** for designing unfamiliar large-scale systems in Staff/Principal interviews at FAANG and FinTech companies.
+
+```text
+Requirements → Scale → API → Data → LLD → HLD
+→ Database → Partition → Cache → Messaging
+→ Consistency → Failure → Security → Observability
+→ DR → Multi-region → Cost → Trade-offs → Defense
+```
+
+## Recommended preparation order
+
+| Phase | Focus | Start here |
+|---|---|---|
+| 0 | Interview operating system | *System Design Interview Preparation*, this index |
+| 1 | Estimation + trade-offs | *Capacity Estimation*, *Trade-off Framework* |
+| 2 | Data + cache + messaging | *Database Decision Framework*, Redis/Kafka articles |
+| 3 | Distributed correctness | *CAP Theorem*, *Consistent Hashing*, *Distributed Locking* |
+| 4 | Full designs | URL Shortener → Rate Limiter → KV Store → WhatsApp → Payments |
+| 5 | Reliability + ops | *Reliability Patterns*, *Architecture Anti-Patterns* |
+| 6 | Behavior | Behavioral catalog |
+| 7 | Compression | Cheat sheets + *7-Day Interview Revision* |
+
+## Interview framework
+
+| Topic | Difficulty | Relevance | Prerequisites |
+|---|---|---|---|
+| System Design Interview Preparation | Beginner | Critical | None |
+| Capacity Estimation | Intermediate | Critical | None |
+| Trade-off Framework | Intermediate | Critical | None |
+| Why Technology Choices | Advanced | Critical | DB/cache/messaging basics |
+| Architecture Anti-Patterns | Advanced | High | At least 2 full designs |
+
+## Building blocks already on this blog
+
+| Topic | Category | Interview use |
+|---|---|---|
+| CAP Theorem | Fundamentals | Consistency debates |
+| What Is System Design | Fundamentals | Warm-up |
+| Load Balancers | Infrastructure | Edge + scale |
+| Redis Internals | Caching | Hot path / stampede |
+| Kafka Internals | Messaging | Async / fan-out |
+| Consistent Hashing | Distributed Systems | Sharding |
+| Distributed Locking | Distributed Systems | Coordination |
+| CDC and Outbox | Messaging | Reliable events |
+| Reliability Patterns | Reliability | Failure defense |
+
+## Must-practice system designs (existing)
+
+| Design | Level | Why interviewers love it |
+|---|---|---|
+| URL Shortener | Intermediate | Read-heavy, key gen, caching |
+| Rate Limiter | Intermediate | Algorithms + Redis |
+| Key-Value Store | Staff | LLD→HLD→distributed |
+| WhatsApp | Advanced | Realtime + delivery |
+| Instagram | Advanced | Feed fan-out |
+| Uber | Advanced | Geo + matching |
+| Notification System | Intermediate | Fan-out + channels |
+| Payment System | Staff | Correctness under retries |
+
+## FinTech track
+
+| Design | Focus |
+|---|---|
+| Payment System | Idempotency, ledger thinking, async providers |
+
+Expand next: ledger, wallet, reconciliation, fraud, settlement (roadmap).
+
+## LLD track (start here)
+
+| Topic | Patterns practiced |
+|---|---|
+| LRU Cache LLD | HashMap + DLL, concurrency |
+| Rate Limiter LLD | Strategy, token bucket |
+
+LLD must always connect to HLD: *this class becomes that service boundary*.
+
+## Cheat sheets (last-mile revision)
+
+- SQL vs NoSQL Cheat Sheet
+- Kafka Cheat Sheet
+- Redis Cheat Sheet
+- Scaling Cheat Sheet
+- Failure Handling Cheat Sheet
+- Consistency Cheat Sheet
+- Interview Last-Minute Revision
+
+## Study plans
+
+- *30-Day System Design Preparation Plan*
+- *60-Day System Design Preparation Plan*
+- *7-Day Interview Revision Plan*
+
+## The only framework you need in the room
+
+```text
+1. Clarify (functional + non-functional + scope)
+2. Estimate (QPS, storage, read/write)
+3. Contract (API + data model)
+4. Naive design (find the bottleneck)
+5. Evolve (cache, partition, async, replicate)
+6. Deep dive (hardest 20%)
+7. Failures (timeouts, retries, fencing, DLQ)
+8. Trade-offs (say what you rejected)
+9. Close (10× scale + monitoring)
+```
+
+## Remember This
+
+1. Access patterns choose databases — logos do not.
+2. Every network call can fail; design the failure first.
+3. Cache is easy; invalidation is hard.
+4. Kafka partition = scale unit + ordering boundary.
+5. Staff answers defend trade-offs under blast radius and cost.

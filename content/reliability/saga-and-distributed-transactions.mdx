@@ -1,0 +1,51 @@
+---
+slug: saga-and-distributed-transactions
+title: Sagas and Distributed Transactions — Compensation over 2PC Fantasy
+description: Design cross-service workflows with sagas, compensation, outbox, and idempotency — and know when ACID in one database is enough.
+category: Reliability
+difficulty: Staff
+tags: [Saga, Transactions, Outbox, Interview]
+readingTime: 16 min
+publishedAt: "2026-08-13"
+---
+
+## Story
+
+Order service succeeds, payment succeeds, inventory fails. Welcome to distributed reality.
+
+## Prefer local ACID first
+
+If one database can own the invariant, keep the transaction local. Distributed transactions are operational gravity.
+
+## 2PC
+
+All-or-nothing across resources. Blocking, coupling, painful under partitions. Rarely the interview “happy default.”
+
+## Saga
+
+Sequence of local transactions with **compensations** on failure.
+
+```text
+CreateOrder → Pay → ReserveInventory → Ship
+Fail at Ship → cancel shipment intent / release inventory / refund
+```
+
+### Orchestration
+
+A coordinator drives steps.
+
+### Choreography
+
+Events trigger the next step (emergent, harder to see globally).
+
+## Payment sketch
+
+Use outbox for step events; idempotent handlers; compensation that is itself idempotent; never “exactly once” hand-waving.
+
+## Remember This
+
+1. Local transactions beat distributed fantasy.  
+2. Saga = progress + compensation.  
+3. Compensation must be safe to retry.  
+4. Outbox prevents dual-write loss.  
+5. Say RPO-like expectations for each step’s visibility.

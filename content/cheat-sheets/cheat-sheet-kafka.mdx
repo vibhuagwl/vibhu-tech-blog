@@ -1,0 +1,34 @@
+---
+slug: cheat-sheet-kafka
+title: Cheat Sheet — Kafka
+description: Kafka interview cheat sheet — partitions, consumer groups, ordering, delivery semantics, lag and failures.
+category: Cheat Sheet
+difficulty: Intermediate
+tags: [Cheat Sheet, Kafka, Interview]
+readingTime: 6 min
+publishedAt: "2026-08-13"
+---
+
+## Mental model
+
+```text
+Topic → Partitions → Replicated logs
+Producer keys → partition
+Consumer group → one owner per partition
+```
+
+## Rules
+
+- Partition = scale + ordering boundary  
+- At-least-once is default reality → idempotent consumers  
+- Exactly-once is narrow and expensive — define it  
+- Lag is an SLO  
+- Bad key → hot partition  
+
+## Failures to mention
+
+Broker down, leader election, rebalance storms, poison messages, disk full, producer retries creating dupes.
+
+## Scale levers
+
+More partitions (careful), more consumers (≤ partitions), batching, compression, async producers with clarity on durability (`acks`).

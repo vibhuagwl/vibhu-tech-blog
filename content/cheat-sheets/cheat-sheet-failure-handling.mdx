@@ -1,0 +1,24 @@
+---
+slug: cheat-sheet-failure-handling
+title: Cheat Sheet — Failure Handling
+description: Failure-handling cheat sheet — timeouts, retries, circuit breakers, idempotency, DLQ and load shedding.
+category: Cheat Sheet
+difficulty: Intermediate
+tags: [Cheat Sheet, Reliability, Interview]
+readingTime: 5 min
+publishedAt: "2026-08-13"
+---
+
+## Per dependency
+
+```text
+Timeout → Retry+jitter (if idempotent) → Circuit → Fallback → DLQ/alert
+```
+
+## Must-say words
+
+Idempotency · backoff · jitter · budget · bulkhead · degrade · poison message
+
+## Never
+
+Infinite retries · retry non-idempotent payments · ignore lag · no timeouts

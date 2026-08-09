@@ -1,15 +1,15 @@
 import ArticleView, {sectionMetadata, sectionStaticParams} from '@/components/article-view';
 
 export function generateStaticParams(){
-  return sectionStaticParams('system-design');
+  return sectionStaticParams('behavior');
 }
 
 export async function generateMetadata({params}:{params:Promise<{slug:string}>}){
   const {slug}=await params;
-  return sectionMetadata(slug,'/system-design');
+  return sectionMetadata(slug,'/behavior');
 }
 
 export default async function Article({params}:{params:Promise<{slug:string}>}){
   const {slug}=await params;
-  return <ArticleView slug={slug} section="system-design" basePath="/system-design"/>;
+  return <ArticleView slug={slug} section="behavior" basePath="/behavior"/>;
 }

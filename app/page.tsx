@@ -1,5 +1,12 @@
 import Link from 'next/link'; import {ArrowRight, BookOpen, Layers3, Server, Database, MessageSquare, Zap} from 'lucide-react'; import {getAllPosts} from '@/lib/posts';
-const starts=[['Interview Preparation','A step-by-step framework for requirements, HLD, LLD, trade-offs and common designs.','/system-design/system-design-interview-preparation'],['System Design Fundamentals','Requirements, estimation, scalability, availability, consistency and architecture thinking.','/learn'],['High-Level Design','Architecture, APIs, data, caching, messaging and scaling.','/system-design'],['Distributed Systems','Replication, partitioning, consensus, idempotency and resilience.','/distributed-systems'],['Databases','SQL, NoSQL, sharding, replication and access-pattern driven choices.','/learn#databases'],['Caching & Messaging','Redis, Kafka, queues, delivery guarantees and failure handling.','/learn#messaging']];
+const starts=[
+  ['Master Index','FAANG Staff/Principal curriculum map, study order and design portfolio.','/system-design/system-design-master-index'],
+  ['Interview Preparation','Step-by-step framework for requirements, HLD, LLD, trade-offs and common designs.','/system-design/system-design-interview-preparation'],
+  ['30-Day Plan','Focused month of designs, failure drills and estimation practice.','/system-design/30-day-system-design-plan'],
+  ['Distributed Systems','Replication, partitioning, locking, messaging and resilience.','/distributed-systems'],
+  ['FinTech','Payments and correctness under retries and uncertainty.','/fintech'],
+  ['Behavior','Ownership, conflict, leadership and stakeholder stories.','/behavior'],
+];
 export default function Home(){
   const all=getAllPosts();
   const prep=all.find(p=>p.slug==='system-design-interview-preparation');

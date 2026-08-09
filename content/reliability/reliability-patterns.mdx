@@ -1,0 +1,74 @@
+---
+slug: reliability-patterns
+title: Reliability Patterns — Timeouts, Retries, Circuit Breakers and Backpressure
+description: Production reliability patterns for system design interviews — timeouts, exponential backoff, circuit breakers, bulkheads, graceful degradation and retry storms.
+category: Reliability
+difficulty: Advanced
+tags: [Reliability, Retries, Circuit Breaker, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-13"
+---
+
+## Story
+
+Service A calls Service B. B is slow. Without timeouts, A’s threads pile up. Retries without jitter wake the entire fleet at once. An outage becomes a self-inflicted stampede.
+
+## Pattern map
+
+```text
+Call dependency
+  → Timeout budget
+  → Bounded retries + jitter
+  → Circuit breaker
+  → Fallback / degrade
+  → Bulkhead isolation
+```
+
+## Timeouts
+
+Every hop needs a deadline. Prefer budget propagation over infinite waits.
+
+## Retries
+
+| Rule | Why |
+|---|---|
+| Only idempotent ops | Duplicates otherwise |
+| Exponential backoff | Reduce pressure |
+| Jitter | Avoid synchronized storms |
+| Cap attempts | Bound amplification |
+
+## Circuit breaker
+
+```text
+Closed → (errors) → Open → (cooldown) → Half-open → Closed/Open
+```
+
+Stops calling a dead dependency so the platform can recover.
+
+## Bulkhead
+
+Isolate thread pools / connections per dependency so one failure does not consume all capacity.
+
+## Graceful degradation
+
+Serve cached/stale/partial responses when non-critical paths fail. Say what UX degrades.
+
+## Backpressure
+
+Slow consumers must signal producers (Kafka lag alerts, load shedding, 429s). Infinite queues are delayed crashes.
+
+## DLQ
+
+After bounded retries, park poison messages for human/automated inspection and replay.
+
+## Interview checklist
+
+For every dependency, state: timeout, retry policy, idempotency, fallback, and how you observe it.
+
+## Remember This
+
+1. Timeouts are mandatory.  
+2. Retries need jitter and caps.  
+3. Circuits protect recovery.  
+4. Queues without lag alerts hide outages.  
+5. Degradation beats total failure when product allows it.

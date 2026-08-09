@@ -1,0 +1,100 @@
+---
+slug: why-technology-choices
+title: "Why This Technology? Kafka, Redis, SQL, CDN, gRPC and More"
+description: Interview-ready WHY explanations for Kafka, Redis, Postgres, Cassandra, S3, CDN, gRPC, REST and sharding — with alternatives, trade-offs and failure modes.
+category: Fundamentals
+difficulty: Advanced
+tags: [Kafka, Redis, Trade-offs, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-13"
+---
+
+## How to answer any “Why X?”
+
+```text
+Problem → Alternative → Limitation → Selected tool → Trade-off → Failure mode
+```
+
+## Why Kafka?
+
+**Problem:** spikey fan-out work on the request path.  
+**Alternative:** sync calls to many downstreams.  
+**Limitation:** latency couples to the slowest dependency.  
+**Selected:** durable log + consumers.  
+**Trade-off:** eventual downstream state, ops complexity.  
+**Failure:** consumer lag, poison messages, rebalances — need idempotency + DLQ.
+
+## Why Redis?
+
+**Problem:** hot reads dominate DB.  
+**Alternative:** DB indexes / more replicas.  
+**Limitation:** replicas still disk/CPU bound for ultra-hot keys.  
+**Selected:** in-memory working set.  
+**Trade-off:** invalidation and stampede risk.  
+**Failure:** cache outage must not stampede the DB.
+
+## Why PostgreSQL?
+
+**Problem:** money-like invariants.  
+**Alternative:** document/KV store.  
+**Limitation:** weak multi-key transactional story.  
+**Selected:** ACID relational core.  
+**Trade-off:** horizontal write scaling harder.  
+**Failure:** failover + connection storms.
+
+## Why Cassandra-style?
+
+**Problem:** enormous write throughput with known keys.  
+**Alternative:** sharded SQL.  
+**Limitation:** ops and query flexibility.  
+**Selected:** partitioned wide-column.  
+**Trade-off:** data model rigidity.  
+**Failure:** hot partitions, repair debt.
+
+## Why S3/object storage?
+
+**Problem:** large blobs.  
+**Alternative:** DB BLOBs / local disks.  
+**Limitation:** DB backup/size/IOPS explode.  
+**Selected:** object store + metadata DB.  
+**Trade-off:** eventual listing semantics, multipart complexity.  
+**Failure:** permissions and incomplete multipart uploads.
+
+## Why CDN?
+
+**Problem:** global static/media latency.  
+**Alternative:** single-region origin.  
+**Limitation:** distance.  
+**Selected:** edge caches.  
+**Trade-off:** invalidation lag.  
+**Failure:** origin overload on miss storms.  
+**Note:** CDN ≠ Redis application cache.
+
+## Why gRPC vs REST?
+
+| Need | Prefer |
+|---|---|
+| Public ecosystem simplicity | REST |
+| Internal low-latency typed APIs | gRPC |
+| Browser-first public API | REST (or gRPC-web carefully) |
+
+## Why shard?
+
+**Problem:** single primary cannot take writes/storage.  
+**Alternative:** vertical scale.  
+**Limitation:** ceiling + cost.  
+**Selected:** partition by key.  
+**Trade-off:** cross-shard queries and rebalancing.  
+**Failure:** bad shard key → hot shard.
+
+## Why async?
+
+When the user does not need the side effect to finish inline — and you can define durable handoff + retry semantics.
+
+## Why sync?
+
+When the user decision depends on the result now (authz, payment authorization, inventory hard check) and ambiguity is worse than latency.
+
+## Remember This
+
+Never say the tool name first. Say the constraint first.

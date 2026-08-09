@@ -1,0 +1,30 @@
+---
+slug: cheat-sheet-scaling
+title: Cheat Sheet — Scaling
+description: Scaling cheat sheet for interviews — vertical vs horizontal, shard keys, CQRS-ish splits, and 10× thinking.
+category: Cheat Sheet
+difficulty: Intermediate
+tags: [Cheat Sheet, Scaling, Interview]
+readingTime: 5 min
+publishedAt: "2026-08-13"
+---
+
+## Order of scaling moves
+
+```text
+1. Find bottleneck with numbers
+2. Optimize query/index
+3. Cache hot reads
+4. Async non-critical work
+5. Replicas for read scale
+6. Partition/shard writes
+7. Multi-AZ then multi-region
+```
+
+## Shard key checklist
+
+Cardinality · uniformity · query alignment · stability · no hot entity
+
+## 10× question
+
+Name the first component that saturates and how you split it.

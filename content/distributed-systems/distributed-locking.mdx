@@ -1,0 +1,73 @@
+---
+slug: distributed-locking
+title: Distributed Locking — Leases, Fencing Tokens and When Not to Lock
+description: Design distributed locks safely for interviews — Redis/ZooKeeper styles, lease expiry, fencing tokens, split-brain risks, and lock-free alternatives.
+category: Distributed Systems
+difficulty: Staff
+tags: [Distributed Lock, Fencing, Consistency, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-13"
+---
+
+## The story
+
+Two payment workers both believe they own “settle order 55.” Without correct mutual exclusion **and fencing**, you double-settle.
+
+## Do you need a lock?
+
+Prefer:
+
+- DB unique constraints / conditional updates
+- Single-partition ownership (Kafka key / shard owner)
+- Idempotent upserts
+
+Use distributed locks when you truly need cross-node critical sections and cannot push exclusion into storage semantics.
+
+## Lease-based lock
+
+```text
+Client A → Lock service: acquire(key, lease=10s)
+Client B → Lock service: denied
+A crashes → lease expires → B may acquire
+```
+
+**Problem:** A can wake up after expiry and still write (zombie).
+
+## Fencing tokens
+
+```text
+Every acquire returns monotonic token T
+Storage accepts writes only if T >= last_seen_token
+Stale leader/worker with old T is rejected
+```
+
+Fencing turns “best effort lock” into safer exclusion for writes.
+
+## Redis-style locks
+
+Fast and common for short critical sections. Discuss expiry, extend/heartbeat, and the limits of multi-node Redis locking algorithms (including Redlock controversy): clocks and pauses matter.
+
+## ZooKeeper / etcd-style
+
+Ephemeral nodes + session semantics for coordination. Stronger CP coordination for leadership, not bulk data.
+
+## Failure matrix
+
+| Failure | Risk | Mitigation |
+|---|---|---|
+| Client pause (GC) | Lock expires, client continues | Fencing token |
+| Network partition | Split brain owners | Quorum coordination + fence |
+| Lock service down | Progress stops | Explicit fail policy |
+| Clock skew | Bad expiry decisions | Prefer monotonic service time / leases carefully |
+
+## Interview answer shape
+
+1. Why lock is needed (or not)  
+2. Lease + heartbeat  
+3. Fencing on the resource  
+4. What happens on pause/partition  
+5. Observability of lock holders  
+
+## Remember This
+
+A lock without fencing is a suggestion, not safety.

@@ -1,4 +1,33 @@
 import {MetadataRoute} from 'next';
-import {getAllPosts} from '@/lib/posts';
+import {getAllPosts,getPostsByCategories,SECTION_CATEGORIES} from '@/lib/posts';
+
 export const dynamic='force-static';
-export default function sitemap():MetadataRoute.Sitemap{const base='https://vibhuagwl.github.io/vibhu-tech-blog';return [{url:base,lastModified:new Date()},{url:base+'/learn',lastModified:new Date()},{url:base+'/system-design',lastModified:new Date()},...getAllPosts().map(p=>({url:`${base}/system-design/${p.slug}`,lastModified:new Date(p.publishedAt)}))]}
+
+export default function sitemap():MetadataRoute.Sitemap{
+  const base='https://vibhuagwl.github.io/vibhu-tech-blog';
+  const sections=[
+    {path:'/system-design', key:'system-design' as const},
+    {path:'/distributed-systems', key:'distributed-systems' as const},
+    {path:'/fintech', key:'fintech' as const},
+    {path:'/behavior', key:'behavior' as const},
+  ];
+
+  return [
+    {url:base, lastModified:new Date()},
+    {url:`${base}/learn`, lastModified:new Date()},
+    {url:`${base}/interview-questions`, lastModified:new Date()},
+    {url:`${base}/about`, lastModified:new Date()},
+    ...sections.flatMap(({path,key})=>[
+      {url:`${base}${path}`, lastModified:new Date()},
+      ...getPostsByCategories([...SECTION_CATEGORIES[key]]).map((p)=>({
+        url:`${base}${path}/${p.slug}`,
+        lastModified:new Date(p.publishedAt),
+      })),
+    ]),
+    // Keep canonical system-design URLs for all posts that remain in that catalog
+    ...getPostsByCategories([...SECTION_CATEGORIES['system-design']]).map((p)=>({
+      url:`${base}/system-design/${p.slug}`,
+      lastModified:new Date(p.publishedAt),
+    })),
+  ];
+}

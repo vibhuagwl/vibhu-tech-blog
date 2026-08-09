@@ -14,6 +14,14 @@ export type Post={
   content:string;
 };
 
+export type NavPost={
+  slug:string;
+  title:string;
+  category:string;
+  difficulty:string;
+  readingTime:string;
+};
+
 const root=path.join(process.cwd(),'content');
 
 function asDateString(value:unknown){
@@ -45,3 +53,35 @@ export function getAllPosts():Post[]{
 
 export function getPost(slug:string){return getAllPosts().find(p=>p.slug===slug)}
 export function getCategories(){return [...new Set(getAllPosts().map(p=>p.category))]}
+
+export function getPostsByCategories(categories:string[]){
+  const set=new Set(categories);
+  return getAllPosts().filter((p)=>set.has(p.category));
+}
+
+export function toNavPosts(posts:Post[]):NavPost[]{
+  return posts.map((p)=>({
+    slug:p.slug,
+    title:p.title,
+    category:p.category,
+    difficulty:p.difficulty,
+    readingTime:p.readingTime,
+  }));
+}
+
+export const SECTION_CATEGORIES={
+  'system-design':[
+    'Fundamentals',
+    'System Design',
+    'Infrastructure',
+    'Caching',
+    'Messaging',
+    'Distributed Systems',
+    'FinTech',
+    'Reliability',
+    'Cheat Sheet',
+  ],
+  'distributed-systems':['Distributed Systems','Caching','Messaging','Infrastructure','Reliability'],
+  fintech:['FinTech'],
+  behavior:['Behavior'],
+} as const;

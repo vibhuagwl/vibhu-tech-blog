@@ -1,0 +1,80 @@
+---
+slug: lld-lru-cache
+title: LLD — Design an LRU Cache
+description: Low-level design of an LRU cache with HashMap + doubly linked list, concurrency, complexity analysis, and how it connects to Redis-style eviction.
+category: Fundamentals
+difficulty: Intermediate
+tags: [LLD, LRU, Concurrency, Java]
+readingTime: 14 min
+publishedAt: "2026-08-13"
+---
+
+## Problem
+
+Implement `get` / `put` in O(1) with capacity eviction of least recently used entries.
+
+## Requirements
+
+- Capacity `N`
+- `get(key)` updates recency
+- `put(key,value)` inserts/updates; evicts LRU when full
+- Thread safety optional stretch
+
+## Data structure
+
+```text
+HashMap<key, Node> + Doubly Linked List (MRU at head, LRU at tail)
+```
+
+## Java sketch
+
+```java
+final class LRUCache<K,V> {
+  private final int capacity;
+  private final Map<K, Node<K,V>> map = new HashMap<>();
+  private final Node<K,V> head = new Node<>(null, null);
+  private final Node<K,V> tail = new Node<>(null, null);
+
+  LRUCache(int capacity) {
+    this.capacity = capacity;
+    head.next = tail; tail.prev = head;
+  }
+
+  public synchronized V get(K key) {
+    Node<K,V> n = map.get(key);
+    if (n == null) return null;
+    moveToHead(n);
+    return n.value;
+  }
+
+  public synchronized void put(K key, V value) {
+    Node<K,V> n = map.get(key);
+    if (n != null) { n.value = value; moveToHead(n); return; }
+    Node<K,V> created = new Node<>(key, value);
+    map.put(key, created);
+    addAfterHead(created);
+    if (map.size() > capacity) {
+      Node<K,V> lru = tail.prev;
+      remove(lru);
+      map.remove(lru.key);
+    }
+  }
+}
+```
+
+## Patterns
+
+- **Encapsulation** of list operations  
+- Optional **Strategy** for eviction (LRU vs LFU)  
+
+## Concurrency
+
+`synchronized` is simple and correct, not maximal throughput. Interview stretch: sharded caches / `ConcurrentHashMap` + finer locking trade-offs.
+
+## Bridge to HLD
+
+Process-local LRU ≠ Redis. Distributed cache adds TTLs, stampede, and invalidation — see Redis article.
+
+## Remember This
+
+O(1) LRU = map for lookup + list for recency order.

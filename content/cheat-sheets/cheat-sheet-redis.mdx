@@ -1,0 +1,32 @@
+---
+slug: cheat-sheet-redis
+title: Cheat Sheet — Redis and Caching
+description: Redis and caching interview cheat sheet — patterns, TTLs, stampede, hot keys and failure isolation.
+category: Cheat Sheet
+difficulty: Intermediate
+tags: [Cheat Sheet, Redis, Caching]
+readingTime: 5 min
+publishedAt: "2026-08-13"
+---
+
+## Patterns
+
+| Pattern | Note |
+|---|---|
+| Cache-aside | App owns read/fill |
+| Write-through | Write cache+DB |
+| Write-behind | Risk durability lies |
+| TTL | Bound staleness |
+| Negative cache | Protect misses |
+
+## Dangers
+
+Stampede, hot key, thundering herd, using Redis as unnoticed SoR, invalidation bugs.
+
+## Failure line
+
+> If Redis dies, protect the database and degrade deliberately.
+
+## Remember
+
+Cache is easy. Invalidation is hard.

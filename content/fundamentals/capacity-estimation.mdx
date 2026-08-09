@@ -1,0 +1,101 @@
+---
+slug: capacity-estimation
+title: Capacity Estimation and Back-of-the-Envelope Math
+description: Learn interview-ready capacity estimation for QPS, storage, bandwidth, cache size, and Kafka partitions with safety factors and storytelling.
+category: Fundamentals
+difficulty: Intermediate
+tags: [Estimation, QPS, Interview, HLD]
+readingTime: 16 min
+publishedAt: "2026-08-13"
+---
+
+## The story
+
+**Interviewer:** Design Instagram.
+
+If you jump to Cassandra and Kafka without numbers, you are decorating. Estimation turns a vague product into engineering constraints.
+
+## What to estimate
+
+| Quantity | Why |
+|---|---|
+| DAU / MAU | Traffic envelope |
+| Actions/user/day | Request volume |
+| Avg QPS | Baseline compute |
+| Peak QPS | Autoscaling / provision |
+| Read/write ratio | Cache and DB shape |
+| Payload size | Bandwidth + storage |
+| Retention | Disk growth |
+| Replication factor | Real bytes |
+
+## Core formulas
+
+```text
+Daily requests = DAU × actions/user/day
+Avg QPS       = daily requests / 86,400
+Peak QPS      = Avg QPS × peak factor (often 3×–10×)
+```
+
+Example:
+
+```text
+100M users
+20% DAU → 20M
+20 requests/user/day
+
+Daily = 20M × 20 = 400M
+Avg QPS ≈ 400M / 86,400 ≈ 4,630
+Peak ≈ 4,630 × 5 ≈ 23K QPS
+```
+
+## Storage
+
+```text
+Storage/day = writes/day × avg bytes × (1 + metadata overhead)
+Yearly      = storage/day × 365 × retention_years × replicas × compaction_factor
+```
+
+Always state overhead assumptions (metadata 10–30%, compaction 1.2–2×, replicas 3×).
+
+## Bandwidth
+
+```text
+Ingress ≈ write_qps × avg_write_size
+Egress  ≈ read_qps × avg_read_size
+Add replication and CDN origin fetch separately
+```
+
+## Cache sizing (interview-grade)
+
+```text
+Working set ≈ hot_keys × value_size × overhead
+Aim for hit ratio target (e.g. 90%+) on the hot set, not 100% of all data
+```
+
+## Kafka partition intuition
+
+```text
+Needed partitions ≳ peak_events_per_sec / per_partition_throughput
+Also: key cardinality and consumer parallelism
+Ordering is per partition — choose keys deliberately
+```
+
+## Safety factors
+
+Interviewers expect you to avoid designing for average only. Peak factor, headroom for incidents, and growth (10× question) matter.
+
+## Common mistakes
+
+- Designing for average QPS only
+- Forgetting replication in storage
+- Ignoring read/write asymmetry
+- Fake precision (`4630.21 QPS`) — round and move on
+- No unit labels
+
+## Remember This
+
+1. Peak > average.  
+2. Bytes × replicas × overhead = real storage.  
+3. Estimation exists to force architectural honesty.  
+4. Round numbers; explain assumptions.  
+5. Revisit estimates when the design changes.

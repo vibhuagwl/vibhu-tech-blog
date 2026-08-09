@@ -1,39 +1,61 @@
 # System Design Interview Hub
 
-Production-oriented engineering publication by Vibhu Agarwal. Learn system design through real-world stories, architecture diagrams, capacity estimates, failure scenarios, trade-offs and senior/Staff-level interview follow-ups.
+Production-oriented system design interview preparation by Vibhu Agarwal — built for **Senior → Staff/Principal** interviews (FAANG, high-scale tech, FinTech).
+
+Learn through real-world stories, architecture diagrams, capacity estimates, failure scenarios, trade-offs, and follow-ups — not technology name-dropping.
+
+## Live site
+
+https://vibhuagwl.github.io/vibhu-tech-blog/
+
+## Start here
+
+1. [System Design Master Index](https://vibhuagwl.github.io/vibhu-tech-blog/system-design/system-design-master-index/)
+2. [30-Day Plan](https://vibhuagwl.github.io/vibhu-tech-blog/system-design/30-day-system-design-plan/) / [60-Day Plan](https://vibhuagwl.github.io/vibhu-tech-blog/system-design/60-day-system-design-plan/)
+3. [7-Day Revision](https://vibhuagwl.github.io/vibhu-tech-blog/system-design/7-day-interview-revision/)
+4. Section catalogs with left navigation:
+   - `/system-design`
+   - `/distributed-systems`
+   - `/fintech`
+   - `/behavior`
+
+## Curriculum pillars
+
+| Pillar | Examples in repo |
+|---|---|
+| Frameworks | Interview prep, capacity estimation, trade-offs, DB decisions, anti-patterns |
+| Building blocks | Load balancer, Redis, Kafka, CDC/outbox, consistent hashing, distributed locking |
+| Reliability | Timeouts/retries/circuits, sagas |
+| Full designs | URL shortener, rate limiter, KV store, WhatsApp, Instagram, Uber, notifications, payments, counters |
+| Behavior | STAR framework, ownership, conflict, leadership |
+| Cheat sheets | SQL/NoSQL, Kafka, Redis, scaling, failure, consistency, last-minute |
 
 ## Stack
 
-- Next.js + TypeScript
+- Next.js 15 + TypeScript + React 19
 - Tailwind CSS
-- MDX content with frontmatter
+- MDX (`content/**`) + gray-matter
 - Mermaid diagrams
-- Static generation
-- GitHub Pages + GitHub Actions
-- SEO metadata, sitemap and RSS
+- Static export → GitHub Pages
 
 ## Content workflow
 
-Create a file such as:
-
-`content/system-design/design-whatsapp.mdx`
-
-with frontmatter:
+Add `content/<area>/<slug>.mdx` with frontmatter:
 
 ```yaml
 ---
-title: Design WhatsApp
-slug: design-whatsapp
-description: Design a highly available messaging platform.
-category: System Design
-difficulty: Advanced
-tags: [Messaging, Kafka]
-readingTime: 25 min
-publishedAt: 2026-08-10
+slug: my-topic
+title: My Topic
+description: SEO blurb.
+category: Fundamentals  # or System Design, Caching, Messaging, ...
+difficulty: Intermediate
+tags: [Interview, HLD]
+readingTime: 12 min
+publishedAt: "2026-08-14"
 ---
 ```
 
-The build automatically discovers the article, generates its route and metadata, and includes it in the catalog/search.
+Categories drive Learn filters and left-nav section catalogs.
 
 ## Local development
 
@@ -41,31 +63,22 @@ The build automatically discovers the article, generates its route and metadata,
 npm install
 npm run dev
 npm run build
-npm run start
 ```
-
-## Production
-
-Pushes to `main` run the GitHub Actions workflow and publish the static `out` directory to GitHub Pages.
-
-Current project URL:
-
-`https://vibhuagwl.github.io/vibhu-tech-blog/`
 
 ## Structure
 
 ```text
-app/                 Next.js routes
-components/          reusable UI + Mermaid
-content/             MDX articles
-lib/                 content discovery
-.github/workflows/   deployment
+app/                 routes (system-design, distributed-systems, fintech, behavior, learn, ...)
+components/          problem-nav, article-view, mermaid, catalog-layout
+content/             MDX knowledge base
+lib/posts.ts         discovery + section category maps
 ```
 
-## Roadmap
+## Philosophy
 
-- Expand the learning path with HLD/LLD fundamentals
-- Add more FinTech designs
-- Add richer Mermaid diagrams and sequence diagrams
-- Add privacy-friendly analytics
-- Add custom domain when ready
+```text
+Requirements → Scale → API/Data → Naive design → Bottlenecks
+→ Evolve → Deep dive → Failures → Trade-offs → Defense
+```
+
+Every major choice should answer **why**, **why not the alternative**, and **what fails**.

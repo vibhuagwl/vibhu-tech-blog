@@ -1,0 +1,42 @@
+---
+slug: cheat-sheet-last-minute-revision
+title: Cheat Sheet — Last-Minute Interview Revision
+description: Final-hour system design interview checklist and memory hooks for FAANG-style rounds.
+category: Cheat Sheet
+difficulty: Beginner
+tags: [Cheat Sheet, Interview, Revision]
+readingTime: 4 min
+publishedAt: "2026-08-13"
+---
+
+## Checklist
+
+```text
+□ Clarify + scope
+□ NFRs
+□ Estimate QPS/storage
+□ API + data model
+□ Naive → bottleneck
+□ DB choice + why not others
+□ Cache + invalidation
+□ Async + idempotency
+□ Partition key
+□ Timeouts/retries/circuits
+□ Security basics
+□ Monitoring + lag/SLO
+□ DR / multi-AZ note
+□ Trade-offs
+□ 10× scale
+```
+
+## Memory hooks
+
+- Kafka partition = order + scale  
+- Cache invalidation is the hard part  
+- Dual write is a bug  
+- Peak ≠ average  
+- Fencing > hopeful locks  
+
+## Opening sentence
+
+> “I’ll clarify requirements, estimate scale, propose a simple design, then evolve the bottlenecks with explicit trade-offs.”

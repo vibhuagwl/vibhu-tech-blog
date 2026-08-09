@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import {getAllPosts} from '@/lib/posts';
+import {getPostsByCategories,SECTION_CATEGORIES} from '@/lib/posts';
 
 export const metadata={title:'System Design Problems'};
 
 export default function SystemDesign(){
-  const posts=getAllPosts();
+  const posts=getPostsByCategories([...SECTION_CATEGORIES['system-design']]);
   const designs=posts.filter((p)=>p.category==='System Design');
   const guides=posts.filter((p)=>p.category!=='System Design');
 

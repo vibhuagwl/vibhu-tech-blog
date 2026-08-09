@@ -1,0 +1,58 @@
+---
+slug: ownership-and-production-incidents
+title: Ownership Stories — Incidents, On-Call and Follow-Through
+description: How to answer behavioral questions about production incidents with ownership, mitigation order, blameless learning, and lasting prevention.
+category: Behavior
+difficulty: Intermediate
+tags: [Behavioral, Ownership, On-Call, Reliability]
+readingTime: 14 min
+publishedAt: "2026-08-12"
+---
+
+## Why this prompt appears
+
+Staff interviews probe whether you can be trusted with production. The story is less about heroics and more about **orderly mitigation, communication, and prevention**.
+
+## Structure a strong incident story
+
+```text
+Detect → Mitigate user impact → Communicate → Diagnose → Fix → Prevent
+```
+
+### Detect
+
+How did you know? Alert, customer report, dashboards, canary.
+
+### Mitigate first
+
+Rollback, feature flag, shed load, failover. Interviewers want impact reduction before root-cause perfection.
+
+### Communicate
+
+Who you updated, cadence, and clarity. Executives need impact and ETA; engineers need hypotheses.
+
+### Diagnose and fix
+
+Evidence, not guessing. What logs/metrics/traces changed your mind.
+
+### Prevent
+
+Runbook, test, alert, capacity, design change. A story without prevention sounds incomplete.
+
+## Sample framing
+
+> “P99 checkout latency spiked after a deploy. I rolled back within eight minutes, posted a status update, then used traces to isolate a lock contention path. We added a load test and a canary gate so the same class of change cannot ship dark.”
+
+## Signals that raise seniority
+
+- You protect customers before ego
+- You coordinate across teams without drama
+- You quantify blast radius
+- You leave the system safer than you found it
+
+## Weak patterns
+
+- “I restarted the pod and it worked”
+- No stakeholder updates
+- Blame without systems thinking
+- No follow-up work

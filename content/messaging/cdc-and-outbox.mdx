@@ -1,0 +1,82 @@
+---
+slug: cdc-and-outbox
+title: CDC and the Outbox Pattern — Reliable Events Without Dual-Write Lies
+description: Learn Change Data Capture and the transactional outbox pattern for reliable Kafka events, Debezium-style pipelines, duplicates, ordering and recovery.
+category: Messaging
+difficulty: Advanced
+tags: [CDC, Outbox, Kafka, Idempotency]
+readingTime: 17 min
+publishedAt: "2026-08-13"
+---
+
+## The dual-write problem
+
+```text
+Write DB success, publish Kafka fail  → lost event
+Publish Kafka success, DB fail        → phantom event
+```
+
+You cannot make two independent systems atomic with hope.
+
+## Outbox pattern
+
+```text
+Transaction {
+  update business tables
+  insert outbox_event row
+}
+CDC/poller reads outbox → Kafka
+Consumers process idempotently
+```
+
+Business state and “event intent” commit together.
+
+## CDC flow
+
+```text
+App → DB → WAL/Binlog → CDC connector → Kafka → consumers
+```
+
+<Mermaid chart={`flowchart LR
+App --> DB[(Database)]
+DB --> WAL[WAL / Binlog]
+WAL --> CDC[CDC Connector]
+CDC --> Kafka[Kafka]
+Kafka --> CA[Consumer A]
+Kafka --> CB[Consumer B]
+`}/>
+
+## Why CDC
+
+- Avoids missing app-emitted events
+- Useful for search indexes, caches, analytics, integration
+- Decouples producers from all consumers
+
+## Alternatives
+
+| Approach | Limitation |
+|---|---|
+| App dual write | Non-atomic |
+| Polling tables | Lag + load |
+| Outbox + publisher | Needs discipline |
+| CDC | Ops + schema evolution care |
+
+## Hard parts
+
+- **Duplicates:** at-least-once is normal → idempotent consumers  
+- **Ordering:** per key / partition strategy  
+- **Schema evolution:** compatible changes  
+- **Deletes/tombstones**  
+- **Backfills** after poison or downtime  
+
+## Payment example
+
+Persist payment + outbox in one transaction. Consumers update ledger projections, notify, and analytics. If Kafka is down, outbox grows; publisher/CDC catches up — user-critical commit still durable in DB.
+
+## Remember This
+
+1. Dual write is a bug farm.  
+2. Outbox makes intent transactional.  
+3. CDC is powerful and operationally real.  
+4. Consumers must be idempotent.  
+5. Lag is a first-class SLO signal.

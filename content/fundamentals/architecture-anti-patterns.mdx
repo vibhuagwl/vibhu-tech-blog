@@ -1,0 +1,103 @@
+---
+slug: architecture-anti-patterns
+title: Architecture Anti-Patterns That Fail System Design Interviews
+description: Common system design mistakes — Redis as database, Kafka as request-response, early sharding, missing idempotency, retry storms — and how Staff candidates avoid them.
+category: Fundamentals
+difficulty: Advanced
+tags: [Anti-Patterns, Interview, Reliability]
+readingTime: 16 min
+publishedAt: "2026-08-13"
+---
+
+## Why this section exists
+
+Interviewers have heard “Kafka + Redis + microservices” so often that the phrase itself is a smell. This article catalogs failure patterns and the better framing.
+
+## Dangerous patterns
+
+### 1. Redis as primary database without justification
+
+**Why dangerous:** durability and durability semantics are easy to hand-wave.  
+**Better:** Redis accelerates; a system of record is explicit.
+
+### 2. Kafka for synchronous request/response
+
+**Why dangerous:** you reinvent RPC with worse latency and harder debugging.  
+**Better:** Kafka for async fan-out, decoupling, replay.
+
+### 3. Sharding on day one
+
+**Why dangerous:** cross-shard complexity before proven bottleneck.  
+**Better:** measure the first ceiling; shard when forced.
+
+### 4. Microservices for a whiteboard MVP
+
+**Why dangerous:** distributed monolith of network calls.  
+**Better:** modular monolith first unless team/scale demands split.
+
+### 5. Distributed locks everywhere
+
+**Why dangerous:** locks fail in messy ways (expiry, partitions).  
+**Better:** ownership via partitions, DB constraints, idempotency keys.
+
+### 6. Eventual consistency for bank balances
+
+**Why dangerous:** customer-visible money bugs.  
+**Better:** strong transactional ledger updates; async only for non-ledger side effects.
+
+### 7. Retry without backoff/jitter
+
+**Why dangerous:** retry storms amplify outages.  
+**Better:** bounded retries, jitter, circuit breakers.
+
+### 8. No idempotency on payment-like APIs
+
+**Why dangerous:** double charges on timeouts.  
+**Better:** idempotency keys + durable dedupe.
+
+### 9. No timeouts
+
+**Why dangerous:** thread/connection exhaustion.  
+**Better:** budgets per hop.
+
+### 10. No DLQ / poison handling
+
+**Why dangerous:** one bad message blocks a partition consumer forever.  
+**Better:** retry → DLQ → alert → replay tooling.
+
+### 11. Cache without invalidation story
+
+**Why dangerous:** silent staleness or thundering herds.  
+**Better:** TTL + version + single-flight.
+
+### 12. Wrong Kafka key
+
+**Why dangerous:** broken ordering or hot partitions.  
+**Better:** key = ordering entity (user/order), watch cardinality.
+
+### 13. Hot Redis key / hot DB shard
+
+**Why dangerous:** one node melts while cluster is “fine.”  
+**Better:** local cache, split keys, coalescing.
+
+### 14. Sync chain of many services
+
+**Why dangerous:** p99 is the product of failures.  
+**Better:** shorten critical path; async the rest.
+
+### 15. No capacity planning
+
+**Why dangerous:** architecture cosplay.  
+**Better:** rough QPS/storage before drawing boxes.
+
+## Interview recovery line
+
+If you catch yourself mid-anti-pattern:
+
+> “That would be premature. Let’s keep a simpler design until we identify the bottleneck.”
+
+That sentence is Staff-shaped.
+
+## Remember This
+
+Complexity must be earned by a named constraint.

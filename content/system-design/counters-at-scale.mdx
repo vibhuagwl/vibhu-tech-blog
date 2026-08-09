@@ -1,0 +1,62 @@
+---
+slug: counters-at-scale
+title: Counters at Scale — Likes, Views and High-QPS Increments
+description: Design like/view counters for millions of requests using sharded Redis, Kafka aggregation, approximate structures and hot-key mitigation.
+category: System Design
+difficulty: Advanced
+tags: [Counters, Redis, Kafka, Scalability]
+readingTime: 16 min
+publishedAt: "2026-08-13"
+---
+
+## Naive design that dies
+
+```text
+UPDATE posts SET likes = likes + 1 WHERE id=?
+```
+
+At viral QPS, one row becomes a hot lock and write hotspot.
+
+## Story
+
+A celebrity post gets 200K likes/minute. A single DB row cannot be the increment bottleneck.
+
+## Evolving design
+
+```text
+Client → API → Redis INCR (sharded keys)
+                 → async event → Kafka
+                 → aggregator → durable DB snapshot
+```
+
+<Mermaid chart={`flowchart LR
+API --> Redis[Sharded Redis counters]
+API --> Kafka
+Kafka --> Agg[Aggregators]
+Agg --> DB[(Database snapshots)]
+`}/>
+
+## Techniques
+
+| Technique | Use |
+|---|---|
+| Redis atomic INCR | Low-latency hot path |
+| Key sharding `id#0..N` | Spread hot key |
+| Local buffer + flush | Reduce fan-in |
+| Kafka aggregation | Durable async merge |
+| Approximate (HLL) | Unique viewers, not exact likes |
+| Read-through snapshots | Scale reads |
+
+## Consistency
+
+Exact global counts often tolerate short lag. Say it: **eventual count, immediate UX ack**.
+
+## Failures
+
+- Redis loss → rebuild from events/DB  
+- Kafka lag → counts temporarily stale  
+- Double count → idempotent like events per user/post  
+
+## Remember This
+
+Hot counters need sharding and async durability, not a brave UPDATE.

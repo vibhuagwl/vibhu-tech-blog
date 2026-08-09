@@ -1,0 +1,73 @@
+---
+slug: 60-day-system-design-plan
+title: 60-Day System Design Preparation Plan
+description: A deeper 60-day FAANG Staff/Principal system design plan covering LLD, distributed systems, HLD designs, FinTech, reliability, and mock interviews.
+category: Fundamentals
+difficulty: Advanced
+tags: [Interview, Curriculum, Plan, Staff]
+readingTime: 14 min
+publishedAt: "2026-08-13"
+---
+
+## Who this is for
+
+Candidates targeting Staff/Principal loops who need depth: LLD fluency, distributed correctness, FinTech sensitivity, and operational maturity.
+
+## Cadence
+
+- 5 deep days / week
+- 1 mock day
+- 1 rest/light review day
+
+## Days 1–15 — Foundations
+
+Framework, estimation, CAP/PACELC intuition, SQL vs NoSQL, indexing, replication, sharding, Redis, Kafka basics, LB/CDN/DNS request path.
+
+Deliverable: explain any building block in under 4 minutes with a failure mode.
+
+## Days 16–30 — Distributed systems depth
+
+Quorum, leader election concepts, split brain/fencing, clocks, distributed locks, idempotency, exactly-once myths, CDC/outbox, saga/compensation, reliability patterns.
+
+Deliverable: defend `R+W>N` without claiming automatic linearizability.
+
+## Days 31–45 — Design portfolio
+
+Complete full answers (whiteboard-ready) for:
+
+1. URL Shortener  
+2. Rate Limiter  
+3. KV Store  
+4. Notification  
+5. News Feed  
+6. Chat/WhatsApp  
+7. File Storage / Drive  
+8. Uber  
+9. API Gateway  
+10. Payment System  
+
+Each must include 10×/100× notes and a production incident story.
+
+## Days 46–55 — Staff layer
+
+- Multi-region active-active vs passive  
+- Cost and capacity planning  
+- Migration / strangler thinking  
+- Security and tenancy  
+- Observability SLOs  
+- Anti-patterns catalog  
+- Behavioral leadership stories  
+
+## Days 56–60 — Interview simulation
+
+| Day | Drill |
+|---|---|
+| 56 | Unknown HLD mock |
+| 57 | FinTech correctness mock |
+| 58 | LLD + concurrency mock |
+| 59 | Behavioral + system combo |
+| 60 | Light revision + sleep hygiene |
+
+## Staff bar check
+
+Can you discuss ownership of on-call, blast radius, migration risk, and cost without being asked?

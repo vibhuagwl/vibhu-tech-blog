@@ -1,0 +1,94 @@
+---
+slug: database-decision-framework
+title: Database Decision Framework — SQL, NoSQL and When to Use Each
+description: Choose databases from access patterns, consistency, transactions, scale and operations — with comparison tables for Postgres, Cassandra, MongoDB, Redis and DynamoDB.
+category: Fundamentals
+difficulty: Advanced
+tags: [Database, SQL, NoSQL, Interview]
+readingTime: 20 min
+publishedAt: "2026-08-13"
+---
+
+## Start with the story
+
+A product manager says “store the data.” An interviewer hears “prove you understand access patterns.”
+
+Ask:
+
+```text
+What is the primary key lookup?
+Do we need multi-row transactions?
+What is the read/write ratio?
+Is latency more important than freshness?
+How does data grow and get queried?
+```
+
+## Quick chooser
+
+| Need | Lean toward |
+|---|---|
+| Strong transactions, joins, invariants | PostgreSQL / MySQL |
+| Huge write ingest, wide time-series keys | Cassandra-style |
+| Flexible documents, evolving schema | MongoDB |
+| Ultra-low latency working set | Redis (often cache/state, not SoR) |
+| Managed key-value at scale | DynamoDB-style |
+| Full-text / secondary search | Elasticsearch (search, not system of record) |
+
+## Comparison matrix
+
+| Dimension | SQL | Cassandra | MongoDB | Redis | DynamoDB |
+|---|---|---|---|---|---|
+| Transactions | Strong | Limited | Multi-doc (careful) | Single-key / limited | Conditional / transactions (limited scope) |
+| Consistency | Strong default | Tunable | Tunable | Local process strong | Tunable |
+| Horizontal write scale | Harder | Excellent | Good | Cluster with limits | Excellent |
+| Joins / complex queries | Excellent | Poor | Limited | No | Poor |
+| TTL | App/DB features | Native-ish patterns | TTL indexes | Native | Native |
+| Ops complexity | Familiar | High if self-managed | Medium | Medium | Lower (managed) |
+
+## SQL deep notes
+
+**Best for:** ledgers, payments metadata, relational domains, strong invariants.
+
+**Why not always:** vertical limits, hot rows, multi-region write conflicts.
+
+## Cassandra-style
+
+**Best for:** append-heavy, partition-key queries known in advance.
+
+**Bad for:** ad-hoc joins, unbounded partition growth, “just like SQL.”
+
+## MongoDB
+
+**Best for:** document boundaries matching aggregate roots.
+
+**Watch:** transactional boundaries and unbounded arrays.
+
+## Redis
+
+**Best for:** cache, counters, rate limits, ephemeral state.
+
+**Danger:** treating it as durable system of record without an explicit durability story.
+
+## DynamoDB-style
+
+**Best for:** known key access at massive scale with managed ops.
+
+**Watch:** access-pattern modeling; scans are a smell.
+
+## Shard key selection
+
+```text
+High cardinality
+Even distribution
+Matches query path
+Avoids hot partitions
+Stable over time
+```
+
+## Remember This
+
+1. Design around queries, not storage fashion.  
+2. Transactions are a product requirement, not a preference.  
+3. Secondary indexes are not free.  
+4. Multi-region writes need a conflict story.  
+5. Redis speed is not a substitute for durability requirements.

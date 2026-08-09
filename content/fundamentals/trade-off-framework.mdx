@@ -1,0 +1,64 @@
+---
+slug: trade-off-framework
+title: Trade-off Framework for System Design Interviews
+description: A Staff-level framework for making and defending architecture trade-offs across consistency, latency, cost, complexity, and failure modes.
+category: Fundamentals
+difficulty: Intermediate
+tags: [Trade-offs, Interview, Framework]
+readingTime: 12 min
+publishedAt: "2026-08-13"
+---
+
+## The interviewer is hiring judgment
+
+Technologies are commodities. Trade-off narration is the signal.
+
+Use this template every time:
+
+```text
+Problem
+→ Options
+→ Constraints
+→ Choice
+→ Cost of choice
+→ Failure mode
+→ When you would reverse it
+```
+
+## The five axes
+
+| Axis | Questions |
+|---|---|
+| Correctness | Can we lose/duplicate/reorder? |
+| Latency | p50 vs p99; sync path length |
+| Scale | What breaks at 10×? |
+| Operability | Who pages? How hard to reason? |
+| Cost | Machines, network, eng time |
+
+## Classic pairs
+
+| Choice A | Choice B | Decide using |
+|---|---|---|
+| SQL | NoSQL | Access patterns + transactions |
+| Sync | Async | User-waiting critical path |
+| Cache | No cache | Read ratio + staleness tolerance |
+| Shard early | Shard later | Proven bottleneck vs complexity |
+| Active-active | Active-passive | RPO/RTO vs conflict cost |
+
+## How to say it in an interview
+
+> “I would use Postgres here because payment updates need transactional integrity. Cassandra would scale writes, but reconciliation and correctness become harder than our product can tolerate.”
+
+That sentence beats naming five databases.
+
+## Anti-pattern
+
+Listing benefits without costs. Every box on the whiteboard has a bill.
+
+## Remember This
+
+1. Name the rejected alternative.  
+2. Tie choice to a requirement.  
+3. State the failure mode of your choice.  
+4. Complexity is a first-class cost.  
+5. Reversible decisions beat premature perfection.

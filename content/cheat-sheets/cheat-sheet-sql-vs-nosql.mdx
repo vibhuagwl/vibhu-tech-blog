@@ -1,0 +1,39 @@
+---
+slug: cheat-sheet-sql-vs-nosql
+title: Cheat Sheet — SQL vs NoSQL
+description: One-screen SQL vs NoSQL decision cheat sheet for system design interviews.
+category: Cheat Sheet
+difficulty: Beginner
+tags: [Cheat Sheet, Database, Interview]
+readingTime: 5 min
+publishedAt: "2026-08-13"
+---
+
+## Pick SQL when
+
+- Transactions / invariants
+- Rich queries & joins
+- Clear relational model
+- Strong consistency default
+
+## Pick NoSQL when
+
+- Known key access at huge scale
+- Flexible documents
+- Extreme write ingest with partition keys
+- TTL / simple KV latency goals
+
+## One-liners
+
+| Store | One-liner |
+|---|---|
+| Postgres | Relational SoR + ACID |
+| Cassandra | Partitioned write scale |
+| MongoDB | Document aggregates |
+| Redis | Memory speed / ephemeral |
+| DynamoDB | Managed KV access patterns |
+| Elastic | Search index, not SoR |
+
+## Remember
+
+Access patterns first. Logos second.

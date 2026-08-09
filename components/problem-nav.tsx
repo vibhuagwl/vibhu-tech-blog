@@ -4,16 +4,19 @@ import Link from 'next/link';
 import {useMemo,useState} from 'react';
 import {usePathname} from 'next/navigation';
 import {BookOpen,ChevronDown,Layers3,PanelLeft,Search} from 'lucide-react';
+import type {NavPost} from '@/lib/posts';
 
-export type NavPost={
-  slug:string;
+export type ProblemNavConfig={
+  eyebrow:string;
   title:string;
-  category:string;
-  difficulty:string;
-  readingTime:string;
+  description:string;
+  browseLabel:string;
+  filterPlaceholder:string;
+  basePath:string;
+  groupOrder?:string[];
 };
 
-const GROUP_ORDER=[
+const DEFAULT_GROUP_ORDER=[
   'Fundamentals',
   'System Design',
   'Infrastructure',
@@ -21,6 +24,9 @@ const GROUP_ORDER=[
   'Messaging',
   'Distributed Systems',
   'FinTech',
+  'Reliability',
+  'Cheat Sheet',
+  'Behavior',
 ];
 
 const difficultyClass=(d:string)=>{
@@ -32,7 +38,7 @@ const difficultyClass=(d:string)=>{
   return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
 };
 
-function groupPosts(posts:NavPost[]){
+function groupPosts(posts:NavPost[],groupOrder:string[]){
   const map=new Map<string,NavPost[]>();
   for(const p of posts){
     const key=p.category||'Other';
@@ -43,16 +49,23 @@ function groupPosts(posts:NavPost[]){
     list.sort((a,b)=>a.title.localeCompare(b.title));
   }
   const keys=[
-    ...GROUP_ORDER.filter((g)=>map.has(g)),
-    ...[...map.keys()].filter((g)=>!GROUP_ORDER.includes(g)).sort(),
+    ...groupOrder.filter((g)=>map.has(g)),
+    ...[...map.keys()].filter((g)=>!groupOrder.includes(g)).sort(),
   ];
   return keys.map((category)=>({category,posts:map.get(category)!}));
 }
 
-export default function ProblemNav({posts}:{posts:NavPost[]}){
+export default function ProblemNav({
+  posts,
+  config,
+}:{
+  posts:NavPost[];
+  config:ProblemNavConfig;
+}){
   const pathname=usePathname();
   const [query,setQuery]=useState('');
   const [open,setOpen]=useState(false);
+  const groupOrder=config.groupOrder ?? DEFAULT_GROUP_ORDER;
 
   const groups=useMemo(()=>{
     const q=query.trim().toLowerCase();
@@ -63,11 +76,11 @@ export default function ProblemNav({posts}:{posts:NavPost[]}){
           || p.difficulty.toLowerCase().includes(q)
         )
       : posts;
-    return groupPosts(filtered);
-  },[posts,query]);
+    return groupPosts(filtered,groupOrder);
+  },[posts,query,groupOrder]);
 
-  const activeSlug=pathname?.startsWith('/system-design/')
-    ? pathname.split('/')[2]
+  const activeSlug=pathname?.startsWith(config.basePath + '/')
+    ? pathname.slice(config.basePath.length + 1).split('/')[0]
     : '';
 
   const navBody=(
@@ -78,19 +91,19 @@ export default function ProblemNav({posts}:{posts:NavPost[]}){
             <Layers3 size={18}/>
           </div>
           <div>
-            <div className="text-[11px] font-black uppercase tracking-[.14em] text-blue-600">Catalog</div>
-            <div className="text-sm font-black tracking-tight text-slate-900 dark:text-white">System Design</div>
+            <div className="text-[11px] font-black uppercase tracking-[.14em] text-blue-600">{config.eyebrow}</div>
+            <div className="text-sm font-black tracking-tight text-slate-900 dark:text-white">{config.title}</div>
           </div>
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          {posts.length} guides · click any problem to open it
+          {posts.length} guides · {config.description}
         </p>
         <label className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
           <Search size={14} className="shrink-0 text-slate-400"/>
           <input
             value={query}
             onChange={(e)=>setQuery(e.target.value)}
-            placeholder="Filter problems…"
+            placeholder={config.filterPlaceholder}
             className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
           />
         </label>
@@ -98,7 +111,7 @@ export default function ProblemNav({posts}:{posts:NavPost[]}){
 
       <div className="max-h-[min(70vh,720px)] space-y-5 overflow-y-auto px-3 py-4 lg:max-h-[calc(100vh-11rem)]">
         {groups.length===0 && (
-          <div className="px-2 text-sm text-slate-500">No problems match “{query}”.</div>
+          <div className="px-2 text-sm text-slate-500">No items match “{query}”.</div>
         )}
         {groups.map(({category,posts:items})=>(
           <section key={category}>
@@ -113,7 +126,7 @@ export default function ProblemNav({posts}:{posts:NavPost[]}){
                 return (
                   <li key={p.slug}>
                     <Link
-                      href={`/system-design/${p.slug}`}
+                      href={`${config.basePath}/${p.slug}`}
                       onClick={()=>setOpen(false)}
                       className={[
                         'group block rounded-xl border px-3 py-2.5 transition',
@@ -147,7 +160,6 @@ export default function ProblemNav({posts}:{posts:NavPost[]}){
 
   return (
     <>
-      {/* Mobile trigger */}
       <div className="mb-4 lg:hidden">
         <button
           type="button"
@@ -156,7 +168,7 @@ export default function ProblemNav({posts}:{posts:NavPost[]}){
         >
           <span className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
             <PanelLeft size={16} className="text-blue-600"/>
-            Browse all problems
+            {config.browseLabel}
           </span>
           <ChevronDown size={16} className={`text-slate-400 transition ${open?'rotate-180':''}`}/>
         </button>
@@ -167,7 +179,6 @@ export default function ProblemNav({posts}:{posts:NavPost[]}){
         )}
       </div>
 
-      {/* Desktop sticky sidebar */}
       <aside className="hidden lg:block">
         <nav className="problem-nav sticky top-20 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_40px_rgba(15,23,42,.06)] dark:border-slate-800 dark:bg-slate-950">
           {navBody}

@@ -1,0 +1,27 @@
+---
+slug: cheat-sheet-consistency
+title: Cheat Sheet — Consistency Models
+description: Consistency models cheat sheet — strong, eventual, read-your-writes, linearizability — with product examples.
+category: Cheat Sheet
+difficulty: Intermediate
+tags: [Cheat Sheet, Consistency, Interview]
+readingTime: 5 min
+publishedAt: "2026-08-13"
+---
+
+## Quick map
+
+| Model | Example |
+|---|---|
+| Strong / linearizable | Ledger balance update visibility |
+| Read-your-writes | Profile edit then refresh |
+| Eventual | Like counts, recommendations |
+| Causal | Comment threads / reply ordering needs |
+
+## Quorum note
+
+`R+W>N` ⇒ intersecting quorums under model assumptions — **not** automatic linearizability.
+
+## Remember
+
+Money and inventory need clearer consistency than likes.
