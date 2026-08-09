@@ -1,0 +1,78 @@
+---
+slug: cap-theorem
+title: CAP Theorem Explained Through a Real-World Story
+description: Understand consistency, availability and partition tolerance by reasoning from what a distributed system can actually guarantee.
+category: Fundamentals
+difficulty: Intermediate
+tags: [CAP, Consistency, Distributed Systems]
+readingTime: 10 min
+publishedAt: 2026-08-10
+---
+
+## Start with a failure
+
+Two database replicas serve customers in different regions. A network partition separates them. Both regions are still receiving requests. Now the system has to choose: should both sides continue accepting writes, or should one side stop until communication is restored?
+
+That tension is the heart of CAP.
+
+## The three properties
+
+- **Consistency:** every successful read sees the latest value according to the system's consistency contract.
+- **Availability:** every request to a non-failed node receives a response.
+- **Partition tolerance:** the system continues operating despite messages being lost or delayed between nodes.
+
+In a real distributed system, partitions are not optional. Networks fail. Therefore the practical choice is usually between stronger consistency and higher availability during a partition.
+
+## A simple example
+
+```text
+Region A                    Region B
+Database A  ←── network ──→ Database B
+     ↑                           ↑
+  requests                    requests
+```
+
+If the link breaks and both regions accept conflicting writes, availability is preserved but immediate cross-region consistency is not.
+
+If Region B refuses writes until the link is healthy, stronger consistency can be preserved at the cost of availability for that region.
+
+## Important nuance
+
+CAP is about guarantees **during a partition**. It does not mean a system must permanently choose only two letters. Real systems often use different consistency levels for different operations.
+
+For example, a social feed may tolerate stale reads, while a payment authorization may require much stronger correctness guarantees.
+
+## Design questions
+
+Ask:
+
+1. What data can be stale?
+2. Which operations must never be lost?
+3. What is the failure domain?
+4. Can users be routed to a healthy region?
+5. What happens when the partition heals?
+
+## Trade-offs
+
+| Strategy | Benefit | Cost |
+|---|---|---|
+| Prefer consistency | Easier correctness model | Lower availability during partitions |
+| Prefer availability | Better user continuity | Conflict resolution / stale reads |
+| Hybrid by operation | Business-aligned guarantees | More complex design |
+
+## Interviewer follow-ups
+
+1. Is CAP relevant to a single-node database?
+2. Why is partition tolerance assumed in distributed systems?
+3. Is eventual consistency the same as weak correctness?
+4. How would payments differ from a social feed?
+5. What happens after a partition heals?
+6. How would you resolve conflicting writes?
+7. Where does quorum fit?
+8. How does multi-region replication change the trade-off?
+9. What is PACELC adding to the discussion?
+10. Which SLA would you prioritize and why?
+
+## Staff-level discussion
+
+The strongest answer connects consistency to business invariants. A payment ledger, inventory reservation and social-like counter can all use different consistency strategies because their failure costs are different.
