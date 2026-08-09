@@ -15,10 +15,12 @@ A product page is read millions of times while its underlying data changes only 
 
 ## Architecture
 
-```text
-Client → Load Balancer → Application → Redis
-                                  ↘ Database
-```
+<Mermaid chart={`flowchart LR
+Client --> LB[Load Balancer]
+LB --> App[Application]
+App --> Redis[(Redis)]
+App --> DB[(Primary Database)]
+`}/>
 
 On a cache hit, the request avoids the database. On a miss, the application reads the source of truth and populates Redis.
 
