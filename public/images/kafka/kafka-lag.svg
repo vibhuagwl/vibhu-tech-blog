@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="620" viewBox="0 0 1600 620">
+<rect width="1600" height="620" fill="#fff"/><text x="800" y="45" text-anchor="middle" font-family="Arial" font-size="30" font-weight="700">Kafka Consumer Lag: Diagnose Before You Scale</text>
+<g font-family="Arial" font-size="19">
+<rect x="60" y="120" width="300" height="100" rx="18" fill="#e8f0fe" stroke="#2b579a" stroke-width="3"/><text x="210" y="160" text-anchor="middle" font-weight="700">Producer rate</text><text x="210" y="192" text-anchor="middle">messages/sec IN</text>
+<rect x="470" y="120" width="300" height="100" rx="18" fill="#ecfdf5" stroke="#247a4b" stroke-width="3"/><text x="620" y="160" text-anchor="middle" font-weight="700">Partition throughput</text><text x="620" y="192" text-anchor="middle">records/sec per partition</text>
+<rect x="880" y="120" width="300" height="100" rx="18" fill="#fef3c7" stroke="#b7791f" stroke-width="3"/><text x="1030" y="160" text-anchor="middle" font-weight="700">Consumer processing</text><text x="1030" y="192" text-anchor="middle">records/sec OUT</text>
+<rect x="1290" y="120" width="250" height="100" rx="18" fill="#fee2e2" stroke="#b91c1c" stroke-width="3"/><text x="1415" y="160" text-anchor="middle" font-weight="700">Lag</text><text x="1415" y="192" text-anchor="middle">LEO − committed</text>
+<g stroke="#334155" stroke-width="4" fill="none"><path d="M360 170h110"/><path d="M770 170h110"/><path d="M1180 170h110"/></g><g fill="#334155"><path d="M470 170l-14-9v18z"/><path d="M880 170l-14-9v18z"/><path d="M1290 170l-14-9v18z"/></g>
+<text x="800" y="290" text-anchor="middle" font-size="24" font-weight="700">Root-cause decision tree</text>
+<text x="90" y="350" font-weight="700">1. Is one partition hot?</text><text x="90" y="380">→ bad key / skew → fix partition key or increase cardinality</text>
+<text x="90" y="430" font-weight="700">2. Are all consumers slow?</text><text x="90" y="460">→ downstream DB/API, CPU, GC, batch size, max.poll settings</text>
+<text x="820" y="350" font-weight="700">3. Are consumers constantly rebalancing?</text><text x="820" y="380">→ poll interval, processing time, membership instability</text>
+<text x="820" y="430" font-weight="700">4. Is broker/network saturated?</text><text x="820" y="460">→ disk, network, request queue, replication, throttling</text>
+<text x="800" y="545" text-anchor="middle" font-weight="700">Scale consumers only when partitions are available and the consumer is the bottleneck.</text>
+</g></svg>
