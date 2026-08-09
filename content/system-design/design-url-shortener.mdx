@@ -1,0 +1,95 @@
+---
+slug: design-url-shortener
+title: Design URL Shortener — System Design Interview Guide
+description: Design a scalable URL shortener with key generation, storage, caching, redirects and horizontal scaling.
+category: System Design
+difficulty: Intermediate
+tags: [HLD, Redis, Database, Scaling]
+readingTime: 18 min
+publishedAt: 2026-08-10
+---
+
+## The problem
+
+A user pastes a long URL and receives a short link. Millions of users can click those links later, so the read path must be extremely fast while the write path must generate unique keys safely.
+
+## Requirements
+
+**Functional:** create a short URL, redirect to the original URL, optionally support expiry and ownership.
+
+**Non-functional:** high read throughput, low redirect latency, durable mappings and horizontal scale.
+
+## Estimation
+
+Assume 10M new URLs/month and 100M redirects/month. The read-to-write ratio is roughly 10:1, so the architecture should optimize the redirect path heavily.
+
+## Naive design
+
+```text
+Client → API → Database
+```
+
+Reads dominate. A database lookup on every redirect becomes the first bottleneck.
+
+## Final architecture
+
+```text
+Client → CDN/LB → Redirect Service → Redis → Database
+                         |
+                         +→ Analytics Event → Kafka
+```
+
+The redirect service checks Redis first. On a miss it reads the database and populates the cache. Analytics is asynchronous so the redirect does not wait for reporting.
+
+## Key generation
+
+A monotonically increasing database ID encoded in Base62 is simple, but the generator becomes a coordination point. Distributed ID generators or preallocated ranges can remove that dependency. Collision detection must still be explicit if keys are generated independently.
+
+## Data model
+
+```text
+UrlMapping
+----------
+short_key PK
+long_url
+owner_id
+created_at
+expires_at
+status
+```
+
+Index expiry and ownership only when those query patterns are required.
+
+## Cache
+
+Cache key: `url:{shortKey}`. TTL can be long for immutable mappings. Negative caching can protect the database from repeated invalid keys.
+
+## Reliability
+
+If Redis fails, the database remains the source of truth. If the database is degraded, the service should fail predictably rather than retry indefinitely. Analytics should tolerate delayed delivery.
+
+## Trade-offs
+
+| Choice | Benefit | Cost |
+|---|---|---|
+| Base62 IDs | Compact, predictable | ID coordination |
+| Random keys | Easy distribution | Collision handling |
+| Redis | Fast redirects | Memory / invalidation |
+| Kafka analytics | Decoupled writes | Eventual reporting |
+
+## Interviewer follow-ups
+
+1. How do you guarantee uniqueness?
+2. How do you prevent hot keys?
+3. How do you handle expired links?
+4. What happens if Redis is unavailable?
+5. How would you support custom aliases?
+6. How do you scale to 1B links?
+7. How do you prevent abuse?
+8. How would you add click analytics?
+9. What should be cached at the CDN?
+10. How would multi-region deployment work?
+
+## 45-minute answer
+
+Requirements → traffic estimate → APIs/data model → simple API/database design → cache and redirect optimization → key-generation deep dive → failure handling → scaling → trade-offs.
