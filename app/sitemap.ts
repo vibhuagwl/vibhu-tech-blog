@@ -1,0 +1,2 @@
+import {MetadataRoute} from 'next'; import {getAllPosts} from '@/lib/posts';
+export default function sitemap():MetadataRoute.Sitemap{const base='https://vibhuagwal.dev';return [{url:base+'/blog',lastModified:new Date()},{url:base+'/blog/learn',lastModified:new Date()},{url:base+'/blog/system-design',lastModified:new Date()},...getAllPosts().map(p=>({url:`${base}/blog/system-design/${p.slug}`,lastModified:new Date(p.publishedAt)}))]}
