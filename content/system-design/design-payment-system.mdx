@@ -1,0 +1,112 @@
+---
+slug: design-payment-system
+title: Design a Payment Processing System
+ description: Design a resilient payment platform with idempotency, state transitions, asynchronous processing, reconciliation and auditability.
+category: FinTech
+difficulty: Staff
+tags: [Payments, Kafka, Idempotency, FinTech]
+readingTime: 30 min
+publishedAt: 2026-08-10
+---
+
+## The problem
+
+A customer clicks Pay. The network times out. The customer retries. The bank may already have accepted the original transaction. A payment system therefore has to optimize for **correctness under uncertainty**, not merely throughput.
+
+## Requirements
+
+- Create and authorize a payment.
+- Prevent duplicate business effects.
+- Track lifecycle states.
+- Handle asynchronous provider responses.
+- Reconcile with external providers.
+- Maintain an auditable history.
+
+## Capacity model
+
+Assume 5M payments/day. Average throughput is about 58 payments/sec. A 10× peak gives roughly 580 payments/sec. The important capacity question is often downstream provider limits and transaction contention rather than only API RPS.
+
+## Naive design
+
+```text
+Client → Payment API → Database → Provider
+```
+
+The timeout problem is immediately visible: the provider may succeed while the client never receives the response.
+
+## Final architecture
+
+```text
+Client → API Gateway → Payment Service → Ledger / DB
+                              |
+                              +→ Outbox → Kafka → Provider Adapter
+                                                   |
+                                                   v
+                                             Bank / Gateway
+                                                   |
+                                             Status Events
+                                                   |
+                                                   v
+                                           Reconciliation
+```
+
+The synchronous API records an authoritative intent/state transition. An outbox event is published reliably from the database transaction. Provider interactions happen asynchronously where business rules allow.
+
+## Idempotency
+
+The client supplies an idempotency key. Store it with the payment request and the resulting business outcome. A retry with the same key must return the existing outcome rather than create a second payment.
+
+Idempotency is not simply a unique database constraint. You need a defined scope, retention period and behavior for requests that are still processing.
+
+## State machine
+
+```text
+CREATED → PROCESSING → AUTHORIZED → CAPTURED
+                    ↘ FAILED
+AUTHORIZED → REFUNDED
+```
+
+Transitions should be explicit and validated. Avoid allowing arbitrary updates to status fields.
+
+## Ledger and reconciliation
+
+A payment platform should distinguish operational payment state from accounting truth. A ledger or accounting subsystem should preserve immutable entries where financial correctness requires it. Reconciliation compares internal records with provider statements and surfaces differences for controlled resolution.
+
+## Reliability
+
+Retries must be bounded and classified. Timeouts are ambiguous outcomes. A provider timeout should not automatically mean failure; the system may need to query status or wait for an asynchronous event.
+
+## Security
+
+Use TLS, authenticated APIs, authorization, secret management, audit logging and careful handling of payment data. Minimize sensitive data retention and isolate payment credentials from general application data.
+
+## Trade-offs
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| Outbox | Reliable event publication | Additional processing |
+| Idempotency | Safe retries | State storage |
+| Async provider flow | Resilience | Eventual status |
+| Immutable ledger | Auditability | More modeling |
+| Reconciliation | Detects external mismatch | Operational workflow |
+
+## Interviewer follow-ups
+
+1. What happens when the client retries after a timeout?
+2. How do you guarantee idempotency?
+3. What if Kafka is unavailable?
+4. What if the provider succeeds but the callback is lost?
+5. Why use an outbox?
+6. How do you reconcile millions of records?
+7. How do you handle duplicate callbacks?
+8. Can a payment be exactly once?
+9. How do you design multi-region processing?
+10. What data belongs in a ledger versus operational tables?
+
+## Staff-level discussion
+
+The Staff-level answer focuses on invariants: no duplicate financial effect, complete auditability, deterministic state transitions, recoverability after partial failure, clear ownership boundaries and reconciliation as a first-class control rather than an afterthought.
+
+## 45-minute answer
+
+Requirements → failure scenarios → payment state machine → capacity → API/idempotency → database/ledger → outbox/Kafka → provider adapter → reconciliation → security → trade-offs.
