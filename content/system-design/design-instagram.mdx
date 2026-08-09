@@ -1,0 +1,72 @@
+---
+slug: design-instagram
+title: Design Instagram — Feed, Media Storage and Fan-Out
+description: Design a photo-sharing platform with object storage, metadata, feed generation, caching and asynchronous processing.
+category: System Design
+difficulty: Advanced
+tags: [Object Storage, Feed, CDN, Kafka]
+readingTime: 25 min
+publishedAt: 2026-08-10
+---
+
+## The problem
+
+Uploading a photo is one operation; showing a personalized feed to millions of users is another. The system must separate durable media storage from metadata and feed computation.
+
+## Requirements
+
+Upload media, follow users, publish posts, view a personalized feed, like/comment, and process media asynchronously.
+
+## Architecture
+
+```text
+Client → API → Post Service → Metadata DB
+              |
+              +→ Object Storage → CDN
+              |
+              +→ Kafka → Media Processor
+              |
+              +→ Feed Pipeline → Feed Store → Cache
+```
+
+Media belongs in object storage, not a relational database row. CDN delivery keeps repeated image reads away from application servers.
+
+## Feed strategy
+
+Two common strategies are pull-on-read and fan-out-on-write. Pull-on-read computes a feed from followed accounts when the user opens it; fan-out-on-write pushes a new post into followers' feed stores when it is created.
+
+Fan-out-on-write makes reads fast but can become expensive for celebrity accounts. A hybrid approach can treat normal users with push and high-follower accounts with pull.
+
+## Scaling
+
+Shard metadata by user or post ID. Use object storage for media. Cache feed pages carefully because they are mutable. Kafka decouples media processing and feed updates from the upload request.
+
+## Reliability
+
+If media processing fails, the original object remains durable and the job can be retried. If feed generation is delayed, the system can show a previous page or a partial feed depending on product expectations.
+
+## Trade-offs
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| Object storage | Durable, cheap media | Separate metadata |
+| CDN | Low-latency reads | Cache invalidation |
+| Fan-out-on-write | Fast feed reads | Celebrity hot spots |
+| Pull-on-read | Lower write amplification | Expensive reads |
+
+## Interviewer follow-ups
+
+1. How do you handle celebrity accounts?
+2. How do you paginate a changing feed?
+3. What happens if media processing fails?
+4. Why not store images in PostgreSQL?
+5. How do you invalidate CDN content?
+6. How do you rank posts?
+7. How would you shard posts?
+8. How do you prevent duplicate feed entries?
+9. How do you support video?
+10. What changes for multi-region media?
+
+## Staff-level discussion
+
+Focus on the separation of durable media, metadata and derived feed state. Derived data should be rebuildable; the source of truth should not depend on the feed cache.
