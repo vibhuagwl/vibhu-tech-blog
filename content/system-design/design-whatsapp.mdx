@@ -1,0 +1,100 @@
+---
+slug: design-whatsapp
+title: Design WhatsApp — Messaging System Design
+description: Design a highly available messaging platform with WebSockets, offline delivery, Kafka, message storage and delivery semantics.
+category: System Design
+difficulty: Advanced
+tags: [Messaging, Kafka, WebSocket, Distributed Systems]
+readingTime: 28 min
+publishedAt: 2026-08-10
+---
+
+## The story
+
+You press Send. The recipient may be online in another country, or offline for twelve hours. The message should not disappear, and the sender needs a delivery state. At scale, the system must handle huge concurrent connection counts while persisting messages safely.
+
+## Requirements
+
+**Functional:** one-to-one messaging, group messaging, delivery/read receipts, online status and offline delivery.
+
+**Non-functional:** low latency, durable messages, high availability and horizontal scale.
+
+## Estimation
+
+Suppose 100M daily active users send 20 messages/day: 2B messages/day. Average throughput is roughly 23K messages/sec before peak factors. A 5× peak implies around 116K messages/sec.
+
+## Naive design
+
+```text
+Client → API → Database → Recipient
+```
+
+The recipient may be offline, and a synchronous database-to-client path does not scale.
+
+## Final architecture
+
+```text
+Clients → Gateway/WebSocket → Messaging Service → Kafka → Message Store
+                    |               |
+                    |               +→ Delivery Service
+                    +→ Presence / Connection Registry
+```
+
+WebSockets keep active connections open. Kafka decouples message ingestion from delivery. The durable message store supports offline retrieval.
+
+## Message flow
+
+1. Client sends a message with a client-generated idempotency key.
+2. Messaging service validates authorization and persists/queues the message.
+3. Kafka partitions by conversation ID to preserve per-conversation ordering.
+4. Delivery service checks recipient presence.
+5. If online, push through the active connection; otherwise keep it durable for later retrieval.
+6. Delivery/read events update status asynchronously.
+
+## Data model
+
+```text
+Conversation(conversation_id, type, created_at)
+Message(message_id, conversation_id, sender_id, body, sequence, created_at)
+Receipt(message_id, user_id, status, updated_at)
+```
+
+Conversation ID is a useful partition key when ordering within a conversation matters.
+
+## Reliability
+
+At-least-once delivery means duplicate events are possible. Client and server operations should be idempotent. Retries need bounded backoff. A poison event should move to a DLQ instead of blocking a partition indefinitely.
+
+## Scaling
+
+Connection gateways scale horizontally, but connection state must be discoverable. A presence/connection registry maps user IDs to active gateway instances. Kafka partitions provide processing parallelism. Message storage can shard by conversation or time depending on query patterns.
+
+## Security
+
+Use TLS, authenticated sessions, authorization checks for conversation membership and careful handling of message content. Avoid exposing internal connection identifiers to clients.
+
+## Trade-offs
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| WebSocket | Low-latency push | Connection management |
+| Kafka | Decoupled processing | Operational complexity |
+| Conversation partitioning | Ordering | Hot conversations |
+| Durable store | Offline delivery | Storage cost |
+
+## Interviewer follow-ups
+
+1. How do you guarantee ordering?
+2. What if the recipient is offline?
+3. What if the same message arrives twice?
+4. How do you scale 100M connections?
+5. What if one group has millions of members?
+6. How do you manage presence?
+7. What happens if Kafka is unavailable?
+8. How do you expire old messages?
+9. How would multi-region routing work?
+10. How would you protect against abusive clients?
+
+## Staff-level discussion
+
+The deepest issues are connection ownership, ordering scope, fan-out strategy, failure isolation and multi-region behavior. "Exactly once" should be treated as a business outcome achieved through idempotency and durable state, not as a magic broker feature.
