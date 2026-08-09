@@ -1,0 +1,96 @@
+---
+slug: what-is-system-design
+title: What Is System Design? A Practical Interview Framework
+description: Learn the reasoning framework senior engineers use to turn ambiguous product requirements into scalable, reliable architecture.
+category: Fundamentals
+difficulty: Beginner
+tags: [HLD, Scalability, Reliability]
+readingTime: 12 min
+publishedAt: 2026-08-10
+---
+
+## The problem
+
+Imagine a product grows from a few hundred users to millions. The code may still work, but the system starts failing in different ways: latency rises, databases become overloaded, and one component can take down the whole product. **System design is the discipline of deciding how the pieces should evolve before those failures become production incidents.**
+
+## The interview mindset
+
+Do not start by naming technologies. Start with the problem. Clarify who uses the system, what must happen, how much traffic is expected, what must never be lost, and which delays are acceptable.
+
+## Requirements
+
+### Functional
+- Identify the core user actions.
+- Define the main read and write flows.
+- Define important asynchronous workflows.
+
+### Non-functional
+- Availability and reliability
+- Latency and throughput
+- Durability
+- Security and privacy
+- Cost and operational simplicity
+
+## Estimation
+
+If 10 million daily active users each make 20 requests per day:
+
+`10M × 20 = 200M requests/day`
+
+Average request rate is approximately `200M / 86,400 ≈ 2,315 RPS`. A design interview should then discuss peak traffic rather than pretending average traffic is enough. A 10× peak factor would mean roughly 23K peak RPS.
+
+## Naive design
+
+```text
+Client → API Server → Database
+```
+
+This is intentionally simple. It gives us a baseline and makes bottlenecks visible.
+
+## Evolving the design
+
+The database becomes the first bottleneck → introduce caching and indexes.
+
+One server becomes a bottleneck → add a load balancer and horizontal application instances.
+
+Long-running work blocks requests → introduce asynchronous messaging.
+
+A single database becomes a durability or availability concern → introduce replication and a recovery strategy.
+
+## Final mental model
+
+```text
+Problem → Requirements → Estimate → Simple Design
+        → Bottlenecks → Architecture → Scale
+        → Failure Handling → Trade-offs
+```
+
+## Trade-offs
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| Cache | Lower latency | Invalidation complexity |
+| Async messaging | Isolation and throughput | Eventual consistency |
+| Replication | Availability | Operational complexity |
+| Sharding | Horizontal scale | Cross-shard queries |
+
+## Interviewer follow-ups
+
+1. What would you change at 10× traffic?
+2. Which component is the first bottleneck?
+3. What happens if the database is unavailable?
+4. Where can data be stale?
+5. Which operation must be idempotent?
+6. What would you monitor?
+7. How would you reduce cost?
+8. Where would you introduce asynchronous processing?
+9. What is your disaster-recovery strategy?
+10. Which part of the design would you deliberately keep simple?
+
+## Staff-level discussion
+
+A Staff engineer should connect architecture decisions to operational ownership: capacity planning, SLOs, cost, failure domains, platform boundaries, and the organizational teams responsible for each dependency.
+
+## 45-minute answer
+
+**0–5:** clarify requirements. **5–10:** estimate scale. **10–15:** APIs and data model. **15–25:** architecture. **25–35:** deep dive into the hardest bottleneck. **35–40:** reliability and scaling. **40–45:** trade-offs and follow-ups.
