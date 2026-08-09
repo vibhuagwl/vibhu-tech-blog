@@ -1,2 +1,4 @@
-import {MetadataRoute} from 'next'; import {getAllPosts} from '@/lib/posts';
+import {MetadataRoute} from 'next';
+import {getAllPosts} from '@/lib/posts';
+export const dynamic='force-static';
 export default function sitemap():MetadataRoute.Sitemap{const base='https://vibhuagwl.github.io/vibhu-tech-blog';return [{url:base,lastModified:new Date()},{url:base+'/learn',lastModified:new Date()},{url:base+'/system-design',lastModified:new Date()},...getAllPosts().map(p=>({url:`${base}/system-design/${p.slug}`,lastModified:new Date(p.publishedAt)}))]}

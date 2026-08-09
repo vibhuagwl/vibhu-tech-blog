@@ -1,0 +1,483 @@
+---
+slug: system-design-interview-preparation
+title: System Design Interview Preparation — A Complete Step-by-Step Guide
+description: Learn how to approach system design interviews with a repeatable framework covering requirements, HLD, LLD, scalability, trade-offs, and worked examples like URL shortener, news feed, chat, rate limiter, and file storage.
+category: Fundamentals
+difficulty: Beginner
+tags: [Interview, HLD, Scalability, Framework]
+readingTime: 28 min
+publishedAt: "2026-08-11"
+---
+
+## The story: forty-five minutes on the whiteboard
+
+You walk into a system design interview. The interviewer smiles and says: *“Design a URL shortener.”* There is no starter code. There is no single correct stack. What they want to see is how you think under ambiguity — how you clarify, estimate, draw a simple design, find bottlenecks, and make trade-offs like a senior engineer.
+
+This guide is the playbook for that conversation. You will learn what the interview actually evaluates, a repeatable step-by-step framework, the building blocks interviewers expect you to know, and five worked examples you can practice aloud.
+
+## What system design interviews are
+
+A system design interview tests whether you can turn a vague product idea into a coherent architecture. Interviewers listen for:
+
+- **Clarity** — Do you ask the right questions before designing?
+- **Structure** — Can you lead a 45-minute discussion without getting lost?
+- **Depth** — Can you explain *why* a cache, queue, or shard exists?
+- **Trade-off awareness** — Do you name costs, not just benefits?
+- **Failure thinking** — What breaks first, and what happens next?
+
+It is not a quiz of buzzwords. Naming Kafka is weaker than explaining *when* asynchronous messaging helps and *what* consistency you give up.
+
+Think of it as collaborative problem-solving. You are the technical lead. The interviewer is a product partner who will push on scale, latency, and reliability.
+
+## How to approach system design problems
+
+Start with the user journey, not the database.
+
+1. Restate the problem in one sentence.
+2. Ask clarifying questions until the scope is interview-sized.
+3. Separate functional requirements from non-functional ones.
+4. Estimate rough traffic so later choices have numbers behind them.
+5. Draw the naive design first.
+6. Evolve it by removing bottlenecks one at a time.
+7. Deep-dive the hardest component.
+8. Close with failures, monitoring, and trade-offs.
+
+If you jump straight to microservices, you skip the reasoning interviewers care about. The strong answer looks like a story: *problem → constraints → simple system → pressure → stronger system.*
+
+## Requirement gathering
+
+Requirement gathering is where many candidates quietly lose the interview. Spend the first five minutes here.
+
+### Functional requirements
+
+Ask what users must be able to do:
+
+- Core create / read / update / delete flows
+- Important side effects (notifications, analytics, billing)
+- Explicit non-goals (“We will not design search in this round”)
+
+### Non-functional requirements
+
+Ask what “good” means under load:
+
+| Dimension | Sample question |
+|---|---|
+| Latency | Is 200ms p99 redirect OK, or do we need sub-50ms? |
+| Availability | Is 99.9% enough, or is this money-moving? |
+| Consistency | Can reads be slightly stale? |
+| Durability | Is losing a write ever acceptable? |
+| Scale | DAU, peak RPS, data growth, read/write ratio |
+| Security | Auth, abuse prevention, PII |
+
+### Scope control
+
+Interviewers often start broad on purpose. A polished answer sounds like:
+
+> “For this session I will focus on create short URL and redirect. Custom aliases and analytics can be Phase 2 unless you want them in scope.”
+
+That single sentence shows product judgment.
+
+## High-level design
+
+High-level design (HLD) is the whiteboard sketch: clients, edge, APIs, services, storage, and async paths.
+
+<Mermaid chart={`flowchart LR
+Users --> CDN[CDN / Edge]
+CDN --> LB[Load Balancer]
+LB --> API[API / App Tier]
+API --> Cache[(Cache)]
+API --> DB[(Database)]
+API --> Q[Message Queue]
+Q --> Workers[Async Workers]
+`}/>
+
+A clean HLD answers:
+
+- What are the synchronous request paths?
+- What can be asynchronous?
+- Where is the source of truth?
+- Where do we cache?
+- How does traffic enter the system?
+
+### APIs first
+
+Before boxes and arrows, define a few endpoints. Example for a shortener:
+
+```text
+POST   /v1/urls        { longUrl, ttl? } → { shortUrl }
+GET    /{shortKey}     → 302 Location: longUrl
+DELETE /v1/urls/{key}  → 204
+```
+
+APIs force you to clarify entities and ownership early.
+
+### Data model sketch
+
+Name the primary entities and access patterns:
+
+```text
+UrlMapping(short_key PK, long_url, owner_id, created_at, expires_at)
+```
+
+Access patterns drive indexes, sharding keys, and cache keys. Do not invent tables you will never query.
+
+## Low-level design
+
+Low-level design (LLD) in interviews usually means going one layer deeper on the critical path — not designing every class.
+
+Typical LLD topics:
+
+- Exact algorithm (token bucket, Base62 ID encoding, feed fan-out)
+- Schema fields and uniqueness constraints
+- Cache key format and TTL policy
+- Idempotency keys and retry behavior
+- Consistency between cache and database
+- Partitioning key and hot-key mitigation
+
+A useful rule: **spend most of your deep-dive budget on the hardest 20% of the system.** For a URL shortener that is key generation and redirect latency. For chat it is fan-out and delivery. For a rate limiter it is the algorithm and shared state.
+
+## Scalability, availability, and reliability
+
+These three words appear in almost every interview. Define them crisply.
+
+### Scalability
+
+The system can handle more load by adding resources. Prefer designs that scale *horizontally* for the application tier.
+
+Ask yourself:
+
+- What is the first bottleneck at 10× traffic?
+- Can that component be partitioned?
+- Are we optimizing the hot path (usually reads)?
+
+### Availability
+
+The system remains reachable despite failures. Techniques include redundancy, health checks, graceful degradation, and multi-AZ deployment.
+
+Availability is not free. More replicas mean more coordination and cost.
+
+### Reliability / durability
+
+The system does the right thing over time: writes are not silently lost, retries do not double-charge, and recovery is practiced.
+
+Useful interview language:
+
+> “Availability is about being up. Durability is about not losing data. Consistency is about whether replicas agree.”
+
+## Core building blocks
+
+Interviewers expect fluent intuition with these pieces. You do not need to implement them — you need to know when each earns its complexity.
+
+### Load balancing
+
+Distributes traffic across healthy instances.
+
+<Mermaid chart={`flowchart LR
+Client --> LB[Load Balancer]
+LB --> A1[App 1]
+LB --> A2[App 2]
+LB --> A3[App 3]
+`}/>
+
+Discuss algorithms (round-robin, least connections), health checks, sticky sessions (usually avoid), and TLS termination. Load balancers remove single-app-server bottlenecks; they do not fix a saturated database.
+
+### Caching
+
+Caches store hot data closer to the request path to cut latency and database load.
+
+Common pattern — cache-aside:
+
+```text
+value = cache.get(key)
+if miss:
+    value = db.read(...)
+    cache.set(key, value, TTL)
+return value
+```
+
+Always mention invalidation, TTLs, stampede protection, and what happens if the cache dies. A cache outage should not become a database outage.
+
+### Database choices
+
+Start from access patterns, not fashion.
+
+| Need | Lean toward |
+|---|---|
+| Strong transactions, joins, clear schema | Relational (SQL) |
+| Flexible documents, high write ingest | Document store |
+| Extreme key-value lookups | KV store |
+| Time-ordered event streams | Log / streaming store |
+| Graph relationships as first-class | Graph DB (rare in interviews) |
+
+Say out loud: *“I choose the database after I know the queries.”*
+
+### CDN
+
+A content delivery network caches static or cacheable responses at the edge. Great for images, JS/CSS, and sometimes public redirects or feed media. Not a substitute for application auth logic.
+
+### Message queues
+
+Queues absorb spikes, decouple producers from consumers, and enable asynchronous work (emails, fan-out, analytics).
+
+Trade-offs to name: eventual consistency, at-least-once delivery, idempotent consumers, and backpressure when consumers fall behind.
+
+### Sharding
+
+Sharding partitions data across many databases or nodes so one machine is not the ceiling.
+
+```text
+shard = hash(user_id) % N
+```
+
+Discuss shard key choice, hot partitions, resharding pain, and cross-shard queries. Prefer a key that spreads load and matches your primary lookup pattern.
+
+## Trade-offs and bottlenecks
+
+Every strong design answer sounds like a negotiation.
+
+### How to talk about trade-offs
+
+Use a simple table on the whiteboard:
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| Cache-aside Redis | Fast reads | Stale data + invalidation |
+| Async fan-out | Faster writes | Eventual feed freshness |
+| Strong consistency | Simpler correctness | Lower availability / higher latency |
+| More shards | Higher capacity | Operational complexity |
+
+### Finding bottlenecks
+
+Ask, for each hop on the critical path:
+
+1. What is its capacity?
+2. What happens at peak?
+3. Is the failure mode graceful or cascading?
+
+Classic bottleneck progression:
+
+```text
+Single server → many app servers
+Single DB     → replicas / cache
+Hot table     → indexes / partitioning
+Sync heavy work → queues / workers
+Single region → multi-region (only if needed)
+```
+
+Never scale everything. Scale the constraint you just proved exists.
+
+## Common interview mistakes
+
+Avoid these patterns — interviewers see them constantly:
+
+1. **Designing before clarifying** — You build the wrong system confidently.
+2. **Buzzword salad** — Kafka + Kubernetes + Cassandra with no reason.
+3. **Skipping estimates** — Numbers keep the design honest.
+4. **Ignoring the read/write ratio** — Most products are not 1:1.
+5. **Forgetting failure** — “Redis is always up” is not an answer.
+6. **Over-sharding early** — Premature distribution creates harder bugs.
+7. **No API or data model** — Boxes without contracts feel hand-wavy.
+8. **Silence** — Thinking aloud beats perfect quiet diagrams.
+9. **Never saying no** — Unlimited scope signals weak judgment.
+10. **No summary** — End by restating the architecture and key trade-offs.
+
+## A repeatable 45-minute framework
+
+Use this checklist in every interview until it becomes muscle memory.
+
+<Mermaid chart={`flowchart TD
+A[1. Clarify requirements] --> B[2. Estimate scale]
+B --> C[3. Define APIs and data model]
+C --> D[4. Draw naive design]
+D --> E[5. Find bottlenecks]
+E --> F[6. Evolve architecture]
+F --> G[7. Deep-dive hardest component]
+G --> H[8. Reliability and scaling]
+H --> I[9. Trade-offs and follow-ups]
+`}/>
+
+### Minute-by-minute plan
+
+| Minutes | Focus |
+|---|---|
+| 0–5 | Functional + non-functional requirements, scope |
+| 5–10 | Back-of-envelope traffic and storage |
+| 10–15 | APIs and core data model |
+| 15–25 | High-level architecture and request flows |
+| 25–35 | Deep dive (algorithm, consistency, hot path) |
+| 35–40 | Failures, monitoring, scaling plan |
+| 40–45 | Trade-offs, alternatives, open questions |
+
+### One-line closing statement
+
+Practice ending like this:
+
+> “We clarified X, estimated Y peak RPS, kept a simple API + DB core, accelerated reads with cache, moved Z off the critical path with a queue, and accepted eventual consistency on the feed in exchange for write latency.”
+
+That summary is recruiter-friendly and interviewer-friendly.
+
+## Worked example 1: URL shortener
+
+**One-liner:** Users create compact links; the redirect path must be extremely fast.
+
+**Requirements:** create mapping, redirect, optional expiry. Optimize for high read QPS and low latency.
+
+**Estimate:** If writes are 10M/month and redirects are 100M/month, reads dominate (~10:1). Design for the redirect.
+
+**Naive design:**
+
+```text
+Client → API → Database
+```
+
+**Evolved design:**
+
+<Mermaid chart={`flowchart LR
+Client --> LB[Load Balancer]
+LB --> Redirect[Redirect Service]
+Redirect --> Redis[(Redis)]
+Redirect --> DB[(DB)]
+Redirect -.-> Kafka[Analytics Queue]
+`}/>
+
+**Deep dive:** key generation (Base62 ID ranges vs random keys), Redis cache-aside, negative caching for invalid keys.
+
+**Trade-off:** Redis speeds redirects but needs a clear fallback when unavailable.
+
+Practice the full write-up in the dedicated *Design URL Shortener* article on this blog when you want more depth.
+
+## Worked example 2: News feed
+
+**One-liner:** Users post content; followers see a personalized feed quickly.
+
+**Requirements:** create post, read home feed, follow graph. Latency matters on feed reads; fan-out can be async.
+
+**Core tension:** *fan-out on write* (precompute feeds) vs *fan-out on read* (compute at request time).
+
+| Approach | Best when | Pain |
+|---|---|---|
+| Fan-out on write | Many readers, celebrity-light | Write amplification |
+| Fan-out on read | Huge follow graphs / celebrities | Slower / heavier reads |
+| Hybrid | Real products | More moving parts |
+
+**Sketch:**
+
+```text
+Post API → DB
+        → Queue → Fan-out workers → Feed cache / timeline store
+Feed API → Timeline store → hydrate post content from cache/DB
+```
+
+**Deep dive:** celebrity accounts, ranking vs chronological feed, cache hydration, and eventual consistency (“your post may take a few seconds to appear”).
+
+## Worked example 3: Chat system
+
+**One-liner:** Users send messages in 1:1 or group conversations with near-real-time delivery.
+
+**Requirements:** send/receive messages, message history, online presence (optional), delivery status.
+
+**Key insight:** Chat is a **push** problem as much as a storage problem. Long-lived connections (WebSocket) matter.
+
+<Mermaid chart={`flowchart LR
+Sender --> API[Chat API]
+API --> Store[(Message Store)]
+API --> Q[Delivery Queue]
+Q --> Gateway[Connection Gateway]
+Gateway --> Recipient[Recipient Device]
+`}/>
+
+**Deep dive:** message ordering per conversation, multi-device sync, unread counts, group fan-out, and what “delivered” vs “read” means.
+
+**Reliability:** at-least-once delivery + idempotent client handling beats pretending the network is perfect.
+
+For a messaging-shaped deep dive, practice with the *Design WhatsApp* guide on this blog.
+
+## Worked example 4: Rate limiter
+
+**One-liner:** Protect APIs from abuse by limiting requests per key (user, IP, token) over a window.
+
+**Requirements:** allow/deny decisions with low latency, predictable limits, and cluster-wide correctness.
+
+**Algorithms to know:**
+
+| Algorithm | Idea | Watch-out |
+|---|---|---|
+| Fixed window | Count per interval | Boundary bursts |
+| Sliding window | Smoother over time | More state |
+| Token bucket | Steady refill, allows bursts | Parameter tuning |
+| Leaky bucket | Constant outflow | Less burst-friendly |
+
+**Sketch:**
+
+```text
+Client → API Gateway / Middleware → Redis counters → Allow or 429
+```
+
+**Deep dive:** where the limiter lives (gateway vs service), Redis as shared store, fail-open vs fail-closed, and multi-region limits.
+
+**Trade-off:** Strong global limits are harder and slower than approximate per-region limits.
+
+See *Design Rate Limiter* on this blog for a full interview walk-through.
+
+## Worked example 5: File storage system
+
+**One-liner:** Users upload files and later download them reliably — think a simplified object store or Dropbox-like service.
+
+**Requirements:** upload, download, metadata listing; large files; durability; optional sharing links.
+
+**Key insight:** Separate **metadata** (SQL/metadata service) from **blob bytes** (object storage).
+
+<Mermaid chart={`flowchart LR
+Client --> API[File API]
+API --> Meta[(Metadata DB)]
+API --> Obj[Object Storage]
+Client -->|large upload| Direct[Direct / Presigned Upload]
+Direct --> Obj
+`}/>
+
+**Important flows:**
+
+- Small files: API streams to object storage, writes metadata transactionally enough for the interview.
+- Large files: multipart upload + presigned URLs so bytes do not all transit your app tier.
+- Download: authorize via metadata, then redirect or stream from object storage / CDN.
+
+**Deep dive:** checksums, deduplication, virus scanning async, versioning, and disaster recovery (cross-region replication).
+
+**Trade-off:** Strong immediate consistency on listing vs faster eventually consistent object indexes.
+
+## Putting it together: how recruiters and interviewers read you
+
+Recruiters and hiring managers often hear feedback like:
+
+- “Structured and calm”
+- “Asked good questions”
+- “Justified trade-offs”
+- “Knew where the system would break”
+
+They rarely hear “knew every AWS service.” Your goal is a clear narrative, not a perfect topology.
+
+Before your next interview, rehearse one example end-to-end out loud with a timer. Record yourself. Cut anything that does not move the design forward.
+
+## Practice checklist
+
+Use this the night before an interview:
+
+1. Can I explain the 45-minute framework without notes?
+2. Can I define scalability, availability, consistency, and durability in one sentence each?
+3. Can I justify SQL vs NoSQL from access patterns?
+4. Can I draw cache-aside and name stampede risks?
+5. Can I explain when to use a queue?
+6. Can I walk URL shortener, feed, chat, rate limiter, and file storage at a high level?
+7. Can I list five failure-mode follow-ups for any design?
+8. Can I end with a crisp trade-off summary?
+
+## Final mental model
+
+```text
+Clarify → Estimate → Contract (API + data)
+       → Simple design → Bottlenecks
+       → Building blocks with reasons
+       → Deep dive → Failures → Trade-offs
+```
+
+System design interviews reward engineers who stay calm, stay structured, and keep tying every box on the whiteboard back to a user requirement and a measurable constraint. Master the framework once, then reuse it for every prompt — from short links to feeds, chat, rate limits, and file storage.
