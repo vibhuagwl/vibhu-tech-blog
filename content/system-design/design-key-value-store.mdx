@@ -1,0 +1,874 @@
+---
+slug: design-key-value-store
+title: "Design a Distributed Key-Value Store — From LLD to HLD"
+description: Design a Staff/Principal-level distributed key-value store from single-node LLD through partitioning, replication, consistency, failure handling, and multi-region operations.
+category: System Design
+difficulty: Staff
+tags: [HLD, LLD, Consistency, Replication, LSM]
+readingTime: 55 min
+publishedAt: "2026-08-12"
+---
+
+## Introduction
+
+**Interviewer:** Design a distributed key-value store.
+
+A weak answer names Redis, Kafka, and Kubernetes in the first minute. A Staff or Principal answer starts elsewhere: *What must never be lost? What may be stale? What is the read/write ratio? What is in scope for forty-five minutes?*
+
+This article is the progressive design a 20+ year engineer would walk through in a Staff/Principal interview — from a correct single-node store to a partitioned, replicated, operable distributed system. Every component appears because a requirement or failure mode forced it into existence.
+
+## How to approach the problem
+
+Do not design the cluster first. Clarify the contract, then grow the system under pressure.
+
+```text
+Ambiguous prompt
+      ↓
+Clarify functional + non-functional requirements
+      ↓
+Lock interview assumptions + scope
+      ↓
+APIs + data model
+      ↓
+Single-node correctness (LLD)
+      ↓
+Persistence + concurrency
+      ↓
+Partition + replicate
+      ↓
+Consistency model
+      ↓
+Failure modes + operations
+      ↓
+Trade-offs + follow-ups
+```
+
+**Why start here?** Premature architecture hides incorrect assumptions. Rejected alternative: jumping to “Dynamo-style AP with Cassandra and Redis.” That answers a product marketing question, not the interview.
+
+## Step 1 — Clarify requirements
+
+### Questions a senior engineer asks first
+
+- Is this a cache, a durable database, or both?
+- Must GET always see the latest successful PUT?
+- Can we lose recent writes on crash?
+- Single-key only, or multi-key transactions?
+- TTL? Conditional writes? Batch APIs?
+- Multi-tenant? Multi-region? Compliance constraints?
+- Target latency and availability class?
+
+Hidden requirements often include: idempotent retries, hot-key protection, operational restore, and tenant isolation.
+
+### Functional requirements
+
+| Capability | MVP interview scope | Production-grade extension |
+|---|---|---|
+| PUT / GET / DELETE | Yes | Yes |
+| EXISTS | Optional | Yes |
+| TTL | Optional | Usually yes |
+| Conditional PUT / CAS | Strong signal | Yes for correctness-sensitive workloads |
+| Batch GET / PUT | Nice | Yes for fan-in clients |
+| Namespaces / tenants | Optional | Yes |
+| Versioning | Yes (for concurrency) | Yes |
+| Transactions / multi-key | Out of scope unless asked | Separate design |
+| Range queries / secondary indexes | Out of scope | Different access patterns |
+| Watch / pub-sub / streams | Out of scope | Adjacent product |
+
+**MVP for this interview:** durable single-key PUT/GET/DELETE with versions, optional TTL, tunable consistency later.
+
+**Rejected early:** secondary indexes and SQL-like queries. Those change the storage engine and query planner entirely.
+
+## Non-functional requirements and assumptions
+
+Interview assumptions (state them explicitly):
+
+```text
+Keys:              100M
+Avg value:         1 KB
+Read/write:        80% GET / 20% PUT
+Avg QPS:           1M
+Peak QPS:          3M (3×)
+Availability:      99.99%
+p99 GET:           < 10 ms
+p99 PUT:           < 20 ms
+Durability:        acknowledge after durable local write (+ replica policy TBD)
+```
+
+Changing any row changes architecture. If durability can be async, an in-memory Redis-like design may win on latency. If every PUT must survive two AZ failures before ACK, write path latency and cost jump.
+
+## CAP in *this* system
+
+During a network partition, a replica group cannot be simultaneously fully available for all clients *and* linearizable for all keys. CAP is not “pick any two forever”; it is a statement about behavior when the network fails to deliver messages.
+
+<Mermaid chart={`flowchart TD
+Partition[Network partition] --> Choice{For this request}
+Choice -->|Serve possibly stale| AP[Favor availability]
+Choice -->|Refuse or delay| CP[Favor consistency]
+`}/>
+
+```text
+Network partition inside replica set
+              ↓
+   Serve possibly stale reads?  → favor Availability
+   Refuse or delay until quorum? → favor Consistency
+```
+
+### CP style
+
+Strong consistency; some clients see errors or higher latency during partitions.
+
+### AP style
+
+Always attempt to serve; reconcile later (eventual consistency).
+
+### Tunable consistency (Dynamo-inspired)
+
+<Mermaid chart={`flowchart LR
+Write --> WQ[Write quorum W of N]
+Read --> RQ[Read quorum R of N]
+WQ --> Intersect[Intersecting replicas]
+RQ --> Intersect
+`}/>
+
+```text
+N = replica count
+W = write acknowledgements required
+R = read acknowledgements required
+```
+
+`R + W > N` ensures that read and write quorums intersect, so a read should see at least one replica that participated in the latest successful write *under the model’s assumptions*. It does **not** automatically give linearizability: concurrent writers, sloppy quorums, hinted handoffs, and client retries can still produce anomalies unless the protocol carefully defines versions and repair.
+
+Related mechanisms:
+
+- **Quorum read/write** — intersect for fresher data.
+- **Read repair** — fix stale replicas on read.
+- **Sloppy quorum** — write to healthy nodes when preferred replicas are down; remember handoff.
+- **Hinted handoff** — temporary holder forwards when the owner returns.
+- **Anti-entropy** — background Merkle-tree sync between replicas.
+
+**Rejected claim:** “W=N and R=1 means we are always consistent.” That ignores lagging replicas if writes are only acknowledged from a subset, and ignores linearizability requirements for concurrent operations.
+
+## API design
+
+```http
+PUT    /v1/kv/{namespace}/{key}
+GET    /v1/kv/{namespace}/{key}
+DELETE /v1/kv/{namespace}/{key}
+HEAD   /v1/kv/{namespace}/{key}
+POST   /v1/kv/batch-get
+POST   /v1/kv/batch-put
+```
+
+### Example PUT
+
+```http
+PUT /v1/kv/orders/ord-42 HTTP/1.1
+Idempotency-Key: 7f3c9a2e-...
+If-Match: "v12"
+Content-Type: application/octet-stream
+X-TTL-Seconds: 86400
+
+<binary value>
+```
+
+```http
+HTTP/1.1 200 OK
+ETag: "v13"
+X-Version: 13
+```
+
+### Example GET
+
+```http
+GET /v1/kv/orders/ord-42
+Consistency: quorum
+```
+
+```http
+HTTP/1.1 200 OK
+ETag: "v13"
+X-Version: 13
+Content-Type: application/octet-stream
+
+<binary value>
+```
+
+Discuss in interview:
+
+- **Idempotency-Key** for safe retries of PUT/DELETE.
+- **ETag / If-Match** for conditional updates (optimistic concurrency).
+- **TTL** as absolute expiry time stored with the record.
+- **Errors:** 404 missing, 409 version conflict, 429 rate limited, 503 overload / no quorum.
+- **Retries:** exponential backoff + jitter; never retry non-idempotent mutating calls without a key.
+
+APIs evolve with optional headers (`Consistency`, `Durable=disk|replica`) rather than breaking URL paths.
+
+## Data model
+
+```text
+Record
+------
+key          : bytes (bounded, e.g. ≤ 1 KB)
+value        : bytes (bounded, e.g. ≤ 1 MB for MVP)
+version      : monotonic per-key (or vector clock later)
+timestamp    : wall/HLC for ops/TTL — not sole conflict authority
+ttl_deadline : optional absolute time
+metadata     : content-type, tenant, flags
+checksum     : CRC32C/xxHash of value
+tombstone    : delete marker until compaction
+```
+
+Serialization: length-prefixed binary on disk; JSON only at the edge if needed. Compression (LZ4/ZSTD) is a trade-off: CPU vs network/disk. Schema evolution lives in metadata flags, not in reinventing a document DB.
+
+## LLD — single-node key-value store
+
+Before distributing anything, make **one node correct**.
+
+<Mermaid chart={`classDiagram
+class KeyValueStore {
+  +put(key, value, opts)
+  +get(key, opts)
+  +delete(key, opts)
+  +exists(key)
+}
+class StorageEngine {
+  +apply(write)
+  +read(key)
+  +recover()
+}
+class WAL
+class MemTable
+class SSTable
+class CompactionManager
+class Cache
+class LockManager
+class TTLManager
+KeyValueStore --> StorageEngine
+KeyValueStore --> Cache
+KeyValueStore --> LockManager
+KeyValueStore --> TTLManager
+StorageEngine --> WAL
+StorageEngine --> MemTable
+StorageEngine --> SSTable
+StorageEngine --> CompactionManager
+`}/>
+
+### Java interfaces (interview-sized)
+
+```java
+public interface KeyValueStore {
+    PutResult put(Key key, byte[] value, PutOptions options);
+    Optional<Record> get(Key key, GetOptions options);
+    boolean delete(Key key, DeleteOptions options);
+    boolean exists(Key key);
+}
+
+public interface StorageEngine {
+    void appendAndApply(WriteBatch batch) throws IOException;
+    Optional<Record> read(Key key) throws IOException;
+    void recover() throws IOException;
+    void close() throws IOException;
+}
+```
+
+**Patterns used only when earned:**
+
+| Pattern | Problem | Why | Trade-off |
+|---|---|---|---|
+| Strategy | Swap LSM vs B-Tree engine | Dependency inversion for tests and evolution | Indirection |
+| Factory | Construct engine from config | Centralize wiring | Can become a god factory |
+| Command | WriteBatch / replay | WAL replay and batching | Extra objects |
+| Observer | Metrics / compaction events | Decouple instrumentation | Careful with sync callbacks |
+
+Do not invent an Adapter for every interface. Interviewers reward judgment, not pattern bingo.
+
+## Concurrency design
+
+Single-node thread safety options:
+
+- `ConcurrentHashMap` for a pure in-memory MVP.
+- **Per-key lock striping** for critical sections spanning WAL + MemTable.
+- **CAS / version checks** for optimistic updates without global locks.
+- Read/write locks only when a structure truly has read-mostly critical sections.
+
+Clarify vocabulary:
+
+| Term | Meaning |
+|---|---|
+| Thread safety | No data races / memory corruption under threads |
+| Atomicity | A multi-step update appears all-or-nothing on one node |
+| Linearizability | Single global real-time order for concurrent ops |
+| Serializability | Transactions equivalent to some serial order |
+
+A thread-safe HashMap is not a linearizable distributed store.
+
+**Rejected:** one global lock for all keys — simple, and a throughput cliff.
+
+## Memory and I/O architecture
+
+```text
+Client → API → Validation → Cache?
+                         ↓
+                       Engine
+                    /    |    \
+                 WAL  MemTable  SSTables
+```
+
+### Write path
+
+<Mermaid chart={`flowchart TD
+Client --> API
+API --> Validate
+Validate --> WAL
+WAL --> MemTable
+MemTable --> Ack[ACK client]
+MemTable --> Flush
+Flush --> SSTable
+`}/>
+
+Acknowledge after WAL fsync (or configured durability). MemTable absorbs random writes into sequential log + sorted memory.
+
+### Read path
+
+<Mermaid chart={`flowchart TD
+Client --> API
+API --> Cache
+Cache -->|miss| MemTable
+MemTable -->|miss| Bloom
+Bloom -->|maybe| SSTables
+SSTables --> Disk
+Disk --> FillCache[Populate cache]
+`}/>
+
+## Persistence and crash recovery
+
+WAL is an append-only durability log. SSTables are immutable sorted files. Compaction merges and drops tombstones/expired keys.
+
+<Mermaid chart={`flowchart TD
+Crash --> Restart
+Restart --> OpenWAL
+OpenWAL --> Replay
+Replay --> RebuildMemTable
+RebuildMemTable --> Ready
+`}/>
+
+If fsync was required before ACK, replay restores acknowledged writes. If you ACK before fsync, you traded durability for latency — say that out loud.
+
+## Storage engine deep dive
+
+### LSM tree
+
+<Mermaid chart={`flowchart TD
+Writes --> MemTable
+MemTable --> Flush
+Flush --> L0[SSTable L0]
+L0 --> Compact[Compaction]
+Compact --> Ln[SSTable L1..Ln]
+`}/>
+
+```text
+Writes → MemTable → flush → SSTable L0 → compact → L1...Ln
+```
+
+| Design | Write | Read | Space | Complexity |
+|---|---|---|---|---|
+| Hash map (memory) | Excellent | Excellent | RAM only | Low |
+| B-Tree | Good | Excellent | Disk | Medium |
+| LSM | Excellent | Good (with bloom/cache) | Write amp | High |
+
+Use HashMap for pure cache MVP. Use B-Tree when read latency and update-in-place matter. Use LSM for write-heavy durable KV (RocksDB-style lesson).
+
+## Cache design
+
+Optional process-local or tiered cache.
+
+- Policies: LRU / LFU / TTL
+- Modes: cache-aside (common), write-through, write-behind (danger: durability lies)
+- Negative caching for misses
+- Stampede protection (single-flight)
+- Hot-key local replicas
+
+Cache invalidation is hard because **there are multiple truths** (cache vs MemTable vs replicas) and **time is uncertain**. Prefer versioned entries and short TTLs over fantasy of perfect global invalidation.
+
+## Distributed architecture
+
+Evolve only after single-node durability and APIs are solid.
+
+<Mermaid chart={`flowchart TD
+Clients --> LB[Load Balancer]
+LB --> GW[API Gateway]
+GW --> Svc[KV Service Cluster]
+Svc --> A[Node A]
+Svc --> B[Node B]
+Svc --> C[Node C]
+A --> DA[(Disk A)]
+B --> DB[(Disk B)]
+C --> DC[(Disk C)]
+Svc --> Meta[Metadata / Membership]
+`}/>
+
+Add: partitioning, replication, membership, and optionally consensus for strongly consistent metadata or leader leases.
+
+## Partitioning
+
+### Naive hash
+
+```text
+owner = hash(key) % N
+```
+
+Fails on membership change: almost all keys remap.
+
+### Consistent hashing
+
+See also the *Consistent Hashing* article on this blog for a focused deep dive.
+
+<Mermaid chart={`flowchart LR
+Key --> Hash[hash key]
+Hash --> Ring[Hash ring]
+Ring --> Owner[Clockwise owner node]
+`}/>
+
+```text
+hash(key) → ring position → clockwise successor owns key
+```
+
+Virtual nodes (many tokens per physical node) smooth imbalance and make capacity changes less abrupt.
+
+Operational realities: partition metadata, throttled streaming migration, backpressure, and verifying checksums during move.
+
+## Replication
+
+```text
+Partition P1
+    Leader (or coordinator)
+         |
+    +----+----+
+    |         |
+ Replica     Replica
+```
+
+| Approach | Benefit | Cost |
+|---|---|---|
+| Leader-based | Simpler ordering | Leader hotspot / election |
+| Leaderless | No election on data path | Conflict resolution complexity |
+| Sync replica ACK | Stronger durability | Latency |
+| Async replica | Fast ACK | Data loss window |
+
+Read-your-writes can be achieved with sticky sessions to the leader, or quorum reads, depending on model.
+
+## Leader election and consensus concepts
+
+Inspired by Raft without claiming a full implementation:
+
+```text
+States: Follower → Candidate → Leader
+Term:   monotonic election epoch
+Log:    replicated operation log
+Commit: entry applied after majority persistence
+```
+
+**Split brain risk:** two nodes believe they are leader.
+
+<Mermaid chart={`flowchart LR
+Net[Network partition] --> SideA[Cluster side A]
+Net --> SideB[Cluster side B]
+SideA --> LA[New leader]
+SideB --> LB[Stale leader]
+LA --> Fence[Epoch fencing required]
+LB --> Fence
+`}/>
+
+Mitigations: majority quorum for elections, fencing tokens/epochs on every write, leader leases carefully designed, reject stale term writes.
+
+**Raft ≠ application correctness.** Raft orders a log. Your state machine must still define idempotent apply, version rules, and client session semantics.
+
+## Strong vs eventual consistency
+
+### Strong (linearizable) write sketch
+
+```text
+Client → leader → replicate to quorum → commit → respond
+```
+
+Linearizable reads typically go to the leader (or use careful lease/read-index protocols). Latency rises; correctness clarity rises.
+
+### Eventual
+
+Version vectors track concurrent updates per replica. Last-Write-Wins by wall clock is attractive and dangerous under skew. Prefer causal metadata + explicit conflict policies (merge, error, app resolve).
+
+## Clock problems
+
+| Clock | Use | Failure mode |
+|---|---|---|
+| Physical / NTP | TTL approx, metrics | Skew, jumps |
+| Lamport | Causal order among messages | No real-time meaning |
+| HLC | Hybrid useful timestamps | Still needs protocol care |
+
+Never let “server now()” alone decide distributed conflict winners for money-adjacent or correctness-critical data.
+
+## Failure handling
+
+For each failure, interview at this depth: detect → impact → recovery → correctness → client behavior.
+
+| Failure | Detection | Impact | Recovery / correctness |
+|---|---|---|---|
+| Node down | heartbeats / fail detector | lose capacity | re-replicate; clients retry other replicas |
+| Disk fail | I/O errors SMART | local data loss | restore from replicas; fence node |
+| Network partition | partial timeouts | split views | quorum; refuse minority writes |
+| Leader fail | election timeout | write pause | elect new term; fence old leader |
+| Metadata fail | control-plane errors | routing broken | redundant meta; cached routes with TTL |
+| AZ fail | correlated node loss | capacity cliff | multi-AZ placement of replicas |
+| Region fail | health + DNS | geo outage | DR runbook; promote secondary |
+| Zombie node | returns after long GC/net | stale writes | epoch fencing |
+| Split brain | dual leaders | divergence | quorum + fence |
+| Corruption | checksum mismatch | bad read | isolate file; repair from replica |
+| Disk full | ENOSPC | write fail | backpressure; shed load; alert |
+| Memory / GC pause | latency spikes | timeouts | heap sizing; GC tuning; load shed |
+| Thundering herd | synchronized retries | overload | jitter; admission control |
+| Hot key / partition | skewed QPS | single-node cliff | see hot-key section |
+
+## Hot keys
+
+```text
+1 key → 1 partition → extreme QPS → node melt
+```
+
+Mitigations: local caches, request coalescing, read replicas for that key, application-level key sharding (`key#0..k`), adaptive replication. Trade-off: more complexity and possible consistency dilution on sharded keys.
+
+## Rate limiting and multi-tenancy
+
+Limit by token, tenant, IP, and sometimes per-key. Token bucket is usually the interview default; distributed limiters need a shared store or approximate local quotas. See *Design Rate Limiter* on this blog for algorithm depth.
+
+Multi-tenancy needs: authn boundaries, quotas, noisy-neighbor isolation, per-tenant metrics, and encryption keys scoped by tenant when required.
+
+## Security
+
+Security is part of the data plane:
+
+- TLS everywhere; mTLS between nodes
+- Authn (tokens/mTLS) + Authz (RBAC per namespace)
+- Encryption at rest (volume or app-level)
+- Secrets in a manager; rotation runbooks
+- Audit logs for admin and sensitive access
+- Least privilege for compaction/backup jobs
+
+## Observability
+
+**Metrics:** QPS, p50/p95/p99/p999, error rate, quorum failures, replication lag, cache hit ratio, WAL size, flush/compaction rate, partition skew, disk/CPU/mem/GC.
+
+**Logs:** structured JSON with `request_id`, `key_hash` (not raw PII keys), `partition`, `version`.
+
+**Tracing:**
+
+```text
+Client → Gateway → KV Service → Router → Partition leader → Replica disk
+```
+
+SLOs should map to customer promises (e.g., durable PUT success rate, GET freshness class).
+
+## Capacity planning
+
+Assumptions:
+
+```text
+100M keys × 1 KB value = 100 GB raw values
++ 20% metadata                ≈ 120 GB logical
+× 3 replicas                  ≈ 360 GB
+× 1.3 compaction/overhead     ≈ 468 GB
+× 1.3 headroom                ≈ 608 GB usable provisioned
+```
+
+Traffic sketch:
+
+```text
+Avg 1M QPS × 1 KB ≈ 1 GB/s payload (plus headers/replication amplification)
+Peak 3M QPS → plan NIC, disk IOPS, and CPU for peak, not average
+Write amplification (WAL + flush + compaction + replica fanout) dominates disk
+```
+
+Interviewers care that you show amplification and headroom, not that the arithmetic is perfect.
+
+## Multi-AZ, multi-region, DR
+
+```text
+Multi-AZ: replica placement across failure domains inside a region
+Multi-region: latency, residency, and disaster domains
+```
+
+<Mermaid chart={`flowchart TD
+DNS[Global DNS] --> RA[Region A cluster]
+DNS --> RB[Region B cluster]
+RA --> Async[Cross-region replication]
+RB --> Async
+`}/>
+
+Active-passive: clearer RPO/RTO, simpler conflicts. Active-active: lower RTT locally, harder conflict resolution.
+
+**RPO** — max acceptable data loss. **RTO** — max acceptable restore time. State both with the durability model.
+
+### Backup and restore
+
+```text
+KV → snapshot → object storage
+   → WAL archive → point-in-time replay
+```
+
+Restore = snapshot + WAL. Test restores regularly or you do not have backups — you have files.
+
+## Delivery semantics and idempotency
+
+| Semantic | Reality |
+|---|---|
+| At-most-once | May lose |
+| At-least-once | Duplicates happen |
+| Exactly-once | End-to-end myth without narrow definitions |
+
+Use `Idempotency-Key` / compare-and-set versions so retries are **effectively once** at the business level.
+
+## Consistency models
+
+| Model | Guarantee | Latency | Complexity |
+|---|---|---|---|
+| Eventual | Converge later | Low | Conflict handling |
+| Read-after-write | Writer sees own writes | Medium | Sticky/quorum |
+| Sequential | Preserve per-client order | Medium | Session protocols |
+| Linearizable | Real-time single order | High | Leader/leases/quorum care |
+| Serializable | Transactional order | Highest | Usually out of KV MVP |
+
+## Design evolution (tell this story)
+
+| Level | System | Why evolve |
+|---|---|---|
+| 0 | HashMap | Prove API |
+| 1 | + locks/CAS | Concurrency |
+| 2 | + WAL | Durability |
+| 3 | + MemTable/SSTable | Larger than RAM |
+| 4 | + compaction/bloom/cache | Read efficiency |
+| 5 | + partitioning | Scale beyond one box |
+| 6 | + replication | Availability / durability |
+| 7 | + election/fencing | Leadership safety |
+| 8 | + multi-AZ | Correlated failure |
+| 9 | + multi-region | Geo / DR |
+| 10 | + tenancy/sec/ops | Production |
+
+## Alternative architectures — lessons, not logos
+
+| Style | Lesson |
+|---|---|
+| Redis-style | In-memory speed; persistence and clustering are explicit trade-offs |
+| Dynamo-style | Tunable quorums, hinted handoff, app-level conflict handling |
+| Cassandra-style | LSM + wide partitioning + tunable consistency at scale |
+| RocksDB-style | Embeddable LSM engine as the local durability core |
+| ZooKeeper / etcd / Raft services | Strongly consistent metadata and coordination, not bulk KV data plane |
+
+## Technology selection (depends on requirements)
+
+| Need | Option | Typical choice here | Reason |
+|---|---|---|---|
+| Local engine | RocksDB / custom LSM | LSM | Write-heavy durable KV |
+| Cache | Optional Redis/local | Local first | Avoid second consistency domain unless needed |
+| Consensus | Raft library | For meta/leader | Not every PUT must cross Raft if using quorum KV |
+| Backup | Object storage | Yes | Cheap cold durability |
+| Metrics | Prometheus-style | Yes | Industry default |
+
+No technology is universally superior.
+
+## What the interviewer will ask next
+
+1. **Why not Redis?** — If pure cache with optional persistence and simpler ops fits; not if you need rich quorum durability semantics and multi-tenant isolation as a database.
+2. **Why consistent hashing?** — Minimize remapping on membership change vs `hash % N`.
+3. **Node dies?** — Detect, divert traffic, re-replicate under-replicated partitions, alert.
+4. **Split brain?** — Quorum election + fencing tokens; reject stale leaders.
+5. **Strong consistency how?** — Leader + majority commit; linearizable reads via leader/read-index.
+6. **Hot keys?** — Cache, coalesce, shard key, adaptive replicas.
+7. **Partition?** — Minority side refuses unsafe writes if CP; AP serves with repair later.
+8. **Rebalance?** — Throttled streaming moves with checksum verify.
+9. **Failure detection?** — Heartbeats with φ accrual or timeouts; avoid flapping.
+10. **Disk corruption?** — Checksums; restore from replica; quarantine.
+11. **Leader crash?** — Election; clients retry with backoff.
+12. **Why Raft?** — Understandable leadership + log replication for coordination.
+13. **Why not Paxos?** — Raft often preferred for engineerability; both are consensus.
+14. **Clock skew?** — Do not LWW solely on wall clock.
+15. **Duplicate writes?** — Idempotency keys + per-key versions.
+16. **Idempotency guarantee?** — Store request-id results with TTL carefully keyed.
+17. **Multi-region?** — State active-active vs passive and conflict policy.
+18. **RPO?** — Tie to sync replica count and backup lag.
+19. **RTO?** — Tie to automation and backup practice.
+20. **Improve p99?** — Find tail: GC, compaction, noisy neighbors, slow disks, lock convoying.
+21. **Compaction storms?** — Rate limit, separate priorities, I/O isolation.
+22. **Disk full?** — Load shed writes; expand; never silent corruption.
+23. **10× spike?** — Admission control; scale partitions; degrade non-critical work.
+24. **Biggest bottleneck?** — Usually disk write amp, hot partitions, or cross-network sync writes.
+25. **Testing?** — Unit to Jepsen-style; chaos.
+26. **Chaos?** — Kill leaders, partition nets, fill disks in staging.
+27. **Zero-downtime deploy?** — Rolling with protocol compatibility; draining leaders.
+28. **Partition migrate?** — Dual ownership windows carefully; verify.
+29. **Schema evolution?** — Versioned record envelopes.
+30. **If consistency relaxed?** — Drop sync W, add async replication, accept stale reads, simplify elections for data plane.
+
+## Bad answer vs great answer
+
+1. **Bad:** “I’ll use Kafka and Redis because they’re scalable.”  
+   **Great:** “First decide durability and consistency. Those choose in-memory cache vs WAL+LSM vs quorum replication.”
+
+2. **Bad:** “CAP means pick two of three.”  
+   **Great:** “Under partition, for this operation, we either risk stale/divergent answers or refuse/delay to preserve consistency.”
+
+3. **Bad:** “R+W>N gives linearizability.”  
+   **Great:** “It gives quorum intersection under a specific model; linearizability needs a precise protocol for concurrent ops.”
+
+4. **Bad:** “We’ll timestamp with NTP for conflicts.”  
+   **Great:** “Wall clocks skew; use versions/vector clocks/HLC inside a defined conflict policy.”
+
+5. **Bad:** “Exactly-once PUT.”  
+   **Great:** “At-least-once RPC + idempotency key yields effectively-once effects.”
+
+6. **Bad:** “Hash % N sharding.”  
+   **Great:** “Consistent hashing/virtual nodes to reduce remapping churn.”
+
+7. **Bad:** “Raft for every read.”  
+   **Great:** “Raft/coordination for metadata or strong leaders; measure cost of strong reads.”
+
+8. **Bad:** “Replication = availability.”  
+   **Great:** “Replication helps availability *and* durability only with placement, failover, and fencing.”
+
+9. **Bad:** “Cache will fix latency.”  
+   **Great:** “Cache helps read-heavy hot keys; it adds invalidation and failure modes.”
+
+10. **Bad:** “Multi-region active-active is always better.”  
+    **Great:** “Only if clients need local write UX and we accept conflict complexity/cost.”
+
+11. **Bad:** “We’ll just rebalance instantly.”  
+    **Great:** “Throttle moves; protect tail latency; verify checksums.”
+
+12. **Bad:** “ZooKeeper stores all KV data.”  
+    **Great:** “Coordination systems are for small metadata, not bulk values.”
+
+13. **Bad:** “99.99% because three replicas.”  
+    **Great:** “Availability needs failure domains, detection time, and blast-radius math.”
+
+14. **Bad:** “No need for backups; we replicate.”  
+    **Great:** “Replication is not backup; logical bugs and deletes replicate too.”
+
+15. **Bad:** “Security later.”  
+    **Great:** “Tenant authz and encryption shape API and on-disk format early.”
+
+## Seniority calibration
+
+| Experience | Typical answer shape |
+|---|---|
+| 3–5 years | API + DB + cache + LB |
+| 7–10 years | + partitioning, replication, Kafka/redis boxes |
+| 12–15 years | + consistency, capacity, multi-region, observability |
+| 20+ years | + ambiguity management, failure-first design, cost, ownership, migrations, blast radius |
+
+## How a 20+ year engineer thinks
+
+Architecture is not boxes. It is:
+
+```text
+Business requirements
++ correctness
++ scale
++ failure
++ operations
++ cost
++ people / ownership
+```
+
+Order of principles: **correctness before scale; requirements before technology; failure before happy path; trade-offs before implementation.** Optimize for blast radius, backward compatibility, and long-term operability.
+
+## Testing, deployment, migration, cost
+
+**Testing:** unit (engine), concurrency tests, integration, load/stress/soak, chaos (partitions, disk full), and Jepsen-style consistency checkers for the claimed model.
+
+**Deploy:** rolling/canary; protocol versioning; leader drain; instant rollback of binaries with on-disk compatibility guarantees.
+
+**Migration:**
+
+```text
+Dual write → backfill → checksum validate → shadow read → cut read → stop legacy writes → decommission
+```
+
+**Cost:** replica count, cross-region bandwidth, SSD vs tiered storage, compression CPU, compaction I/O, backup retention. Latency, durability, and cost pull in different directions — pick deliberately.
+
+## 45-minute interview answer
+
+| Minutes | Speak to |
+|---|---|
+| 0–5 | Requirements: durable single-key KV, latency/availability, MVP vs out-of-scope |
+| 5–10 | API + record model + idempotency/versions |
+| 10–20 | Single-node: WAL, MemTable, SSTable, compaction, cache, concurrency |
+| 20–30 | Partitioning (consistent hashing) + replication + quorum |
+| 30–35 | Consistency choice + failure/fencing/split brain |
+| 35–40 | Hot keys, multi-AZ/region, capacity numbers |
+| 40–45 | Trade-offs, monitoring, follow-ups |
+
+Closing line: “We built correctness on one node, scaled with partitions, survived faults with replication and fencing, and chose consistency consciously rather than by product name.”
+
+## Whiteboard version (5–7 minutes)
+
+```text
+Client → LB → KV Service → Partition Router → Primary + Replicas
+                                               ↓
+                                          WAL + SSTables
+```
+
+Add on follow-up: bloom/cache, membership/Raft meta, multi-AZ, object-store backups, rate limits.
+
+## Common mistakes
+
+1. Starting with technologies  
+2. Skipping clarification  
+3. Ignoring consistency model  
+4. Ignoring failures  
+5. Ignoring hot keys  
+6. No capacity math  
+7. No replication placement story  
+8. “Kafka solves it”  
+9. “Redis solves it”  
+10. Claiming exactly-once casually  
+11. Ignoring operability  
+12. No backups  
+13. No DR / RPO-RTO  
+14. Security as afterthought  
+15. Ignoring cost  
+16. Over-engineering MVP  
+17. Too many boxes  
+18. No trade-offs  
+19. No bottleneck analysis  
+20. No migration plan  
+21. Equating quorum with consensus  
+22. Trusting NTP for conflicts  
+23. ACK before durability without saying so  
+24. `hash % N` without rebalancing pain  
+25. Treating replicas as backups  
+
+## Final production architecture
+
+<Mermaid chart={`flowchart TD
+Clients --> DNS[Global DNS]
+DNS --> LB
+LB --> GW[API Gateway]
+GW --> KV[KV Services]
+KV --> P1[Partition group]
+KV --> P2[Partition group]
+P1 --> L1[Leader]
+P1 --> R1[Replicas]
+L1 --> WAL1[WAL / SSTables]
+KV --> Meta[Membership / Meta]
+KV --> Obs[Metrics / Traces]
+WAL1 --> Backup[Object store backups]
+`}/>
+
+## Key takeaways
+
+- Clarify durability and consistency before naming databases.
+- Make one node correct (WAL + structured storage) before distributing.
+- Partition for scale; replicate for failure; fence for safety.
+- `R+W>N` is not a synonym for linearizability.
+- Hot keys, clocks, split brain, and ops concerns fail real systems.
+- Staff/Principal answers sound like trade-off narratives under failure, not technology shopping lists.
+
+If you want the interview framework that sits above this problem, read *System Design Interview Preparation* on this blog; for the ring mathematics, read *Consistent Hashing*; for cache failure modes, read *Redis Internals and Distributed Caching*; for CAP storytelling, read *CAP Theorem Explained Through a Real-World Story*.
