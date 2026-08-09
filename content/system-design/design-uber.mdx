@@ -1,0 +1,78 @@
+---
+slug: design-uber
+title: Design Uber — Geospatial Matching at Scale
+description: Design a ride-sharing platform with location updates, driver matching, trip state, pricing and event-driven processing.
+category: System Design
+difficulty: Staff
+tags: [Geospatial, Kafka, Matching, Distributed Systems]
+readingTime: 30 min
+publishedAt: 2026-08-10
+---
+
+## The problem
+
+A rider requests a car and expects a nearby driver to be matched quickly. Driver locations change every few seconds, so the system must handle a high write rate while serving low-latency spatial queries.
+
+## Requirements
+
+Rider requests, driver availability, nearby-driver search, trip lifecycle, pricing, cancellation, notifications and location tracking.
+
+## Architecture
+
+```text
+Rider → API → Trip Service → Matching Service → Geo Index
+                         |          |
+                         |          +→ Driver Location Store
+                         +→ Kafka → Pricing / Notifications / Analytics
+```
+
+## Geospatial matching
+
+The matching service needs an index optimized for nearby queries. A geohash, S2 cell or another spatial partition can map coordinates into regions. The system searches the driver's current cell and neighboring cells rather than scanning every driver.
+
+## Trip state
+
+```text
+REQUESTED → MATCHING → DRIVER_ASSIGNED → ARRIVING → IN_TRIP → COMPLETED
+                                      ↘ CANCELLED
+```
+
+State transitions must be guarded against races. A driver should not be assigned to two trips simultaneously.
+
+## Concurrency
+
+Matching can use a short-lived reservation or distributed lock around driver assignment, but the strongest protection should still be an atomic business-state transition in the authoritative store.
+
+## Scaling
+
+Location updates are high-volume and can be separated from durable trip state. Hot geographic regions may require adaptive partitioning. Kafka can distribute location-derived events to consumers while a low-latency location store serves current positions.
+
+## Reliability
+
+If location updates stop, mark a driver stale rather than assuming they remain available. If a matching worker fails, another worker can retry based on the trip state. Notifications are asynchronous and should be idempotent.
+
+## Trade-offs
+
+| Decision | Benefit | Cost |
+|---|---|---|
+| Spatial index | Fast nearby search | Rebalancing complexity |
+| Event streaming | Decoupling | Eventual updates |
+| State machine | Correct lifecycle | More explicit modeling |
+| Short reservation | Prevents double assignment | Lock contention |
+
+## Interviewer follow-ups
+
+1. How do you find nearby drivers?
+2. What if a city becomes a hot region?
+3. How do you prevent double assignment?
+4. What if a driver stops sending location updates?
+5. How do you handle GPS noise?
+6. How would you shard by geography?
+7. How do you price dynamically?
+8. How do you recover a stuck trip?
+9. How would multi-region failover work?
+10. Which data must be strongly consistent?
+
+## Staff-level discussion
+
+Separate current location from durable trip history. Current location is rapidly changing derived state; trip state and financial outcomes need stronger correctness guarantees.
