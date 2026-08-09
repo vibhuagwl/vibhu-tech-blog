@@ -1,26 +1,71 @@
-# Vibhu Tech Blog
+# System Design Interview Hub
 
-A production-oriented technical knowledge-sharing platform focused on backend engineering, distributed systems, system design, and interview preparation.
+Production-oriented engineering publication by Vibhu Agarwal. Learn system design through real-world stories, architecture diagrams, capacity estimates, failure scenarios, trade-offs and senior/Staff-level interview follow-ups.
 
-## Topics
+## Stack
 
-- Java
-- Spring Boot
-- Kafka
-- Redis
-- Microservices
-- Distributed Systems
-- System Design
-- FinTech
-- Interview Preparation
+- Next.js + TypeScript
+- Tailwind CSS
+- MDX content with frontmatter
+- Mermaid diagrams
+- Static generation
+- GitHub Pages + GitHub Actions
+- SEO metadata, sitemap and RSS
 
-## Published
+## Content workflow
 
-- [Distributed Cache: Redis Architecture & Eviction](distributed-cache-redis-architecture-eviction.html)
+Create a file such as:
 
-## Author
+`content/system-design/design-whatsapp.mdx`
 
-Vibhu Agarwal — Backend / Java / Distributed Systems Engineering
+with frontmatter:
 
-- LinkedIn: https://www.linkedin.com/in/vibhuagwl/
-- GitHub: https://github.com/vibhuagwl
+```yaml
+---
+title: Design WhatsApp
+slug: design-whatsapp
+description: Design a highly available messaging platform.
+category: System Design
+difficulty: Advanced
+tags: [Messaging, Kafka]
+readingTime: 25 min
+publishedAt: 2026-08-10
+---
+```
+
+The build automatically discovers the article, generates its route and metadata, and includes it in the catalog/search.
+
+## Local development
+
+```bash
+npm install
+npm run dev
+npm run build
+npm run start
+```
+
+## Production
+
+Pushes to `main` run the GitHub Actions workflow and publish the static `out` directory to GitHub Pages.
+
+Current project URL:
+
+`https://vibhuagwl.github.io/vibhu-tech-blog/`
+
+## Structure
+
+```text
+app/                 Next.js routes
+components/          reusable UI + Mermaid
+content/             MDX articles
+lib/                 content discovery
+.github/workflows/   deployment
+```
+
+## Roadmap
+
+- Expand the learning path with HLD/LLD fundamentals
+- Add more FinTech designs
+- Add richer Mermaid diagrams and sequence diagrams
+- Add privacy-friendly analytics
+- Add custom domain when ready
