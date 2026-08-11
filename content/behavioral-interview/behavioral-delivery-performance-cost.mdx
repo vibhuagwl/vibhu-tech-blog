@@ -1,0 +1,69 @@
+---
+slug: behavioral-delivery-performance-cost
+title: "Delivery, Performance & Cost (Behavioral Q12–Q13, Q15, Q19–Q20, Q23)"
+description: "STAR answers for performance optimization, $1M+ cost reduction, prioritization, executive communication, delivering under pressure, and managing technical debt."
+category: Behavioral Interview
+difficulty: Advanced
+tags: [Behavioral, STAR, Leadership, Principal, Architect, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## 12. Improved performance
+
+**Situation:** API latency/throughput concern as volume grew.
+
+**Action:** Measured first — API latency, queries, connections, caching, downstream deps. Found inefficient queries and caching opportunities. Optimized access patterns and introduced appropriate caching.
+
+**Result:** Significant API performance and throughput improvement.
+
+**Close:** Measure → identify bottleneck → optimize → benchmark → monitor.
+
+---
+
+## 13. Reduced costs
+
+**Situation:** Observability platform expensive at scale.
+
+**Action:** Drove migration to custom analytics; balanced cost vs observability, security, reliability, ops. Critical capabilities first; incremental migration; production validation.
+
+**Result:** **$1M+/yr** infrastructure savings without gutting required signal.
+
+**Close:** Savings from architectural optimization — not blindly cutting functionality.
+
+---
+
+## 15. Prioritize when everything is urgent
+
+Four dimensions: **customer impact, business impact, risk, time sensitivity**.
+
+Financial-transaction production issues beat internal optimizations. Distinguish reversible vs irreversible. Make trade-offs visible to stakeholders — don’t start everything.
+
+**Close:** Maximize business value at acceptable risk — not tasks started.
+
+---
+
+## 19. Communicate with executives
+
+| Audience | Abstraction |
+|---|---|
+| Engineers | APIs, partitions, indexes, JVM, failure modes, latency |
+| Executives | Business/customer impact, risk, cost, timeline, investment, return |
+
+Instead of “Kafka consumer optimization reduced processing latency,” say: “We increased transaction processing capacity and reduced latency, supporting higher volume without proportional infrastructure growth.”
+
+---
+
+## 20. Delivered under extreme pressure
+
+Reduce uncertainty. Break into: must-deliver / defer / dependencies / failure modes / blocking decisions. Clear ownership + short feedback loops. Communicate risks early.
+
+**Close:** Pressure is manageable when ambiguity becomes decisions, owners, and measurable outcomes.
+
+---
+
+## 23. Handle technical debt
+
+Not all debt is bad — some is a conscious speed trade. Unmanaged debt is the problem.
+
+Categories: security, reliability, performance, productivity, maintainability. Prioritize security/reliability. Connect debt to business impact (“reduces deploy time and recurring prod risk”).

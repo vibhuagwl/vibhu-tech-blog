@@ -86,6 +86,7 @@ export const SECTION_CATEGORIES={
   behavior:['Behavior'],
   'leadership-principles':['Leadership Principles'],
   complexity:['Complexity'],
+  'behavioral-interview':['Behavioral Interview'],
   'kafka-interview':['Kafka Interview'],
 } as const;
 
