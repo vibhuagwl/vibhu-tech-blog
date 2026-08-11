@@ -1,0 +1,335 @@
+---
+slug: lock-performance-and-architecture
+title: "Distributed Locking 38-39, 55-57 and 60: Performance and Architecture"
+description: "Little's Law examples, lock granularity, atomic database updates, when not to use distributed locks, decision tree, golden rules and a one-page mental model."
+category: Distributed Systems
+difficulty: "Staff/Principal"
+tags: [Distributed Locking, Performance, Architecture, Little's Law, Spring Boot]
+readingTime: 24 min
+publishedAt: "2026-08-11"
+---
+
+## Series map
+
+- [NoSQL locking and comparisons](/distributed-systems/nosql-locking-and-comparisons)
+- [Locking failures, Kubernetes and security](/distributed-systems/locking-failures-k8s-and-security)
+- [Lock performance and architecture](/distributed-systems/lock-performance-and-architecture)
+- [Spring Boot locking implementations](/distributed-systems/spring-boot-locking-implementations)
+- [Payment and inventory locking case studies](/distributed-systems/payment-inventory-locking-case-studies)
+- [Distributed locking interview Q&A](/distributed-systems/distributed-locking-interview-qa)
+
+## 38. Little's Law: `L = λW`
+
+Little's Law says the average number of items in a stable system equals arrival rate times average time in system.
+
+```text
+L = lambda * W
+```
+
+For locks:
+
+- `lambda` is arrival rate for a lock key or key group.
+- `W` is total wait plus hold time.
+- `L` is average number of requests either waiting or holding.
+
+### Example 1: cache rebuild lock
+
+```text
+lambda = 100 requests/second for same cache key
+W = 200 ms = 0.2 seconds
+L = 100 * 0.2 = 20 requests
+```
+
+One request holds the rebuild lock and roughly 19 are waiting or falling back. If the HTTP thread pool is 200, a few hot keys can consume the whole pool.
+
+Architecture answer: use stale-while-revalidate, request coalescing and bounded wait. Do not let all callers queue behind the lock.
+
+### Example 2: inventory row lock
+
+```text
+lambda = 30 checkout attempts/second for SKU-42
+hold time = 40 ms DB transaction
+W under low contention ~= 40 ms = 0.04 seconds
+L = 30 * 0.04 = 1.2
+```
+
+This is healthy. A row lock can handle the burst if the transaction stays small.
+
+If an engineer adds a remote payment call inside the transaction:
+
+```text
+hold time = 900 ms
+L = 30 * 0.9 = 27
+```
+
+Now 27 sessions are tied to one SKU, and p99 lock waits climb. The lock did not fail; the architecture changed the hold time.
+
+### Example 3: global scheduler lock
+
+```text
+lambda = 20 pods trying every 5 seconds = 4 attempts/second
+W = 50 ms acquire attempt
+L = 4 * 0.05 = 0.2
+```
+
+Low `L` is fine, but the risk is not throughput. The risk is split brain and duplicate job execution. That needs fencing and idempotent job chunks.
+
+### Example 4: Kafka partition as lock
+
+```text
+lambda = 500 commands/second for account-7
+service time = 4 ms/command
+utilization = 500 * 0.004 = 2.0
+```
+
+Utilization above 1 means the single ordered lane cannot keep up. Kafka ordering solves concurrency, not capacity for a hot key. You need account-level sharding, command batching, or a different business partition.
+
+## 39. Granularity
+
+Lock granularity is the shape of the key that serializes work.
+
+| Granularity | Key example | Benefit | Cost |
+|---|---|---|---|
+| Global | `lock:settlement` | Simple correctness story | Terrible throughput and blast radius |
+| Tenant | `lock:tenant:123:settlement` | Isolates customers | Hot tenants still serialize |
+| Resource | `lock:order:987` | High concurrency | More keys and metrics cardinality |
+| Resource field | `lock:order:987:address` | Fine-grained parallelism | Harder reasoning and deadlocks |
+| Partition | `lock:inventory:partition:17` | Bounded key count | False contention |
+
+### Granularity rules
+
+1. Match the key to the invariant, not the code path.
+2. Do not lock "checkout" if the invariant is "one reservation for SKU and order."
+3. Avoid global locks in multi-tenant systems.
+4. If you must acquire multiple locks, impose a stable order.
+5. Prefer commutative writes over fine-grained lock hierarchies.
+6. Track top contended keys by hash to avoid leaking sensitive identifiers.
+
+### Multi-lock ordering
+
+```java
+public List<String> orderedLockKeys(List<String> resourceIds) {
+    return resourceIds.stream()
+        .map(id -> "lock:resource:" + DigestUtils.sha256Hex(id))
+        .sorted()
+        .toList();
+}
+```
+
+If transfers need both account locks, always acquire lower account ID first. Better yet, represent the transfer as a ledger transaction with database constraints and avoid two external locks.
+
+## 55. Atomic `UPDATE WHERE quantity &gt; 0`
+
+The best lock is often a single atomic write.
+
+```sql
+UPDATE inventory
+SET quantity = quantity - 1,
+    updated_at = now()
+WHERE sku = :sku
+  AND quantity > 0;
+```
+
+If affected rows equals one, the reservation succeeded. If zero, the item is sold out. This is stronger and simpler than a Redis lock around a read-then-write.
+
+Spring Boot implementation:
+
+```java
+@Repository
+public class InventoryCommandRepository {
+    private final NamedParameterJdbcTemplate jdbc;
+
+    public InventoryCommandRepository(NamedParameterJdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    public boolean reserveOne(String sku) {
+        String sql = """
+            UPDATE inventory
+            SET quantity = quantity - 1,
+                updated_at = now()
+            WHERE sku = :sku
+              AND quantity > 0
+            """;
+        int rows = jdbc.update(sql, Map.of("sku", sku));
+        return rows == 1;
+    }
+}
+```
+
+Production version with idempotency:
+
+```java
+@Transactional
+public ReservationResult reserve(String sku, String orderId, String idempotencyKey) {
+    if (reservationRepository.existsByIdempotencyKey(idempotencyKey)) {
+        return reservationRepository.findResult(idempotencyKey);
+    }
+
+    boolean reserved = inventoryCommandRepository.reserveOne(sku);
+    if (!reserved) {
+        reservationRepository.saveRejected(sku, orderId, idempotencyKey, "SOLD_OUT");
+        return ReservationResult.soldOut(sku);
+    }
+
+    reservationRepository.saveAccepted(sku, orderId, idempotencyKey);
+    outboxRepository.insert("InventoryReserved", orderId);
+    return ReservationResult.accepted(sku, orderId);
+}
+```
+
+This protects the invariant, creates an audit record and publishes through outbox after commit. No distributed lock is needed.
+
+## 56. When NOT to use a distributed lock
+
+Do not use a distributed lock when:
+
+1. A unique constraint expresses the invariant.
+2. A conditional update expresses the invariant.
+3. A single Kafka partition can serialize commands naturally.
+4. The operation is idempotent and duplicates are harmless.
+5. The critical section contains a remote service call.
+6. The lock would guard data owned by a database that can lock rows itself.
+7. You cannot define a safe TTL.
+8. You cannot fence stale owners.
+9. You cannot tolerate the lock service becoming a dependency.
+10. You are compensating for missing idempotency.
+11. The key would be global and hot.
+12. Operators cannot observe who holds the lock.
+13. You are trying to serialize all traffic to hide a race in one table.
+14. Failure requires manual force-unlock during peak traffic.
+15. The lock holder may run for minutes without checkpoints.
+
+Anti-pattern:
+
+```java
+lockManager.withLock("payment:" + orderId, () -> {
+    paymentProvider.capture(orderId);     // remote side effect
+    orderRepository.markPaid(orderId);     // local state update
+});
+```
+
+Better:
+
+1. Insert payment attempt with unique idempotency key.
+2. Commit local intent.
+3. Call provider with provider idempotency key.
+4. Store provider result idempotently.
+5. Publish outbox event.
+
+## 57. Decision tree
+
+```text
+What invariant are you protecting?
+|
++-- Single database row or set of rows?
+|   |
+|   +-- Can one conditional statement express it?
+|   |   +-- yes: use atomic UPDATE/INSERT with constraint
+|   |   +-- no: use DB transaction and row locks
+|
++-- Per-key command ordering?
+|   |
+|   +-- Can async processing work?
+|       +-- yes: use Kafka partition by key
+|       +-- no: use DB conditional write or short row lock
+|
++-- Leader election or scheduler ownership?
+|   |
+|   +-- Need strong coordination?
+|       +-- yes: use etcd/ZK lease with fencing
+|       +-- no: use DB advisory or Redis lease with idempotent work
+|
++-- Cache rebuild or duplicate suppression?
+|   |
+|   +-- Duplicates safe but wasteful?
+|       +-- yes: Redis lease, bounded wait, stale fallback
+|       +-- no: move invariant to durable storage
+|
++-- External side effect?
+    |
+    +-- Use idempotency, outbox and reconciliation before locks
+```
+
+### Decision matrix
+
+| Need | Primary design | Secondary guard |
+|---|---|---|
+| One result per API retry | Idempotency table with unique key | Replay stored response |
+| Last item sale | Atomic update | Reservation audit row |
+| One scheduler leader | etcd/ZK lease | Fencing token and chunk checkpoint |
+| Per-account ledger order | Kafka key or DB sequence | Idempotent command IDs |
+| Cache stampede control | Redis lease | Stale response and timeout |
+| Batch export duplicate prevention | DB job table claim | Heartbeat and takeover policy |
+
+## Golden rules 30-50
+
+30. Name the invariant before naming the lock technology.
+31. Prefer a write-side constraint over a read-side check.
+32. Keep critical sections short, synchronous and local.
+33. Never perform unknown remote side effects while holding a DB row lock.
+34. A lease without fencing is not enough for irreversible writes.
+35. Every lock value should include owner, request ID, start time and token when available.
+36. Release with compare-and-delete, not blind delete.
+37. Bound acquisition wait; infinite wait turns contention into outage.
+38. Bound lease duration; unbounded locks turn crashes into manual recovery.
+39. Renewals must be observable and failure must reach business code.
+40. Use jittered retry; lock contention is already coordination, do not synchronize retries.
+41. Instrument wait time, hold time, contention rate and timeout rate.
+42. Keep DB transactions smaller than HTTP request deadlines.
+43. Do not hold scarce pools while waiting for another scarce pool.
+44. Use tenant-scoped keys in multi-tenant systems.
+45. Hash sensitive identifiers in lock keys and metrics.
+46. For multiple locks, define global ordering or redesign.
+47. During deploy, drain work before releasing readiness.
+48. Make forced unlock an audited runbook, not a casual Redis command.
+49. Test GC pause, process crash, network partition and lock service failover.
+50. If the lock protects money, the database or ledger must still reject stale writes.
+
+## 60. One-page mental model
+
+Locks provide one of three things:
+
+1. **Serialization**: only one actor enters a section at a time.
+2. **Ownership**: one actor is responsible for a task until lease expiry.
+3. **Backpressure**: contenders wait, fail fast or degrade.
+
+They do not automatically provide:
+
+- Durable exactly-once effects.
+- Protection against a paused old owner.
+- Protection against lock service split brain.
+- Idempotency for retries.
+- Ordering across unrelated keys.
+- A substitute for database constraints.
+
+### The safe design stack
+
+```text
+API request
+  -> idempotency key
+  -> validate command
+  -> atomic storage mutation or ordered partition
+  -> outbox event
+  -> external side effect with provider idempotency
+  -> reconciliation
+```
+
+Locks appear only where they reduce waste or assign ownership. The invariant still belongs to storage.
+
+### Staff/Principal review checklist
+
+Ask these questions in design review:
+
+1. What is the worst stale owner action?
+2. What rejects that stale action?
+3. How do we observe the current owner?
+4. What happens if the holder dies after doing half the work?
+5. How does the next owner know where to resume?
+6. What is the lock key cardinality?
+7. What is the hot-key plan?
+8. What pool is held while waiting?
+9. What is the operator runbook?
+10. What test proves this works under pause and failover?
+
+If the answer to question 2 is "the lock should prevent it," the design is incomplete.

@@ -1,0 +1,332 @@
+---
+slug: nosql-locking-and-comparisons
+title: "Distributed Locking 31-34: NoSQL Consistency and Locking Comparisons"
+description: "Staff/Principal guide to MongoDB, DynamoDB, Cassandra LWT, etcd, ZooKeeper and choosing JVM, Spring, Postgres, Redis, Redisson, Kafka or optimistic concurrency."
+category: Distributed Systems
+difficulty: "Staff/Principal"
+tags: [Distributed Locking, NoSQL, MongoDB, DynamoDB, Cassandra, ZooKeeper, etcd, Spring Boot]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## Series map
+
+- [NoSQL locking and comparisons](/distributed-systems/nosql-locking-and-comparisons)
+- [Locking failures, Kubernetes and security](/distributed-systems/locking-failures-k8s-and-security)
+- [Lock performance and architecture](/distributed-systems/lock-performance-and-architecture)
+- [Spring Boot locking implementations](/distributed-systems/spring-boot-locking-implementations)
+- [Payment and inventory locking case studies](/distributed-systems/payment-inventory-locking-case-studies)
+- [Distributed locking interview Q&A](/distributed-systems/distributed-locking-interview-qa)
+
+## 31. NoSQL consistency models for locks
+
+The interview trap is to say "NoSQL is eventually consistent" and stop. Staff+ answers name the exact operation that creates mutual exclusion.
+
+| System | Useful primitive | Consistency shape | Locking fit | Primary hazard |
+|---|---|---|---|---|
+| MongoDB | Atomic single-document update | Linearizable per primary when using majority write and appropriate read concern | Good for per-document ownership | Failover and stale reads when read concern is weak |
+| DynamoDB | Conditional put/update | Linearizable for strongly consistent reads on base table plus conditional writes | Good for short leases and idempotency records | TTL is asynchronous; global tables are multi-writer conflict resolution |
+| Cassandra | Lightweight transaction (LWT) | Paxos per partition key | Possible but high-latency, low-throughput | Hot partitions and contention collapse |
+| etcd | Lease plus compare-and-swap | Linearizable quorum store | Excellent for coordination | Coordination store, not business data plane |
+| ZooKeeper | Ephemeral sequential znode | Session-ordered CP coordination | Excellent for leader election and queues | Session timeout tuning and herd effects |
+
+### MongoDB
+
+MongoDB gives atomicity at the document level. A lock record can be a document whose owner changes only if the old lease has expired.
+
+```javascript
+db.locks.findOneAndUpdate(
+  {
+    _id: "inventory:sku-42",
+    $or: [
+      { leaseExpiresAt: { $lte: now } },
+      { ownerId: workerId }
+    ]
+  },
+  {
+    $set: {
+      ownerId: workerId,
+      leaseExpiresAt: new Date(now.getTime() + 15000),
+      purpose: "reserve last item"
+    },
+    $inc: { fencingToken: 1 }
+  },
+  {
+    upsert: true,
+    returnDocument: "after",
+    writeConcern: { w: "majority" }
+  }
+)
+```
+
+Production rules:
+
+1. Use majority write concern for the acquisition.
+2. Prefer majority or linearizable reads when reading the lock state for control decisions.
+3. Store a fencing token and require protected writes to carry it.
+4. Keep lock records small; they are coordination metadata, not audit history.
+5. Expire with application logic; TTL indexes are cleanup, not precise lease timers.
+
+### DynamoDB
+
+DynamoDB's `ConditionExpression` is the core primitive. It can atomically create a lock if absent or steal it after expiry.
+
+```java
+public LockLease acquire(String lockName, String ownerId, Duration ttl) {
+    long now = clock.millis();
+    long expiresAt = now + ttl.toMillis();
+
+    Map<String, AttributeValue> item = Map.of(
+        "pk", AttributeValue.fromS(lockName),
+        "ownerId", AttributeValue.fromS(ownerId),
+        "expiresAtMs", AttributeValue.fromN(Long.toString(expiresAt)),
+        "fencingToken", AttributeValue.fromN("1")
+    );
+
+    PutItemRequest request = PutItemRequest.builder()
+        .tableName(tableName)
+        .item(item)
+        .conditionExpression("attribute_not_exists(pk) OR expiresAtMs < :now")
+        .expressionAttributeValues(Map.of(":now", AttributeValue.fromN(Long.toString(now))))
+        .build();
+
+    dynamoDb.putItem(request);
+    return new LockLease(lockName, ownerId, expiresAt);
+}
+```
+
+Real systems often use `UpdateItem` with `ADD fencingToken :one` so the token is monotonic across owners. Strongly consistent `GetItem` is available on a table, but not on GSI queries. TTL deletion can lag by minutes or longer, so never interpret the TTL sweeper as the lease mechanism.
+
+### Cassandra LWT
+
+Cassandra LWT uses Paxos for a single partition key. It is correct for conditional ownership, but expensive under contention.
+
+```sql
+UPDATE locks
+SET owner_id = ?, expires_at_ms = ?, fencing_token = fencing_token + 1
+WHERE lock_name = ?
+IF expires_at_ms < ? OR owner_id = ?;
+```
+
+Use it when:
+
+- The lock key is naturally low QPS.
+- Contention is rare.
+- The consistency story must stay inside Cassandra.
+- You can tolerate p99 latency spikes during Paxos rounds.
+
+Avoid it for a globally hot key such as `daily-settlement`. At high contention, every losing contender still consumes coordinator and replica work.
+
+### etcd
+
+etcd is designed for coordination. The typical shape is:
+
+1. Create a lease with TTL.
+2. Put key `/locks/name` with lease only if version is zero.
+3. Keep the lease alive while the holder is healthy.
+4. Delete the key on release.
+5. Use revision or a separate counter as fencing.
+
+```text
+txn:
+  compare version("/locks/reconcile") == 0
+  success put("/locks/reconcile", ownerId, lease=123)
+  failure get("/locks/reconcile")
+```
+
+The important point is that etcd transactions are linearizable through quorum. That makes it a better coordination service than Redis for long-lived leadership, but it should not become a high-cardinality request lock service.
+
+### ZooKeeper
+
+ZooKeeper uses sessions and ephemeral sequential znodes.
+
+```text
+/locks/export/job-0000000007  owner=A
+/locks/export/job-0000000008  owner=B
+```
+
+The lowest sequence number owns the lock. Other clients watch only the predecessor node, not the parent, which avoids a thundering herd.
+
+Session expiry is the subtlety. If a client is paused longer than the session timeout, ZooKeeper can remove its ephemeral node. The client might wake up and still try to write. The protected resource still needs a fencing check.
+
+## 32. Comparison table: JVM, Spring, Postgres, Redis, Redisson, ZK, etcd, DynamoDB
+
+| Option | Scope | Mutual exclusion strength | Typical Spring integration | Latency | Failure behavior | Best use |
+|---|---|---|---|---|---|---|
+| JVM `synchronized` / `ReentrantLock` | One process | Strong inside one JVM | Bean-local lock registry | Nanoseconds to microseconds | Lost on process crash; no cross-pod safety | Protect in-memory maps or local rate counters |
+| Spring `@Transactional` + DB constraints | Database row/table | Strong if isolation and constraint fit | Service transaction boundary | Single-digit ms to tens of ms | DB is source of truth; blocked sessions possible | Money, inventory, idempotency |
+| Postgres `SELECT ... FOR UPDATE` | Row set | Strong row-level pessimistic lock | `JdbcTemplate`, JPA lock mode | ms plus wait time | Deadlocks and long transactions block waiters | Short critical updates on existing rows |
+| Postgres advisory lock | Connection or transaction | Strong inside one database | `pg_try_advisory_xact_lock` | ms | Tied to DB session; pool leaks matter | Coarse DB-scoped jobs |
+| Redis `SET NX PX` | Redis primary view | Lease-based, not a write fence | `StringRedisTemplate` + Lua release | sub-ms to low ms | Expiry, failover, pause can create double owners | Short best-effort dedupe and stampede control |
+| Redisson `RLock` | Redis plus watchdog | Lease-based with renewal | Redisson Spring Boot starter | low ms | Watchdog depends on process health and Redis connectivity | Ergonomic short critical sections |
+| ZooKeeper | Quorum coordination | CP session semantics | Curator recipes | low tens of ms | Session expiry releases locks | Leader election, distributed schedulers |
+| etcd | Quorum coordination | Linearizable CAS plus leases | Jetcd client or sidecar | low tens of ms | Lease expiry releases keys | Kubernetes-style control-plane coordination |
+| DynamoDB conditional write | One item/partition | Atomic condition at storage | AWS SDK client in service | single-digit to tens of ms | Conditional failures are normal; TTL lag | Serverless locks, idempotency, reservation rows |
+
+Decision posture:
+
+- If a database row is the resource, make the database decide.
+- If the problem is work ordering, key the work to a single Kafka partition.
+- If the problem is leader election, use etcd or ZooKeeper.
+- If the problem is duplicate HTTP retries, use idempotency keys and unique constraints.
+- If the problem is cache stampede, a short Redis lease is often sufficient.
+
+## 33. Optimistic vs pessimistic concurrency
+
+Pessimistic concurrency blocks a conflicting actor before it enters the critical section. Optimistic concurrency allows concurrent work and rejects stale commits.
+
+| Style | Example | Cost paid when | Good fit | Bad fit |
+|---|---|---|---|---|
+| Pessimistic | `SELECT ... FOR UPDATE` | Before work | High conflict, short work, critical invariant | Remote API calls while holding lock |
+| Optimistic | `version = ?` update | At commit | Low conflict, cheap retry | Long expensive work that frequently conflicts |
+| Conditional atomic | `UPDATE inventory SET quantity = quantity - 1 WHERE sku = ? AND quantity &gt; 0` | At storage mutation | Single-row invariant | Multi-resource invariant |
+| Lease lock | Redis/etcd/DynamoDB lease | Before work, with expiry | Cross-node task ownership | Protecting writes without fencing |
+
+### Production optimistic pattern
+
+```java
+@Entity
+public class InventoryItem {
+    @Id
+    private String sku;
+
+    @Version
+    private long version;
+
+    private int available;
+
+    public void reserveOne() {
+        if (available <= 0) {
+            throw new SoldOutException(sku);
+        }
+        available -= 1;
+    }
+}
+```
+
+In Spring Boot, map optimistic conflicts to retries with jitter only when the operation is idempotent. Do not retry a payment capture blindly after an unknown PSP response.
+
+### Production pessimistic pattern
+
+```java
+@Repository
+public interface InventoryRepository extends JpaRepository<InventoryItem, String> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from InventoryItem i where i.sku = :sku")
+    Optional<InventoryItem> findForUpdate(@Param("sku") String sku);
+}
+```
+
+Keep the transaction tight:
+
+1. Start transaction.
+2. Load row with lock.
+3. Validate invariant.
+4. Mutate row.
+5. Insert idempotency/outbox rows.
+6. Commit.
+
+No HTTP calls, Kafka sends, sleeps, or retries inside the locked transaction.
+
+## 34. Options A-D: Redis lock vs DB lock vs Kafka partition vs optimistic
+
+### Option A: Redis lock
+
+Flow:
+
+1. `SET lock:sku:42 owner NX PX 5000`.
+2. If acquired, run critical section.
+3. Release with Lua that checks owner.
+4. Emit metrics for wait time, hold time and contention.
+
+Use for:
+
+- Cache rebuild serialization.
+- Short duplicate suppression.
+- Work that can tolerate occasional duplicate execution.
+
+Do not use alone for:
+
+- Money movement.
+- Last-item inventory.
+- Anything where stale owners can corrupt state.
+
+If Redis protects a database write, add a fencing token column or use a database conditional update.
+
+### Option B: DB lock
+
+Flow:
+
+1. Begin transaction.
+2. Lock row with `FOR UPDATE` or rely on conditional update.
+3. Change the resource.
+4. Commit.
+
+Use for invariants owned by the database. For example:
+
+```sql
+UPDATE inventory
+SET quantity = quantity - 1
+WHERE sku = :sku
+  AND quantity > 0;
+```
+
+That statement is often better than any explicit lock. It is atomic, short, observable in the database, and naturally survives application crashes.
+
+### Option C: Kafka partition ownership
+
+Flow:
+
+1. Key events by resource ID.
+2. Kafka sends the same key to one partition.
+3. A consumer group assigns that partition to one consumer at a time.
+4. The consumer applies changes in offset order.
+
+Use for ordered command processing:
+
+- Ledger account events.
+- Per-order state machines.
+- Inventory reservations where asynchronous acceptance is acceptable.
+
+Hazards:
+
+- Rebalances pause progress.
+- Consumers can reprocess after crash.
+- Side effects still require idempotency.
+- Hot keys can overload one partition.
+
+### Option D: Optimistic concurrency
+
+Flow:
+
+1. Read row and version.
+2. Compute new state.
+3. Commit with `WHERE id = ? AND version = ?`.
+4. Retry on conflict if safe.
+
+Use for low contention business objects and high read concurrency. Optimistic concurrency is usually the best default for user profile edits, catalog metadata and workflow state where conflicts are rare.
+
+### Choosing between A-D
+
+| Situation | Choose | Why |
+|---|---|---|
+| Last unit of inventory in Postgres | B or conditional update | Database owns the invariant |
+| Cache miss rebuild causing 500 duplicate expensive calls | A | Duplicate rebuild is waste, not corruption |
+| Account ledger commands must be ordered | C | Partition key gives deterministic serial order |
+| Product description edits by admins | D | Conflicts are rare and easy to retry |
+| Distributed scheduler leader | etcd/ZK rather than A-D | Need session semantics and watchable ownership |
+| Payment API retry | DB unique idempotency key, not a lock | The invariant is "one result per key" |
+
+## Staff+ answer template
+
+When asked "which lock would you use?", answer in this order:
+
+1. Name the protected invariant.
+2. Name the system of record.
+3. Prefer an atomic write in that system.
+4. If using a lease, state the TTL and renewal policy.
+5. State how stale owners are fenced.
+6. State what metrics prove contention is healthy.
+7. State what happens during crash, pause, partition and deploy.
+
+The strongest answer is often: "I would not use a distributed lock; I would make the write conditional in the storage system that owns the invariant."

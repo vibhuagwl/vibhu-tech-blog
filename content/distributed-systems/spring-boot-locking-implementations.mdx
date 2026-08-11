@@ -1,0 +1,438 @@
+---
+slug: spring-boot-locking-implementations
+title: "Distributed Locking 52: Spring Boot Implementations from JVM to Fencing Tokens"
+description: "Six production-oriented Spring Boot locking sketches: JVM lock, Postgres pessimistic, optimistic versioning, Redis SET NX PX with Lua, Redisson and fencing tokens."
+category: Distributed Systems
+difficulty: "Staff/Principal"
+tags: [Spring Boot, Java, Distributed Locking, Postgres, Redis, Redisson, Fencing]
+readingTime: 28 min
+publishedAt: "2026-08-11"
+---
+
+## Series map
+
+- [NoSQL locking and comparisons](/distributed-systems/nosql-locking-and-comparisons)
+- [Locking failures, Kubernetes and security](/distributed-systems/locking-failures-k8s-and-security)
+- [Lock performance and architecture](/distributed-systems/lock-performance-and-architecture)
+- [Spring Boot locking implementations](/distributed-systems/spring-boot-locking-implementations)
+- [Payment and inventory locking case studies](/distributed-systems/payment-inventory-locking-case-studies)
+- [Distributed locking interview Q&A](/distributed-systems/distributed-locking-interview-qa)
+
+## 52. Six Spring Boot locking versions
+
+All versions share a thin controller and metrics boundary. Keep raw IDs out of metric labels.
+
+```java
+public record ReserveInventoryRequest(String sku, String orderId, String idempotencyKey) {}
+public record ReserveInventoryResponse(String orderId, String sku, String status) {}
+
+@RestController
+@RequestMapping("/api/inventory")
+class InventoryController {
+    private final InventoryReservationService service;
+
+    InventoryController(InventoryReservationService service) {
+        this.service = service;
+    }
+
+    @PostMapping("/reserve")
+    ResponseEntity<ReserveInventoryResponse> reserve(
+            @Valid @RequestBody ReserveInventoryRequest request) {
+        return ResponseEntity.ok(service.reserve(request));
+    }
+}
+
+interface InventoryReservationService {
+    ReserveInventoryResponse reserve(ReserveInventoryRequest request);
+}
+
+@Component
+class LockMetrics {
+    private final MeterRegistry registry;
+
+    LockMetrics(MeterRegistry registry) {
+        this.registry = registry;
+    }
+
+    <T> T record(String type, String keyClass, Supplier<T> action) {
+        Timer.Sample sample = Timer.start(registry);
+        try {
+            return action.get();
+        } finally {
+            sample.stop(registry.timer("lock.wait", "type", type, "keyClass", keyClass));
+        }
+    }
+}
+```
+
+## Version 1: JVM lock
+
+Use this only for one process: local caches, in-memory maps or a single-node batch tool.
+
+```java
+@Component
+class LocalStripedLockManager {
+    private final ReentrantLock[] stripes;
+
+    LocalStripedLockManager(@Value("${locks.local.stripes:256}") int n) {
+        this.stripes = IntStream.range(0, n)
+            .mapToObj(i -> new ReentrantLock())
+            .toArray(ReentrantLock[]::new);
+    }
+
+    <T> T withLock(String key, Duration wait, Supplier<T> action) {
+        ReentrantLock lock = stripes[Math.floorMod(key.hashCode(), stripes.length)];
+        boolean acquired = false;
+        try {
+            acquired = lock.tryLock(wait.toMillis(), TimeUnit.MILLISECONDS);
+            if (!acquired) throw new LockBusyException(key);
+            return action.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new LockInterruptedException(key, e);
+        } finally {
+            if (acquired) lock.unlock();
+        }
+    }
+}
+
+@Service
+class LocalInventoryService implements InventoryReservationService {
+    private final LocalStripedLockManager locks;
+    private final InventoryRepository repository;
+
+    @Override
+    public ReserveInventoryResponse reserve(ReserveInventoryRequest r) {
+        return locks.withLock(r.sku(), Duration.ofMillis(100), () -> {
+            InventoryItem item = repository.findBySku(r.sku()).orElseThrow();
+            item.reserveOne();
+            repository.save(item);
+            return new ReserveInventoryResponse(r.orderId(), r.sku(), "RESERVED");
+        });
+    }
+}
+```
+
+Flow: hash key to stripe, try a bounded local lock, mutate, release in `finally`.
+
+Concurrency: strong inside one JVM; two Kubernetes pods can both enter.
+
+Failures: pod crash loses the lock; rolling deploy creates independent lock managers; never use this for shared database invariants.
+
+Pros/cons: fastest and simplest, but not distributed and not durable.
+
+## Version 2: Postgres pessimistic row lock
+
+Use when the database owns the invariant and conflicts are expected.
+
+```java
+@Entity
+@Table(name = "inventory")
+class InventoryItem {
+    @Id String sku;
+    @Column(nullable = false) int quantity;
+
+    void reserveOne() {
+        if (quantity <= 0) throw new SoldOutException(sku);
+        quantity -= 1;
+    }
+}
+
+@Repository
+interface InventoryJpaRepository extends JpaRepository<InventoryItem, String> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "250"))
+    @Query("select i from InventoryItem i where i.sku = :sku")
+    Optional<InventoryItem> findBySkuForUpdate(@Param("sku") String sku);
+}
+
+@Service
+class PessimisticInventoryService implements InventoryReservationService {
+    private final InventoryJpaRepository inventory;
+    private final ReservationRepository reservations;
+    private final OutboxRepository outbox;
+
+    @Transactional(timeout = 2)
+    public ReserveInventoryResponse reserve(ReserveInventoryRequest r) {
+        return reservations.findByIdempotencyKey(r.idempotencyKey())
+            .map(ReservationRecord::toResponse)
+            .orElseGet(() -> reserveNew(r));
+    }
+
+    private ReserveInventoryResponse reserveNew(ReserveInventoryRequest r) {
+        InventoryItem item = inventory.findBySkuForUpdate(r.sku()).orElseThrow();
+        item.reserveOne();
+        reservations.insertAccepted(r.orderId(), r.sku(), r.idempotencyKey());
+        outbox.insert("InventoryReserved", r.orderId(), Map.of("sku", r.sku()));
+        return new ReserveInventoryResponse(r.orderId(), r.sku(), "RESERVED");
+    }
+}
+```
+
+Flow: begin transaction, check idempotency, lock row, mutate, insert reservation/outbox, commit.
+
+Concurrency: one transaction owns the row; waiters block, timeout or deadlock if multi-row order is inconsistent.
+
+Failures: crash rolls back uncommitted work; long transactions block waiters; DB pool exhaustion can spread to unrelated endpoints.
+
+Pros/cons: strong and observable in SQL, but only safe when the locked transaction stays short and local.
+
+## Version 3: optimistic `@Version`
+
+Use when conflicts are rare and retry is cheap.
+
+```java
+@Entity
+class VersionedInventoryItem {
+    @Id String sku;
+    @Version long version;
+    @Column(nullable = false) int quantity;
+
+    void reserveOne() {
+        if (quantity <= 0) throw new SoldOutException(sku);
+        quantity -= 1;
+    }
+}
+
+@Service
+class OptimisticInventoryService implements InventoryReservationService {
+    private static final int MAX_ATTEMPTS = 3;
+    private final VersionedInventoryRepository inventory;
+    private final TransactionTemplate tx;
+
+    public ReserveInventoryResponse reserve(ReserveInventoryRequest r) {
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                return tx.execute(status -> reserveOnce(r));
+            } catch (ObjectOptimisticLockingFailureException e) {
+                if (attempt == MAX_ATTEMPTS) throw new LockBusyException(r.sku(), e);
+                sleepWithJitter(attempt);
+            }
+        }
+        throw new IllegalStateException("unreachable");
+    }
+
+    private ReserveInventoryResponse reserveOnce(ReserveInventoryRequest r) {
+        VersionedInventoryItem item = inventory.findById(r.sku()).orElseThrow();
+        item.reserveOne();
+        inventory.saveAndFlush(item);
+        return new ReserveInventoryResponse(r.orderId(), r.sku(), "RESERVED");
+    }
+}
+```
+
+Flow: read version, modify, flush with expected version, retry safe conflicts.
+
+Concurrency: readers proceed; one writer wins; losers fail at commit and retry.
+
+Failures: hot SKUs create retry storms; blind retry duplicates side effects; user conflicts need domain responses.
+
+Pros/cons: high concurrency and no blocking, but poor for high-conflict last-item races.
+
+## Version 4: Redis `SET NX PX` plus Lua
+
+Use for short sections where duplicate execution is tolerable or fenced elsewhere.
+
+```java
+@Component
+class RedisLockManager {
+    private static final DefaultRedisScript<Long> RELEASE = new DefaultRedisScript<>(
+        """
+        if redis.call('get', KEYS[1]) == ARGV[1] then
+          return redis.call('del', KEYS[1])
+        end
+        return 0
+        """,
+        Long.class
+    );
+
+    private final StringRedisTemplate redis;
+    private final Clock clock;
+
+    Optional<RedisLockHandle> tryAcquire(String key, Duration wait, Duration lease) {
+        String owner = UUID.randomUUID().toString();
+        long deadline = clock.millis() + wait.toMillis();
+        while (clock.millis() < deadline) {
+            if (Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(key, owner, lease))) {
+                return Optional.of(new RedisLockHandle(redis, key, owner));
+            }
+            LockSupport.parkNanos(Duration.ofMillis(25).toNanos());
+        }
+        return Optional.empty();
+    }
+
+    record RedisLockHandle(StringRedisTemplate redis, String key, String owner)
+            implements AutoCloseable {
+        @Override public void close() {
+            redis.execute(RELEASE, List.of(key), owner);
+        }
+    }
+}
+
+@Service
+class RedisLockedInventoryService implements InventoryReservationService {
+    private final RedisLockManager locks;
+    private final InventoryCommandRepository inventory;
+
+    public ReserveInventoryResponse reserve(ReserveInventoryRequest r) {
+        String key = "lock:v1:inventory:" + DigestUtils.sha256Hex(r.sku());
+        try (RedisLockManager.RedisLockHandle ignored = locks
+                .tryAcquire(key, Duration.ofMillis(150), Duration.ofSeconds(3))
+                .orElseThrow(() -> new LockBusyException(r.sku()))) {
+            boolean ok = inventory.reserveOne(r.sku());
+            return new ReserveInventoryResponse(r.orderId(), r.sku(), ok ? "RESERVED" : "SOLD_OUT");
+        }
+    }
+}
+```
+
+Flow: `SET key owner NX PX lease`, run short section, release with owner-checking Lua, recover by TTL.
+
+Concurrency: Redis serializes visible owners on the current primary; failed contenders return busy or retry with jitter.
+
+Failures: GC pause, lease expiry or Redis failover can create stale owners; add fencing for irreversible writes.
+
+Pros/cons: low latency and ergonomic, but lease safety depends on the Redis failure model.
+
+## Version 5: Redisson
+
+Use when you want a maintained Redis API and have explicit watchdog expectations.
+
+```java
+@Component
+class RedissonLockManager {
+    private final RedissonClient redisson;
+
+    <T> T withLock(String key, Duration wait, Duration lease, Supplier<T> action) {
+        RLock lock = redisson.getLock(key);
+        boolean acquired = false;
+        try {
+            acquired = lock.tryLock(wait.toMillis(), lease.toMillis(), TimeUnit.MILLISECONDS);
+            if (!acquired) throw new LockBusyException(key);
+            return action.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new LockInterruptedException(key, e);
+        } finally {
+            if (acquired && lock.isHeldByCurrentThread()) lock.unlock();
+        }
+    }
+}
+
+@Configuration
+class RedissonConfiguration {
+    @Bean
+    RedissonClient redissonClient(RedisProperties p) {
+        Config config = new Config();
+        config.useSingleServer().setAddress("rediss://" + p.getHost() + ":" + p.getPort());
+        config.setLockWatchdogTimeout(10_000);
+        return Redisson.create(config);
+    }
+}
+```
+
+Flow: create `RLock`, try with wait and lease, execute, unlock only when current thread still owns.
+
+Concurrency: Redisson handles owner values and release script; watchdog renews while the client appears healthy.
+
+Failures: watchdog renewal can fail under pauses or connectivity loss; Redis topology still defines safety; no automatic fencing.
+
+Pros/cons: battle-tested Spring-friendly client, but easy to overtrust for data safety.
+
+## Version 6: fencing-token design
+
+Use when stale owners must be rejected by the protected resource.
+
+```sql
+CREATE TABLE distributed_lock (
+    lock_name TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    lease_expires_at TIMESTAMPTZ NOT NULL,
+    fencing_token BIGINT NOT NULL
+);
+
+CREATE TABLE inventory_command_state (
+    sku TEXT PRIMARY KEY,
+    quantity INTEGER NOT NULL,
+    last_fencing_token BIGINT NOT NULL DEFAULT 0
+);
+```
+
+```java
+public record FencedLock(String name, String ownerId, long token, Instant expiresAt) {}
+
+@Component
+class PostgresFencingLockManager {
+    private final NamedParameterJdbcTemplate jdbc;
+    private final Clock clock;
+    private final String ownerId;
+
+    @Transactional
+    Optional<FencedLock> tryAcquire(String name, Duration lease) {
+        Instant now = clock.instant();
+        Instant expiresAt = now.plus(lease);
+        String sql = """
+            INSERT INTO distributed_lock(lock_name, owner_id, lease_expires_at, fencing_token)
+            VALUES (:name, :owner, :expiresAt, 1)
+            ON CONFLICT (lock_name) DO UPDATE
+            SET owner_id = EXCLUDED.owner_id,
+                lease_expires_at = EXCLUDED.lease_expires_at,
+                fencing_token = distributed_lock.fencing_token + 1
+            WHERE distributed_lock.lease_expires_at < :now
+               OR distributed_lock.owner_id = :owner
+            RETURNING fencing_token, lease_expires_at
+            """;
+        return jdbc.query(sql, Map.of("name", name, "owner", ownerId,
+            "expiresAt", Timestamp.from(expiresAt), "now", Timestamp.from(now)),
+            (rs, row) -> new FencedLock(name, ownerId, rs.getLong(1),
+                rs.getTimestamp(2).toInstant())).stream().findFirst();
+    }
+}
+
+@Repository
+class FencedInventoryRepository {
+    private final NamedParameterJdbcTemplate jdbc;
+
+    boolean reserveOne(String sku, long token) {
+        int rows = jdbc.update("""
+            UPDATE inventory_command_state
+            SET quantity = quantity - 1,
+                last_fencing_token = :token
+            WHERE sku = :sku
+              AND quantity > 0
+              AND :token > last_fencing_token
+            """, Map.of("sku", sku, "token", token));
+        return rows == 1;
+    }
+}
+
+@Service
+class FencedInventoryService implements InventoryReservationService {
+    private final PostgresFencingLockManager locks;
+    private final FencedInventoryRepository inventory;
+
+    public ReserveInventoryResponse reserve(ReserveInventoryRequest r) {
+        FencedLock lock = locks.tryAcquire("inventory:" + r.sku(), Duration.ofSeconds(5))
+            .orElseThrow(() -> new LockBusyException(r.sku()));
+        boolean ok = inventory.reserveOne(r.sku(), lock.token());
+        return new ReserveInventoryResponse(r.orderId(), r.sku(), ok ? "RESERVED" : "REJECTED");
+    }
+}
+```
+
+Flow: acquire lease, increment token, include token on every protected write, reject stale tokens.
+
+Concurrency: duplicate owners may exist under pause or failover, but only the newest accepted token mutates storage.
+
+Failures: token source must be linearizable; every write path must enforce the token; side effects still need idempotency.
+
+Pros/cons: strongest lease design for stale owners, with more schema and plumbing.
+
+## Production checklist
+
+- Controller: validate idempotency key, map lock busy to 409/429, hide owner secrets.
+- Service: keep transactions short, avoid remote calls inside locks, persist outbox with state.
+- Lock manager: bounded wait, bounded lease, owner metadata, owner-checked release.
+- Metrics: `lock.wait`, `lock.hold`, `lock.timeout`, `lock.acquire.error`, `lock.active`.
+
+The production answer is not one favorite API. It is matching lock scope to invariant, failure mode and operational visibility.

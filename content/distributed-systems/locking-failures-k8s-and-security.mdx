@@ -1,0 +1,457 @@
+---
+slug: locking-failures-k8s-and-security
+title: "Distributed Locking 35-38 and 47-50: Failures, Kubernetes and Security"
+description: "Lease timelines, split brain, Redisson watchdog failures, pool interactions, incident playbooks, Kubernetes shutdown and security controls for production locks."
+category: Distributed Systems
+difficulty: "Staff/Principal"
+tags: [Distributed Locking, Kubernetes, Redisson, Incident Response, Security, Spring Boot]
+readingTime: 28 min
+publishedAt: "2026-08-11"
+---
+
+## Series map
+
+- [NoSQL locking and comparisons](/distributed-systems/nosql-locking-and-comparisons)
+- [Locking failures, Kubernetes and security](/distributed-systems/locking-failures-k8s-and-security)
+- [Lock performance and architecture](/distributed-systems/lock-performance-and-architecture)
+- [Spring Boot locking implementations](/distributed-systems/spring-boot-locking-implementations)
+- [Payment and inventory locking case studies](/distributed-systems/payment-inventory-locking-case-studies)
+- [Distributed locking interview Q&A](/distributed-systems/distributed-locking-interview-qa)
+
+## 35. Eight lease scenarios with timelines
+
+Assume a 10 second lease, one protected resource, and no fencing unless stated.
+
+### Scenario 1: Normal acquire and release
+
+```text
+t=00s  A acquires lock, token=101, expires at t=10
+t=01s  A performs DB update with token=101
+t=02s  A releases lock by compare-and-delete owner=A
+t=03s  B acquires lock, token=102
+```
+
+This is the happy path. Release must verify the owner value; otherwise A could delete B's new lock after expiry and reacquire.
+
+### Scenario 2: Holder crashes
+
+```text
+t=00s  A acquires lock, expires at t=10
+t=03s  A pod crashes
+t=10s  Lease expires
+t=11s  B acquires lock
+```
+
+The lease restores liveness. Safety depends on A being truly dead. If A only paused, see scenario 3.
+
+### Scenario 3: JVM pause longer than TTL
+
+```text
+t=00s  A acquires lock, token=201, expires at t=10
+t=02s  A enters long GC pause
+t=11s  B acquires lock, token=202
+t=12s  B writes protected resource
+t=14s  A resumes and writes with stale token=201
+```
+
+Without fencing, the old owner can corrupt state. With fencing, storage rejects token 201 because token 202 has already been observed.
+
+### Scenario 4: Renewal works
+
+```text
+t=00s  A acquires lock, expires at t=10
+t=06s  Watchdog renews to t=16
+t=12s  Watchdog renews to t=22
+t=18s  A completes and releases
+```
+
+Renewal is useful for variable-length work, but it increases the time other workers wait when the holder is unhealthy but not declared dead.
+
+### Scenario 5: Renewal lost, work continues
+
+```text
+t=00s  A acquires lock, expires at t=10
+t=06s  Redis connection stalls; renewal fails silently
+t=10s  Lease expires
+t=11s  B acquires lock
+t=12s  A's business code is still running
+```
+
+The lock manager must surface renewal loss to the business code, and the protected resource must fence writes.
+
+### Scenario 6: Release after expiry
+
+```text
+t=00s  A acquires lock with value owner=A:uuid-1
+t=10s  Lease expires
+t=11s  B acquires lock with value owner=B:uuid-2
+t=12s  A calls DEL lock
+```
+
+A plain `DEL` deletes B's lock. Correct release uses Lua: delete only if current value equals A's random value.
+
+### Scenario 7: Lock service failover
+
+```text
+t=00s  A writes lock to Redis primary
+t=01s  Primary crashes before replica receives write
+t=02s  Replica promoted
+t=03s  B acquires same lock on new primary
+```
+
+Single-primary async replication can produce two apparent owners. If the operation cannot tolerate this, use a CP coordinator or fencing at the resource.
+
+### Scenario 8: Client timeout ambiguity
+
+```text
+t=00s  A sends acquire request
+t=01s  Request succeeds on lock service
+t=02s  A times out waiting for response
+t=03s  A retries acquire with different owner value
+```
+
+The client does not know whether it owns the first lease. Use idempotent acquisition request IDs, read-after-timeout, or a lock API that returns unambiguous owner state.
+
+## 36. Network partition split brain
+
+Split brain is not "the network is down." It is "two sides each have enough local evidence to proceed."
+
+```text
+        partition
+  A pod ----------- Redis primary
+    |                  |
+    |                  x replica link broken
+    |                  |
+  B pod ----------- promoted replica
+```
+
+Possible timeline:
+
+1. A acquires `lock:settlement` on the old primary.
+2. The old primary cannot replicate to the replica.
+3. Sentinel or an operator promotes the replica.
+4. B acquires `lock:settlement` on the new primary.
+5. A still has TCP connectivity to the old primary or resumes with cached ownership.
+6. Both write to the payment ledger.
+
+Staff+ mitigation:
+
+- Do not protect financial writes with Redis ownership alone.
+- Use DB constraints, idempotency keys and ledger monotonic sequence checks.
+- If external side effects require a lease, issue fencing tokens from a linearizable store.
+- Alert on Redis failover, holder renewal failures and duplicate owner detections.
+
+Fencing schema:
+
+```sql
+ALTER TABLE settlement_batches
+ADD COLUMN last_fencing_token BIGINT NOT NULL DEFAULT 0;
+
+UPDATE settlement_batches
+SET status = :status,
+    last_fencing_token = :token
+WHERE batch_id = :batchId
+  AND :token > last_fencing_token;
+```
+
+## 37. Redisson watchdog failure
+
+Redisson's default `RLock` watchdog renews the lease while the client is alive. It is ergonomic, but it is not magic.
+
+Failure modes:
+
+1. Stop-the-world GC pauses the renewal thread.
+2. Netty event loop stalls under CPU saturation.
+3. Redis cluster slot migration delays renewals.
+4. The application loses Redis connectivity but business threads keep running.
+5. The pod receives `SIGTERM`; shutdown hook waits for work but renewal has stopped.
+6. The lock holder thread is interrupted but the work ignores interruption.
+
+Production wrapper:
+
+```java
+public final class LockExecutionResult<T> {
+    private final T value;
+    private final boolean leaseHealthy;
+
+    public LockExecutionResult(T value, boolean leaseHealthy) {
+        this.value = value;
+        this.leaseHealthy = leaseHealthy;
+    }
+
+    public T value() {
+        return value;
+    }
+
+    public boolean leaseHealthy() {
+        return leaseHealthy;
+    }
+}
+```
+
+In real code, expose:
+
+- Acquisition wait timer.
+- Hold duration timer.
+- Renewal failure counter.
+- Force-unlock counter.
+- Gauge of active locks by name prefix.
+- Trace tag for lock key hash, not raw tenant data.
+
+If the critical section writes to durable state, pass a fencing token to the write. Redisson by itself does not create a fencing token.
+
+## 38. Connection pool interaction: 200 threads, 50 DB, 10 Redis
+
+Assume:
+
+- Tomcat or virtual-thread executor can run 200 request handlers.
+- HikariCP has 50 Postgres connections.
+- Lettuce/Redisson effectively has 10 Redis connections for lock traffic.
+- Each request tries Redis lock, then DB transaction.
+
+Bad ordering:
+
+```text
+200 request threads start
+200 block trying Redis lock
+10 Redis connections saturate with acquire/retry/unlock traffic
+50 DB connections are idle
+p99 grows, clients retry, lock traffic doubles
+```
+
+Another bad ordering:
+
+```text
+200 request threads start
+50 acquire DB connections and begin transactions
+50 wait for Redis lock while holding DB connections
+150 wait for DB pool
+Redis hiccup turns into DB outage
+```
+
+Production rules:
+
+1. Acquire external lock before starting the DB transaction, unless the DB lock is the real lock.
+2. Use bounded wait time; do not let 200 threads wait forever.
+3. Set lock wait timeout shorter than HTTP timeout.
+4. Set DB transaction timeout shorter than pod termination grace period.
+5. Use bulkheads: separate Redis client pools for locks and cache.
+6. Prefer `tryLock` plus 409/429 for high-contention user requests.
+7. Avoid holding DB connections while waiting on Redis.
+8. Alert on Hikari pending threads and Redis command latency together.
+
+Spring guardrail:
+
+```java
+@Configuration
+class LockingProperties {
+    @Bean
+    LockPolicy inventoryLockPolicy() {
+        return new LockPolicy(
+            Duration.ofMillis(200),
+            Duration.ofSeconds(3),
+            Duration.ofMillis(50)
+        );
+    }
+}
+```
+
+## 47. Production incidents: symptoms, root cause, detect, debug, mitigate, fix
+
+| # | Incident | Symptom | Root cause | Detect | Debug | Mitigate | Long-term fix |
+|---|---|---|---|---|---|---|---|
+| 1 | Duplicate payment capture | Two PSP captures for one order | Lock expired during GC pause | PSP duplicate webhooks | Correlate lock token and GC logs | Stop capture worker | Idempotency key at PSP and DB |
+| 2 | Sold negative inventory | Quantity becomes negative | Redis lock split brain | Inventory invariant alert | Compare lock owners across Redis failover | Freeze SKU | Atomic DB update |
+| 3 | 500 blocked PG sessions | Checkout hangs | Transaction holds `FOR UPDATE` during HTTP call | Hikari pending gauge | `pg_stat_activity` wait events | Kill oldest transactions | Move HTTP call outside transaction |
+| 4 | Redisson watchdog missed renewals | Intermittent duplicate workers | CPU saturation paused Netty | Renewal failure counter | Thread dump and CPU profile | Scale out; shed load | Dedicated executor and fencing |
+| 5 | Lock key hot spot | p99 acquire 30 seconds | Global key for all tenants | Lock wait histogram | Top lock key metric | Disable global job | Shard by tenant |
+| 6 | Unlock deletes another owner | Random concurrent owners | Plain `DEL` on release | Owner mismatch logs | Audit Redis command trace | Roll restart with release disabled | Lua compare-and-delete |
+| 7 | TTL cleanup mistaken for lease | Lock persists after expiry | DynamoDB TTL lag | Expired rows count | Inspect item attributes | Conditional steal by expiry | Treat TTL as garbage collection |
+| 8 | LWT latency storm | Cassandra p99 seconds | Paxos on hot partition | LWT latency dashboard | Coordinator logs | Reduce contenders | Move invariant to DB/Kafka |
+| 9 | ZK herd effect | Coordinator CPU spike | All clients watch parent node | Watch event rate | ZK four-letter stats | Restart clients in waves | Watch predecessor only |
+| 10 | etcd quota exceeded | Lock API returns errors | High-cardinality ephemeral keys | etcd alarm | `etcdctl alarm list` | Compact and defrag | Use per-resource DB atomic writes |
+| 11 | Pod killed mid-critical section | Partial update | No graceful shutdown | Kubernetes events | Compare termination timestamps | Pause rollout | PreStop drain and idempotency |
+| 12 | Rolling deploy double scheduler | Two schedulers run | New pod starts before old lease expires | Duplicate job metric | Deployment and lock timelines | Scale scheduler to zero | Leader election with fencing |
+| 13 | Redis cache pool starves locks | Lock acquire timeout | Cache traffic shares pool | Redis pool utilization | Command latency by command | Split client pools | Bulkhead lock client |
+| 14 | Lock leak in exception path | Resource unavailable until TTL | Missing finally release | Lock age gauge | Trace failed request | Force expire if safe | Try-with-resource lock handle |
+| 15 | Clock skew steals lock | Premature takeover | Client local time used for expiry | NTP skew alert | Compare node clocks | Drain skewed node | Server-side time or CP leases |
+| 16 | Tenant lock collision | Customer A blocks customer B | Key lacks tenant prefix | Top key labels | Inspect key builder | Hotfix key prefix | Tenant-scoped lock namespace |
+| 17 | Sensitive IDs in lock keys | PII visible in Redis | Raw email/order data in key | Security scan | Redis key sampling | Rotate keys | Hash identifiers |
+| 18 | Advisory lock pool leak | Job never runs | Session-level advisory lock returned to pool | Job stale alert | `pg_locks` by pid | Recycle connection | Transaction-level advisory locks |
+| 19 | Infinite retry storm | CPU and Redis spike | Retry without jitter | Retry counter | Trace spans | Add circuit breaker | Exponential backoff and budget |
+| 20 | Rebalance duplicate consumer | Command applied twice | Kafka consumer crashed before offset commit | Duplicate command metric | Offset and DB row audit | Stop partition | Idempotent command table |
+| 21 | Lock timeout hidden | Users see 500s | Lock exception mapped as server error | Error code dashboard | Controller logs | Return 409/429 | Domain error mapping |
+| 22 | Missing ownership visibility | Cannot debug stuck job | Lock value only "true" | On-call blind spot | Redis GET lock key | Add owner metadata | Store owner, token, start time |
+| 23 | Long cron overlaps itself | Two daily jobs run | Runtime exceeds schedule interval | Job overlap metric | Scheduler logs | Disable cron | Lease with heartbeat and idempotent chunks |
+| 24 | Force unlock corruption | Manual unlock while holder active | Runbook skipped owner validation | Audit event | Compare holder heartbeat | Restore from backup | Safe admin unlock workflow |
+
+Incident triage order:
+
+1. Is the protected invariant already corrupted?
+2. Are there multiple current owners?
+3. Is the holder alive, paused, partitioned or unknown?
+4. What writes occurred after lease expiry?
+5. Can we fence, pause, or make operations idempotent before resuming?
+
+## 48. Kubernetes pods and rolling deploy
+
+Kubernetes changes the locking problem because pods are disposable and rollouts overlap old and new versions.
+
+Common rollout timeline:
+
+```text
+t=00  old pod owns lock and processes batch 77
+t=01  Deployment creates new pod
+t=05  readiness passes on new pod
+t=06  old pod receives SIGTERM
+t=07  service removes old pod from endpoints
+t=08  new pod attempts lock
+t=36  old pod is SIGKILLed if still running
+```
+
+Controls:
+
+- Readiness should fail before shutdown starts.
+- `preStop` should stop accepting new locked work.
+- Termination grace period must exceed maximum graceful critical section, or work must be chunked.
+- Lock lease must be shorter than the stuck-holder recovery objective.
+- The critical section must be idempotent across pod restarts.
+- New pod version must understand old lock key schema during rolling deploy.
+
+Minimal Spring Boot shutdown shape:
+
+```java
+@Component
+public class ShutdownCoordinator implements SmartLifecycle {
+    private final AtomicBoolean acceptingWork = new AtomicBoolean(false);
+    private final ActiveLockRegistry activeLocks;
+
+    public boolean isAcceptingWork() {
+        return acceptingWork.get();
+    }
+
+    @Override
+    public void start() {
+        acceptingWork.set(true);
+    }
+
+    @Override
+    public void stop() {
+        acceptingWork.set(false);
+        activeLocks.awaitEmpty(Duration.ofSeconds(25));
+    }
+
+    @Override
+    public boolean isRunning() {
+        return acceptingWork.get();
+    }
+}
+```
+
+Readiness endpoint should report not ready when `acceptingWork` is false. That prevents new traffic while the pod drains active lock holders.
+
+## 49. Graceful shutdown
+
+Graceful shutdown for locks is a protocol, not a hook.
+
+1. Stop admission.
+2. Stop scheduled triggers.
+3. Stop consuming new Kafka records or pause partitions.
+4. Let current critical sections complete within budget.
+5. Release locks only when still owner.
+6. Persist abandoned work for another owner.
+7. Exit before Kubernetes sends `SIGKILL`.
+
+Example lock handle:
+
+```java
+public interface DistributedLockManager {
+    Optional<LockHandle> tryAcquire(String name, Duration wait, Duration lease);
+}
+
+public interface LockHandle extends AutoCloseable {
+    String name();
+    String ownerId();
+    long fencingToken();
+    boolean stillOwner();
+    @Override
+    void close();
+}
+```
+
+Use try-with-resources so exceptions release the lock:
+
+```java
+try (LockHandle lock = lockManager.tryAcquire("settlement:" + batchId, WAIT, LEASE)
+        .orElseThrow(() -> new LockBusyException(batchId))) {
+    settlementService.process(batchId, lock.fencingToken());
+}
+```
+
+If shutdown begins during `process`, the service should check cancellation between chunks. Do not interrupt arbitrary JDBC code and assume consistency; design chunks with transaction boundaries.
+
+## 50. Security: ACL, TLS, key injection and tenant isolation
+
+Locks are security-sensitive because they gate writes.
+
+### ACLs
+
+Redis ACL example:
+
+```text
+user lock-service on >strong-password ~lock:* +get +set +del +eval +pttl +pexpire
+```
+
+Rules:
+
+- Lock clients should not have broad `KEYS`, `FLUSHDB` or admin commands.
+- Separate cache and lock credentials.
+- Restrict ZooKeeper/etcd paths to the service namespace.
+- Rotate credentials with dual-read or rolling deployment support.
+
+### TLS
+
+Use TLS to Redis, Postgres, ZooKeeper and etcd when traffic crosses nodes or tenants. For Java services, externalize trust stores and fail closed if TLS validation fails. Do not disable hostname verification to "fix" certificate rollout.
+
+### Key injection
+
+Never concatenate raw user input directly into lock keys.
+
+Bad:
+
+```java
+String key = "lock:tenant:" + tenantId + ":order:" + orderId;
+```
+
+Better:
+
+```java
+String key = "lock:v1:tenant:" + safeTenant(tenantId) + ":order:" + sha256(orderId);
+```
+
+Validate length and character set. A malicious key containing separators can collide with another tenant's namespace or create operational blind spots.
+
+### Tenant isolation
+
+Tenant isolation checklist:
+
+- Prefix every lock with tenant or shard scope.
+- Hash sensitive resource IDs.
+- Bound per-tenant lock cardinality and contention.
+- Include tenant in metrics labels only if cardinality is controlled.
+- Never let one tenant hold a global lock for shared infrastructure.
+- Rate-limit failed acquisition attempts per tenant.
+- Make admin unlock require tenant, resource, owner and token.
+
+### Audit
+
+Audit events should include:
+
+- Lock name hash.
+- Tenant ID or internal account ID.
+- Owner pod and deployment version.
+- Fencing token.
+- Acquire time, release time and lease expiry.
+- Whether release succeeded, failed or was skipped.
+
+Security posture for Staff+ interviews: a lock is an authorization boundary for state mutation. Treat it like write access, not like a harmless cache key.
