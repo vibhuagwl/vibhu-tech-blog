@@ -1,43 +1,102 @@
 ---
 slug: complexity-master-index
-title: "Time & Space Complexity — Master Index"
-description: "Interview-ready map of Big-O calculation, data-structure complexity tables (best to worst), and sorting/searching complexities."
+title: "Time & Space Complexity — Master Curriculum"
+description: "A numbered interview curriculum for deriving Java time and space complexity from formulas, loops, recursion, data structures, graphs, and practice snippets."
 category: Complexity
 difficulty: Beginner
-tags: [Complexity, Big-O, Data Structures, Interview, Cheatsheet]
-readingTime: 8 min
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 10 min
 publishedAt: "2026-08-11"
 ---
 
-## What this section covers
+## How to use this curriculum
 
-Use this track before coding interviews and system-design capacity talks. Every page favors **tables + how the bound is derived**, not memorization alone.
+This Complexity track is designed for interview preparation.
+Read it in order if you want the full derivation path, or jump to the quick tables when you need last-minute recall.
 
-| Guide | Use when |
+The rule across every guide:
+
+```text
+Do not memorize the answer first.
+Derive the operation count, simplify the expression, then state the Big-O bound.
+```
+
+## Numbered curriculum
+
+| # | Guide | What you will learn |
+|---:|---|---|
+| 01 | [Mathematical Complexity Foundations](/complexity/mathematical-complexity) | Arithmetic `N(N+1)/2`, geometric `2^N`, and harmonic/log formulas |
+| 02 | [Master Theorem](/complexity/master-theorem) | Solve `T(N)=aT(N/b)+f(N)` with all three cases |
+| 03 | [Recursion Tree Method](/complexity/recursion-tree-method) | Draw recursion levels and sum per-level costs |
+| 04 | [Amortized Complexity](/complexity/amortized-complexity) | Derive `ArrayList.add`, HashMap resize, stack, and queue amortized bounds |
+| 05 | [Interview Traps in Complexity](/complexity/interview-traps-complexity) | Avoid 17 common wrong answers in loop, heap, tree, graph, and DP analysis |
+| 06 | [Complexity Calculation Framework](/complexity/complexity-calculation-framework) | Use a 20-question checklist and decision tree on any Java snippet |
+| 07 | [Complexity Cheat Sheet](/complexity/complexity-cheat-sheet) | Data-structure and algorithm tables with best, average, worst, space, and reasons |
+| 08 | [Complexity Practice Problems](/complexity/complexity-practice-problems) | Work through 30 Java snippets with step-by-step answers |
+| 09 | [Complexity Formula Sheet](/complexity/complexity-formula-sheet) | One-page quick revision for formulas, recurrences, graphs, amortized analysis, and scripts |
+
+## Quick tables companions
+
+The older quick-reference pages are still useful when you need compact tables without the full curriculum walkthrough.
+
+| Quick table | Use it for |
 |---|---|
-| [How Big-O Is Calculated](/complexity/how-big-o-is-calculated) | You need to derive O(n), O(log n), O(n²) from code |
-| [Data Structures — Time & Space (Best → Worst)](/complexity/data-structures-time-space-complexity) | You need Array, List, Stack, Queue, Hash, Tree, Heap, Trie, Graph tables |
-| [Sorting & Searching Complexity](/complexity/sorting-and-searching-complexity) | You need sort/search algorithm tables and stability notes |
+| [How Big-O Is Calculated](/complexity/how-big-o-is-calculated) | Fast examples of loop-to-Big-O derivation |
+| [Data Structures — Time & Space Complexity](/complexity/data-structures-time-space-complexity) | Quick data-structure operation lookup |
+| [Sorting and Searching Complexity](/complexity/sorting-and-searching-complexity) | Sorting/searching complexity and stability reminders |
 
-## Quick complexity ladder
+## Recommended study path
 
-| Name | Growth | Interview intuition |
-|---|---|---|
-| O(1) | Constant | Hash get (avg), array index |
-| O(log n) | Logarithmic | Binary search, balanced BST height |
-| O(n) | Linear | Single scan |
-| O(n log n) | Linearithmic | Efficient comparison sorts |
-| O(n²) | Quadratic | Nested loops over n |
-| O(2ⁿ) | Exponential | Subsets / naive recursion |
-| O(n!) | Factorial | Full permutations |
+### First pass: build derivation instincts
 
-## How to answer in an interview
+1. Start with [Mathematical Complexity Foundations](/complexity/mathematical-complexity).
+2. Learn [Master Theorem](/complexity/master-theorem) for balanced divide-and-conquer.
+3. Use [Recursion Tree Method](/complexity/recursion-tree-method) when Master Theorem does not fit.
+4. Read [Amortized Complexity](/complexity/amortized-complexity) before discussing Java collections.
 
-1. State **input size** (`n` = elements, `V`/`E` for graphs).
-2. Give **time**: best / average / worst when they differ.
-3. Give **extra space** (not counting input unless asked).
-4. Name the **assumption** (e.g. hash uniform; tree balanced).
-5. One sentence on **why** (loop structure / tree height / hash collisions).
+### Second pass: interview execution
+
+1. Review [Interview Traps in Complexity](/complexity/interview-traps-complexity).
+2. Apply the [Complexity Calculation Framework](/complexity/complexity-calculation-framework).
+3. Keep the [Complexity Cheat Sheet](/complexity/complexity-cheat-sheet) open while solving.
+4. Drill [Complexity Practice Problems](/complexity/complexity-practice-problems).
+5. Finish with the [Complexity Formula Sheet](/complexity/complexity-formula-sheet).
+
+## Core derivation patterns
+
+| Pattern | Exact count | Bound | Where it appears |
+|---|---:|---:|---|
+| Single scan | `N` | `O(N)` | linear search, array sum |
+| Two scans | `N + N` | `O(N)` | min then max |
+| Full nested loops | `N * N` | `O(N^2)` | all ordered pairs |
+| Triangular loops | `N(N+1)/2` | `O(N^2)` | insertion sort shifts, unordered pairs |
+| Doubling loop | `log2 N` | `O(log N)` | binary search, repeated doubling |
+| Balanced divide | `N` per level times `log N` levels | `O(N log N)` | merge sort |
+| Binary branching | `1+2+...+2^N` | `O(2^N)` | subsets, naive choices |
+
+## Interview answer template
+
+Use this when asked for time and space:
+
+```text
+Let N be ___.
+The first part costs ___ because ___.
+The second part costs ___ because ___.
+Adding terms gives ___.
+The dominant term is ___, so time is ___.
+Extra space is ___ because ___.
+Assumptions: ___.
+```
+
+Example:
+
+```text
+Let N be the number of elements.
+Sorting costs O(N log N).
+The two-pointer scan costs O(N) because each pointer moves monotonically.
+Total time is O(N log N + N), which simplifies to O(N log N).
+Extra space is O(1) excluding output, with sort implementation assumptions.
+```
 
 ## Related on this site
 

@@ -1,0 +1,128 @@
+---
+slug: complexity-cheat-sheet
+title: "Complexity Cheat Sheet"
+description: "Comprehensive Big-O tables for Java data structures and algorithms with best, average, worst, space, and derivation reasons."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## How to read the tables
+
+The final column explains the derivation.
+Use it in interviews instead of reciting the bound.
+
+Assumptions:
+
+| Topic | Assumption |
+|---|---|
+| Hash structures | Average case assumes good hash distribution |
+| Balanced trees | AVL and Red-Black height is `O(log N)` |
+| Graphs | `V` vertices, `E` edges |
+| Trie | `L` is key length, `A` is alphabet size |
+| Output | Space excludes returned output unless stated |
+
+## Data structures
+
+| Structure | Operation | Best | Average | Worst | Space | Reason |
+|---|---|---:|---:|---:|---:|---|
+| Array | index access | `O(1)` | `O(1)` | `O(1)` | `O(N)` | Address is base plus index offset |
+| Array | search unsorted | `O(1)` | `O(N)` | `O(N)` | `O(N)` | May scan until target or end |
+| Array | insert middle | `O(N)` | `O(N)` | `O(N)` | `O(N)` | Shift suffix elements |
+| Array | delete middle | `O(N)` | `O(N)` | `O(N)` | `O(N)` | Shift suffix elements |
+| ArrayList | get/set | `O(1)` | `O(1)` | `O(1)` | `O(N)` | Backing array index |
+| ArrayList | add end | `O(1)` | `O(1)` amortized | `O(N)` | `O(N)` | Occasional resize copies, total copies `< N` |
+| ArrayList | add/remove middle | `O(N)` | `O(N)` | `O(N)` | `O(N)` | Shift elements after index |
+| LinkedList | add/remove head | `O(1)` | `O(1)` | `O(1)` | `O(N)` | Pointer relink |
+| LinkedList | get index | `O(1)` | `O(N)` | `O(N)` | `O(N)` | Must walk nodes |
+| LinkedList | search | `O(1)` | `O(N)` | `O(N)` | `O(N)` | Linear traversal |
+| Stack | push | `O(1)` | `O(1)` amortized | `O(N)` | `O(N)` | Dynamic array resize can copy |
+| Stack | pop/peek | `O(1)` | `O(1)` | `O(1)` | `O(N)` | Top element only |
+| Queue | offer/poll | `O(1)` | `O(1)` amortized | `O(N)` | `O(N)` | Circular array or linked nodes; resize rare |
+| Deque | add/remove ends | `O(1)` | `O(1)` amortized | `O(N)` | `O(N)` | Ends are direct; resize rare |
+| HashMap | get/put/remove | `O(1)` | `O(1)` | `O(N)` | `O(N)` | Bucket lookup average; collisions worst |
+| HashMap | resize | `O(N)` | `O(N)` event | `O(N)` | `O(N)` | Rehash existing entries |
+| HashSet | add/contains/remove | `O(1)` | `O(1)` | `O(N)` | `O(N)` | Same hash-table derivation as map keys |
+| BST | search/insert/delete | `O(1)` | `O(log N)` if random-ish | `O(N)` | `O(N)` | Cost is tree height `H` |
+| AVL Tree | search/insert/delete | `O(1)` | `O(log N)` | `O(log N)` | `O(N)` | Rotations maintain strict balance |
+| Red-Black Tree | search/insert/delete | `O(1)` | `O(log N)` | `O(log N)` | `O(N)` | Height remains logarithmic |
+| Binary Heap | peek min/max | `O(1)` | `O(1)` | `O(1)` | `O(N)` | Root stores top priority |
+| Binary Heap | offer/poll | `O(1)` best | `O(log N)` | `O(log N)` | `O(N)` | Bubble up/down along height |
+| Binary Heap | search arbitrary | `O(1)` | `O(N)` | `O(N)` | `O(N)` | Heap order does not sort all nodes |
+| PriorityQueue | add/remove | `O(1)` best | `O(log N)` | `O(log N)` | `O(N)` | Java PQ is heap-backed |
+| Trie | insert/search word | `O(L)` | `O(L)` | `O(L)` | `O(total chars)` | One edge per character |
+| Trie | prefix query | `O(P)` | `O(P)` | `O(P)` | `O(total chars)` | Traverse prefix length `P` |
+| Segment Tree | build | `O(N)` | `O(N)` | `O(N)` | `O(N)` | One node per segment, linear total |
+| Segment Tree | query/update | `O(log N)` | `O(log N)` | `O(log N)` | `O(N)` | Visit bounded nodes per level |
+| Fenwick Tree | prefix/update | `O(log N)` | `O(log N)` | `O(log N)` | `O(N)` | Move by lowest set bit |
+| Union Find | find/union | `O(1)` | `O(alpha(N))` | `O(alpha(N))` | `O(N)` | Path compression plus union by rank |
+
+## Searching algorithms
+
+| Algorithm | Best | Average | Worst | Space | Reason |
+|---|---:|---:|---:|---:|---|
+| Linear search | `O(1)` | `O(N)` | `O(N)` | `O(1)` | Target may be first, middle, or absent |
+| Binary search iterative | `O(1)` | `O(log N)` | `O(log N)` | `O(1)` | Halve range until one element |
+| Binary search recursive | `O(1)` | `O(log N)` | `O(log N)` | `O(log N)` | Same halving plus call stack |
+
+## Sorting algorithms
+
+| Algorithm | Best | Average | Worst | Space | Reason |
+|---|---:|---:|---:|---:|---|
+| Bubble sort | `O(N)` optimized | `O(N^2)` | `O(N^2)` | `O(1)` | Adjacent passes form arithmetic sum |
+| Selection sort | `O(N^2)` | `O(N^2)` | `O(N^2)` | `O(1)` | Find min for each position |
+| Insertion sort | `O(N)` | `O(N^2)` | `O(N^2)` | `O(1)` | Shifts can be `1+2+...+N` |
+| Merge sort | `O(N log N)` | `O(N log N)` | `O(N log N)` | `O(N)` | `N` merge work across `log N` levels |
+| Quick Sort | `O(N log N)` | `O(N log N)` | `O(N^2)` | `O(log N)` avg | Balanced partitions vs `T(N)=T(N-1)+N` |
+| Heap sort | `O(N log N)` | `O(N log N)` | `O(N log N)` | `O(1)` | Heapify `O(N)`, then `N` polls at `log N` |
+| Counting sort | `O(N+K)` | `O(N+K)` | `O(N+K)` | `O(K)` | Count each item and each key |
+| Radix sort | `O(D(N+K))` | `O(D(N+K))` | `O(D(N+K))` | `O(N+K)` | `D` digit passes using counting sort |
+
+## Graph algorithms
+
+| Algorithm | Best | Average | Worst | Space | Reason |
+|---|---:|---:|---:|---:|---|
+| BFS adjacency list | `O(V+E)` | `O(V+E)` | `O(V+E)` | `O(V)` | Visit each vertex and edge once |
+| DFS adjacency list | `O(V+E)` | `O(V+E)` | `O(V+E)` | `O(V)` | Visit each vertex and edge once |
+| BFS/DFS matrix | `O(V^2)` | `O(V^2)` | `O(V^2)` | `O(V)` | Scan row of `V` possible neighbors per vertex |
+| Topological sort | `O(V+E)` | `O(V+E)` | `O(V+E)` | `O(V)` | Kahn or DFS processes each edge once |
+| Dijkstra with binary heap | `O((V+E) log V)` | `O((V+E) log V)` | `O((V+E) log V)` | `O(V+E)` | Heap operations for relaxations |
+| Bellman-Ford | `O(VE)` | `O(VE)` | `O(VE)` | `O(V)` | Relax all edges for `V-1` rounds |
+| Floyd-Warshall | `O(V^3)` | `O(V^3)` | `O(V^3)` | `O(V^2)` | Triple loop over intermediate, source, target |
+| Kruskal MST | `O(E log E)` | `O(E log E)` | `O(E log E)` | `O(V+E)` | Sort edges, then union-find |
+| Prim MST heap | `O((V+E) log V)` | `O((V+E) log V)` | `O((V+E) log V)` | `O(V+E)` | Heap chooses next crossing edge |
+| Prim MST matrix | `O(V^2)` | `O(V^2)` | `O(V^2)` | `O(V)` | Scan all vertices for next minimum |
+
+## Backtracking and DP
+
+| Pattern | Best | Average | Worst | Space | Reason |
+|---|---:|---:|---:|---:|---|
+| Subsets | `O(2^N)` | `O(2^N)` | `O(2^N)` | `O(N)` stack | Binary include/exclude tree |
+| Subsets with output | `O(N * 2^N)` | `O(N * 2^N)` | `O(N * 2^N)` | `O(N * 2^N)` | Copy each subset to output |
+| Permutations | `O(N!)` | `O(N!)` | `O(N!)` | `O(N)` stack | Branching choices `N*(N-1)*...*1` |
+| Permutations with output | `O(N * N!)` | `O(N * N!)` | `O(N * N!)` | `O(N * N!)` | Store/copy each permutation |
+| Combination search | varies | varies | `O(branches^depth)` | `O(depth)` | Derive branching factor and depth |
+| 1D DP | `O(N)` | `O(N)` | `O(N)` | `O(N)` or `O(1)` | `N` states, constant transition |
+| 2D DP | `O(NM)` | `O(NM)` | `O(NM)` | `O(NM)` | One state per cell |
+| Knapsack 0/1 | `O(NW)` | `O(NW)` | `O(NW)` | `O(W)` optimized | Items times capacities |
+| Longest common subsequence | `O(NM)` | `O(NM)` | `O(NM)` | `O(NM)` or `O(M)` | Pair of prefixes forms state |
+
+## Java library reminders
+
+| Java API | Typical complexity | Derivation |
+|---|---:|---|
+| `Arrays.sort(int[])` | `O(N log N)` | Comparison sort for primitives in interviews |
+| `Collections.sort(list)` | `O(N log N)` | Sorts list elements |
+| `ArrayList.contains(x)` | `O(N)` | Linear search |
+| `HashSet.contains(x)` | `O(1)` average | Hash lookup |
+| `PriorityQueue.offer/poll` | `O(log N)` | Heap height |
+| `PriorityQueue.contains` | `O(N)` | No direct search index |
+| `TreeMap.get/put` | `O(log N)` | Red-Black tree height |
+
+## Continue the curriculum
+
+- Previous: [Complexity Calculation Framework](/complexity/complexity-calculation-framework)
+- Next: [Complexity Practice Problems](/complexity/complexity-practice-problems)
+- Quick formulas: [Complexity Formula Sheet](/complexity/complexity-formula-sheet)

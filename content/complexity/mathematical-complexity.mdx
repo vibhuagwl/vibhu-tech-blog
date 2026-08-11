@@ -1,0 +1,224 @@
+---
+slug: mathematical-complexity
+title: "Mathematical Complexity Foundations"
+description: "Derive arithmetic, geometric, and harmonic growth patterns that appear inside common interview algorithms."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-11"
+---
+
+## Why formulas matter
+
+Big-O is not a label you attach after memorizing an algorithm.
+It is a derivation from the number of operations.
+Three sums appear again and again:
+
+| Pattern | Sum | Simplified growth | Common algorithm shape |
+|---|---:|---:|---|
+| Arithmetic | `1 + 2 + ... + N = N(N + 1) / 2` | `O(N^2)` | Triangular nested loops |
+| Geometric | `1 + 2 + 4 + ... + 2^N` | `O(2^N)` | Branching recursion |
+| Harmonic | `N + N/2 + N/3 + ... + 1` | `O(N log N)` or `O(log N)` by context | Divide and shrink work |
+
+The interview habit: write the count, simplify constants and lower-order terms, then state the bound.
+
+## 1. Arithmetic sum: `N(N + 1) / 2 = O(N^2)`
+
+### Where it comes from
+
+The loop below does not run `N * N` times.
+It runs a triangle:
+
+```java
+int count = 0;
+for (int i = 1; i <= n; i++) {
+    for (int j = 1; j <= i; j++) {
+        count++;
+    }
+}
+```
+
+### Derivation
+
+For each `i`, the inner loop runs `i` times:
+
+| Outer `i` | Inner iterations |
+|---:|---:|
+| 1 | 1 |
+| 2 | 2 |
+| 3 | 3 |
+| ... | ... |
+| N | N |
+
+Total:
+
+```text
+1 + 2 + 3 + ... + N
+= N(N + 1) / 2
+= (N^2 + N) / 2
+= O(N^2)
+```
+
+We drop `/2` because constants do not change asymptotic growth.
+We drop `N` because `N^2` dominates for large `N`.
+
+### Where it appears
+
+| Algorithm / code shape | Why arithmetic sum appears | Complexity |
+|---|---|---:|
+| Compare every pair once | Pairs form a triangle, not a square | `O(N^2)` |
+| Insertion sort worst case | Move item past `i` previous elements | `O(N^2)` |
+| Bubble sort optimized passes | Pass lengths shrink: `N + (N-1) + ... + 1` | `O(N^2)` |
+| Prefix building by repeated append-copy | Copy length grows from 1 to N | `O(N^2)` |
+
+### Java pair example
+
+```java
+int pairs = 0;
+for (int i = 0; i < n; i++) {
+    for (int j = i + 1; j < n; j++) {
+        pairs++;
+    }
+}
+```
+
+Derivation:
+
+```text
+(N - 1) + (N - 2) + ... + 1
+= N(N - 1) / 2
+= (N^2 - N) / 2
+= O(N^2)
+```
+
+This is still quadratic even though it checks each unordered pair only once.
+
+## 2. Geometric sum: `O(2^N)`
+
+### Where it comes from
+
+When every decision branches into two recursive calls, level widths double.
+
+```java
+void subsets(int index, int[] nums) {
+    if (index == nums.length) {
+        return;
+    }
+
+    subsets(index + 1, nums); // exclude
+    subsets(index + 1, nums); // include
+}
+```
+
+### Derivation
+
+| Recursion level | Number of calls |
+|---:|---:|
+| 0 | 1 |
+| 1 | 2 |
+| 2 | 4 |
+| 3 | 8 |
+| ... | ... |
+| N | `2^N` |
+
+Total calls:
+
+```text
+1 + 2 + 4 + ... + 2^N
+= 2^(N + 1) - 1
+= O(2^N)
+```
+
+The last level alone has `2^N` calls, so the whole tree is also `O(2^N)`.
+
+### Where it appears
+
+| Problem | Branching reason | Complexity derivation |
+|---|---|---|
+| Generate subsets | Include or exclude each element | `2^N` leaves |
+| Naive Fibonacci | Two calls per non-base node, overlapping | `O(2^N)` upper bound |
+| Backtracking decisions | Try choices at each depth | Product of choices |
+| Boolean assignment search | True or false per variable | `2^N` assignments |
+
+## 3. Harmonic and logarithmic growth
+
+Harmonic reasoning appears when sizes shrink by division or when work per level is a fraction.
+
+### Binary search: direct logarithm
+
+```java
+int binarySearch(int[] a, int target) {
+    int lo = 0;
+    int hi = a.length - 1;
+
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (a[mid] == target) return mid;
+        if (a[mid] < target) lo = mid + 1;
+        else hi = mid - 1;
+    }
+    return -1;
+}
+```
+
+Derivation:
+
+```text
+N -> N/2 -> N/4 -> N/8 -> ... -> 1
+N / 2^k = 1
+N = 2^k
+k = log2(N)
+```
+
+So binary search is `O(log N)` time and `O(1)` extra space.
+
+### Harmonic series
+
+The harmonic series is:
+
+```text
+1 + 1/2 + 1/3 + ... + 1/N = O(log N)
+```
+
+It often appears as grouped work:
+
+```text
+N + N/2 + N/3 + ... + N/N
+= N(1 + 1/2 + 1/3 + ... + 1/N)
+= O(N log N)
+```
+
+### Where harmonic reasoning appears
+
+| Algorithm / pattern | Count to derive | Result |
+|---|---|---:|
+| Binary search | Halve until 1 | `O(log N)` |
+| Divide-and-conquer depth | `N / 2^k = 1` | `O(log N)` levels |
+| Sieve-like loops | `N/2 + N/3 + ...` | Often `O(N log log N)` or `O(N log N)` depending on loop |
+| Repeated doubling capacity | `1 + 2 + 4 + ... + N` | `O(N)` total copying |
+
+## Interview script
+
+Use this short script when you see a sum:
+
+1. Define `N`.
+2. Count how many times the important statement runs.
+3. Write the sum exactly.
+4. Simplify to the dominant term.
+5. State time and extra space.
+
+Example:
+
+```text
+The inner loop runs 1, 2, ..., N times.
+That sum is N(N + 1) / 2.
+The dominant term is N^2.
+So time is O(N^2), and extra space is O(1).
+```
+
+## Continue the curriculum
+
+- Next: [Master Theorem](/complexity/master-theorem)
+- Practice: [Complexity Practice Problems](/complexity/complexity-practice-problems)
+- Quick revision: [Complexity Formula Sheet](/complexity/complexity-formula-sheet)

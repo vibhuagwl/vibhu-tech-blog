@@ -1,0 +1,233 @@
+---
+slug: amortized-complexity
+title: "Amortized Complexity"
+description: "Derive why occasional expensive resizes still give O(1) amortized operations in Java-style collections."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 13 min
+publishedAt: "2026-08-11"
+---
+
+## What amortized means
+
+Amortized complexity is the average cost per operation over a sequence of operations, without relying on randomness.
+
+It answers this interview question:
+
+> If one `add` can take `O(N)`, why do we still say `ArrayList.add` at the end is `O(1)` amortized?
+
+Because expensive operations are rare, and their cost spreads across many cheap operations.
+
+## Dynamic array growth
+
+A dynamic array stores elements in a fixed-size backing array.
+When it fills, it allocates a larger array and copies old elements.
+
+Typical capacity sequence:
+
+```text
+1, 2, 4, 8, 16, 32, ...
+```
+
+Java's `ArrayList` implementation details can vary, but the amortized idea is the same: grow by a constant factor.
+
+## Deriving `ArrayList.add` amortized `O(1)`
+
+Suppose we append `N` elements and capacities double.
+
+Resize copy costs:
+
+| Resize to capacity | Elements copied |
+|---:|---:|
+| 2 | 1 |
+| 4 | 2 |
+| 8 | 4 |
+| 16 | 8 |
+| ... | ... |
+| N | `N/2` |
+
+Total copied elements:
+
+```text
+1 + 2 + 4 + 8 + ... + N/2
+```
+
+This is a geometric sum:
+
+```text
+1 + 2 + 4 + ... + N/2
+= N - 1
+< N
+```
+
+Each append also writes the new element once:
+
+```text
+N writes + fewer than N copied old elements
+< 2N total element moves
+```
+
+So across `N` appends:
+
+```text
+total cost < 2N
+cost per append < 2N / N = 2
+amortized time = O(1)
+```
+
+Worst-case single append is still `O(N)` when resize happens.
+The amortized cost over many appends is `O(1)`.
+
+## Java example
+
+```java
+List<Integer> list = new ArrayList<>();
+for (int i = 0; i < n; i++) {
+    list.add(i);
+}
+```
+
+Derivation:
+
+```text
+Normal appends: N operations
+Resize copies: 1 + 2 + 4 + ... < N
+Total: < 2N
+Time: O(N) for the loop
+Amortized per add: O(1)
+Extra space: O(N) backing array
+```
+
+## Stack and queue resizing
+
+Array-backed stacks and queues have the same derivation.
+
+| Structure | Operation | Occasional expensive event | Amortized result |
+|---|---|---|---|
+| Stack | `push` | Grow and copy all items | `O(1)` amortized |
+| Stack | `pop` | Sometimes shrink and copy | `O(1)` amortized if shrink threshold avoids thrashing |
+| Queue | `offer` | Grow circular array | `O(1)` amortized |
+| Deque | `addFirst`, `addLast` | Grow circular buffer | `O(1)` amortized |
+
+For a circular queue:
+
+```java
+class IntQueue {
+    private int[] a = new int[1];
+    private int head = 0;
+    private int size = 0;
+
+    void offer(int x) {
+        if (size == a.length) resize(a.length * 2);
+        int tail = (head + size) % a.length;
+        a[tail] = x;
+        size++;
+    }
+}
+```
+
+The resize copies `size` elements, but capacities double, so total copying over `N` offers is still `< N`.
+
+## HashMap resize
+
+A hash table usually resizes when its load factor crosses a threshold.
+For example, if capacity is `C` and load factor threshold is `0.75`, resize after about `0.75C` entries.
+
+During resize:
+
+1. Allocate a larger bucket array.
+2. Recompute bucket placement for existing entries.
+3. Move entries into the new table.
+
+Single resize cost:
+
+```text
+O(number of entries) = O(N)
+```
+
+Sequence derivation:
+
+```text
+entries moved at resizes: 1 + 2 + 4 + ... + N/2 < N
+normal inserts: N
+total expected work under uniform hashing: O(N)
+amortized put: O(1)
+```
+
+HashMap assumptions matter:
+
+| Operation | Average / amortized | Worst case | Why |
+|---|---:|---:|---|
+| `put` | `O(1)` | `O(N)` | Resize or many collisions |
+| `get` | `O(1)` average | `O(N)` | Bad hash distribution |
+| `remove` | `O(1)` average | `O(N)` | Must search collision chain/tree |
+
+## Aggregate method
+
+Aggregate analysis adds up all operation costs, then divides by operation count.
+
+Dynamic array:
+
+```text
+N appends cost < 2N
+amortized cost per append = < 2N / N = O(1)
+```
+
+This is the simplest interview explanation.
+
+## Accounting method
+
+Accounting analysis assigns a fixed charge to each operation.
+
+For dynamic arrays, charge 3 units per append:
+
+| Unit | Pays for |
+|---|---|
+| 1 | Writing the new element now |
+| 1 | Future copy of this element during resize |
+| 1 | Extra credit for later growth |
+
+Cheap operations save credit.
+Resize operations spend saved credit.
+If credit never goes negative, the amortized cost is constant.
+
+## Potential method
+
+Potential analysis defines stored "energy" in the data structure.
+One common potential for a dynamic array is related to how full it is.
+
+Interview-friendly wording:
+
+```text
+When the array is far from full, it has little potential.
+As it fills, potential grows.
+At resize time, the stored potential pays for copying.
+After resizing, potential drops.
+```
+
+You usually do not need formal potential equations unless the interviewer asks.
+
+## Common traps
+
+| Claim | Correct answer |
+|---|---|
+| "`ArrayList.add` is always O(1)" | Worst case `O(N)`, amortized `O(1)` |
+| "A resize makes the whole loop O(N^2)" | With doubling, total resize copying is `O(N)` |
+| "HashMap is guaranteed O(1)" | Average/amortized `O(1)` under hashing assumptions; worst can degrade |
+| "Shrinking on every delete is fine" | It can thrash; shrink only below a lower threshold |
+
+## Interview script
+
+```text
+One append can trigger O(N) copying.
+But over N appends with capacities 1,2,4,..., total copied elements are 1+2+4+...<N.
+Including the N normal writes, total work is less than 2N.
+Therefore append is O(1) amortized, O(N) worst case, and O(N) total space.
+```
+
+## Continue the curriculum
+
+- Previous: [Recursion Tree Method](/complexity/recursion-tree-method)
+- Next: [Interview Traps in Complexity](/complexity/interview-traps-complexity)
+- Quick revision: [Complexity Formula Sheet](/complexity/complexity-formula-sheet)

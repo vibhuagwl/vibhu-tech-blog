@@ -1,0 +1,134 @@
+---
+slug: complexity-formula-sheet
+title: "Complexity Formula Sheet"
+description: "A quick revision sheet of Big-O formulas, growth order, recurrences, graph rules, amortized facts, and interview scripts."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 8 min
+publishedAt: "2026-08-11"
+---
+
+## Growth ladder
+
+Read from smaller to larger:
+
+| Growth | Name | Common Java example |
+|---:|---|---|
+| `O(1)` | Constant | `arr[i]`, `stack.peek()` |
+| `O(log N)` | Logarithmic | binary search |
+| `O(N)` | Linear | one scan |
+| `O(N log N)` | Linearithmic | merge sort, heap sort |
+| `O(N^2)` | Quadratic | all pairs |
+| `O(N^3)` | Cubic | Floyd-Warshall |
+| `O(2^N)` | Exponential | subsets |
+| `O(N!)` | Factorial | permutations |
+
+## Key sums
+
+| Formula | Derivation | Use |
+|---|---|---|
+| `1 + 2 + ... + N = N(N+1)/2` | arithmetic sum | triangular loops, insertion sort worst case |
+| `1 + 2 + 4 + ... + 2^N = 2^(N+1)-1` | geometric sum | branching recursion |
+| `1 + 1/2 + ... + 1/N = O(log N)` | harmonic sum | grouped fractional work |
+| `N + N/2 + N/4 + ... + 1 < 2N` | geometric shrink | heapify intuition, amortized copying |
+| `log_a N = log_b N / log_b a` | base change | Big-O ignores log base constants |
+
+## Loop formulas
+
+| Code shape | Count | Complexity |
+|---|---:|---:|
+| `for i = 0..N` | `N` | `O(N)` |
+| two sequential loops | `N + N` | `O(N)` |
+| nested full loops | `N * N` | `O(N^2)` |
+| triangular loop | `1 + 2 + ... + N` | `O(N^2)` |
+| `i *= 2` | `log N` | `O(log N)` |
+| two pointers | pointer moves `<= 2N` | `O(N)` |
+
+## Common recurrences
+
+| Recurrence | Derivation | Result |
+|---|---|---:|
+| `T(N)=T(N/2)+1` | one call per level, `log N` levels | `O(log N)` |
+| `T(N)=2T(N/2)+N` | `N` work per level, `log N` levels | `O(N log N)` |
+| `T(N)=2T(N/2)+1` | leaves dominate, `N` leaves | `O(N)` |
+| `T(N)=T(N-1)+N` | `N+(N-1)+...+1` | `O(N^2)` |
+| `T(N)=2T(N-1)+1` | `1+2+4+...+2^N` | `O(2^N)` |
+| `T(N)=aT(N/b)+f(N)` | compare `f(N)` with `N^log_b(a)` | Master Theorem |
+
+## Master Theorem quick rules
+
+Let:
+
+```text
+c = log_b(a)
+```
+
+| Case | Condition | Result |
+|---|---|---|
+| 1 | `f(N)=O(N^(c-epsilon))` | `Theta(N^c)` |
+| 2 | `f(N)=Theta(N^c log^k N)` | `Theta(N^c log^(k+1) N)` |
+| 3 | `f(N)=Omega(N^(c+epsilon))` and regularity holds | `Theta(f(N))` |
+
+## Graph formulas
+
+| Situation | Time | Space | Derivation |
+|---|---:|---:|---|
+| BFS adjacency list | `O(V+E)` | `O(V)` | visit vertices and edges once |
+| DFS adjacency list | `O(V+E)` | `O(V)` | seen array plus stack |
+| Matrix traversal | `O(V^2)` | `O(1)` extra | scan every possible edge |
+| Dijkstra binary heap | `O((V+E) log V)` | `O(V+E)` | heap relaxations |
+| Bellman-Ford | `O(VE)` | `O(V)` | relax every edge for `V-1` rounds |
+| Floyd-Warshall | `O(V^3)` | `O(V^2)` | triple loop over vertices |
+| Topological sort | `O(V+E)` | `O(V)` | process each edge once |
+
+## Amortized facts
+
+| Structure | Operation | Bound | Derivation |
+|---|---|---:|---|
+| `ArrayList` | add at end | `O(1)` amortized | copies `1+2+4+...<N` over `N` appends |
+| Dynamic stack | push | `O(1)` amortized | same doubling argument |
+| `HashMap` | put/get/remove | `O(1)` average | uniform hashing assumption |
+| `HashMap` resize | one resize | `O(N)` | rehash current entries |
+| Heap build | heapify | `O(N)` | most nodes are near leaves |
+
+## Space reminders
+
+| Source | Bound |
+|---|---:|
+| Recursive binary search stack | `O(log N)` |
+| DFS graph stack | `O(V)` |
+| BFS graph queue | `O(V)` |
+| Merge sort helper array | `O(N)` |
+| Subsets output | `O(N * 2^N)` |
+| Permutations output | `O(N * N!)` |
+| Frequency map | `O(U)` distinct keys |
+
+## Interview script template
+
+```text
+Let N be the number of elements.
+The first part costs ___ because ___.
+The second part costs ___ because ___.
+Adding terms gives ___.
+The dominant term is ___, so time is ___.
+Extra space is ___ because ___.
+Assumptions: ___.
+```
+
+Example:
+
+```text
+Sorting costs O(N log N). The scan costs O(N).
+O(N log N + N) simplifies to O(N log N).
+The map stores up to U keys, so space is O(U).
+Assume HashMap operations are average O(1).
+```
+
+## Curriculum links
+
+- [Mathematical Complexity Foundations](/complexity/mathematical-complexity)
+- [Master Theorem](/complexity/master-theorem)
+- [Recursion Tree Method](/complexity/recursion-tree-method)
+- [Amortized Complexity](/complexity/amortized-complexity)
+- [Complexity Practice Problems](/complexity/complexity-practice-problems)

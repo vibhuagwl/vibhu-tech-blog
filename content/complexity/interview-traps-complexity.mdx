@@ -1,0 +1,339 @@
+---
+slug: interview-traps-complexity
+title: "Complexity Interview Traps"
+description: "Avoid 17 common Big-O mistakes by deriving the real time and space bounds from Java code."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## How to use this page
+
+For every trap, answer in this order:
+
+1. Define the input size.
+2. Count iterations, calls, states, or output.
+3. Derive the dominant term.
+4. State time and extra space.
+5. State assumptions.
+
+## Trap 1: nested loops are not always `O(N^2)`
+
+```java
+for (int i = 1; i < n; i *= 2) {
+    for (int j = 0; j < n; j++) {
+        work(i, j);
+    }
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `O(N^2)` because there are two loops | Outer loop runs `log N` times; inner loop runs `N`; total `N log N` | Ask whether every loop really runs `N` times |
+
+Time is `O(N log N)`.
+Extra space is `O(1)`.
+
+## Trap 2: two separate loops can be `O(N)`, not `O(2N)`
+
+```java
+for (int x : a) sum += x;
+for (int x : a) max = Math.max(max, x);
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `O(2N)` as final answer | `N + N = 2N`, drop constant `2`, so `O(N)` | You can mention `2N` during derivation, but simplify |
+
+Time is `O(N)`.
+Extra space is `O(1)`.
+
+## Trap 3: a `while` inside a `for` can still be `O(N)`
+
+```java
+int right = 0;
+for (int left = 0; left < n; left++) {
+    while (right < n && valid(left, right)) {
+        right++;
+    }
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `O(N^2)` because while is nested | `left` moves `N` times and `right` only increases from `0` to `N`; total pointer moves `2N` | Count total pointer movement, not visual nesting |
+
+Time is `O(N)`.
+Extra space depends on `valid`; if constant, `O(1)`.
+
+## Trap 4: sorting often dominates
+
+```java
+Arrays.sort(a);
+for (int x : a) {
+    process(x);
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `O(N)` because there is one loop after sorting | Java primitive sort is typically `O(N log N)`; loop is `O(N)`; dominant term is `O(N log N)` | Always include library calls |
+
+Time is `O(N log N)`.
+Extra space depends on the sort implementation and data type; state the Java assumption.
+
+## Trap 5: `HashMap` operations are average-case
+
+```java
+Map<Integer, Integer> freq = new HashMap<>();
+for (int x : a) {
+    freq.put(x, freq.getOrDefault(x, 0) + 1);
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| Guaranteed `O(N)` | `N` inserts times average `O(1)` gives expected/amortized `O(N)`; worst collisions can degrade | Say "average under good hashing" |
+
+Time is average `O(N)`, worst `O(N^2)` in a pathological model.
+Extra space is `O(U)` where `U` is number of distinct keys, up to `O(N)`.
+
+## Trap 6: heap search is `O(N)`
+
+```java
+PriorityQueue<Integer> pq = new PriorityQueue<>();
+boolean found = pq.contains(target);
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `O(log N)` because heap operations are logarithmic | Heap order only exposes min/max root; arbitrary search scans array storage | Heap gives fast top, not fast contains |
+
+`offer` and `poll` are `O(log N)`.
+`peek` is `O(1)`.
+`contains` is `O(N)`.
+
+## Trap 7: tree complexity depends on height
+
+```java
+boolean contains(TreeNode root, int target) {
+    while (root != null) {
+        if (root.val == target) return true;
+        root = target < root.val ? root.left : root.right;
+    }
+    return false;
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| BST search is always `O(log N)` | Search follows one root-to-leaf path of height `H`; balanced `H=log N`, skewed `H=N` | Say `O(H)` first, then specialize |
+
+Time is `O(H)`.
+Extra space is `O(1)` iteratively.
+
+## Trap 8: recurrence must match the code
+
+```java
+void solve(int n) {
+    if (n <= 1) return;
+    solve(n - 1);
+    doLinearWork(n);
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `O(N log N)` because it is recursive | Recurrence is `T(N)=T(N-1)+N`; expansion is `N+(N-1)+...+1=O(N^2)` | Do not force Master Theorem onto `N-1` recurrences |
+
+Time is `O(N^2)`.
+Stack space is `O(N)`.
+
+## Trap 9: backtracking is usually exponential
+
+```java
+void subsets(int i, int[] nums) {
+    if (i == nums.length) return;
+    subsets(i + 1, nums);
+    subsets(i + 1, nums);
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `O(N)` because index increases to N | Level widths are `1,2,4,...,2^N`; total calls `O(2^N)` | Count branches, not only depth |
+
+Time is `O(2^N)`.
+Stack space is `O(N)`, excluding output.
+
+## Trap 10: output size affects space
+
+```java
+List<List<Integer>> ans = new ArrayList<>();
+generateSubsets(0, nums, new ArrayList<>(), ans);
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| Space is `O(N)` for recursion stack | There are `2^N` subsets; each stored subset can hold up to `N` values; output is `O(N * 2^N)` | Clarify whether output space counts |
+
+Auxiliary stack is `O(N)`.
+Total space including output is `O(N * 2^N)`.
+
+## Trap 11: DFS stack can be `O(V)`
+
+```java
+void dfs(int u, List<List<Integer>> g, boolean[] seen) {
+    seen[u] = true;
+    for (int v : g.get(u)) {
+        if (!seen[v]) dfs(v, g, seen);
+    }
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| DFS space is always `O(log V)` | A graph path can have length `V`; recursion stack can hold `V` calls | For trees, height matters; for graphs, worst depth is `V` |
+
+Time is `O(V + E)`.
+Extra space is `O(V)` for `seen` plus stack.
+
+## Trap 12: BFS queue can be `O(V)`
+
+```java
+Queue<Integer> q = new ArrayDeque<>();
+q.offer(start);
+while (!q.isEmpty()) {
+    int u = q.poll();
+    for (int v : g.get(u)) {
+        if (!seen[v]) {
+            seen[v] = true;
+            q.offer(v);
+        }
+    }
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| BFS queue is constant because it processes one node at a time | A whole layer can be in the queue; in a graph this can be `O(V)` | Queue space is frontier size, worst `O(V)` |
+
+Time is `O(V + E)`.
+Extra space is `O(V)`.
+
+## Trap 13: segment tree query is `O(log N)`, not `O(1)`
+
+```java
+int rangeSum(int node, int l, int r, int ql, int qr) {
+    if (qr < l || r < ql) return 0;
+    if (ql <= l && r <= qr) return tree[node];
+    int mid = (l + r) / 2;
+    return rangeSum(node * 2, l, mid, ql, qr)
+         + rangeSum(node * 2 + 1, mid + 1, r, ql, qr);
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| Query is `O(1)` because it returns stored sums | Query visits a bounded number of nodes per tree level; height is `log N` | Precomputation changes range scan to logarithmic, not constant |
+
+Range query is `O(log N)`.
+Build is `O(N)`.
+Tree space is `O(N)`.
+
+## Trap 14: heapify is `O(N)`, not `O(N log N)`
+
+```java
+for (int i = n / 2 - 1; i >= 0; i--) {
+    siftDown(a, i, n);
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `N` nodes times `log N` each gives `O(N log N)` | Most nodes are near leaves and move little; sum by height is `N/2*0 + N/4*1 + N/8*2 + ... = O(N)` | Build heap bottom-up has a tighter bound |
+
+Time is `O(N)`.
+Extra space is `O(1)` for in-place heapify.
+
+## Trap 15: `ArrayList` end insertion is amortized `O(1)`
+
+```java
+List<Integer> list = new ArrayList<>();
+for (int i = 0; i < n; i++) {
+    list.add(i);
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `O(N^2)` because resizes copy arrays | Capacities double: copied elements `1+2+4+...<N`; total appends plus copies `<2N` | Say worst single add `O(N)`, amortized `O(1)` |
+
+Loop time is `O(N)`.
+Extra space is `O(N)`.
+
+## Trap 16: nested recursion trees need multiplication by level width
+
+```java
+void solve(int n) {
+    if (n <= 1) return;
+    solve(n / 2);
+    solve(n / 2);
+    for (int i = 0; i < n; i++) work(i);
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| `O(N)` because each path halves | At depth `d`, there are `2^d` nodes of cost `N/2^d`, so each level costs `N`; `log N` levels | For recursion trees, derive per level, not per path only |
+
+Time is `O(N log N)`.
+Stack space is `O(log N)`.
+
+## Trap 17: memoization changes exponential to polynomial
+
+```java
+int fib(int n, int[] memo) {
+    if (n <= 1) return n;
+    if (memo[n] != -1) return memo[n];
+    memo[n] = fib(n - 1, memo) + fib(n - 2, memo);
+    return memo[n];
+}
+```
+
+| Wrong answer | Correct derivation | Interview tip |
+|---|---|---|
+| Still `O(2^N)` because there are two recursive calls | There are only `N + 1` distinct states; each state is computed once; transitions are constant | Count unique states times transition cost |
+
+Time is `O(N)`.
+Extra space is `O(N)` for memo plus `O(N)` stack.
+
+## Summary table
+
+| Trap | Correct mental model |
+|---|---|
+| Nested loops | Count real iterations |
+| Two loops | Add then simplify |
+| Sliding window | Count pointer moves |
+| Sorting | Include library call cost |
+| HashMap | Average/amortized, not guaranteed |
+| Heap search | Heap is not a searchable sorted structure |
+| Tree | Use height `H` |
+| Recurrence | Match shrink pattern |
+| Backtracking | Count branches and depth |
+| Output | Include output when asked |
+| DFS | Stack can be `O(V)` |
+| BFS | Queue can be `O(V)` |
+| Segment tree | Query follows `O(log N)` nodes |
+| Heapify | Sum by node heights |
+| ArrayList | End append is amortized |
+| Recursion tree | Sum level costs |
+| Memoization | Count states |
+
+## Continue the curriculum
+
+- Previous: [Amortized Complexity](/complexity/amortized-complexity)
+- Next: [Complexity Calculation Framework](/complexity/complexity-calculation-framework)
+- Practice: [Complexity Practice Problems](/complexity/complexity-practice-problems)

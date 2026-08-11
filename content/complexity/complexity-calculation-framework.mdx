@@ -1,0 +1,214 @@
+---
+slug: complexity-calculation-framework
+title: "Complexity Calculation Framework"
+description: "A universal 20-question checklist and decision tree for deriving time and space complexity from Java code."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## The goal
+
+Do not guess Big-O from how code looks.
+Use a repeatable framework.
+
+This page gives you:
+
+1. A 20-question checklist.
+2. A step-by-step decision tree.
+3. A worked end-to-end Java example.
+
+## Universal 20-question checklist
+
+| # | Question | Why it matters |
+|---:|---|---|
+| 1 | What is the input size? | `N`, `M`, `V`, `E`, string length, matrix cells |
+| 2 | Are there multiple independent inputs? | `O(N + M)` is different from `O(NM)` |
+| 3 | What operation dominates runtime? | Comparisons, hash operations, recursion calls, output writes |
+| 4 | Are loops sequential or nested? | Sequential loops add; nested loops multiply when independent |
+| 5 | Does each loop really run `N` times? | Halving, doubling, and pointer movement change the count |
+| 6 | Do loop variables move monotonically? | Two-pointer and sliding-window loops can be linear |
+| 7 | Is there sorting? | Sorting often dominates scans |
+| 8 | Are library calls inside loops? | `contains`, `substring`, `remove`, and heap operations matter |
+| 9 | Is a hash table used? | State average/amortized and worst-case assumptions |
+| 10 | Is a heap used? | `offer/poll` are logarithmic; search is linear |
+| 11 | Is a tree balanced? | Use `H` first, then `log N` only if balanced |
+| 12 | Is the graph represented by adjacency lists or matrix? | Traversal changes from `O(V+E)` to `O(V^2)` |
+| 13 | Is there recursion? | Write the recurrence before solving |
+| 14 | Does recursion branch? | Branching often creates exponential trees |
+| 15 | Are subproblems repeated? | Memoization can reduce calls to number of states |
+| 16 | What is the recursion depth? | Determines stack space |
+| 17 | Is output stored? | Output can dominate space and time |
+| 18 | Are arrays resized? | Use amortized analysis for dynamic arrays and hash tables |
+| 19 | What is best, average, and worst case? | They differ for sorting, hashing, trees, and search |
+| 20 | What assumptions should be stated? | Balanced tree, uniform hash, bounded alphabet, sparse graph |
+
+## Decision tree
+
+```text
+Start
+ |
+ |-- Is the algorithm graph-based?
+ |     |-- adjacency list: usually O(V + E)
+ |     |-- adjacency matrix: often O(V^2)
+ |
+ |-- Does it sort?
+ |     |-- yes: include O(N log N), then add scans
+ |
+ |-- Does it recurse?
+ |     |-- one smaller call by half: O(log N) levels
+ |     |-- one smaller call by one: arithmetic expansion may be O(N^2)
+ |     |-- multiple balanced calls: use Master Theorem or tree levels
+ |     |-- branching by choices: count choices^depth
+ |     |-- repeated states: states * transition cost
+ |
+ |-- Does it use a data structure?
+ |     |-- HashMap/HashSet: average O(1), worst can degrade
+ |     |-- Heap/PQ: add/remove O(log N), peek O(1), search O(N)
+ |     |-- Balanced tree: O(log N)
+ |     |-- ArrayList append: O(1) amortized
+ |
+ |-- Is there nested iteration?
+ |     |-- independent full loops: multiply
+ |     |-- triangular loops: arithmetic sum => O(N^2)
+ |     |-- monotonic two pointers: total movement => O(N)
+ |     |-- halving/doubling: logarithmic factor
+ |
+ |-- Is output materialized?
+       |-- include output size if asked for total space
+```
+
+## Loop derivation rules
+
+| Code shape | Derivation | Time |
+|---|---|---:|
+| `for i in 0..N` | `N` | `O(N)` |
+| two sequential scans | `N + N = 2N` | `O(N)` |
+| full nested loops | `N * N` | `O(N^2)` |
+| triangular nested loops | `1 + 2 + ... + N` | `O(N^2)` |
+| `i *= 2` | `N / 2^k = 1` or `2^k = N` | `O(log N)` |
+| sliding window | left moves `N`, right moves `N` | `O(N)` |
+
+## Recursion derivation rules
+
+| Code shape | Recurrence | Derivation | Time |
+|---|---|---|---:|
+| binary search | `T(N)=T(N/2)+1` | `log N` levels | `O(log N)` |
+| merge sort | `T(N)=2T(N/2)+N` | `N` per level, `log N` levels | `O(N log N)` |
+| worst Quick Sort | `T(N)=T(N-1)+N` | `N+(N-1)+...+1` | `O(N^2)` |
+| subsets | `T(N)=2T(N-1)+1` | `1+2+...+2^N` | `O(2^N)` |
+| memoized DP | states times transitions | derive state count | varies |
+
+## Space derivation rules
+
+| Space source | Derive it by | Example |
+|---|---|---|
+| Helper array | Number of allocated cells | merge sort temp `O(N)` |
+| HashMap | Number of keys stored | frequency map `O(U)` |
+| Recursion stack | Max depth | binary recursion depth `O(log N)` if balanced |
+| BFS queue | Max frontier | `O(V)` |
+| DFS stack | Max path/depth | `O(V)` graph worst case |
+| Output | Number and size of results | subsets `O(N * 2^N)` |
+
+## Worked end-to-end example
+
+Problem:
+
+> Given an integer array, return all unique pairs whose sum is zero.
+
+Java:
+
+```java
+List<List<Integer>> zeroPairs(int[] a) {
+    Arrays.sort(a);
+    List<List<Integer>> ans = new ArrayList<>();
+
+    int left = 0;
+    int right = a.length - 1;
+    while (left < right) {
+        int sum = a[left] + a[right];
+        if (sum == 0) {
+            ans.add(List.of(a[left], a[right]));
+            int lv = a[left];
+            int rv = a[right];
+            while (left < right && a[left] == lv) left++;
+            while (left < right && a[right] == rv) right--;
+        } else if (sum < 0) {
+            left++;
+        } else {
+            right--;
+        }
+    }
+
+    return ans;
+}
+```
+
+### Step 1: input size
+
+```text
+N = a.length
+P = number of output pairs
+```
+
+### Step 2: sorting
+
+```text
+Arrays.sort(a) = O(N log N)
+```
+
+For Java primitive `int[]`, the sort is in-place for practical interview purposes; if the interviewer asks implementation details, state the Java library assumption.
+
+### Step 3: two-pointer scan
+
+`left` only increases and `right` only decreases.
+Even with the duplicate-skipping inner loops, each pointer crosses the array once.
+
+```text
+left moves at most N times
+right moves at most N times
+total pointer moves <= 2N
+scan = O(N)
+```
+
+### Step 4: output
+
+The result list stores `P` pairs.
+
+```text
+output space = O(P)
+```
+
+If `List.of` boxes integers, there is object overhead, but asymptotically each pair is constant size.
+
+### Step 5: combine terms
+
+```text
+time = sort + scan + output writes
+     = O(N log N) + O(N) + O(P)
+     = O(N log N + P)
+```
+
+If `P <= N`, this simplifies to `O(N log N)`.
+Keeping `P` explicit is more precise.
+
+### Step 6: extra space
+
+```text
+extra space excluding output = O(1) or sort-dependent
+space including output = O(P)
+```
+
+Interview answer:
+
+```text
+Time is O(N log N + P): sorting costs O(N log N), and the two-pointer scan is O(N) because each pointer moves monotonically. Space is O(P) including returned pairs, and O(1) auxiliary space aside from sort implementation details.
+```
+
+## Continue the curriculum
+
+- Previous: [Interview Traps in Complexity](/complexity/interview-traps-complexity)
+- Next: [Complexity Cheat Sheet](/complexity/complexity-cheat-sheet)
+- Practice: [Complexity Practice Problems](/complexity/complexity-practice-problems)

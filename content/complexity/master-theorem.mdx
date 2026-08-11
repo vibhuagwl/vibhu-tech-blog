@@ -1,0 +1,244 @@
+---
+slug: master-theorem
+title: "Master Theorem for Interview Recurrences"
+description: "Derive divide-and-conquer complexity from T(N)=aT(N/b)+f(N) using the three Master Theorem cases."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 15 min
+publishedAt: "2026-08-11"
+---
+
+## The recurrence shape
+
+Master Theorem applies to balanced divide-and-conquer recurrences:
+
+```text
+T(N) = aT(N / b) + f(N)
+```
+
+| Symbol | Meaning | Interview question to ask |
+|---|---|---|
+| `a` | Number of recursive subproblems | How many recursive calls? |
+| `b` | Shrink factor per subproblem | Does each call receive `N/2`, `N/3`, etc.? |
+| `f(N)` | Non-recursive work at the current level | Split, combine, scan, merge |
+| `log_b(a)` | Work-growth exponent from the recursion tree | How wide does the tree become? |
+
+Set:
+
+```text
+c = log_b(a)
+```
+
+Then compare `f(N)` with `N^c`.
+
+## The three cases
+
+| Case | Condition | Result | Meaning |
+|---|---|---|---|
+| 1 | `f(N) = O(N^(c - epsilon))` for some `epsilon > 0` | `T(N) = Theta(N^c)` | Leaves dominate |
+| 2 | `f(N) = Theta(N^c log^k N)` for `k >= 0` | `T(N) = Theta(N^c log^(k + 1) N)` | Each level contributes similarly |
+| 3 | `f(N) = Omega(N^(c + epsilon))` for some `epsilon > 0` and regularity holds | `T(N) = Theta(f(N))` | Root work dominates |
+
+Regularity for Case 3 usually means:
+
+```text
+a * f(N / b) <= q * f(N)
+for some constant q < 1 and sufficiently large N
+```
+
+In interviews, mention this condition if Case 3 is used.
+
+## Case 1 example: binary search
+
+Java shape:
+
+```java
+int search(int[] a, int lo, int hi, int target) {
+    if (lo > hi) return -1;
+
+    int mid = lo + (hi - lo) / 2;
+    if (a[mid] == target) return mid;
+    if (a[mid] < target) return search(a, mid + 1, hi, target);
+    return search(a, lo, mid - 1, target);
+}
+```
+
+Recurrence:
+
+```text
+T(N) = 1T(N/2) + O(1)
+a = 1, b = 2
+c = log_2(1) = 0
+N^c = N^0 = 1
+f(N) = Theta(1)
+```
+
+This is actually Case 2 with `k = 0`, because `f(N) = Theta(N^c log^0 N)`.
+
+Result:
+
+```text
+T(N) = Theta(1 * log^(0 + 1) N)
+     = Theta(log N)
+```
+
+Time is `O(log N)`.
+Recursive space is `O(log N)` from the call stack; iterative binary search uses `O(1)`.
+
+## Case 2 example: merge sort
+
+Java shape:
+
+```java
+void mergeSort(int[] a, int lo, int hi, int[] temp) {
+    if (lo >= hi) return;
+
+    int mid = lo + (hi - lo) / 2;
+    mergeSort(a, lo, mid, temp);
+    mergeSort(a, mid + 1, hi, temp);
+    merge(a, lo, mid, hi, temp); // linear merge
+}
+```
+
+Recurrence:
+
+```text
+T(N) = 2T(N/2) + O(N)
+a = 2, b = 2
+c = log_2(2) = 1
+N^c = N
+f(N) = Theta(N) = Theta(N^c log^0 N)
+k = 0
+```
+
+Apply Case 2:
+
+```text
+T(N) = Theta(N^c log^(k + 1) N)
+     = Theta(N log N)
+```
+
+Time is `O(N log N)`.
+Extra space is `O(N)` for the merge buffer plus `O(log N)` stack.
+
+## Case 3 example: divide, then quadratic combine
+
+```java
+long solve(int[] a, int lo, int hi) {
+    if (lo == hi) return a[lo];
+
+    int mid = lo + (hi - lo) / 2;
+    long left = solve(a, lo, mid);
+    long right = solve(a, mid + 1, hi);
+
+    long combine = 0;
+    for (int i = lo; i <= hi; i++) {
+        for (int j = lo; j <= hi; j++) {
+            combine += a[i] * a[j];
+        }
+    }
+    return left + right + combine;
+}
+```
+
+Recurrence:
+
+```text
+T(N) = 2T(N/2) + O(N^2)
+a = 2, b = 2
+c = log_2(2) = 1
+N^c = N
+f(N) = N^2
+```
+
+Compare:
+
+```text
+N^2 = Omega(N^(1 + epsilon)) with epsilon = 1
+2 * f(N/2) = 2 * (N/2)^2 = N^2 / 2 <= qN^2 for q = 1/2
+```
+
+Regularity holds, so Case 3:
+
+```text
+T(N) = Theta(N^2)
+```
+
+## Case 1 example: many leaves dominate
+
+```text
+T(N) = 8T(N/2) + O(N^2)
+a = 8, b = 2
+c = log_2(8) = 3
+N^c = N^3
+f(N) = N^2 = O(N^(3 - epsilon)) with epsilon = 1
+```
+
+Apply Case 1:
+
+```text
+T(N) = Theta(N^3)
+```
+
+The recursion tree has enough leaves that the leaf layer dominates.
+
+## Quick Sort: when Master Theorem applies
+
+Balanced Quick Sort has the same recurrence as merge sort:
+
+```text
+T(N) = 2T(N/2) + O(N)
+```
+
+Derivation:
+
+```text
+a = 2, b = 2, c = 1
+f(N) = Theta(N^c log^0 N)
+Case 2 => Theta(N log N)
+```
+
+So balanced Quick Sort is `O(N log N)`.
+
+Worst-case Quick Sort is different:
+
+```text
+T(N) = T(N - 1) + O(N)
+```
+
+That does **not** fit `aT(N/b) + f(N)` because the subproblem is `N - 1`, not `N / b`.
+Derive it by expansion:
+
+```text
+N + (N - 1) + (N - 2) + ... + 1
+= N(N + 1) / 2
+= O(N^2)
+```
+
+## Worked solutions table
+
+| Recurrence | `a,b,c` | Compare `f(N)` | Case | Result |
+|---|---|---|---|---|
+| `T(N)=T(N/2)+1` | `1,2,0` | `1 = N^0 log^0 N` | 2 | `Theta(log N)` |
+| `T(N)=2T(N/2)+N` | `2,2,1` | `N = N^1 log^0 N` | 2 | `Theta(N log N)` |
+| `T(N)=4T(N/2)+N` | `4,2,2` | `N = O(N^(2-1))` | 1 | `Theta(N^2)` |
+| `T(N)=4T(N/2)+N^2` | `4,2,2` | `N^2 = N^2 log^0 N` | 2 | `Theta(N^2 log N)` |
+| `T(N)=3T(N/2)+N^2` | `3,2,1.585` | `N^2` polynomially larger | 3 | `Theta(N^2)` |
+| `T(N)=2T(N/4)+sqrt(N)` | `2,4,0.5` | `sqrt(N) = N^0.5` | 2 | `Theta(sqrt(N) log N)` |
+
+## Decision checklist
+
+1. Does the recurrence look like `aT(N/b)+f(N)`?
+2. Compute `c = log_b(a)`.
+3. Compare `f(N)` to `N^c`.
+4. If smaller by `N^epsilon`, use Case 1.
+5. If equal up to `log^k N`, use Case 2.
+6. If larger by `N^epsilon`, check regularity and use Case 3.
+7. If it is `T(N-1)`, unbalanced, random, or stateful, use another method.
+
+## Continue the curriculum
+
+- Previous: [Mathematical Complexity Foundations](/complexity/mathematical-complexity)
+- Next: [Recursion Tree Method](/complexity/recursion-tree-method)
+- Reference: [Complexity Formula Sheet](/complexity/complexity-formula-sheet)
