@@ -1,0 +1,70 @@
+---
+slug: kafka-microservices-schema-interview
+title: "Kafka Microservices & Schema Interview (Q96–Q105)"
+description: "Kafka vs REST vs RabbitMQ, event-driven design, Schema Registry, Avro/JSON/Protobuf, compatibility modes, and producer-first schema deploys."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## 96. Kafka vs REST for microservice communication
+
+| REST | Kafka |
+|---|---|
+| Request/response, sync coupling | Async, temporal decoupling |
+| Easy debugging per call | Replay, fanout, buffering |
+| Failure = caller retries now | Failure isolated; lag absorbs spikes |
+| Chatty workflows | Event notifications / integration |
+
+Use REST for **queries/commands needing immediate answer**; Kafka for **facts that multiple systems must react to**.
+
+## 97. Kafka vs RabbitMQ
+
+| Kafka | RabbitMQ |
+|---|---|
+| Distributed log, retain/replay | Smart broker routing, ack-delete consumer model |
+| High throughput streaming | Flexible messaging patterns, lower ops for small workloads |
+| Partition parallelism | Exchanges/queues/bindings |
+| Consumer pulls | Often push to consumers |
+
+## 98. When should you **not** use Kafka?
+
+- Low volume where ops cost dominates
+- Need simple RPC with response
+- Strict cross-entity global ordering at high scale
+- Tiny team without streaming expertise
+- Payload is huge binary blobs better in object storage + pointer events
+
+## 99. Design event-driven microservices with Kafka
+
+- Events as **business facts** (`PaymentCaptured`), not “please do X” only
+- Key by entity id
+- Idempotent consumers
+- Schema registry
+- Outbox for DB→event
+- Clear ownership per topic
+- SLO on lag + DLQ
+
+## 100–104. Schema evolution & Schema Registry
+
+**Schema Registry** stores versioned schemas; producers/consumers fetch by id.
+
+| Format | Strength |
+|---|---|
+| Avro | Compact, rich compat story with Registry |
+| Protobuf | Strong typing, multi-language |
+| JSON | Debuggable; weaker/safer only with discipline |
+
+| Compatibility | Meaning |
+|---|---|
+| Backward | New consumer can read old data |
+| Forward | Old consumer can read new data |
+| Full | Both |
+
+Versioning: additive optional fields safest; don’t rename/remove carelessly.
+
+## 105. Producer deploys new schema before consumers?
+
+Depends on compat mode. If forward/full compatible, old consumers tolerate new fields. If breaking change shipped first → consumer mass failures / DLQ. **Contract tests + canary + Registry compatibility checks in CI** are the Staff answer.

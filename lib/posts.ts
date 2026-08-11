@@ -87,6 +87,7 @@ export const SECTION_CATEGORIES={
   'leadership-principles':['Leadership Principles'],
   complexity:['Complexity'],
   'behavioral-interview':['Behavioral Interview'],
+  'kafka-interview':['Kafka Interview'],
   'redis-interview':['Redis Interview'],
 } as const;
 

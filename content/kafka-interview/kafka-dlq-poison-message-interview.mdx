@@ -1,0 +1,101 @@
+---
+slug: kafka-dlq-poison-message-interview
+title: "Kafka Poison Message & DLQ Interview (Q71–Q81)"
+description: "Poison messages, retry topics, DLQ design, ordered retries, safe replay, metadata, and order recovery when InventoryReserved is poison."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 24 min
+publishedAt: "2026-08-11"
+---
+
+## 71. What is a poison message?
+
+A record that **hard-fails processing repeatedly** (bad schema, invalid business data, bug on specific payload) and blocks or burns a consumer if not isolated.
+
+## 72. Consumer continuously fails on one message?
+
+With sync processing + retry forever: partition stalls (head-of-line). Lag grows. Rebalances if poll interval exceeded. Fix: bounded retries → retry topic / DLQ → continue.
+
+## 73. How do you implement a DLQ in Kafka?
+
+- On non-retryable failure (or retries exhausted), publish to `topic.dlq` with headers: original topic, partition, offset, exception, correlation id, event type.
+- Commit original offset **only after** DLQ publish succeeds (or transactional produce).
+- Alert on DLQ depth; ops replay tool with validation.
+
+## 74. Should every failed message go directly to DLQ?
+
+**No.** Classify:
+
+| Error | Action |
+|---|---|
+| Transient (timeout, 503) | Retry with backoff |
+| Dependency down | Pause / circuit break; don’t DLQ storm |
+| Validation / poison | DLQ after N tries or immediately if clearly invalid |
+| Bug unknown | Retry budget then DLQ + page |
+
+## 75. Retry → retry topic → DLQ
+
+```text
+main topic
+  → fail transient
+  → retry-1 (delay via pause or delayed topic)
+  → retry-2
+  → retry-3
+  → DLQ
+```
+
+Use separate consumer groups; increment `retry-count` header; exponential backoff.
+
+## 76. Preserve ordering with retries?
+
+**Hard.** Per-key ordering breaks if you hop keys to shared retry partitions carelessly.
+
+Patterns:
+- Retry **in-place** with pause (blocks partition — simple, slow).
+- **Per-key retry topics** / key affinity to same partition count and keying.
+- Accept out-of-order and use **version/sequence** in app state machine.
+
+State this trade-off explicitly in interviews.
+
+## 77. Replay DLQ safely?
+
+1. Validate payload (schema + business rules).
+2. Replay to main or repair topic with idempotency keys intact.
+3. Bulk tool with rate limits + dry-run.
+4. Mark DLQ offsets consumed / move to `dlq.replayed`.
+5. Dual-control for financial replays.
+
+## 78. DLQ metadata to store
+
+`original_topic, partition, offset, timestamp, group_id, exception_class, exception_message, stack_hash, retry_count, event_id, key, headers, producer_service, correlation_id`.
+
+## 79. Avoid infinite retry loops?
+
+Max attempts, jittered backoff, non-retryable error taxonomy, circuit breakers, DLQ, idempotent handlers that don’t throw forever on “already processed”.
+
+## 80. OrderCreated → PaymentCompleted → InventoryReserved poison — recover order?
+
+**Saga / state machine thinking:**
+
+1. Persist order state transitions idempotently.
+2. Inventory poison → DLQ with orderId; order enters `INVENTORY_FAILED` / `NEEDS_REPAIR`.
+3. Do **not** blindly ship. Compensating actions may be needed if payment captured (refund / hold / manual review) depending on business rules.
+4. Fix poison cause; replay InventoryReserved with same idempotency keys.
+5. Advance state only when inventory succeeds.
+
+**Principal point:** recovery is **business workflow**, not “reprocess Kafka until green”.
+
+## 81. Design order processing with DLQ + replay
+
+```text
+orders topic (key=orderId)
+  → Order service (idempotent state machine)
+  → payments / inventory topics
+retry topics + DLQ per stage
+outbox for DB→Kafka
+replay tool with validation + audit
+lag + DLQ depth SLOs
+```
+
+Include: schema registry, exactly-once **effects**, human approval for money-impacting replays.

@@ -1,0 +1,87 @@
+---
+slug: kafka-system-design-architect-interview
+title: "Kafka System Design Interview (Q119–Q130) — Architect"
+description: "Architect-level Kafka designs: payments, OMS, banking events, 100M txn/day, 99.99% availability, multi-region, MirrorMaker 2, DR, and cross-region dedupe."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 26 min
+publishedAt: "2026-08-11"
+---
+
+## 119. High-volume payment processing platform using Kafka
+
+**Requirements:** no double charge, auditability, lag SLO, multi-AZ, schema evolution, ops replay.
+
+```text
+Edge API (idempotency)
+  → Payment DB + Outbox
+  → Kafka (payments.captured, payments.failed)
+  → Ledger / Risk / Notify / Analytics consumers
+  → DLQ + Replay tooling
+```
+
+Durability: RF=3, minISR=2, acks=all, unclean=false. EOS effects via DB constraints. Tier topics by criticality.
+
+## 120. Order-management system using Kafka
+
+Order state machine keyed by `orderId`. Topics per stage or single topic with event types. Saga/compensations for payment vs inventory failures. See DLQ guide Q80–81.
+
+## 121. Event-driven banking system
+
+Separate **command side** (strong consistency accounts DB) from **event dissemination** (Kafka) for channels, fraud, reporting. Never let Kafka alone be ledger of record unless designed as such with extreme care. CDC from core ledger optional.
+
+## 122. 100M financial transactions/day
+
+~1.2k TPS avg; design **peak** (e.g. 20k TPS), payload bytes, fanout. Partition by account for ordering; watch hot accounts; capacity for RF and multi-consumer groups; retention for audit (or tier to cold storage).
+
+## 123. Kafka for 99.99% availability
+
+- Multi-AZ brokers, RF=3 across AZs
+- minISR=2
+- Controlled rolling restarts
+- Quotas / overload protection
+- Fast leader election; monitor ISR
+- Client retries + idempotence
+- Runbooks; avoid single controller fragility (KRaft quorum)
+- Note: 99.99% is ~52 min/year — budget change windows
+
+## 124–125. Multi-region; active-active vs active-passive
+
+| Mode | Pros | Cons |
+|---|---|---|
+| Active-passive | Clear primary; simpler consistency | Failover RTO/RPO |
+| Active-active | Regional write locality | Conflict/dedupe hard; ordering global impossible |
+
+For payments, many choose **active-passive** or region-affinity with careful reconciliation.
+
+## 126. Complete region failure
+
+Failover DNS/traffic to secondary; promote MM2 mirrored topics or regional cluster; accept RPO of replication lag; freeze risky writes if consistency uncertain; reconcile.
+
+## 127–128. Replicate between regions / MirrorMaker 2
+
+MM2 (Kafka Connect) mirrors topics/groups/offsets across clusters. Alternatives: Confluent Cluster Linking, vendor tools, app-level dual publish (usually worse).
+
+Challenges: offset translation, cycles, header preservation, ACL/schemas sync.
+
+## 129. Prevent duplicate events across regions
+
+- Global idempotency keys
+- Source region headers
+- Exactly-once **effects** in consumers
+- Avoid dual-active writes without conflict strategy
+- Dedupe store replicated or sticky region ownership per entity
+
+## 130. Disaster recovery for Kafka
+
+| Item | Practice |
+|---|---|
+| RPO/RTO | Defined per topic class |
+| Backups | Mirror + topic data retention + config as code |
+| Restore drills | Game days |
+| Schemas | Registry backup |
+| Offsets | Document reset procedures |
+| People | On-call runbooks for unclean election denial, disk, lag storms |
+
+**Architect close:** DR is tested failover + reconciliation, not only “we have MirrorMaker”.

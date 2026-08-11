@@ -13,6 +13,7 @@ export default function sitemap():MetadataRoute.Sitemap{
     {path:'/behavioral-interview', key:'behavioral-interview' as const},
     {path:'/leadership-principles', key:'leadership-principles' as const},
     {path:'/complexity', key:'complexity' as const},
+    {path:'/kafka-interview', key:'kafka-interview' as const},
     {path:'/redis-interview', key:'redis-interview' as const},
   ];
 
