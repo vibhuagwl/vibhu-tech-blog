@@ -1,0 +1,390 @@
+---
+slug: transactions-2pc-3pc-saga
+title: Transactions, 2PC, 3PC, and Saga Patterns for Spring Systems
+description: Production and interview guide to distributed transactions, Redis lock hazards, XA and JTA two-phase commit, three-phase commit, and saga choreography or orchestration.
+category: Distributed Systems
+difficulty: Staff/Principal
+tags: [Transactions, Saga, 2PC, JTA, Spring]
+readingTime: 34 min
+publishedAt: "2026-08-11"
+---
+
+## Interview framing
+
+Distributed transaction questions are rarely about memorizing acronyms.
+They test whether you can preserve business invariants while services, databases, brokers, locks, and external providers fail independently.
+
+This article focuses on Java, Spring, PostgreSQL, and message-driven systems.
+The examples use payments and orders because they expose the real trade-off: money must be correct, but the world outside your database will not join your transaction.
+
+Related reading:
+
+- [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive)
+- [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency)
+- [Concurrency, deadlocks, and timeouts](/distributed-systems/concurrency-deadlocks-and-timeouts)
+
+## 16. Lock versus transaction dangers
+
+A lock is not a transaction.
+A transaction is not a distributed lock.
+Confusing the two creates bugs that pass unit tests and fail under retries.
+
+The most common anti-pattern is a Redis lock wrapped around a PostgreSQL transaction:
+
+```text
+Request A: acquire Redis lock order:42 with ttl 5s
+Request A: begin PostgreSQL transaction
+Request A: update order row
+Request A: slow network, GC pause, or downstream call
+Redis ttl expires
+Request B: acquire Redis lock order:42
+Request B: begin PostgreSQL transaction
+Both requests now believe they own the order
+```
+
+The database may still serialize row updates, but the application-level side effects are no longer protected.
+If Request A calls a payment provider after the Redis lease expires, the provider may see two charges.
+
+Bad Spring shape:
+
+```java
+public void capture(UUID orderId) {
+    LockToken token = redisLocks.acquire("order:" + orderId, Duration.ofSeconds(5));
+    try {
+        captureInTransaction(orderId);
+    } finally {
+        redisLocks.release(token);
+    }
+}
+
+@Transactional
+void captureInTransaction(UUID orderId) {
+    Order order = orders.findById(orderId).orElseThrow();
+    paymentClient.capture(order.paymentIntentId());
+    order.markCaptured();
+}
+```
+
+There are three issues:
+
+1. The Redis lease can expire before the database transaction ends.
+2. The database lock is held while the external payment call is in flight.
+3. Releasing a lock token does not roll back payment provider state.
+
+Better shape:
+
+```java
+@Transactional
+public CaptureDecision decideCapture(UUID orderId, String requestId) {
+    Order order = orders.lockForUpdate(orderId).orElseThrow();
+    CaptureAttempt attempt = attempts.createIfAbsent(orderId, requestId);
+    if (!order.canCapture()) {
+        return CaptureDecision.noop(attempt.id());
+    }
+    order.markCapturePending(attempt.id());
+    outbox.enqueue("payment.capture.requested", attempt.id());
+    return CaptureDecision.started(attempt.id());
+}
+```
+
+The transaction records intent and publishes through an outbox.
+The external call happens later, outside the row lock, with an idempotency key.
+
+### What a Redis lock can still do
+
+Redis locks can reduce duplicate work or protect a cache rebuild.
+They should not be the only correctness mechanism for durable money, inventory, or entitlement state.
+
+Use a Redis lock when:
+
+- Recomputing an expensive derived value.
+- Coalescing duplicate background refreshes.
+- Protecting a short non-critical section where lease expiry is acceptable.
+
+Use PostgreSQL constraints, row locks, or idempotency tables when:
+
+- The invariant must survive process crashes.
+- A duplicate external call has business impact.
+- You need an auditable record of who did what.
+
+## 17. Two-phase commit: prepare and commit
+
+Two-phase commit coordinates multiple transactional resources.
+The coordinator asks each participant to prepare.
+If every participant votes yes, the coordinator tells all participants to commit.
+If any participant votes no, the coordinator tells all participants to roll back.
+
+```text
+Phase 1: prepare
+Coordinator -> PostgreSQL A: prepare transaction
+Coordinator -> PostgreSQL B: prepare transaction
+Both participants persist enough state to commit later
+
+Phase 2: commit
+Coordinator -> PostgreSQL A: commit prepared transaction
+Coordinator -> PostgreSQL B: commit prepared transaction
+```
+
+PostgreSQL supports prepared transactions:
+
+```sql
+BEGIN;
+UPDATE account SET balance_cents = balance_cents - 1000 WHERE id = 'A';
+PREPARE TRANSACTION 'transfer-123-A';
+
+COMMIT PREPARED 'transfer-123-A';
+```
+
+The powerful part is also the dangerous part.
+After `PREPARE TRANSACTION`, locks may remain held until the prepared transaction is committed or rolled back.
+If the coordinator dies, the database can be left with in-doubt work that blocks production traffic.
+
+Operational query:
+
+```sql
+SELECT
+  gid,
+  prepared,
+  owner,
+  database
+FROM pg_prepared_xacts
+ORDER BY prepared;
+```
+
+If this table is non-empty in a system that does not intentionally use prepared transactions, treat it as urgent.
+
+## XA and JTA in Java
+
+XA is the transaction protocol.
+JTA is the Java transaction API used by application servers and frameworks to coordinate resources.
+
+In a Spring ecosystem, JTA usually appears through a transaction manager that coordinates a database and a JMS broker.
+It can make a local code block look deceptively simple:
+
+```java
+@Transactional
+public void debitAndSend(UUID accountId, long cents) {
+    accounts.debit(accountId, cents);
+    jmsTemplate.convertAndSend("ledger.events", new DebitEvent(accountId, cents));
+}
+```
+
+If both resources are XA-aware and configured correctly, the transaction manager can run 2PC.
+That gives atomic commit across the database and broker.
+
+The cost:
+
+- Locks are retained from first database write until global commit completes.
+- Coordinator recovery becomes part of the correctness story.
+- Throughput often drops because every transaction has extra round trips and forced durable state.
+- Cloud-managed services may not support XA consistently.
+- Debugging requires transaction-manager logs, resource-manager logs, and database state.
+
+For high-throughput service architectures, the transactional outbox is often preferred.
+
+```java
+@Transactional
+public void debit(UUID accountId, long cents, String idempotencyKey) {
+    LedgerEntry entry = ledger.insertDebit(accountId, cents, idempotencyKey);
+    outbox.insert("ledger.debited", entry.id());
+}
+```
+
+A relay later publishes the outbox row to Kafka.
+The local database transaction is ordinary PostgreSQL.
+Consumers are idempotent.
+
+## Lock retention during 2PC
+
+Prepared transactions retain the locks needed to make the final commit valid.
+That means the danger is not only correctness; it is availability.
+
+Timeline:
+
+```text
+T1: update account A in database one
+T1: update account B in database two
+T1: both participants prepare
+Coordinator: crashes before commit messages
+Database one: prepared transaction retains locks
+Database two: prepared transaction retains locks
+Other requests: wait behind those locks
+```
+
+If the coordinator is unavailable, human operators may need to decide commit or rollback.
+That decision must be based on coordinator logs or a durable transaction table.
+Guessing creates split-brain business state.
+
+Interview signal: mention in-doubt transactions and recovery logs.
+Many candidates say "2PC is atomic" but skip the blocking failure mode.
+
+## 18. Three-phase commit and why it is rare
+
+Three-phase commit adds another phase to reduce blocking under certain failure assumptions.
+The simplified phases are:
+
+1. Can commit.
+2. Pre-commit.
+3. Do commit.
+
+The protocol tries to avoid a participant being stuck forever without knowing whether it is safe to commit.
+It relies on stronger timing assumptions about bounded network delay and participant failure detection.
+
+In modern production systems, those assumptions are often unrealistic:
+
+- Networks can partition.
+- Processes can pause for long GC or host scheduling.
+- Coordinators and participants can recover with stale views.
+- Wide-area deployments have unpredictable tail latency.
+
+So 3PC is rare in everyday Spring service design.
+You are much more likely to see:
+
+- Local ACID transactions.
+- Transactional outbox.
+- Idempotent consumers.
+- Sagas.
+- Purpose-built consensus systems for metadata.
+
+Interview answer: 3PC is historically important, but not the practical default.
+If a system truly needs distributed consensus, discuss Raft or Paxos-based coordination rather than inventing 3PC in application code.
+
+## 19. Saga choreography
+
+A saga breaks a business transaction into a sequence of local transactions.
+Each local transaction commits in its own service.
+If a later step fails, earlier successful steps are compensated.
+
+Choreography uses events.
+There is no central orchestrator.
+
+```text
+Order service: OrderCreated
+Inventory service: InventoryReserved
+Payment service: PaymentAuthorized
+Shipping service: ShipmentRequested
+```
+
+If payment authorization fails:
+
+```text
+Payment service: PaymentFailed
+Inventory service: InventoryReleased
+Order service: OrderCanceled
+```
+
+Choreography advantages:
+
+- Low coupling between services.
+- Natural fit with Kafka topics.
+- Teams can evolve local services independently.
+
+Choreography risks:
+
+- Flow is hard to understand from one place.
+- Cycles and unexpected event reactions can appear.
+- Global timeout and manual intervention policy can be unclear.
+- Debugging requires correlation IDs across every event.
+
+Use choreography for relatively simple flows with mature observability.
+
+## Saga orchestration
+
+Orchestration uses a coordinator service or workflow engine.
+The orchestrator decides each next step.
+
+```text
+Orchestrator: reserve inventory
+Inventory: reserved
+Orchestrator: authorize payment
+Payment: authorized
+Orchestrator: request shipment
+Shipping: accepted
+Orchestrator: mark order confirmed
+```
+
+In Spring, the orchestrator can store state in PostgreSQL:
+
+```sql
+CREATE TABLE saga_instance (
+  id uuid PRIMARY KEY,
+  type text NOT NULL,
+  state text NOT NULL,
+  current_step text NOT NULL,
+  correlation_id text NOT NULL UNIQUE,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE saga_step (
+  saga_id uuid NOT NULL,
+  step_name text NOT NULL,
+  status text NOT NULL,
+  attempt_count integer NOT NULL DEFAULT 0,
+  last_error text,
+  PRIMARY KEY (saga_id, step_name)
+);
+```
+
+The orchestrator is easier to reason about in interviews because the control plane is explicit.
+It is also easier to add timeouts, retries, and manual repair.
+
+## Compensation is not rollback
+
+Compensation is a new business action.
+It does not erase history.
+
+Examples:
+
+- Release inventory reservation.
+- Void a payment authorization.
+- Refund a captured payment.
+- Cancel a shipment before carrier handoff.
+- Issue a credit memo after fulfillment.
+
+Each compensation must be idempotent.
+If `refundPayment` is retried, it must not issue multiple refunds.
+Use an idempotency key and a unique constraint:
+
+```sql
+CREATE TABLE payment_action (
+  id uuid PRIMARY KEY,
+  payment_id uuid NOT NULL,
+  action_type text NOT NULL,
+  idempotency_key text NOT NULL UNIQUE,
+  provider_reference text,
+  status text NOT NULL
+);
+```
+
+## Saga versus 2PC versus distributed lock
+
+| Choice | Gives you | Costs you | Use when |
+|---|---|---|---|
+| Local transaction | Strong ACID in one database | Service boundary must align with data | One service owns the invariant |
+| 2PC or XA | Atomic commit across resources | Blocking, coordination, lock retention | Few resources, strict atomicity, operational maturity |
+| Saga | Eventually consistent workflow | Compensation and observability complexity | Cross-service business process |
+| Distributed lock | Mutual exclusion hint or lease | Expiry, fencing, split brain risk | Short coordination, not durable commit |
+| Outbox | Atomic state plus message intent | Relay and idempotent consumers | Most event-driven Spring systems |
+
+Staff-level design starts by avoiding distributed transactions.
+Put data that must change atomically in the same PostgreSQL database when ownership boundaries allow it.
+When service boundaries are real, use sagas and outbox rather than pretending a lock can make remote side effects transactional.
+
+## Production checklist
+
+- Name the invariant: money conserved, one shipment, one active subscription, inventory never negative.
+- Decide the owner of that invariant.
+- Use PostgreSQL constraints when the invariant is local.
+- Use row locks only for the short section that needs serialization.
+- Use outbox for reliable event publication.
+- Use idempotency keys for every external call and every message handler.
+- Make compensation explicit and auditable.
+- Add timeout states such as `PENDING_PAYMENT`, `PAYMENT_AUTHORIZED`, and `CANCEL_REQUIRES_REVIEW`.
+- Track correlation IDs from HTTP request to database row to Kafka event.
+
+## Interview answer shape
+
+Start with the invariant and failure modes.
+Then explain why a single database transaction is best if the invariant is local.
+If it crosses services, compare 2PC and Saga honestly: 2PC provides atomic commit but can block and retain locks; Saga gives availability and independent service ownership but requires compensation and idempotency.
+Finally, say a distributed lock is not a transaction manager.

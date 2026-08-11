@@ -1,0 +1,447 @@
+---
+slug: lock-observability-and-debugging
+title: Lock Observability and Debugging Playbook for Java and PostgreSQL
+description: Production playbook for lock metrics, owner metadata, OpenTelemetry spans, Redis and PostgreSQL monitoring, and command-line debugging of stuck concurrency incidents.
+category: Distributed Systems
+difficulty: Staff/Principal
+tags: [Observability, Locks, PostgreSQL, Redis, OpenTelemetry]
+readingTime: 39 min
+publishedAt: "2026-08-11"
+---
+
+## Interview framing
+
+Locks are invisible until they become the outage.
+At Staff and Principal level, it is not enough to say "use a lock."
+You must also explain how operators know who owns it, how long it has been held, which callers are waiting, and what command safely confirms the root cause.
+
+This guide covers Java, Spring, PostgreSQL, Redis, and OpenTelemetry.
+
+Related reading:
+
+- [Concurrency, deadlocks, and timeouts](/distributed-systems/concurrency-deadlocks-and-timeouts)
+- [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive)
+- [Distributed locking](/distributed-systems/distributed-locking)
+
+## 26. Metrics: wait and hold percentiles
+
+Every lock-like primitive needs two latency distributions:
+
+- Wait time: how long it took to acquire.
+- Hold time: how long the owner kept it.
+
+Track P50, P90, P95, P99, and max.
+Average lock time hides incidents because one stuck owner can dominate user impact while barely moving the mean.
+
+Recommended metrics:
+
+| Metric | Type | Labels |
+|---|---|---|
+| `lock_wait_seconds` | histogram | service, lock_type, lock_name, outcome |
+| `lock_hold_seconds` | histogram | service, lock_type, lock_name |
+| `lock_acquire_total` | counter | service, lock_type, outcome |
+| `lock_timeout_total` | counter | service, lock_type, lock_name |
+| `lock_contention_active` | gauge | service, lock_type |
+| `db_lock_wait_seconds` | histogram | service, query_name, table |
+
+Avoid raw high-cardinality labels such as full account ID or payment ID.
+Use key class, shard, tenant tier, or a short hash prefix when necessary.
+
+Java wrapper:
+
+```java
+public LockScope acquire(String lockName, String keyHash, Duration timeout) {
+    Timer.Sample waitSample = Timer.start(registry);
+    boolean acquired = false;
+    long acquiredAt = 0L;
+    try {
+        acquired = delegate.tryAcquire(lockName, keyHash, timeout);
+        waitSample.stop(waitTimer(lockName, acquired ? "acquired" : "timeout"));
+        if (!acquired) {
+            throw new LockBusyException(lockName);
+        }
+        acquiredAt = clock.nanoTime();
+        return new LockScope(lockName, acquiredAt);
+    } catch (RuntimeException ex) {
+        if (!acquired) {
+            waitSample.stop(waitTimer(lockName, "error"));
+        }
+        throw ex;
+    }
+}
+```
+
+The `LockScope.close` method records hold time in a `finally` block.
+
+## 27. Lock owner metadata JSON
+
+When a lock is stuck, "owned by worker 7" is not enough.
+Owner metadata should answer who, what, where, and why.
+
+Example Redis lock value:
+
+```json
+{
+  "service": "payment-service",
+  "pod": "payment-service-74dd8f8f7c-p9k2m",
+  "instanceId": "i-08abc",
+  "thread": "kafka-payment-capture-3",
+  "traceId": "c4e90db6f15b4db9",
+  "operation": "capture-payment",
+  "resourceType": "payment",
+  "resourceHash": "payment:9f13",
+  "ownerStartedAt": "2026-08-11T06:48:00Z",
+  "leaseExpiresAt": "2026-08-11T06:48:10Z",
+  "fencingToken": 918277
+}
+```
+
+Store metadata as the lock value, not only in application logs.
+Logs disappear behind sampling, rotation, and partial outages.
+
+PostgreSQL row locks do not have a custom value.
+For them, set session context:
+
+```sql
+SET application_name = 'payment-service pod=pay-7 worker=kafka-capture build=abc123';
+```
+
+In Spring, configure the JDBC URL or connection initialization SQL so each service identity appears in `pg_stat_activity`.
+For request-specific identity, put trace ID and operation in logs and OpenTelemetry spans rather than mutating `application_name` on every checkout.
+
+## 28. OpenTelemetry spans
+
+Represent lock acquisition and hold as spans or span events.
+This connects application traces to database waits.
+
+Recommended span attributes:
+
+| Attribute | Example |
+|---|---|
+| `lock.type` | `postgres.row`, `redis.lease`, `jvm.reentrant` |
+| `lock.name` | `payment-state` |
+| `lock.key_hash` | `9f13` |
+| `lock.wait_ms` | `82` |
+| `lock.hold_ms` | `17` |
+| `lock.outcome` | `acquired`, `timeout`, `error` |
+| `db.table` | `payment` |
+| `db.lock_mode` | `for_update` |
+
+Trace shape:
+
+```text
+HTTP POST /payments/{id}/capture
+  validate request
+  acquire postgres row lock payment-state
+  update payment CAPTURE_PENDING
+  insert outbox event
+  commit transaction
+  return 202
+```
+
+Bad trace shape:
+
+```text
+HTTP POST /payments/{id}/capture
+  acquire postgres row lock payment-state
+  call external payment provider
+  wait on socket read
+  update payment CAPTURED
+```
+
+The second trace immediately shows the production smell: external I/O under a database lock.
+
+## 29. Redis monitoring
+
+Redis lock incidents are usually lease, ownership, or latency problems.
+Collect both Redis server metrics and application-level lock metrics.
+
+Redis commands for an incident:
+
+```bash
+redis-cli --latency-history
+redis-cli INFO commandstats
+redis-cli INFO clients
+redis-cli INFO stats
+redis-cli SLOWLOG GET 20
+```
+
+Inspect a lock key:
+
+```bash
+redis-cli GET lock:payment:9f13
+redis-cli PTTL lock:payment:9f13
+```
+
+If you use fencing tokens, inspect the token counter:
+
+```bash
+redis-cli GET fence:payment:9f13
+```
+
+Production alerts:
+
+- Lock acquire timeout rate by lock type.
+- Redis command latency P99.
+- Lease extension failures.
+- Lock release failures due to token mismatch.
+- Owner metadata age close to lease duration.
+- Redis primary failover events.
+
+Lua unlock must verify token ownership:
+
+```lua
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("DEL", KEYS[1])
+else
+  return 0
+end
+```
+
+Never delete a Redis lock by key only.
+That can release another owner's lock after your lease expired and was reacquired.
+
+## 30. PostgreSQL monitoring
+
+PostgreSQL gives strong introspection if you know where to look.
+
+Current waits:
+
+```sql
+SELECT
+  pid,
+  application_name,
+  state,
+  wait_event_type,
+  wait_event,
+  age(clock_timestamp(), query_start) AS query_age,
+  query
+FROM pg_stat_activity
+WHERE wait_event_type IS NOT NULL
+ORDER BY query_start;
+```
+
+Blocked and blocking sessions:
+
+```sql
+SELECT
+  blocked.pid AS blocked_pid,
+  blocked.application_name AS blocked_app,
+  blocker.pid AS blocking_pid,
+  blocker.application_name AS blocking_app,
+  age(clock_timestamp(), blocked.query_start) AS blocked_for,
+  age(clock_timestamp(), blocker.query_start) AS blocker_for,
+  blocked.query AS blocked_query,
+  blocker.query AS blocking_query
+FROM pg_stat_activity blocked
+JOIN LATERAL unnest(pg_blocking_pids(blocked.pid)) AS blocker_pid ON true
+JOIN pg_stat_activity blocker ON blocker.pid = blocker_pid
+ORDER BY blocked.query_start;
+```
+
+Long transactions:
+
+```sql
+SELECT
+  pid,
+  application_name,
+  state,
+  xact_start,
+  age(clock_timestamp(), xact_start) AS transaction_age,
+  query
+FROM pg_stat_activity
+WHERE xact_start IS NOT NULL
+ORDER BY xact_start;
+```
+
+Relation locks:
+
+```sql
+SELECT
+  l.pid,
+  a.application_name,
+  l.locktype,
+  l.mode,
+  l.granted,
+  c.relname,
+  a.query
+FROM pg_locks l
+LEFT JOIN pg_class c ON c.oid = l.relation
+JOIN pg_stat_activity a ON a.pid = l.pid
+ORDER BY l.granted, c.relname, l.mode;
+```
+
+Prepared transactions:
+
+```sql
+SELECT
+  gid,
+  prepared,
+  owner,
+  database
+FROM pg_prepared_xacts
+ORDER BY prepared;
+```
+
+Settings to know:
+
+```sql
+SHOW deadlock_timeout;
+SHOW lock_timeout;
+SHOW statement_timeout;
+SHOW idle_in_transaction_session_timeout;
+```
+
+`idle in transaction` sessions are especially dangerous.
+They can retain locks while the application appears to be doing nothing.
+
+## 59. Full debugging playbook
+
+Use this sequence during a live incident.
+The goal is to identify the owner, reduce blast radius, and preserve enough evidence to fix the design.
+
+### Step 1: Define the symptom
+
+Capture:
+
+- User-facing endpoint or consumer lag.
+- Start time and deploy version.
+- Affected tenant, shard, partition, or key class.
+- Error codes: timeout, deadlock, lock not available, connection pool exhausted.
+- Whether retries are increasing load.
+
+### Step 2: Check service dashboards
+
+Look at:
+
+- HTTP latency P95 and P99.
+- Kafka consumer lag by partition.
+- HikariCP active, idle, and pending threads.
+- Lock wait and hold histograms.
+- Database CPU versus lock waits.
+- Retry attempt rate.
+
+If CPU is low and latency is high, suspect waiting.
+
+### Step 3: Find PostgreSQL blockers
+
+Run:
+
+```sql
+SELECT
+  blocked.pid AS blocked_pid,
+  blocked.application_name AS blocked_app,
+  blocker.pid AS blocking_pid,
+  blocker.application_name AS blocking_app,
+  age(clock_timestamp(), blocked.query_start) AS blocked_for,
+  age(clock_timestamp(), blocker.query_start) AS blocker_for,
+  blocked.query AS blocked_query,
+  blocker.query AS blocking_query
+FROM pg_stat_activity blocked
+JOIN LATERAL unnest(pg_blocking_pids(blocked.pid)) AS blocker_pid ON true
+JOIN pg_stat_activity blocker ON blocker.pid = blocker_pid
+ORDER BY blocked.query_start;
+```
+
+If one blocking PID has many waiters, focus on that owner first.
+
+### Step 4: Inspect long transactions
+
+Run:
+
+```sql
+SELECT
+  pid,
+  application_name,
+  state,
+  age(clock_timestamp(), xact_start) AS transaction_age,
+  age(clock_timestamp(), query_start) AS query_age,
+  query
+FROM pg_stat_activity
+WHERE xact_start IS NOT NULL
+ORDER BY xact_start;
+```
+
+Look for `idle in transaction`, old query ages, and application names that map to one pod.
+
+### Step 5: Capture Java evidence
+
+On the suspected pod:
+
+```bash
+jcmd {PID} Thread.print -l
+jcmd {PID} JFR.start name=incident settings=profile duration=60s filename=/tmp/incident.jfr
+```
+
+Search the thread dump for:
+
+- The HTTP or Kafka thread holding the transaction.
+- JDBC calls.
+- Socket reads to external services.
+- Lock monitor waits.
+- Connection pool waits.
+
+### Step 6: Check Redis lock state
+
+```bash
+redis-cli GET lock:payment:9f13
+redis-cli PTTL lock:payment:9f13
+redis-cli SLOWLOG GET 20
+redis-cli INFO clients
+```
+
+If the owner metadata points to a dead pod, verify whether the lease should already expire.
+If the TTL is being extended by a stuck process, inspect its heartbeat path.
+
+### Step 7: Stop the bleeding
+
+Possible mitigations:
+
+- Pause the hot Kafka partition or consumer group.
+- Disable the retrying job.
+- Reduce concurrency for the endpoint.
+- Shed traffic for the hot tenant.
+- Increase queue delay with jitter.
+- Kill a blocking database session only after confirming business impact and rollback safety.
+
+Killing a session rolls back its transaction.
+That may be correct for a stuck lock owner, but it can trigger retries or compensations.
+
+### Step 8: Preserve artifacts
+
+Save:
+
+- PostgreSQL blocker query output.
+- Thread dumps.
+- JFR file.
+- Trace IDs.
+- Redis lock values.
+- Deploy SHA.
+- Sample request IDs and Kafka offsets.
+
+Without artifacts, the postmortem becomes folklore.
+
+### Step 9: Fix the design
+
+Common fixes:
+
+- Move external REST calls outside database transactions.
+- Add idempotency keys and unique constraints.
+- Replace Redis correctness locks with PostgreSQL constraints.
+- Add lock ordering for multi-row updates.
+- Split global locks into aggregate locks.
+- Add `lock_timeout`, `statement_timeout`, and client deadlines.
+- Add outbox for publish-after-commit workflows.
+- Add owner metadata to every lock.
+
+### Step 10: Add regression tests
+
+Use concurrency tests that assert final state, not thread timing.
+
+Examples: two captures with the same idempotency key create one provider action, opposite-direction transfers avoid deadlock through lock ordering, duplicate Kafka messages do not create duplicate ledger rows, and a stuck external call does not hold a row lock.
+
+## Interview answer shape
+
+Do not stop at "I would check logs."
+Say exactly which metrics and commands reveal the owner.
+Then explain how the design will change so the next incident is shorter: owner metadata, percentiles, spans, bounded waits, idempotency, and no external I/O inside critical sections.

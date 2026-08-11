@@ -1,0 +1,437 @@
+---
+slug: concurrency-deadlocks-and-timeouts
+title: Concurrency, Deadlocks, and Timeouts in Java Distributed Systems
+description: Staff and Principal guide to JVM and database concurrency matrices, deadlock conditions, long lock owners, lock granularity, ordering, tryLock strategies, and retry storms.
+category: Distributed Systems
+difficulty: Staff/Principal
+tags: [Concurrency, Deadlocks, Java, PostgreSQL, Timeouts]
+readingTime: 37 min
+publishedAt: "2026-08-11"
+---
+
+## Interview framing
+
+Concurrency bugs are rarely in one layer.
+A request may hold a Java lock, wait on a PostgreSQL row lock, call a REST service, and trigger Kafka retries.
+The correct design names every critical section and keeps each one bounded.
+
+This article focuses on Java, Spring, PostgreSQL, and production debugging.
+
+Related reading:
+
+- [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive)
+- [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency)
+- [Lock observability and debugging](/distributed-systems/lock-observability-and-debugging)
+
+## 21. Concurrency matrix: same JVM and same key
+
+Same JVM plus same key is the easiest case to reason about.
+You can use local synchronization, but only for process-local resources.
+
+| Scenario | Example | Good primitive | Caveat |
+|---|---|---|---|
+| Same JVM, same account ID | Two HTTP threads debit account A | Row lock or atomic SQL | Java lock does not protect other pods |
+| Same JVM, same cache key | Two threads rebuild one cache entry | `ReentrantLock` by key | Safe only for duplicate work reduction |
+| Same JVM, same in-memory object | Scheduler updates local map | `synchronized` or concurrent collection | Lost on restart |
+
+Example cache coalescing:
+
+```java
+public PriceSnapshot loadPrice(String sku) {
+    ReentrantLock lock = localLocks.forKey(sku);
+    if (!lock.tryLock()) {
+        return cache.getStaleOrWaitBriefly(sku);
+    }
+    try {
+        return refreshAndStore(sku);
+    } finally {
+        lock.unlock();
+    }
+}
+```
+
+This is not a correctness lock.
+It prevents ten local threads from refreshing the same expensive value.
+If another pod refreshes too, correctness still depends on cache write semantics.
+
+## Same JVM and different key
+
+Different keys should not block each other.
+If they do, your lock granularity is too coarse.
+
+Bad:
+
+```java
+public synchronized void updatePayment(UUID paymentId) {
+    // All payments serialize behind one monitor.
+}
+```
+
+Better:
+
+```java
+public void updatePayment(UUID paymentId) {
+    ReentrantLock lock = locks.forKey(paymentId.toString());
+    lock.lock();
+    try {
+        updatePaymentState(paymentId);
+    } finally {
+        lock.unlock();
+    }
+}
+```
+
+Even here, keep the critical section small.
+Do not perform database calls and REST calls under a local lock unless the lock only protects local memory and the timeout budget is explicit.
+
+## Different JVM and same key
+
+This is where local locks fail.
+Two pods each have their own heap.
+
+| Need | Better primitive |
+|---|---|
+| Protect one PostgreSQL row | `SELECT ... FOR UPDATE` or conditional update |
+| Enforce unique operation | Unique constraint |
+| Serialize Kafka events for key | Partition by key in one consumer group |
+| Coordinate leadership | ZooKeeper, etcd, or Postgres advisory lock with care |
+| Reduce duplicate cache rebuild | Redis lease, with expiry and no correctness dependency |
+
+If the invariant is in PostgreSQL, prefer PostgreSQL.
+The database is already the serialization point.
+
+## Different JVM and different key
+
+Different JVM plus different key should scale horizontally.
+If it does not, look for hidden shared bottlenecks:
+
+- Single global Redis lock.
+- One hot PostgreSQL parent row.
+- A Kafka partition key that is too coarse, such as tenant ID for a huge tenant.
+- Thread pool starvation.
+- Connection pool exhaustion.
+- A global rate limiter with no fairness.
+
+Staff-level systems make key choice explicit.
+For example, use `payment_id` when payments are independent, but use `customer_id` if the invariant is "one active payment attempt per customer."
+
+## 22. Deadlock conditions
+
+A deadlock requires four conditions:
+
+1. Mutual exclusion: a resource can be held by one owner.
+2. Hold and wait: an owner holds one resource while waiting for another.
+3. No preemption: the resource cannot be forcibly taken safely.
+4. Circular wait: A waits for B while B waits for A.
+
+Database deadlock:
+
+```text
+T1: lock account A
+T2: lock account B
+T1: wait for account B
+T2: wait for account A
+```
+
+Java deadlock:
+
+```java
+void transfer(Account a, Account b) {
+    synchronized (a) {
+        synchronized (b) {
+            moveMoney(a, b);
+        }
+    }
+}
+```
+
+If one caller passes `(A, B)` and another passes `(B, A)`, the order is inconsistent.
+
+PostgreSQL can detect database deadlocks and abort one transaction.
+The JVM can reveal monitor deadlocks in a thread dump.
+Your business operation must still decide whether retry is safe.
+
+## 24. Long lock during REST hang
+
+The most damaging lock incident often looks like a database problem but starts as a network hang.
+
+Timeline:
+
+```text
+Thread 1: begin transaction
+Thread 1: SELECT payment FOR UPDATE
+Thread 1: call payment provider
+Provider: slow or never responds
+Thread 2: tries to update same payment
+Thread 2: waits on row lock
+Kafka consumer: same key partition stops
+Connection pool: active count climbs
+API: latency and timeout rate spike
+```
+
+The owner is not "PostgreSQL."
+The owner is a Java thread waiting on a REST client while holding a transaction open.
+
+Bad pattern:
+
+```java
+@Transactional
+public void ship(UUID orderId) {
+    Order order = orders.lockForUpdate(orderId).orElseThrow();
+    carrierClient.createShipment(order.address());
+    order.markShipped();
+}
+```
+
+Better pattern:
+
+```text
+Transaction 1:
+  lock order
+  validate state
+  create shipment_request
+  insert outbox event
+  commit
+
+Worker:
+  call carrier
+
+Transaction 2:
+  record carrier result
+  update order
+  commit
+```
+
+REST clients must have connect, read, and total deadlines.
+Database lock wait timeouts do not fix an unbounded external call inside the lock owner.
+
+## 25. Identifying long lock owners
+
+Start from the symptom and walk to the owner.
+
+PostgreSQL blocked sessions:
+
+```sql
+SELECT
+  blocked.pid AS blocked_pid,
+  blocker.pid AS blocking_pid,
+  blocked.application_name AS blocked_app,
+  blocker.application_name AS blocking_app,
+  age(clock_timestamp(), blocked.query_start) AS blocked_for,
+  blocker.query AS blocking_query
+FROM pg_stat_activity blocked
+JOIN LATERAL unnest(pg_blocking_pids(blocked.pid)) AS blocker_pid ON true
+JOIN pg_stat_activity blocker ON blocker.pid = blocker_pid
+ORDER BY blocked.query_start;
+```
+
+Application metadata makes this query useful.
+Set `application_name` to include service, pod, worker type, and build version.
+
+Thread dump:
+
+```bash
+jcmd {PID} Thread.print -l
+```
+
+Look for:
+
+- Threads named like HTTP workers or Kafka listeners.
+- Stack frames inside JDBC transaction methods.
+- Stack frames inside HTTP clients.
+- Java monitor deadlocks reported at the end of the dump.
+- Threads waiting on connection pool checkout.
+
+JFR snapshot:
+
+```bash
+jcmd {PID} JFR.start name=lock-debug settings=profile duration=60s filename=/tmp/lock-debug.jfr
+```
+
+In JDK Mission Control, inspect monitor blocked events, socket read events, JDBC spans if instrumented, and thread allocation pressure.
+
+## 40. Lock granularity
+
+Granularity is the size of what you lock.
+
+| Granularity | Example | Risk |
+|---|---|---|
+| Global | One lock for all payments | Low throughput, blast radius |
+| Tenant | One lock per merchant | Hot tenants block themselves |
+| Aggregate | One lock per payment | Usually good for state machines |
+| Row field | Atomic counter update | Best when invariant is narrow |
+| Predicate | All bookings for room and day | Needs constraint or serializable design |
+
+Choose the narrowest lock that protects the invariant.
+Do not split a lock so narrowly that the invariant leaks between two locks.
+
+Example:
+
+```text
+Invariant: account balance never negative
+Lock: account row
+
+Invariant: one active subscription per customer
+Lock: customer guard row or unique partial index
+
+Invariant: order and payment transition together
+Lock: owning aggregate or keep both rows in one local transaction
+```
+
+Granularity is a business decision, not just a performance setting.
+
+## 41. Lock ordering
+
+When one operation needs multiple locks, acquire them in a deterministic order.
+
+Money transfer:
+
+```sql
+BEGIN;
+
+SELECT id, balance_cents
+FROM account
+WHERE id IN ($1, $2)
+ORDER BY id
+FOR UPDATE;
+
+UPDATE account
+SET balance_cents = balance_cents - $3
+WHERE id = $1;
+
+UPDATE account
+SET balance_cents = balance_cents + $3
+WHERE id = $2;
+
+COMMIT;
+```
+
+The order is by account ID, not by "from account then to account."
+Every caller uses the same ordering rule, so circular wait is avoided.
+
+For Java locks:
+
+```java
+void withTwoLocks(String firstKey, String secondKey, Runnable action) {
+    int comparison = firstKey.compareTo(secondKey);
+    String a = comparison > 0 ? secondKey : firstKey;
+    String b = comparison > 0 ? firstKey : secondKey;
+
+    ReentrantLock first = locks.forKey(a);
+    ReentrantLock second = locks.forKey(b);
+    first.lock();
+    try {
+        second.lock();
+        try {
+            action.run();
+        } finally {
+            second.unlock();
+        }
+    } finally {
+        first.unlock();
+    }
+}
+```
+
+The method is only safe inside one JVM.
+For cross-pod invariants, use database ordering or a real coordination system.
+
+## 42. `tryLock` timeout strategies
+
+`tryLock` lets the caller avoid waiting forever.
+Timeouts must connect to the end-to-end request budget.
+
+```java
+public boolean processWithBudget(String key, Duration budget) throws InterruptedException {
+    ReentrantLock lock = locks.forKey(key);
+    Duration lockBudget = budget.dividedBy(4);
+    if (!lock.tryLock(lockBudget.toMillis(), TimeUnit.MILLISECONDS)) {
+        metrics.increment("local_lock_timeout");
+        return false;
+    }
+    try {
+        return process();
+    } finally {
+        lock.unlock();
+    }
+}
+```
+
+Guidelines:
+
+- For API requests, fail fast with `409 Conflict`, `423 Locked`, or `503 Retry-After` depending on semantics.
+- For background jobs, requeue with jitter instead of spinning.
+- For database locks, set `lock_timeout` shorter than the request deadline.
+- For statement execution, set `statement_timeout` to bound slow queries.
+- For transactions, keep work small enough that timeouts are exceptional.
+
+PostgreSQL example:
+
+```sql
+SET LOCAL lock_timeout = '250ms';
+SET LOCAL statement_timeout = '2s';
+
+SELECT id
+FROM payment
+WHERE id = $1
+FOR UPDATE;
+```
+
+Do not hide lock timeouts behind unlimited retries.
+That changes a bounded wait into an unbounded incident.
+
+## 43. Retry storms, jitter, and budget
+
+Retries are useful only when they reduce error probability without overwhelming the dependency.
+Lock contention and deadlocks can trigger retry storms.
+
+Bad retry policy:
+
+```text
+Every failed request retries immediately three times
+All retries target the same hot key
+The lock owner slows down further
+More requests time out
+More retries arrive
+```
+
+Better policy:
+
+- Retry only idempotent operations.
+- Use exponential backoff with jitter.
+- Respect the caller deadline.
+- Cap attempts by time budget, not only count.
+- Use a per-key circuit breaker for hot keys.
+- Shed load when the downstream pool is saturated.
+
+Example budget:
+
+```text
+Total HTTP deadline: 2 seconds
+Database lock wait: 200 milliseconds
+Business update: 300 milliseconds
+External publish enqueue: 100 milliseconds
+Retry reserve: one retry only if at least 700 milliseconds remain
+```
+
+Jitter avoids synchronized retries:
+
+```java
+long delayMillis(int attempt) {
+    long base = 50L * (long) Math.pow(2, attempt);
+    long capped = Math.min(base, 1000L);
+    return ThreadLocalRandom.current().nextLong(capped + 1);
+}
+```
+
+Retries must be observable.
+Emit attempt count, reason, key hash, and remaining budget.
+If you cannot answer "which key is melting us," your retry strategy is incomplete.
+
+## Interview answer shape
+
+For concurrency questions, start with a matrix: same JVM or different JVM, same key or different key.
+Then choose the primitive that matches the invariant.
+Use local locks for local memory, PostgreSQL locks or constraints for database invariants, Kafka partitioning for ordered event handling, and explicit timeouts for every wait.
+
+The Staff-level answer always includes lock ordering, bounded waits, idempotent retries, and a plan to find the owner when locks are stuck.
