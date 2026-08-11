@@ -1,0 +1,27 @@
+---
+slug: redis-replication-interview
+title: "Redis Replication Interview (Q44–Q55)"
+description: "Primary-replica async replication, backlog, PSYNC partial vs full resync, stale reads, replica writes, promotion, and HA design."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## 44–45. Primary-replica; sync or async?
+
+Replication is **asynchronous** by default (primary doesn’t wait). `WAIT` can request sync ack from N replicas for a write — still not multi-region consensus.
+
+## 46–50. Replica lag, backlog, partial vs full resync
+
+- Lagging replica: continues catch-up from **replication backlog** if offset still in buffer → **partial resync (PSYNC)**.
+- If backlog insufficient / ID mismatch → **full resync** (RDB transfer + catch-up) — expensive.
+
+## 51–54. Primary fails; stale reads; replica writes; promotion
+
+Failover (Sentinel/Cluster) promotes a replica. Reads from replicas can be **stale**. Replicas are read-only by default (`replica-read-only`). Promotion: elected replica becomes primary; others reattach.
+
+## 55. Design for high availability
+
+Primary + ≥2 replicas across AZs, Sentinel or Cluster, clients with failover awareness, health checks, persistence strategy, runbooks for full resync storms, app timeouts + degradation.

@@ -1,0 +1,44 @@
+---
+slug: redis-sentinel-interview
+title: "Redis Sentinel Interview (Q56–Q66)"
+description: "Sentinel HA: quorum, SDOWN vs ODOWN, failover election, odd number of Sentinels, and when to choose Sentinel vs Cluster."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## 56–57. Problem Sentinel solves; architecture
+
+**Automatic failover + monitoring + config provider** for Redis primary-replica topologies (not horizontal sharding).
+
+Sentinel processes monitor primary/replicas, gossip, vote for failover, update clients (via Sentinel API).
+
+## 58–59. Quorum; SDOWN vs ODOWN
+
+- **Quorum:** minimum Sentinels that must agree primary is down to start failover.
+- **SDOWN (subjective):** one Sentinel thinks primary down.
+- **ODOWN (objective):** enough Sentinels agree → failover eligible.
+
+## 60–62. Failover steps / elect new primary
+
+1. ODOWN reached
+2. Sentinel election leader
+3. Choose best replica (offset/priority/lag rules)
+4. Promote + reconfigure replicas
+5. Clients discover new primary via Sentinel
+
+## 63–64. Sentinel failures; odd count
+
+Sentinel itself must be HA. Odd numbers (3/5) help majority quorum during partitions.
+
+## 65–66. Sentinel vs Cluster; when Sentinel?
+
+| Sentinel | Cluster |
+|---|---|
+| HA for one logical dataset (vertical size) | Sharding + HA |
+| Simpler ops for medium datasets | Multi-key limitations / hash slots |
+| Failover only | Scale writes horizontally |
+
+Choose Sentinel when dataset fits one primary’s memory and you need HA without cluster complexity.

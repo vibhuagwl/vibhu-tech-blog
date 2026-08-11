@@ -1,0 +1,50 @@
+---
+slug: redis-architect-design-interview
+title: "Redis Architect Design Interview (Q151–Q165)"
+description: "Architect-level Redis designs: global rate limits, sessions, leaderboards, locks, Streams notifications, Cluster HA, 10M rps, zero-loss vs sub-ms latency, migrations and resharding under peak."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 24 min
+publishedAt: "2026-08-11"
+---
+
+## 151–152. Distributed / global rate limiter
+
+Regional Redis rate limiters + edge aggregation; or centralized with latency cost. Token bucket in Lua; key by `userId`/`apiKey`; multi-region: local limit + global async reconcile or sticky region. Prefer fail policy explicit (open/closed).
+
+## 153. Distributed sessions
+
+Hash/String + TTL; Cluster with hash tags; sticky LB optional; rotate session IDs; store minimal claims; critical authz still validated server-side.
+
+## 154. Real-time leaderboard
+
+Sorted sets; shard by league/season; top-N cached; avoid one mega ZSET for all global users without tiering.
+
+## 155. Locking service
+
+Redis for soft locks; etcd/ZK for strong; fencing tokens; short critical sections; metrics on wait/timeout.
+
+## 156. Notifications with Streams
+
+Streams + consumer groups for fanout workers; for massive multi-tenant durable notification bus consider Kafka; Redis for online presence / ephemeral.
+
+## 157–160. Caching platform; 99.99%; 10M rps; multi-region DR
+
+Cluster + replicas per shard multi-AZ; client pools; key design; tiered local+Redis; load test. 10M rps: many shards, pipelining, small values, local cache hit ratio dominates. DR: regional failover, backup RDB/AOF, warm replicas, runbooks.
+
+## 161–162. Zero data loss vs sub-ms latency
+
+**In tension.** Zero-loss → AOF always/`WAIT`/DB truth. Sub-ms → memory, pipelining, avoid fsync always, local cache. **Payments:** choose DB durability; Redis for speed on non-ledger paths.
+
+## 163–165. Migration, upgrade, peak resharding
+
+Dual-write or RIOT/redis-shake style sync; read fallback old→new; cutover; enlarge cluster off-peak when possible; throttle migration slots; watch `ASK` storms; upgrade replicas first rolling; clients with retry/MOVED handling.
+
+---
+
+## Tough follow-up ladder (practice)
+
+Why Redis? → Why fast? → Why not all DBs in RAM? → Memory full? → Node dies? → Network partition? → Two primaries? → Consistency? → Cross-region?
+
+Answer each with **mechanism + failure mode + mitigation**.

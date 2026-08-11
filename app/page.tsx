@@ -13,8 +13,9 @@ const starts=[
   ['Leadership Principles','All 16 Amazon LPs with STAR answers and Kafka follow-ups.','/leadership-principles'],
   ['Complexity','Big-O tables for data structures and sorting — best to worst.','/complexity'],
   ['Kafka Interview','Staff+/Principal Kafka — 130+ failure & design questions.','/kafka-interview'],
+  ['Redis Interview','Staff+/Principal Redis — internals, HA, cache failures, locks.','/redis-interview'],
 ];
-const startIcons=[BookOpen,Layers3,Server,Zap,Database,MessageSquare,MessageSquare,Layers3,BookOpen,Server];
+const startIcons=[BookOpen,Layers3,Server,Zap,Database,MessageSquare,MessageSquare,Layers3,BookOpen,Server,Database];
 export default function Home(){
   const all=getAllPosts();
   const prep=all.find(p=>p.slug==='system-design-interview-preparation');

@@ -1,0 +1,44 @@
+---
+slug: redis-distributed-systems-interview
+title: "Redis Distributed Systems Interview (Q85–Q100)"
+description: "Multi-region Redis, consistency, split-brain, CAP, distributed locks, SETNX limits, Redlock debate, lock safety and fencing."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## 85–88. Global / multi-region design
+
+Typical: **regional Redis** near apps (latency), DB/event bus for cross-region truth. Cross-region Redis replication is async → stale reads / conflict risk.
+
+India/EU/US: region-local caches; invalidate via Kafka; avoid single global primary for all writes unless latency OK.
+
+## 89–91. Partitions & split-brain
+
+Network split can create two primaries if fencing weak. Prevent with quorum (Sentinel/Cluster), clients talking to consensus of Sentinels, **fencing tokens**, refuse writes without quorum, STONITH-like operational discipline.
+
+## 92–93. CAP with Redis
+
+Single-node Redis: CA within node (not a CP/AP cluster story). Cluster/Sentinel favor **availability of shards** with limits; multi-region often **AP caches** + CP primary store elsewhere. State the layer: Redis as cache ≠ Redis as ledger.
+
+## 94–100. Distributed locks, SETNX, Redlock
+
+**Safe basic lock:**
+
+```text
+SET resource_lock <unique> NX PX <ttl>
+# work
+# unlock via Lua: if get==unique then del
+```
+
+`SETNX` alone without TTL/token is insufficient (deadlocks, wrong unlock).
+
+**Redlock:** multi-independent Redis majority lock. Criticisms (Martin Kleppmann): pause/GC can expire lock while work continues; Redis not a consensus CP store; clock/pause assumptions.
+
+**Safer patterns for critical correctness:** ZooKeeper/etcd/Chubby-style leases; DB constraints; fencing tokens (monotonic) checked by resource.
+
+**Crash of holder:** TTL expires → lock free (ensure work is idempotent!). **Long work:** extend lock (watchdog) carefully or use shorter critical sections.
+
+**Principal line:** Redis locks are **best-effort mutual exclusion** for performance; not a substitute for correctness protocols on money movement.

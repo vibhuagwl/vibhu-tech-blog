@@ -18,7 +18,7 @@ export default function Interview(){
       <div className="max-w-3xl">
         <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Interview Questions</div>
         <h1 className="mt-3 text-5xl font-black tracking-[-.05em]">Practice the follow-up, not just the diagram.</h1>
-        <p className="mt-5 text-lg leading-8 text-slate-600">Senior interviews probe failure, scale, consistency and trade-offs — plus Staff+ behavioral, Kafka, and complexity prep.</p>
+        <p className="mt-5 text-lg leading-8 text-slate-600">Senior interviews probe failure, scale, consistency and trade-offs — plus Staff+ behavioral, Kafka, Redis, and complexity prep.</p>
       </div>
 
       {prep && (
@@ -46,6 +46,12 @@ export default function Interview(){
             <h2 className="mt-3 text-xl font-black tracking-tight">Kafka Interview (130+)</h2>
             <p className="mt-3 text-sm leading-7 text-slate-500">Architecture, failure, DLQ, EOS/payments, multi-region and scenario drills for Principal/Architect rounds.</p>
             <div className="mt-4 text-sm font-bold text-blue-600">Open Kafka Interview →</div>
+          </Link>
+          <Link href="/redis-interview" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
+            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Staff+ · Redis</div>
+            <h2 className="mt-3 text-xl font-black tracking-tight">Redis Interview (165+)</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-500">Internals, Sentinel/Cluster, stampede/hot keys, locks/Redlock, and architect designs for Principal rounds.</p>
+            <div className="mt-4 text-sm font-bold text-blue-600">Open Redis Interview →</div>
           </Link>
           <Link href="/complexity" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
             <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">DSA · Big-O</div>

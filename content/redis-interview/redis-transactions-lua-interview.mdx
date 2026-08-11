@@ -1,0 +1,30 @@
+---
+slug: redis-transactions-lua-interview
+title: "Redis Transactions & Lua Interview (Q144–153)"
+description: "MULTI/EXEC/DISCARD/WATCH, no rollback semantics, optimistic locking, Lua atomicity, long-script risks, and Redis Functions vs Lua."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## 144–147. Transactions: MULTI/EXEC/DISCARD/WATCH
+
+Redis transactions **queue commands** then execute sequentially without interleaving from other clients.
+
+**No rollback** like SQL undo. If a command errors at EXEC time, others may still have run (depends on error type — runtime vs queue-time). Not ACID isolation across keys like InnoDB.
+
+## 148–149. `WATCH` optimistic locking; vs DB txn
+
+`WATCH` keys → if modified before `EXEC`, transaction aborted. Useful for compare-and-set style updates.
+
+DB transactions: durability, isolation levels, crash recovery. Redis txn: fast atomic *batch on one instance*, not a substitute for banking ledgers.
+
+## 150–153. Lua & Functions
+
+Lua runs **atomically** on server — ideal for lock unlock, conditional rate limits, inventory decrement-if-enough.
+
+**Risks:** long scripts block server (no other commands). Keep O(1)/small; avoid loops over huge sets; use `redis.replicate_commands` patterns carefully; timeouts.
+
+**Redis Functions** (7+): managed, versioned functions vs ad-hoc `EVAL` scripts — better ops hygiene.

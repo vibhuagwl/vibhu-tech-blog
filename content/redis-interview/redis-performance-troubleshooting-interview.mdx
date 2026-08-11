@@ -1,0 +1,38 @@
+---
+slug: redis-performance-troubleshooting-interview
+title: "Redis Performance & Troubleshooting Interview (Q128–Q143)"
+description: "Latency spikes, CPU 100%, memory 95%, slow commands, slowlog, production metrics, KEYS vs SCAN, and large value impact."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## 128–132. Latency↑, CPU 100%, memory 95%, network sat, 5s command
+
+**Latency checklist:** slowlog, big keys, `KEYS`, fork COW during save, hot key CPU, network, blocked clients, swap (never swap Redis), noisy neighbor.
+
+**CPU 100%:** expensive commands, many connections, TLS, hyperloglog abuse, hot keys, Lua loops.
+
+**Memory 95%:** evictions, fragmentation, big keys, session leaks, raise capacity / flush patterns / policy.
+
+**Network:** huge values, fanout `PUBLISH`, many replicas full sync.
+
+**5s command:** O(N) on big collection, cross-slot misuse, blocked on `BLPOP`, Lua, disk-bound during rewrite rare on command path — check slowlog + `MONITOR` carefully.
+
+## 133–134. Slowlog
+
+`SLOWLOG GET` captures commands exceeding threshold. Primary tool before guessing.
+
+## 135–137. Monitoring & metrics
+
+Track: ops/sec, memory, hit ratio, evictions, expired, clients, blocked clients, replication lag, CPU, network I/O, rejected connections, fork duration, aof/rdb stats, keyspace hits/misses.
+
+## 138–139. Latency spikes & large values
+
+Fork, eviction storms, hot keys, network stalls, client buffer issues. Large values amplify I/O thread work, network, memory fragmentation.
+
+## 140–143. `KEYS` vs `SCAN`
+
+`KEYS *` blocks the single thread over entire keyspace — production outage pattern. Use **`SCAN` cursor** iteration. Even SCAN can still pressure CPU/memory if iterated too aggressively or if payloads huge — pace it, use MATCH carefully, prefer Redis redesign over full scans.
