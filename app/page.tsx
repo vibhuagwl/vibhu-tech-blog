@@ -6,7 +6,7 @@ const starts=[
   ['Master Index','FAANG Staff/Principal curriculum map, study order and design portfolio.','/system-design/system-design-master-index'],
   ['Interview Preparation','Step-by-step framework for requirements, HLD, LLD, trade-offs and common designs.','/system-design/system-design-interview-preparation'],
   ['30-Day Plan','Focused month of designs, failure drills and estimation practice.','/system-design/30-day-system-design-plan'],
-  ['Distributed Systems','Replication, partitioning, locking, messaging and resilience.','/distributed-systems'],
+  ['Distributed Systems','Locking curriculum (Redis/Postgres/fencing) + replication, messaging, resilience.','/distributed-systems'],
   ['FinTech','Payments and correctness under retries and uncertainty.','/fintech'],
   ['Behavior','Ownership, conflict, leadership and stakeholder stories.','/behavior'],
   ['Behavioral Interview','Staff+/Principal STAR bank — leadership & business impact.','/behavioral-interview'],
