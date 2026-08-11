@@ -13,6 +13,7 @@ export default function Learn(){
   const sheets=posts.filter((p)=>p.category==='Cheat Sheet');
   const behavior=posts.filter((p)=>p.category==='Behavior');
   const leadership=posts.filter((p)=>p.category==='Leadership Principles');
+  const complexity=posts.filter((p)=>p.category==='Complexity');
   const kafkaInterview=posts.filter((p)=>p.category==='Kafka Interview');
   const plans=fundamentals.filter((p)=>p.tags.includes('Plan') || p.slug.includes('plan') || p.slug.includes('revision') || p.slug.includes('master-index'));
 
@@ -31,6 +32,7 @@ export default function Learn(){
           <Link href="/system-design/60-day-system-design-plan" className="rounded-lg border px-4 py-2 text-sm font-bold">60-Day Plan</Link>
           <Link href="/behavior" className="rounded-lg border px-4 py-2 text-sm font-bold">Behavior</Link>
           <Link href="/leadership-principles" className="rounded-lg border px-4 py-2 text-sm font-bold">Leadership Principles</Link>
+          <Link href="/complexity" className="rounded-lg border px-4 py-2 text-sm font-bold">Complexity</Link>
           <Link href="/kafka-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Kafka Interview</Link>
         </div>
       </div>
@@ -141,7 +143,20 @@ export default function Learn(){
         </section>
 
         <section>
-          <h2 className="text-2xl font-black">8 — Kafka Interview (Staff+ / Principal)</h2>
+          <h2 className="text-2xl font-black">8 — Time & space complexity</h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {complexity.map((p)=>(
+              <Link key={p.slug} href={`/complexity/${p.slug}`} className="card p-5">
+                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <h3 className="mt-2 font-bold">{p.title}</h3>
+                <p className="mt-2 text-sm text-slate-500">{p.description}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-black">9 — Kafka Interview (Staff+ / Principal)</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {kafkaInterview.map((p)=>(
               <Link key={p.slug} href={`/kafka-interview/${p.slug}`} className="card p-5">
@@ -154,7 +169,7 @@ export default function Learn(){
         </section>
 
         <section>
-          <h2 className="text-2xl font-black">9 — Cheat sheets</h2>
+          <h2 className="text-2xl font-black">10 — Cheat sheets</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {sheets.map((p)=>(
               <Link key={p.slug} href={`/system-design/${p.slug}`} className="card p-5">

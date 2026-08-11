@@ -22,7 +22,7 @@ export default function SearchClient({
         <input
           value={q}
           onChange={(e)=>setQ(e.target.value)}
-          placeholder="Kafka EOS, DLQ, hot partition, rate limiter..."
+          placeholder="Kafka EOS, Big-O, DLQ, hash map, CAP..."
           className="w-full rounded-lg border bg-white px-4 py-3 outline-none focus:border-blue-500"
         />
         <span className="hidden items-center rounded-lg bg-slate-100 px-4 text-xs font-bold text-slate-500 sm:flex">⌘ K</span>
