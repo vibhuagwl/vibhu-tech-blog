@@ -9,10 +9,11 @@ const starts=[
   ['Distributed Systems','Replication, partitioning, locking, messaging and resilience.','/distributed-systems'],
   ['FinTech','Payments and correctness under retries and uncertainty.','/fintech'],
   ['Behavior','Ownership, conflict, leadership and stakeholder stories.','/behavior'],
+  ['Behavioral Interview','Staff+/Principal STAR bank — leadership & business impact.','/behavioral-interview'],
   ['Leadership Principles','All 16 Amazon LPs with STAR answers and Kafka follow-ups.','/leadership-principles'],
   ['Complexity','Big-O tables for data structures and sorting — best to worst.','/complexity'],
 ];
-const startIcons=[BookOpen,Layers3,Server,Zap,Database,MessageSquare,Layers3,BookOpen];
+const startIcons=[BookOpen,Layers3,Server,Zap,Database,MessageSquare,MessageSquare,Layers3,BookOpen];
 export default function Home(){
   const all=getAllPosts();
   const prep=all.find(p=>p.slug==='system-design-interview-preparation');
