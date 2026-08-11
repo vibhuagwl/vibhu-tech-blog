@@ -1,0 +1,135 @@
+---
+slug: kafka-architecture-interview
+title: "Kafka Architecture Interview (Q1–Q10) — Staff+ / Principal"
+description: "Staff-level Kafka architecture answers: distributed log, broker vs controller, ISR, leader election, ZooKeeper vs KRaft, and designing for 100M+ messages/day."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## 1. Explain Kafka architecture end-to-end
+
+**Answer:** Kafka is a **distributed append-only commit log**.
+
+```text
+Producers → Topics (partitions) → Brokers (leaders + followers)
+                                      ↓
+                              Consumer groups (1 partition → ≤1 active consumer in group)
+```
+
+- **Topic**: named stream of records.
+- **Partition**: ordered, immutable sequence; unit of parallelism and ordering.
+- **Broker**: stores partitions; serves produce/fetch.
+- **Controller**: elects partition leaders; manages membership (ZK era or KRaft quorum).
+- **Replica**: copies of a partition; one **leader**, zero+ **followers**.
+- **Consumer group**: load-balanced consumers; each partition assigned to at most one member.
+
+A produce goes to the **partition leader**. Followers replicate. Consumers fetch from the leader (typically). Offsets track consumer progress.
+
+**Principal close:** Kafka optimizes for **sequential disk I/O, horizontal scale via partitions, and decoupled producers/consumers** — not for random-access queue semantics.
+
+## 2. Why was Kafka designed as a distributed log?
+
+| Queue mindset | Log mindset (Kafka) |
+|---|---|
+| Delete on consume | Retain by time/size; many consumers |
+| Hard multi-subscriber fanout | Cheap fanout: many groups, same log |
+| Ordering across whole queue | Ordering **per partition** |
+| Push to consumers | Pull; consumers control pace |
+
+**Why:** high-throughput ingest, replay, multi-subscriber analytics + ops + product consumers, and disk-friendly sequential writes.
+
+## 3. Broker vs controller — difference?
+
+| Role | Responsibility |
+|---|---|
+| **Broker** | Store/serve partition data; replicate; handle produce/fetch |
+| **Controller** | Cluster metadata brain: who is leader, ISR changes, broker leave/join, partition reassignment |
+
+One active controller (ZK) or **KRaft controller quorum**. Controllers do **not** need to be the data path for every produce.
+
+## 4. What happens when a Kafka broker goes down?
+
+1. Other brokers detect failure (session / KRaft).
+2. Controller notices broker epoch / membership change.
+3. For each partition where that broker was **leader**, elect new leader from **ISR** (if available).
+4. Clients refresh metadata; producers/consumers redirect to new leaders.
+5. Under-replicated partitions until broker returns and catches up.
+
+**If `acks=all` and `min.insync.replicas` cannot be met:** produces fail (durability > availability).
+
+## 5. Leader and follower replicas
+
+- **Leader:** handles client reads/writes for the partition.
+- **Followers:** pull from leader; stay in sync.
+- Clients talk to leader (classic design). Followers exist for **failover + durability**.
+
+## 6. What is ISR? How does it change?
+
+**ISR = In-Sync Replicas**: leader + followers that have caught up within `replica.lag.time.max.ms` (conceptually: not lagging beyond configured threshold).
+
+| Event | ISR change |
+|---|---|
+| Follower falls behind | Removed from ISR |
+| Follower catches up | Rejoins ISR |
+| Broker dies | Removed |
+| `min.insync.replicas` | Produce with `acks=all` requires `|ISR| >= min.insync.replicas` |
+
+**Trade-off:** small ISR → riskier durability if you still allow produce; large ISR requirement → more produce failures under partial outage.
+
+## 7. What happens when a partition leader fails?
+
+1. Controller detects leader loss.
+2. Chooses new leader preferably from **ISR** (avoids unclean election data loss).
+3. Epoch bumps; old leader cannot silently reclaim without fencing.
+4. Producers get `NOT_LEADER_OR_FOLLOWER`; refresh metadata; retry.
+5. Consumers may see brief fetch errors then continue from same offsets on new leader.
+
+**Unclean leader election (`unclean.leader.election.enable=true`):** may elect out-of-ISR → **possible truncation / data loss**. Prefer false for payments.
+
+## 8. Kafka controller and leader election
+
+**ZK era:** one controller elected via ZK; watches broker/partition state; writes leadership.
+
+**KRaft:** metadata quorum (Raft) stores cluster metadata; controllers form quorum; no ZK.
+
+Leader election for **partitions** is still controller-driven using ISR and epochs. Leader election for **controller** is quorum/ZK based.
+
+## 9. ZooKeeper vs KRaft — why move?
+
+| ZooKeeper | KRaft |
+|---|---|
+| Separate system to operate | Metadata in Kafka itself |
+| Partition count / metadata scalability limits | Better metadata scalability |
+| Split brain / dual operational expertise | Single operational story |
+| ZK session nuances | Raft epochs + cleaner fencing story |
+
+**Why move:** remove ZK dependency, improve scalability/controllability of metadata, simplify operations.
+
+## 10. Design a Kafka cluster for 100M+ messages/day
+
+**100M/day ≈ 1,157 msg/s average** — easy. Design for **peak** (e.g. 10–20×) and **bytes**, not only count.
+
+| Dimension | Guidance |
+|---|---|
+| Peak QPS | Measure p99 produce rate + payload size |
+| Partitions | Enough for peak consumer parallelism + headroom (not millions blindly) |
+| Replication | RF=3, `min.insync.replicas=2`, `acks=all` for money events |
+| Brokers | Spread leaders; rack awareness |
+| Disk | Sequential I/O, enough retention disk, JBOD practices |
+| Network | Produce/consume bandwidth + replication traffic (~RF factor) |
+| Observability | Under-replicated, ISR shrink, produce p99, lag, disk |
+| Failure domain | Multi-AZ; no single AZ holds all ISR |
+
+**Principal answer structure:** capacity from **bytes/sec + peak**, durability config, partition plan by key, consumer SLO for lag, multi-AZ, runbooks for broker loss and hot partitions.
+
+### Architect checklist
+
+```text
+Peak bytes/sec × retention × RF = disk
+Partitions ≥ max consumer parallelism needed at peak
+RF=3 / minISR=2 / unclean=false for payments
+Quotas + alerts before saturation
+```

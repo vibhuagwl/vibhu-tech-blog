@@ -1,0 +1,94 @@
+---
+slug: kafka-partitions-ordering-interview
+title: "Kafka Partitions & Ordering Interview (Q11–Q20)"
+description: "Principal-level answers on partition count, per-key ordering, hot partitions, cardinality, and what happens when you increase partitions in production."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## 11. How does Kafka partitioning work?
+
+Producer chooses a partition via:
+1. Explicit partition,
+2. **Key hash** → sticky to partition,
+3. No key → sticky partitioner / round-robin style batching (version-dependent).
+
+Broker appends to that partition’s log with a monotonically increasing **offset**.
+
+## 12. How do you choose the number of partitions?
+
+| Factor | Rule of thumb |
+|---|---|
+| Target consumer parallelism | Partitions ≥ max concurrent consumers in a group |
+| Throughput | More partitions → more parallelism (until broker/client limits) |
+| Ordering | More partitions ⇒ weaker global order |
+| Ops cost | Too many → longer recovery, more open files, metadata pressure |
+| Future growth | Start with headroom; increasing later **breaks key→partition mapping** |
+
+Formula sketch: `ceil(peak_consume_rate / per_consumer_rate)` then round up + buffer.
+
+## 13. Can Kafka guarantee message ordering?
+
+**Yes — within a partition. No — across partitions.**
+
+Global order requires a single partition (scalability killer) or application-level sequencing.
+
+## 14. Guarantee ordering per customer/order/account?
+
+**Use that entity id as the partition key** so all events for that id land on one partition.
+
+```text
+key = accountId | orderId | customerId
+```
+
+Consumers process **sequentially per partition** (or per-key single-flight if you parallelize carefully inside a partition).
+
+## 15. What happens if you increase partitions after production?
+
+- New key hashing maps keys to **different partitions** than before.
+- **Per-key ordering can break** across the cutover (events for same key may go to new partition while old partition still has history).
+- Consumers get more partitions to assign; lag shape changes.
+
+**Mitigations:** plan partition count early; dual-write/migration strategies; or accept ordering only within epochs.
+
+## 16. Can two consumers consume the same partition?
+
+| Setup | Same partition? |
+|---|---|
+| Same consumer **group** | **No** — exclusive assignment |
+| Different groups | **Yes** — independent offsets |
+| Manual assignment | Possible to overlap if you force it (usually wrong) |
+
+## 17. Why is partition count important for scalability?
+
+Partition = unit of parallelism for both produce leadership spread and consumer concurrency. Throughput ceiling ≈ function of partitions × per-partition capacity.
+
+## 18. How would you handle a hot partition?
+
+**Symptom:** one partition lag/CPU/disk skew; one key dominates (e.g. one customerId = 50% traffic).
+
+| Strategy | Notes |
+|---|---|
+| Change keying | `customerId + shard` (e.g. hash bucket) — **breaks total per-customer order** unless you define shard rules |
+| Sub-key | Separate high-volume event types |
+| Local fairness | Rate-limit hot keys; dedicated consumers |
+| Application sharding | Hot customer → dedicated topic |
+| Fix producer skew | Bad custom partitioner |
+
+**Trade-off statement:** perfect per-customer total order vs scale — often **order within shard** + sequence numbers.
+
+## 19. Uniform distribution across partitions?
+
+- High-cardinality keys
+- Avoid null keys if that collapses sticky behavior unexpectedly
+- Avoid tiny enum keys (`status=OPEN`)
+- Monitor produce bytes per partition
+
+## 20. Poor cardinality partition key?
+
+Few distinct keys → few hot partitions → underutilized cluster + lag on hot partitions + ordering bottlenecks.
+
+**Example:** key=`country=US` for a US-heavy business → one mega partition.

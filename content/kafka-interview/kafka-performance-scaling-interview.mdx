@@ -1,0 +1,89 @@
+---
+slug: kafka-performance-scaling-interview
+title: "Kafka Performance & Scaling Interview (Q106–Q118)"
+description: "1M msg/sec design thinking, partition math, capacity, metrics, compression codecs, and producer/consumer/broker tuning for Staff+ interviews."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## 106. Handle 1 million messages/sec
+
+Break into **bytes/sec**, not only msg/sec.
+
+| Lever | Action |
+|---|---|
+| Partitions | Hundreds+ carefully planned across brokers |
+| Brokers | Scale horizontally; leader balance |
+| Batching + compression | Producer efficiency |
+| Zero-copy / page cache | Broker disk sequential |
+| Consumers | Parallelism = partitions; efficient deserialization |
+| Avoid | Giant sync fanout in one consumer; oversized payloads |
+
+Also: OS tuning, NVMe, network, RF cost (every msg written RF times).
+
+## 107. Calculate required partitions
+
+```text
+partitions ≈ ceil(peak_consumer_throughput_needed / throughput_per_consumer)
+```
+
+Also consider produce hotspots and future growth. Validate with load tests — constants differ by payload size.
+
+## 108. Cluster capacity
+
+Inputs: peak produce bytes/s, consume fanout, RF, retention hours, replication traffic, connection counts. Disk ≈ `ingest × retention × RF` (+ margin). CPU for compress/TLS/SSL. Network ≈ produce + consume×groups + replication.
+
+## 109. Metrics to monitor
+
+| Area | Metrics |
+|---|---|
+| Broker | Under-replicated partitions, ISR shrink, produce/fetch latency, disk, network, request handler idle |
+| Producer | record send rate, request latency p99, retries, errors, batch size |
+| Consumer | lag (records + time), poll time, commit rate, rebalances |
+| Topic | bytes in/out per partition skew |
+| JVM/OS | GC, page cache, iowait |
+
+## 110. Reduce producer latency
+
+Lower linger, smaller batches (trade throughput), colocated brokers, healthy ISR, avoid saturated disks, tune acks only with eyes open, connection warmup.
+
+## 111. Increase consumer throughput
+
+More partitions/consumers, batch processing, async I/O carefully, faster serdes, reduce per-message DB roundtrips, compression CPU balance, stickiness to reduce rebalances.
+
+## 112. Causes of high consumer lag
+
+Produce spike, slow processing, rebalances, poison head-of-line, insufficient consumers, downstream outage, GC, fetch misconfig, hot partition.
+
+## 113–114. Compression
+
+Compression reduces network/disk, costs CPU.
+
+| Codec | Typical use |
+|---|---|
+| `gzip` | Higher ratio, more CPU, older default nostalgia |
+| `snappy` | Fast, moderate ratio |
+| `lz4` | Very fast, great throughput default candidate |
+| `zstd` | Excellent ratio/speed balance (modern favorite) |
+
+## 115. Disk, CPU, network, memory effects
+
+| Resource | Kafka impact |
+|---|---|
+| Disk | Append + serve from page cache; iowait kills p99 |
+| CPU | Compression, SSL, serdes, many partitions |
+| Network | Produce/consume/replication |
+| Memory | Page cache is king for read performance |
+
+## 116–118. Tuning brokers / consumers / producers
+
+**Brokers:** disk layout, replica threads, network threads, socket buffers, log segment sizes, retention — change with evidence.
+
+**Consumers:** `fetch.min.bytes` / `fetch.max.wait.ms`, `max.poll.records`, poll interval, cooperative rebalance, processing parallelism.
+
+**Producers:** batch/linger/compression/buffer/acks/idempotence — match latency SLO.
+
+**Principal rule:** measure → hypothesize → change one lever → load test.
