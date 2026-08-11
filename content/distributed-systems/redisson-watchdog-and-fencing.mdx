@@ -61,8 +61,6 @@ Monitoring:
 | lock acquire latency | contention and Redis health |
 | lock held duration | critical-section sizing |
 | watchdog renewal failures | owner may lose lease |
-| illegal monitor state on unlock | ownership changed or thread mismatch |
-| Redis command errors | coordination uncertainty |
 
 Pros and cons:
 
@@ -70,7 +68,6 @@ Pros and cons:
 |---|---|
 | Convenient Java API | Can hide lease semantics |
 | Reentrant behavior | Thread ownership surprises async code |
-| Built-in scripts | Still requires resource fencing |
 
 When to use: use Redisson when Redis is the chosen coordinator and a mature Java client is preferable to hand-rolled Lua and retry code.
 
@@ -124,7 +121,6 @@ Monitoring:
 |---|---|
 | lock duration exceeds expected p99 | inspect stuck worker |
 | watchdog renewals continue for old request | add deadline around work |
-| manual unlock events | audit and postmortem |
 | active locks by owner | identify wedged pods |
 
 Pros and cons:
@@ -189,7 +185,6 @@ Monitoring:
 | task duration vs lease | detect false expiry |
 | unlock skipped because not owner | identify TTL overruns |
 | acquisition wait timeout | contention or stuck owner |
-| overlapping owner traces | safety investigation |
 
 Pros and cons:
 
@@ -215,7 +210,6 @@ Mechanism:
 | pod killed | renewal stops | no more Java work after termination |
 | long GC pause | renewal thread pauses | work may resume stale |
 | Redis partition | renewal fails or blocks | worker may still reach PostgreSQL |
-| downstream partition | lock renews but write outcome unknown | retry ambiguity |
 
 Timeline:
 
@@ -256,7 +250,6 @@ Monitoring:
 | Redis connection churn by pod | partition or failover |
 | renewal failure with successful DB writes | stale-owner danger |
 | PostgreSQL fence rejections | defense working |
-| Kubernetes termination grace misses | pod killed during critical section |
 
 Pros and cons:
 
@@ -316,7 +309,6 @@ Monitoring:
 | Metric | Meaning |
 |---|---|
 | fence issued total | acquisition volume |
-| fence gaps | failed acquisitions after increment or abandoned grants |
 | stale fence rejection | zombie owners caught |
 | fence counter reset | critical Redis persistence/configuration issue |
 
@@ -380,7 +372,6 @@ Monitoring:
 | zero-row fenced updates | stale owner or business conflict |
 | max token per aggregate | audit ownership history |
 | token regression | data corruption or counter reset |
-| write paths missing token | safety gap |
 
 Pros and cons:
 
@@ -443,7 +434,6 @@ Monitoring:
 |---|---|
 | optimistic conflict count | expected version contention |
 | ZK sequence gaps | normal abandoned attempts or churn |
-| etcd compaction/watch lag | clients may miss context |
 | outbox duplicate suppression | side-effect safety |
 
 Pros and cons:
