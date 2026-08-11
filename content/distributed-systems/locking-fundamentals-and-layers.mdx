@@ -1,0 +1,374 @@
+---
+slug: locking-fundamentals-and-layers
+title: "Locking Fundamentals and Layers: From JVM Monitors to Consensus"
+description: A Principal-level guide to where locks live, who owns them, and how account, order, payment, and inventory workflows fail across multiple Java service instances.
+category: Distributed Systems
+difficulty: Principal
+tags: [Locking, Java, Spring, PostgreSQL, Redis, Consensus]
+readingTime: 24 min
+publishedAt: "2026-08-11"
+---
+
+## Definition: what a lock really is
+
+A lock is a temporary claim over a named resource or code path. The crucial design question is not "which API acquires the lock?" but **which authority can observe all contenders and enforce the invariant**.
+
+In a single Java process, `synchronized` can observe all threads trying to enter the same monitor. In a Kubernetes deployment with twelve pods, a JVM monitor observes only threads inside one pod. The other eleven pods have their own heaps, monitors, and lock objects.
+
+## Scenario: one commerce workflow, four invariants
+
+Assume a Spring Boot commerce platform with these services:
+
+| Service | Resource | Invariant |
+|---|---|---|
+| Account service | `account-100` balance | Balance cannot be debited twice for one order |
+| Order service | `order-55` state | State transition must be legal and monotonic |
+| Payment service | `paymentIntent-abc` | External capture must be attempted once per idempotency key |
+| Inventory service | `sku-777` stock | Available stock cannot go negative |
+
+Mechanism: each service runs three pods behind a load balancer. Every pod can receive a retry for the same order.
+
+Timeline:
+
+```text
+T0  client submits order-55
+T1  gateway sends request to order pod A
+T2  client timeout causes retry to order pod B
+T3  pod A enters synchronized block for order-55
+T4  pod B enters its own synchronized block for order-55
+T5  both call payment capture unless another layer stops them
+```
+
+The duplicate is not caused by Java being broken. The duplicate is caused by choosing a lock authority whose visibility is narrower than the concurrency domain.
+
+## Why `synchronized` fails across JVMs
+
+Definition: `synchronized` protects a monitor associated with an object or class inside one JVM. It coordinates threads that share the same heap and monitor table.
+
+Mechanism:
+
+```java
+@Service
+public class LocalOrderGuard {
+    public synchronized void submit(String orderId) {
+        // Only one thread in this JVM enters this method at a time.
+        capturePayment(orderId);
+    }
+}
+```
+
+Timeline:
+
+```text
+                Kubernetes service
+                       |
+           +-----------+-----------+
+           |                       |
+        pod A                   pod B
+     JVM heap A              JVM heap B
+  monitor LocalOrderGuard monitor LocalOrderGuard
+           |                       |
+      thread A enters         thread B enters
+```
+
+Java example:
+
+```java
+public class PerAccountMonitor {
+    private final Map<String, Object> monitors = new ConcurrentHashMap<>();
+
+    public void debit(String accountId, BigDecimal amount) {
+        Object monitor = monitors.computeIfAbsent(accountId, ignored -> new Object());
+        synchronized (monitor) {
+            // Safe only among threads that share this exact JVM heap.
+            writeDebit(accountId, amount);
+        }
+    }
+}
+```
+
+Failure: pod A and pod B both create a monitor for `"account-100"`. The monitor identity is a local object reference, not a distributed fact.
+
+Monitoring:
+
+| Signal | What it tells you |
+|---|---|
+| JVM thread blocked count | Local contention only |
+| Request duplicate rate by idempotency key | Cross-pod duplicate execution |
+| Payment provider duplicate rejection | External side effects reached provider twice |
+| PostgreSQL unique violation count | Storage stopped duplicate write |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Extremely fast and simple | No visibility across JVMs |
+| Correct for protecting local memory | Cannot protect Redis, PostgreSQL, or an API |
+| No external dependency | Lost on pod restart |
+
+When to use: use `synchronized` for local caches, lazy initialization, and in-process data structures. Do not use it as the only guard for business invariants in horizontally scaled services.
+
+Interview question: "Why did both service instances acquire the same Java lock?" Answer: they did not acquire the same lock; they acquired separate monitor objects with the same logical key in different heaps.
+
+## Lock hierarchy
+
+Definition: a lock hierarchy is the sequence of increasingly broad coordination scopes available to a system. Higher scope usually means higher latency and more operational complexity, but also broader visibility.
+
+Mechanism:
+
+| Layer | Owner | Stored in | Visibility | Expiry | Enforcer |
+|---|---|---|---|---|---|
+| Thread | Java thread | CPU scheduler/JVM state | One thread | Thread exit | JVM |
+| JVM monitor | Object/class monitor | JVM heap | One JVM | Object lifetime | JVM |
+| `ReentrantLock` | Java thread | Java object | One JVM | Explicit unlock | JVM |
+| Spring local lock manager | Bean instance | JVM heap map | One pod | Explicit unlock/cleanup | Application |
+| Redis distributed lease | Owner token | Redis key | Clients reaching Redis | TTL | Redis plus application |
+| PostgreSQL row lock | Transaction | PostgreSQL lock manager | Database clients | Transaction end | PostgreSQL |
+| PostgreSQL table lock | Transaction | PostgreSQL lock manager | Database clients | Transaction end | PostgreSQL |
+| MVCC version | Row version | Tuple metadata/version column | Database readers/writers | Commit rules | PostgreSQL |
+| Consensus lock | Session/lease | ZooKeeper or etcd quorum | Cluster clients | Session or lease expiry | Quorum service |
+
+Timeline:
+
+```text
+thread -> JVM -> Spring bean -> Redis key -> PostgreSQL row -> MVCC version -> quorum session
+  |        |          |             |              |              |             |
+ local  process   process       service-wide   database-wide  data-wide   cluster-wide
+```
+
+Java example:
+
+```java
+public record LockLayer(
+    String name,
+    String owner,
+    String storage,
+    String enforcementPoint
+) {}
+
+List<LockLayer> layers = List.of(
+    new LockLayer("JVM monitor", "Java thread", "JVM heap", "JVM"),
+    new LockLayer("Redis lease", "owner token", "Redis key", "Redis plus resource fence"),
+    new LockLayer("PostgreSQL row", "transaction", "lock table", "PostgreSQL"),
+    new LockLayer("etcd lease", "client lease", "quorum state", "etcd quorum")
+);
+```
+
+Failure: teams skip the hierarchy and jump from local locks to Redis without asking whether the database already has the correct primitive. That adds a second coordinator but leaves the resource invariant enforced in neither place.
+
+Monitoring:
+
+| Layer | Useful metric |
+|---|---|
+| JVM | blocked threads, lock wait duration |
+| Spring map | lock map size, key cardinality, stale entries |
+| Redis | acquire latency, TTL remaining, expired owner count |
+| PostgreSQL | `pg_locks`, deadlocks, transaction age |
+| MVCC | serialization failures, update conflict retries |
+| Consensus | session expirations, quorum health, watch lag |
+
+Pros and cons:
+
+| Scope | Benefit | Cost |
+|---|---|---|
+| Local | Cheap and deterministic | Invisible outside process |
+| Distributed cache | Fast cross-pod coordination | Lease semantics and fencing required |
+| Database | Strong resource-local enforcement | Can block transactions and reduce throughput |
+| Consensus | Strong membership semantics | Operationally heavier and latency sensitive |
+
+When to use: choose the lowest layer that sees every contender and can enforce or delegate enforcement of the invariant.
+
+Interview question: "Where is the lock stored?" Principal answers name the owner, storage, visibility boundary, expiry condition, and enforcement point.
+
+## PostgreSQL row and transaction locks
+
+Definition: PostgreSQL row locks protect rows participating in a transaction. They are not application mutexes; they are database concurrency-control facts.
+
+Mechanism:
+
+```sql
+begin;
+select id, balance
+  from account
+ where id = 'account-100'
+ for update;
+
+update account
+   set balance = balance - 25.00
+ where id = 'account-100';
+commit;
+```
+
+Timeline:
+
+```text
+T0  tx A selects account-100 for update
+T1  tx B selects account-100 for update and waits
+T2  tx A updates and commits
+T3  tx B resumes and sees committed state
+T4  tx B can decide whether debit is still legal
+```
+
+Java example:
+
+```java
+@Transactional
+public void reserveFunds(String accountId, BigDecimal amount) {
+    Account account = jdbc.queryForObject("""
+        select id, balance
+          from account
+         where id = ?
+         for update
+        """, accountMapper, accountId);
+
+    if (account.balance().compareTo(amount) < 0) {
+        throw new InsufficientFundsException(accountId);
+    }
+
+    jdbc.update("update account set balance = balance - ? where id = ?", amount, accountId);
+}
+```
+
+Failure: a transaction that holds a row lock while calling Redis, an HTTP payment API, or a slow downstream service can block unrelated database work and create deadlock chains.
+
+Monitoring:
+
+| PostgreSQL view | Use |
+|---|---|
+| `pg_locks` | See waiting and granted locks |
+| `pg_stat_activity` | Find long transactions |
+| deadlock logs | Detect incompatible lock order |
+| statement timeout metrics | Catch unbounded waits |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Resource-local and durable | Blocks at the database |
+| Transaction end releases lock | Bad if critical section includes remote calls |
+| Works naturally with constraints | Can deadlock under inconsistent ordering |
+
+When to use: use row locks when the protected invariant lives in PostgreSQL and the critical section is a short database transaction.
+
+Interview question: "Should you hold a DB row lock while calling a payment provider?" Usually no. Persist an intent, commit, call the provider with an idempotency key, then reconcile state.
+
+## MVCC and optimistic locking
+
+Definition: MVCC allows readers and writers to work with row versions. Optimistic locking uses a version column or compare-and-swap predicate to detect concurrent writes.
+
+Mechanism:
+
+```sql
+update inventory
+   set available = available - 1,
+       version = version + 1
+ where sku = 'sku-777'
+   and available > 0
+   and version = 12;
+```
+
+Timeline:
+
+```text
+T0  worker A reads sku-777 version 12
+T1  worker B reads sku-777 version 12
+T2  worker A updates where version = 12; success -> version 13
+T3  worker B updates where version = 12; zero rows
+T4  worker B reloads or returns conflict
+```
+
+Java example:
+
+```java
+public boolean reserveOne(String sku, long expectedVersion) {
+    int rows = jdbc.update("""
+        update inventory
+           set available = available - 1,
+               version = version + 1
+         where sku = ?
+           and available > 0
+           and version = ?
+        """, sku, expectedVersion);
+    return rows == 1;
+}
+```
+
+Failure: optimistic retries under a hot SKU can amplify load. If 1,000 buyers compete for one unit, 999 retries are wasted unless the caller backs off or the workflow queues by SKU.
+
+Monitoring:
+
+| Metric | Interpretation |
+|---|---|
+| CAS failure rate | Contention on versioned rows |
+| retry attempts per request | Load amplification |
+| inventory negative count | Invariant failure, should be zero |
+| transaction abort rate | Isolation conflict pressure |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| No separate lock service | High contention can cause retry storms |
+| Keeps invariant with data | Requires conflict handling in callers |
+| Great for short updates | Not enough for external side effects |
+
+When to use: use MVCC or optimistic locking for state transitions and counters that can be expressed as conditional updates.
+
+Interview question: "Is optimistic locking a distributed lock?" No. It is a database concurrency strategy that often removes the need for a distributed lock.
+
+## Consensus coordination
+
+Definition: consensus-backed coordination stores ownership in a quorum system such as ZooKeeper or etcd. It is designed for membership, leadership, and ordering decisions.
+
+Mechanism:
+
+```text
+client creates ephemeral sequential node
+client watches predecessor
+lowest sequence number owns the lock
+session expiry removes abandoned nodes
+```
+
+Timeline:
+
+```text
+T0  A creates /locks/order-55/lock-0001
+T1  B creates /locks/order-55/lock-0002
+T2  B watches lock-0001
+T3  A session expires; lock-0001 disappears
+T4  B watch fires and B becomes owner
+```
+
+Java example:
+
+```java
+try (InterProcessMutex mutex = new InterProcessMutex(curator, "/locks/order-55")) {
+    if (!mutex.acquire(5, TimeUnit.SECONDS)) {
+        throw new BusyResourceException("order-55");
+    }
+    transitionOrder("order-55");
+} // releases node when closed, unless the session already expired
+```
+
+Failure: if the session expires while the Java process is paused, the process can continue executing code after the coordinator has removed its ownership. Fencing is still required for protected writes.
+
+Monitoring:
+
+| Signal | Why |
+|---|---|
+| session expiration count | Indicates owners may be zombies |
+| watch event lag | Reveals slow handoff |
+| quorum availability | Determines coordination safety |
+| lock queue length | Shows contention by resource |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Stronger ownership ordering than a simple cache key | Requires operating a quorum system |
+| Natural for leader election | Higher latency than Redis |
+| Session cleanup for crashed clients | Still needs fencing at resource |
+
+When to use: use consensus coordination for leaders, schedulers, shard ownership, and control-plane locks where correctness outweighs latency.
+
+Interview question: "Does ZooKeeper remove the need for database constraints?" No. ZooKeeper coordinates ownership; the database still protects durable state.

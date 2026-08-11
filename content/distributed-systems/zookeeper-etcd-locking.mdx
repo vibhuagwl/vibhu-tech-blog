@@ -1,0 +1,435 @@
+---
+slug: zookeeper-etcd-locking
+title: "ZooKeeper and etcd Locking: Ephemeral Nodes, Leases, Watches, and Quorum"
+description: Principal-level guide to ZooKeeper ephemeral sequential locks, predecessor watches, session expiry, quorum behavior, etcd leases and CAS, and when to choose them over Redis.
+category: Distributed Systems
+difficulty: Principal
+tags: [ZooKeeper, etcd, Distributed Lock, Java, Consensus]
+readingTime: 26 min
+publishedAt: "2026-08-11"
+---
+
+## Definition: quorum-backed coordination
+
+ZooKeeper and etcd are coordination systems built around replicated state and quorum agreement. They are commonly used for leader election, membership, configuration, and distributed locks where ordering and session semantics matter more than raw latency.
+
+Mechanism:
+
+| System | Core primitive | Lock style |
+|---|---|---|
+| ZooKeeper | znodes, sessions, watches | ephemeral sequential nodes |
+| etcd | keys, revisions, leases, transactions | lease key plus compare-and-swap |
+| Redis | keys and TTLs | `SET NX PX` lease |
+
+Timeline:
+
+```text
+client -> coordinator quorum -> ordered metadata change -> watch notification
+   |             |                       |                    |
+ Java         servers              sequence/revision       handoff
+```
+
+Java example context:
+
+```java
+public interface CoordinationLock {
+    Optional<CoordinationGrant> tryAcquire(String resource, Duration wait) throws Exception;
+    void release(CoordinationGrant grant) throws Exception;
+}
+
+public record CoordinationGrant(String resource, long fencingToken, String ownerPath) {}
+```
+
+Failure: a quorum system can tell clients about ordered ownership, but it cannot make a paused Java thread stop executing. Fencing remains necessary for durable writes.
+
+Monitoring:
+
+| Metric | Why |
+|---|---|
+| quorum availability | lock service safety and liveness |
+| session expirations | owners may become stale |
+| watch delivery lag | handoff delay |
+| lock queue length | contention by resource |
+| commit latency | coordination health |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Stronger coordination semantics than cache TTLs | More operational complexity |
+| Natural fencing sources | Higher latency than Redis |
+| Session cleanup for crashed clients | Requires careful client behavior |
+
+When to use: use ZooKeeper or etcd for control-plane coordination, leader election, shard ownership, schedulers, and critical locks where a quorum dependency is acceptable.
+
+Interview question: "Why not use ZooKeeper for every critical section?" Because it is a coordination system, not a high-throughput data plane. Keep critical sections small and avoid using it as a global bottleneck.
+
+## ZooKeeper ephemeral sequential lock
+
+Definition: a ZooKeeper lock is commonly implemented by creating an ephemeral sequential znode under a lock path. The client with the lowest sequence number owns the lock.
+
+Mechanism:
+
+```text
+/locks/order-55/
+  lock-0000000001  owner A
+  lock-0000000002  owner B
+  lock-0000000003  owner C
+```
+
+Timeline:
+
+```text
+T0  A creates /locks/order-55/lock-0000000001
+T1  B creates /locks/order-55/lock-0000000002
+T2  C creates /locks/order-55/lock-0000000003
+T3  A owns lock because sequence 1 is lowest
+T4  B waits for sequence 1 to disappear
+T5  C waits for sequence 2 to disappear
+```
+
+Java example with Curator:
+
+```java
+public void processOrder(String orderId) throws Exception {
+    String path = "/locks/order-" + orderId;
+    InterProcessMutex mutex = new InterProcessMutex(curatorFramework, path);
+    if (!mutex.acquire(5, TimeUnit.SECONDS)) {
+        throw new BusyResourceException(orderId);
+    }
+    try {
+        transitionOrder(orderId);
+    } finally {
+        mutex.release();
+    }
+}
+```
+
+Failure: if the client session expires, ZooKeeper deletes the ephemeral node. The Java code may not immediately know this if it was paused or partitioned.
+
+Monitoring:
+
+| Signal | Why |
+|---|---|
+| ephemeral node count per lock | queue depth |
+| session state changes | owner validity |
+| sequence age | stuck owner or long work |
+| Curator connection state | client behavior during partitions |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Ordered wait queue | Requires ZooKeeper ensemble |
+| Automatic cleanup on session end | Session expiry can create stale owner |
+| Sequence number can fence writes | Client code must propagate it |
+
+When to use: use this pattern for leadership, scheduler ownership, and rare critical transitions where ordered handoff is valuable.
+
+Interview question: "Who owns the lock in ZooKeeper?" The live session whose ephemeral sequential node has the lowest sequence number.
+
+## Watches and predecessor watch
+
+Definition: a watch is a one-time notification that a znode changed. A lock client should normally watch its immediate predecessor, not the parent directory.
+
+Mechanism:
+
+```text
+queue:
+  lock-0001 owner A
+  lock-0002 waiter B watches lock-0001
+  lock-0003 waiter C watches lock-0002
+  lock-0004 waiter D watches lock-0003
+```
+
+Timeline:
+
+```text
+predecessor watch:
+T0  A releases lock-0001
+T1  only B receives relevant watch
+T2  B checks children and becomes owner
+
+parent watch:
+T0  A releases lock-0001
+T1  B, C, D, and many others all wake
+T2  all call ZooKeeper to recheck
+```
+
+Java example:
+
+```java
+public String predecessorOf(List<String> sortedChildren, String myNode) {
+    int index = sortedChildren.indexOf(myNode);
+    if (index == 0) {
+        return null;
+    }
+    return sortedChildren.get(index - 1);
+}
+```
+
+Failure: watching the parent creates a thundering herd. Every release wakes many waiters even though only one can acquire, increasing coordination latency during contention.
+
+Monitoring:
+
+| Metric | Interpretation |
+|---|---|
+| watch events per release | thundering herd if high |
+| children-list calls per acquire | inefficient polling |
+| ZooKeeper request latency | herd pressure |
+| waiter wakeups without ownership | wasted work |
+
+Pros and cons:
+
+| Approach | Pros | Cons |
+|---|---|---|
+| Predecessor watch | Scales with one next waiter | More client logic |
+| Parent watch | Simpler conceptually | Herd effect |
+| Polling | Easy to debug | High latency and load |
+
+When to use: predecessor watches are the standard lock queue pattern when many clients may wait on one lock path.
+
+Interview question: "Why does each waiter watch only the previous node?" Because only the immediate predecessor's removal can make that waiter the owner.
+
+## Session expiry
+
+Definition: a ZooKeeper session represents a client's liveness relationship with the ensemble. Ephemeral nodes exist only while the session is valid.
+
+Mechanism:
+
+| Event | Result |
+|---|---|
+| clean release | client deletes ephemeral node |
+| client crash | session times out and node is deleted |
+| long GC pause | session may expire while process later resumes |
+| network partition | ensemble may expire session without client progress |
+
+Timeline:
+
+```text
+T0  A owns lock-0001
+T1  A hits 45s stop-the-world pause
+T2  ZooKeeper session timeout is 30s
+T3  ensemble expires A and deletes lock-0001
+T4  B sees watch and owns lock-0002
+T5  A wakes and must treat itself as stale
+```
+
+Java example handling state:
+
+```java
+curator.getConnectionStateListenable().addListener((client, newState) -> {
+    if (newState == ConnectionState.LOST) {
+        localOwnership.invalidateAll();
+    }
+});
+```
+
+Failure: connection state callbacks are not magic interrupts. If application code does not check cancellation or fence writes, stale work may still commit.
+
+Monitoring:
+
+| Signal | Why |
+|---|---|
+| `LOST` connection events | ownership invalidated |
+| `SUSPENDED` duration | possible future expiry |
+| GC pause duration | session timeout sizing |
+| stale write rejection | fence effectiveness |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Crash cleanup is automatic | Pause can create zombie owner |
+| Session model is explicit | Requires client state handling |
+| Good for membership | Timeout tuning is workload-specific |
+
+When to use: rely on session expiry for liveness, not for final data safety.
+
+Interview question: "What should a client do after ZooKeeper reports `LOST`?" Stop acting as owner, cancel work if possible, and depend on fencing for any in-flight writes.
+
+## Quorum behavior
+
+Definition: ZooKeeper and etcd rely on a quorum of servers to make progress. A minority partition cannot safely accept new lock ownership.
+
+Mechanism:
+
+```text
+5-node ensemble
+  majority side: 3 nodes -> can commit ownership changes
+  minority side: 2 nodes -> cannot commit ownership changes
+```
+
+Timeline:
+
+```text
+T0  five-node quorum healthy
+T1  network splits into 3 and 2
+T2  clients on 3-node side can acquire locks
+T3  clients on 2-node side lose ability to confirm session/lease
+T4  correct clients stop acting as owners after loss
+```
+
+Java example:
+
+```java
+public boolean canContinue(ConnectionState state) {
+    return state == ConnectionState.CONNECTED || state == ConnectionState.RECONNECTED;
+}
+```
+
+Failure: if clients ignore lost sessions, quorum cannot protect the downstream database. Consensus orders metadata; application protocols must respect ownership loss.
+
+Monitoring:
+
+| Metric | Reason |
+|---|---|
+| leader changes | instability |
+| follower lag | quorum health |
+| commit latency | coordination path health |
+| unavailable errors | liveness impact |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Prevents split-brain metadata commits | Majority loss stops progress |
+| Strong ordering | Higher write latency |
+| Clear operational model | Requires ensemble care |
+
+When to use: use quorum coordination when split-brain ownership is more dangerous than temporary unavailability.
+
+Interview question: "What happens if a client is isolated with a minority of ZooKeeper nodes?" It cannot safely maintain or acquire ownership and should stop protected work.
+
+## etcd lease and compare-and-swap
+
+Definition: etcd locks use leases for liveness and transactions for atomic compare-and-swap. etcd revisions can also serve as fencing tokens.
+
+Mechanism:
+
+```text
+1. grant lease with TTL
+2. transaction: if lock key version is 0, put owner value with lease
+3. keep lease alive while owner works
+4. delete key on release if owner still matches
+5. use create revision or a separate counter as fence
+```
+
+Timeline:
+
+```text
+T0  A grants lease 1001
+T1  A txn compare version(lock:job) == 0; put owner A lease 1001
+T2  A keepalive succeeds
+T3  A partitioned from etcd
+T4  lease expires; lock key deleted
+T5  B txn succeeds with lease 1002
+```
+
+Java example with jetcd-style pseudocode:
+
+```java
+ByteSequence key = ByteSequence.from("lock:job:daily", UTF_8);
+ByteSequence owner = ByteSequence.from(ownerId, UTF_8);
+
+Txn txn = client.getKVClient().txn()
+    .If(new Cmp(key, Cmp.Op.EQUAL, CmpTarget.version(0)))
+    .Then(Op.put(key, owner, PutOption.builder().withLeaseId(leaseId).build()));
+
+TxnResponse response = txn.commit().get();
+if (!response.isSucceeded()) {
+    throw new BusyResourceException("daily");
+}
+```
+
+Failure: if keepalive fails and the lease expires, the Java worker must assume it lost ownership even if its business method is still running.
+
+Monitoring:
+
+| Metric | Meaning |
+|---|---|
+| lease keepalive failures | ownership risk |
+| transaction conflicts | contention |
+| revision lag | stale watchers |
+| compaction errors | clients fell behind |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Strong CAS transactions | Requires etcd operations expertise |
+| Revisions are useful fences | Watch compaction must be handled |
+| Good Kubernetes ecosystem fit | Not for high-throughput data-plane locking |
+
+When to use: etcd is a good fit when your platform already depends on it or when CAS, leases, and watches are central to the control plane.
+
+Interview question: "How does etcd differ from Redis for locks?" etcd provides quorum-backed CAS, leases, revisions, and watches; Redis provides fast key operations and TTLs.
+
+## Redis versus ZooKeeper versus etcd
+
+Definition: the right coordinator depends on the invariant, latency budget, failure mode, and operating maturity.
+
+Mechanism:
+
+| Dimension | Redis | ZooKeeper | etcd |
+|---|---|---|---|
+| Typical latency | low | moderate | moderate |
+| Ownership primitive | key with TTL | ephemeral sequential znode | key with lease and txn |
+| Ordering token | needs counter | sequence number | revision or counter |
+| Quorum model | deployment-dependent | built-in ensemble quorum | built-in raft quorum |
+| Best fit | short leases, cache work | leader election, lock queues | platform coordination, CAS |
+| Main danger | stale owners without fencing | session loss ignored by app | lease loss ignored by app |
+
+Timeline:
+
+```text
+Redis:
+  SET NX PX -> fast lease -> fence elsewhere
+
+ZooKeeper:
+  create sequential node -> ordered queue -> predecessor watch -> fence by sequence
+
+etcd:
+  txn compare version -> lease key -> keepalive -> fence by revision
+```
+
+Java example decision:
+
+```java
+public Coordinator chooseCoordinator(UseCase useCase) {
+    if (useCase.isCacheRebuild() && useCase.isShortDuration()) {
+        return Coordinator.REDIS;
+    }
+    if (useCase.needsOrderedWaitQueue() || useCase.isLeaderElection()) {
+        return Coordinator.ZOOKEEPER;
+    }
+    if (useCase.needsCasAndPlatformIntegration()) {
+        return Coordinator.ETCD;
+    }
+    return Coordinator.POSTGRES_CONSTRAINT;
+}
+```
+
+Failure: choosing a stronger coordinator does not fix a missing resource check. Redis, ZooKeeper, and etcd can all produce stale owners if Java continues after losing ownership.
+
+Monitoring:
+
+| Coordinator | Required dashboard |
+|---|---|
+| Redis | TTL, acquire failures, release mismatches, failover |
+| ZooKeeper | sessions, watches, queue depth, ensemble health |
+| etcd | lease keepalive, txn conflicts, raft health, watch lag |
+| PostgreSQL fence | stale-token rejects, lock waits, version conflicts |
+
+Pros and cons:
+
+| Choice | Pros | Cons |
+|---|---|---|
+| Redis | simple and fast | weaker ordering semantics |
+| ZooKeeper | mature coordination recipes | separate ensemble and client complexity |
+| etcd | modern CAS and Kubernetes familiarity | compaction and lease handling |
+| PostgreSQL | invariant-local enforcement | not a general membership service |
+
+When to use: choose Redis when the work is short and fenced, ZooKeeper or etcd when membership and ordered ownership matter, and PostgreSQL when the invariant is naturally a data constraint.
+
+Interview question: "Which coordinator would you choose for one active scheduler leader?" ZooKeeper or etcd is usually stronger than Redis because session or lease membership is the core problem.

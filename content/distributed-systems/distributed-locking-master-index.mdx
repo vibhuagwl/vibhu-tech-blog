@@ -1,0 +1,230 @@
+---
+slug: distributed-locking-master-index
+title: "Distributed Locking Master Index: Principal-Level Curriculum"
+description: A Principal-level study path for deciding when to lock, how to lock, and how to prove safety with Java, Spring, PostgreSQL, Redis, ZooKeeper, and etcd.
+category: Distributed Systems
+difficulty: Principal
+tags: [Distributed Locking, Redis, PostgreSQL, ZooKeeper, etcd, Interview]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## Purpose
+
+This hub is a 25+ YOE distributed locking curriculum. It is not a catalog of lock APIs. It is a decision framework for production systems where account movement, order state, payment capture, inventory reservation, job scheduling, and leader election can lose money when two owners proceed at the same time.
+
+The main interview signal is whether you can separate **mutual exclusion**, **lease ownership**, **resource fencing**, **idempotency**, and **transactional invariants**. A Principal answer should explain why a lock may reduce concurrency bugs but still fail to guarantee exactly-once effects.
+
+## Curriculum map
+
+| Order | Guide | Main question | Primary systems |
+|---:|---|---|---|
+| 1 | [Locking fundamentals and layers](/distributed-systems/locking-fundamentals-and-layers) | Where can a lock live, and who enforces it? | JVM, Spring, PostgreSQL, Redis |
+| 2 | [JVM and Spring locking](/distributed-systems/jvm-and-spring-locking) | Why do local locks fail after horizontal scaling? | Java, Spring, Kubernetes |
+| 3 | [Redis distributed lock deep dive](/distributed-systems/redis-distributed-lock-deep-dive) | What does `SET NX PX` actually guarantee? | Redis, Java, Lua |
+| 4 | [Redisson watchdog and fencing](/distributed-systems/redisson-watchdog-and-fencing) | Why renewal is not enough without fencing? | Redisson, Redis, PostgreSQL |
+| 5 | [ZooKeeper and etcd locking](/distributed-systems/zookeeper-etcd-locking) | When do quorum coordinators beat Redis locks? | ZooKeeper, etcd, Java |
+| 6 | [Distributed locking overview](/distributed-systems/distributed-locking) | What is the short interview answer? | Leases, fencing, alternatives |
+| 7 | [This master index](/distributed-systems/distributed-locking-master-index) | How should a Principal study and decide? | All layers |
+
+## The Principal decision
+
+Definition: a distributed lock is a coordination mechanism that attempts to give one process temporary authority over a named critical section. The authority is only useful when the protected resource also rejects stale or duplicate work.
+
+Mechanism: every design must answer five ownership questions.
+
+| Question | Bad vague answer | Principal-level answer |
+|---|---|---|
+| Who owns the lock? | The service owns it | A specific process attempt owns a lease for a key and token |
+| Where is ownership stored? | In memory | Redis key, DB row, ZooKeeper node, or etcd key with lease |
+| Who expires ownership? | The app | Lock service lease, session timeout, DB transaction end, or operator action |
+| Who fences writes? | The lock | The downstream resource using monotonic token or version |
+| Who observes failure? | Logs | Metrics, traces, audits, token rejections, contention dashboards |
+
+Timeline:
+
+```text
+T0  request arrives for account-100
+T1  worker A gets authority token 41
+T2  worker A pauses during GC
+T3  lease expires; worker B gets token 42
+T4  worker B writes account row with token 42
+T5  worker A wakes and tries token 41
+T6  PostgreSQL rejects token 41 because last_token is 42
+```
+
+Java example:
+
+```java
+public interface FencedLockClient {
+    Optional<LockGrant> tryAcquire(String key, Duration ttl);
+    void release(LockGrant grant);
+}
+
+public record LockGrant(String key, String ownerId, long fencingToken, Instant expiresAt) {}
+
+@Service
+public class AccountTransferService {
+    private final FencedLockClient locks;
+    private final JdbcTemplate jdbc;
+
+    public void transfer(String accountId, BigDecimal amount) {
+        LockGrant grant = locks.tryAcquire("account:" + accountId, Duration.ofSeconds(10))
+            .orElseThrow(() -> new IllegalStateException("account is busy"));
+        try {
+            int updated = jdbc.update("""
+                update account
+                   set balance = balance - ?,
+                       last_fence_token = ?
+                 where id = ?
+                   and last_fence_token < ?
+                """, amount, grant.fencingToken(), accountId, grant.fencingToken());
+            if (updated != 1) {
+                throw new StaleLockOwnerException(accountId);
+            }
+        } finally {
+            locks.release(grant);
+        }
+    }
+}
+```
+
+Failure: the lock can expire before the Java code reaches the database. Fencing moves the final safety check into PostgreSQL, where the money invariant is committed.
+
+Monitoring:
+
+| Metric | Why it matters | Alert shape |
+|---|---|---|
+| `lock_acquire_latency` | Contention and coordinator health | p99 rises for hot keys |
+| `lock_waiters` | Backpressure before queue collapse | sustained growth by key prefix |
+| `fence_reject_total` | Zombie owners attempted writes | any spike after GC or failover |
+| `lease_renew_failure_total` | Owner may lose authority | nonzero with active owners |
+| `critical_section_duration` | TTL sizing and stuck work | duration near lease TTL |
+
+Pros and cons:
+
+| Benefit | Cost |
+|---|---|
+| Simple conceptual mutual exclusion for imperative code | Can create hidden global bottlenecks |
+| Useful for rare administrative and workflow transitions | Requires failure semantics beyond the API call |
+| Can protect systems that lack native conditional writes | Needs fencing for safety under pause and partition |
+
+When to use: use a distributed lock for cross-process critical sections that are hard to express as a single conditional database update, and where duplicate execution is expensive but bounded. Prefer storage-native uniqueness, idempotency keys, optimistic concurrency, and partition ownership first.
+
+Interview question: "If your Redis lock says only one worker entered, why did the database still see two writes?" The expected answer is that lease expiration, retries, stale owners, and missing fencing can let two execution attempts reach the resource.
+
+## Study path
+
+| Step | Read | Exercise |
+|---:|---|---|
+| 1 | [Locking fundamentals and layers](/distributed-systems/locking-fundamentals-and-layers) | Draw owner, storage, expiry, and enforcement for every lock type |
+| 2 | [JVM and Spring locking](/distributed-systems/jvm-and-spring-locking) | Show why two pods both enter `synchronized` code |
+| 3 | [Redis distributed lock deep dive](/distributed-systems/redis-distributed-lock-deep-dive) | Implement token-safe acquire and Lua unlock |
+| 4 | [Redisson watchdog and fencing](/distributed-systems/redisson-watchdog-and-fencing) | Add a PostgreSQL version fence to a Redisson example |
+| 5 | [ZooKeeper and etcd locking](/distributed-systems/zookeeper-etcd-locking) | Compare predecessor watches to Redis polling |
+| 6 | [Distributed locking overview](/distributed-systems/distributed-locking) | Give a two-minute interview summary |
+
+## Decision matrix
+
+Definition: a decision matrix maps the resource invariant to the narrowest mechanism that can enforce it. The narrowest correct mechanism is usually easier to test and operate.
+
+Mechanism:
+
+| Need | Prefer | Why |
+|---|---|---|
+| Prevent duplicate payment capture | Payment provider idempotency key and DB unique constraint | The external side effect is deduplicated at its source |
+| Ensure one account balance update wins | PostgreSQL transaction with row lock or optimistic version | The invariant is stored in the database |
+| Ensure one scheduler leader runs | ZooKeeper or etcd lease election | Process authority depends on membership and session |
+| Protect a short cache rebuild | Redis lock with token-safe release | The work is bounded and stale result can be discarded |
+| Serialize hot inventory reservation | DB conditional update or queue by SKU | The stock count is the protected resource |
+
+Timeline:
+
+```text
+decision flow
+  |
+  +-- can a DB constraint express the invariant? -- yes --> use DB
+  |
+  +-- can partition ownership serialize the key? ------ yes --> use queue/shard
+  |
+  +-- is the work only best-effort or cache-like? ----- yes --> Redis lease
+  |
+  +-- is leadership or membership the core problem? --- yes --> ZooKeeper/etcd
+  |
+  +-- otherwise: redesign the invariant before adding a lock
+```
+
+Java example:
+
+```java
+public enum LockingChoice {
+    POSTGRES_CONSTRAINT,
+    POSTGRES_ROW_LOCK,
+    REDIS_LEASE,
+    REDIS_LEASE_WITH_FENCE,
+    ZOOKEEPER_OR_ETCD,
+    SINGLE_PARTITION_QUEUE
+}
+
+public LockingChoice choose(Workload workload) {
+    if (workload.hasDatabaseInvariant()) return LockingChoice.POSTGRES_ROW_LOCK;
+    if (workload.hasExternalIdempotencyKey()) return LockingChoice.POSTGRES_CONSTRAINT;
+    if (workload.isLeaderElection()) return LockingChoice.ZOOKEEPER_OR_ETCD;
+    if (workload.isShortBestEffortWork()) return LockingChoice.REDIS_LEASE;
+    return LockingChoice.REDIS_LEASE_WITH_FENCE;
+}
+```
+
+Failure: the matrix becomes dangerous if teams treat "Redis is fast" as a universal answer. Fast mutual exclusion can still be the wrong enforcement point when the resource of record is PostgreSQL or an external payment processor.
+
+Monitoring:
+
+| Decision | Evidence to review |
+|---|---|
+| DB lock | deadlocks, lock wait time, blocked transactions |
+| Redis lease | expired owners, unlock failures, acquisition contention |
+| Quorum lock | session expirations, quorum loss, watch lag |
+| Queue ownership | consumer lag, rebalance churn, duplicate delivery |
+
+Pros and cons:
+
+| Approach | Pros | Cons |
+|---|---|---|
+| Database invariant | Strong resource-local enforcement | Can increase transaction contention |
+| Redis lock | Low latency and familiar | Needs careful token, TTL, and fencing design |
+| ZooKeeper or etcd | Stronger membership semantics | More operational complexity |
+| Queue partitioning | Natural ordering per key | Requires async workflow design |
+
+When to use: choose the lock only after identifying the invariant that would be violated by concurrent execution. If the invariant is durable state, durable storage should participate in enforcement.
+
+Interview question: "When would you remove a distributed lock from a design?" Strong answers mention replacing it with a unique constraint, idempotency key, single-writer partition, or compare-and-swap update.
+
+## Principal review checklist
+
+| Area | Review question |
+|---|---|
+| Key design | Is the lock key stable, scoped, and low-cardinality enough to monitor? |
+| Lease duration | Is TTL based on measured critical-section p99 and failure recovery target? |
+| Renewal | What happens if renewal succeeds but the resource write times out? |
+| Release | Is unlock owner-token checked atomically? |
+| Fencing | Does every protected write include the fencing token or version? |
+| Idempotency | Can request replay create a second external side effect? |
+| Backpressure | Do callers queue, fail fast, or shed load under contention? |
+| Observability | Can operators identify the holder, waiters, and stuck keys? |
+| Operations | Is there a safe manual unlock procedure with audit trail? |
+| Testing | Are GC pause, crash, partition, and coordinator failover covered? |
+
+## Interview answer template
+
+```text
+1. Name the invariant.
+2. Prefer local enforcement at the resource.
+3. If a cross-process lock remains necessary, use a lease.
+4. Use unique owner tokens for release.
+5. Fence writes with monotonic tokens or versions.
+6. Make retries idempotent.
+7. Monitor contention, expiry, renewal, and stale-owner rejection.
+8. Explain the failure mode you intentionally accept.
+```
+
+The important point is humility: a lock is not a magic serialization layer. It is one signal in a larger protocol that must survive process pauses, network partitions, coordinator failover, retries, and humans operating the system at 03:00.
