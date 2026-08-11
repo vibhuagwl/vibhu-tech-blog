@@ -22,6 +22,14 @@ const ORDER=[
   'process-10gb-formats-cloud-distributed',
   'process-10gb-backpressure-observability',
   'process-10gb-interview-answer-and-followups',
+  'java-30yoe-interview-master-index',
+  'java-30yoe-production-incidents-qa',
+  'java-30yoe-concurrency-qa',
+  'java-30yoe-jvm-gc-performance-qa',
+  'java-30yoe-spring-microservices-qa',
+  'java-30yoe-kafka-database-qa',
+  'java-30yoe-distributed-caching-migration-qa',
+  'java-30yoe-architecture-code-qa',
 ];
 
 export default function RealtimeIssues(){
@@ -38,9 +46,8 @@ export default function RealtimeIssues(){
         <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Staff+ · Principal · Architect</div>
         <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Real-time production issues — diagnose like you were on-call.</h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Incident playbooks for Java/Spring Boot microservices: stuck threads, thread dumps, DB locks,
-          external API hangs, pool exhaustion, Kafka consumers, GC, restarts, RCA — plus processing
-          multi‑GB files with streaming, checkpointing, and idempotency.
+          Incident playbooks for Java/Spring Boot microservices: stuck threads, multi‑GB file processing,
+          and a **30 YOE Principal interview bank** (production, JVM, Kafka, payments, migration).
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} guides</span>

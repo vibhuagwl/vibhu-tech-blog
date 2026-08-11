@@ -1,0 +1,491 @@
+---
+slug: java-30yoe-production-incidents-qa
+title: "Java 30-YOE Production Incidents Q&A: Principal Answers Q1-Q10"
+description: "Principal-level answers for Java production incidents: CPU saturation, stuck threads, OOM, Full GC, latency, Kafka stalls, pool exhaustion, p99 spikes, deadlocks, and intermittent prod-only failures."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java, Production Incidents, JVM, Kafka, HikariCP, Deadlocks, Principal Engineer]
+readingTime: 58 min
+publishedAt: "2026-08-11"
+---
+
+## How to use these answers
+
+These are not memorized scripts.
+
+They are interview-ready production narratives.
+
+Each answer establishes system state, correlates evidence, mitigates with side-effect awareness, and prevents recurrence.
+
+At 30 YOE, the interviewer expects you to know that the first obvious fix can be dangerous.
+
+Killing a JVM can drop in-flight payments.
+
+Restarting a Kafka consumer fleet can trigger a rebalance storm.
+
+Increasing heap can lengthen pauses and hide a leak.
+
+Scaling pods can multiply database connections and take down the dependency that was already weak.
+
+Use these answers in the same voice as the stuck-thread guides:
+
+- [Stuck thread incident response](/realtime-issues/stuck-thread-incident-response)
+- [Stuck thread JVM thread dumps](/realtime-issues/stuck-thread-jvm-thread-dumps)
+- [CPU, GC, kill, and restart](/realtime-issues/stuck-thread-cpu-gc-kill-restart)
+- [DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools)
+- [Kafka interview section](/kafka-interview)
+
+## Q1. Java service at 100 percent CPU
+
+> A Java service is at 100 percent CPU in production. What do you do?
+
+I would not start with "restart it."
+
+I would first establish whether we have active customer impact, whether the saturation is on one pod or the full fleet, and whether the CPU is user CPU, system CPU, GC CPU, or a small number of hot Java threads.
+
+One pod at 100 percent with healthy fleet capacity is a different incident from all pods at 100 percent with queue growth and timeouts.
+
+My first checks are the service golden signals: request rate, error rate, p95 and p99 latency, saturation, queue depth, active threads, connection-pool usage, Kafka lag if relevant, and dependency latency.
+
+Then I correlate host and JVM evidence.
+
+I use `top -H` or equivalent container metrics to find hot OS threads, convert the native thread id to hex, and map it to Java `nid` in a thread dump.
+
+If the hot thread stack is stable across multiple dumps, I can distinguish a tight loop, regex blowup, JSON serialization hot path, crypto compression, lock spin, or application code doing excessive retries.
+
+If no Java thread maps cleanly, I consider GC, native code, TLS, kernel IO, logging, metrics export, or container throttling.
+
+GC context matters.
+
+High CPU with frequent young GC suggests allocation pressure.
+
+High CPU with Full GC suggests memory pressure or promotion failure.
+
+High CPU with low throughput and many blocked threads suggests lock contention or thread starvation, not useful work.
+
+For mitigation, I choose the smallest action that changes the bad state.
+
+If one instance is pathological and the load balancer has enough healthy capacity, I may drain it, capture thread dumps or JFR if safe, then restart that instance.
+
+If the whole fleet is saturated, blindly restarting all pods can synchronize cold caches, cause connection storms, trigger Kafka rebalances, and worsen the outage.
+
+I would consider traffic shedding, feature flag disablement, rate limiting, rollback, temporarily reducing expensive work, or isolating a tenant before fleet restart.
+
+If the CPU is caused by a retry storm, adding pods may multiply retries and destroy the downstream.
+
+If the CPU is caused by a hot partition or tenant, scaling horizontally may not help unless routing distributes that work.
+
+Recovery is not "CPU went down."
+
+Recovery is request latency normalizing, error rate dropping, queue age shrinking, dependency saturation recovering, and no new retry backlog forming.
+
+For recurrence prevention, I want an allocation or CPU profile, a bug fix for the hot path, per-endpoint CPU and latency budgets, adaptive rate limits, retry budgets, timeouts, circuit breakers, and alerts on saturation plus queue age.
+
+The 30-YOE signal is that I treat CPU as a symptom and prove the execution path before I kill the process.
+
+## Q2. Thread stuck for two hours
+
+> A thread in production has been running for two hours. What do you do?
+
+Two hours is a trigger, not a diagnosis.
+
+The thread may be legitimately processing a large file, replaying Kafka, running a report, or waiting on a slow query.
+
+It may also be in an infinite loop, blocked on a monitor, waiting forever on a socket, stuck behind a database lock, or parked on a future that will never complete.
+
+I first ask what the thread is responsible for and what "progress" means for that work.
+
+For a request thread, two hours is almost certainly wrong.
+
+For a scheduled reconciliation, it may be abnormal only if rows processed, offsets, bytes, or checkpoints are not moving.
+
+I capture multiple thread dumps separated by time, not one dump.
+
+If the stack is identical across dumps and the associated business progress is zero, the stuck hypothesis becomes stronger.
+
+I correlate thread state with CPU.
+
+`RUNNABLE` does not mean burning CPU; it can be inside native socket read or JDBC.
+
+`WAITING` may be harmless if it is an idle worker.
+
+`BLOCKED` points me toward monitor contention, and deadlock evidence may appear directly in the dump.
+
+Then I correlate with metrics and traces: request id, tenant, endpoint, database query, lock wait, outbound API span, executor queue, Hikari active and pending counts, Kafka partition and offset, and recent config changes.
+
+If it is a stuck request thread and the service still has capacity, I may let it run long enough to capture evidence, then terminate the request or recycle the instance.
+
+If it holds a database transaction or lock, killing the JVM may release the lock but can also roll back work, duplicate side effects, trigger retries, or leave external systems uncertain.
+
+If it is a Kafka consumer handler, killing it causes partition revocation and replay; that is acceptable only if the handler is idempotent.
+
+If it is a payment operation, I protect against double charge before choosing restart.
+
+The mitigation could be cancelling a DB query, disabling a route, draining the pod, moving traffic, pausing a consumer, increasing a timeout temporarily, or restarting one instance.
+
+The prevention is not "restart faster."
+
+It is explicit deadlines, socket and client timeouts, bounded executor queues, idempotency keys, transactional boundaries that do not wrap remote calls, stuck-work metrics, and safe cancellation paths.
+
+For deep mechanics, I would point to [stuck thread incident response](/realtime-issues/stuck-thread-incident-response) and [JVM thread dumps](/realtime-issues/stuck-thread-jvm-thread-dumps).
+
+## Q3. Production OutOfMemoryError
+
+> The service throws `OutOfMemoryError` during peak traffic. How do you respond?
+
+I first identify the exact OOM type.
+
+`Java heap space`, `GC overhead limit exceeded`, `Metaspace`, `unable to create native thread`, and `Direct buffer memory` are different incidents.
+
+If customers are failing, I stabilize first: drain or restart failed instances, reduce traffic, disable expensive features, pause consumers, or shed non-critical load.
+
+But I also try to preserve evidence before the process disappears.
+
+If `HeapDumpOnOutOfMemoryError` is configured and storage is safe, I preserve the dump with restricted access because it can contain customer data.
+
+I correlate heap usage, GC logs, allocation rate, live-set growth, request rate, payload size, cache metrics, queue depth, thread count, direct memory, metaspace, and deployment/config changes.
+
+The central question is whether memory grew with load and returned after load dropped, or whether the live set ratcheted upward and never recovered.
+
+If it is a leak, increasing heap only buys time and may make future GC pauses worse.
+
+If it is legitimate peak live data and the heap is under-sized, increasing heap may be correct, but only after understanding pause impact and container limits.
+
+Common findings are unbounded maps, request bodies retained in logs or tracing, caches without weight limits, executor queues holding large tasks, `ThreadLocal` leaks, classloader retention, large JSON trees, batch jobs accumulating records, or direct buffers not being released.
+
+Mitigation depends on type.
+
+For heap pressure, I may lower traffic, reduce batch size, disable the feature, shrink cache limits, pause Kafka consumption, or roll back.
+
+For native thread OOM, I reduce thread creation and inspect executor behavior.
+
+For direct memory OOM, I inspect Netty, NIO, compression, and client libraries.
+
+Restarting clears memory but can create a thundering herd if all pods warm caches at the same time.
+
+It can also hide the retention path if no dump or histogram was captured.
+
+After recovery, I want heap dump analysis, allocation profiling, memory budgets per cache and queue, load tests with production-like payloads, alerts on old-gen occupancy and allocation rate, and safer defaults for batch sizes.
+
+The answer I want the interviewer to hear is: I treat OOM as a state-space problem, not a heap-size reflex.
+
+## Q4. Full GC storm
+
+> Full GC is running repeatedly and requests are timing out. What do you check?
+
+I start by separating cause from symptom.
+
+Full GC can be the immediate cause of latency, but the root cause may be allocation rate, live-set growth, humongous objects, metaspace churn, reference processing, bad heap sizing, or a workload shift.
+
+I establish whether this is one instance, one version, one node class, or the full fleet.
+
+Then I correlate GC logs with request latency and throughput.
+
+I look at pause duration, frequency, reclaimed bytes, old-gen occupancy before and after GC, promotion failures, allocation rate, young collection cadence, and whether Full GC actually frees memory.
+
+If Full GC frees almost nothing and old gen stays high, I suspect leak or oversized live set.
+
+If Full GC frees a lot but returns immediately, I suspect allocation pressure, bursty traffic, large payloads, or cache churn.
+
+If CPU is high and throughput low, the JVM may be spending most time collecting instead of serving.
+
+I also inspect executor queues, request payload sizes, Kafka batch sizes, cache hit and miss rate, database result sizes, and recent feature flags.
+
+Mitigation is driven by customer impact.
+
+If a few pods are in death spiral, I may drain and restart them gradually after capturing GC logs and a heap histogram.
+
+If all pods are in Full GC, simultaneous restart can stampede caches and downstream systems.
+
+I may reduce traffic, disable a memory-heavy endpoint, pause consumers, lower batch size, roll back, or temporarily scale only if dependencies can absorb the connection and cache-warm load.
+
+Heap dump can be valuable but dangerous during an incident because it pauses, consumes disk, and exposes sensitive data.
+
+If the service is already failing and the pod is isolated, I may capture it.
+
+If capture would extend customer impact, I mitigate first and rely on preconfigured artifacts.
+
+Prevention includes GC log retention, JFR profiles, allocation-rate dashboards, canary analysis on live-set growth, cache weight limits, payload limits, realistic load testing, and runbooks for GC-specific mitigations.
+
+The Principal answer is not "switch collectors."
+
+Collector choice matters, but evidence comes first.
+
+## Q5. Latency spike without deployment
+
+> Latency suddenly increased, but there was no deployment. How do you diagnose?
+
+No deployment does not mean no change.
+
+Traffic shape changes, tenant behavior changes, downstream latency changes, DNS changes, certificate rotation, database statistics, locks, GC, cache expiry, Kafka lag, feature flags, cron jobs, and infrastructure events can all move without an application deploy.
+
+I start by scoping the spike.
+
+Is it all endpoints or one endpoint?
+
+All tenants or one tenant?
+
+All regions or one availability zone?
+
+Only writes, only reads, only authenticated traffic, or only a specific payload size?
+
+Then I compare RED metrics, USE metrics, traces, and dependency dashboards over the same window.
+
+I want to know where the latency budget moved: ingress queue, servlet thread wait, application CPU, lock wait, database pool wait, SQL execution, external API, serialization, GC pause, Kafka send, or logging.
+
+Traces are especially useful if sampling kept tail requests.
+
+If traces show time in `getConnection`, I pivot to pool and database.
+
+If time is in one downstream span, I check downstream health and retry volume.
+
+If there is no dominant span but CPU rose, I profile.
+
+If latency is only p99, I look for queueing, lock convoy, one slow dependency, one hot tenant, or kernel throttling.
+
+Mitigation depends on locality.
+
+For one tenant, apply tenant-level throttling or route isolation.
+
+For one endpoint, disable or degrade that path.
+
+For downstream latency, reduce retries, open circuit breakers, or serve cached degraded responses when correctness allows.
+
+For DB pool wait, scaling app pods may make the database worse.
+
+For GC, restart only unhealthy pods gradually and preserve evidence where safe.
+
+Prevention includes tail-based tracing, dependency-level latency budgets, retry budgets, per-tenant metrics, cardinality-safe labels, dashboards that show queueing separately from service time, and change tracking beyond deployments.
+
+At 30 YOE, I do not accept "no deploy" as an end to investigation.
+
+I treat it as a prompt to inspect the rest of the system.
+
+## Q6. Kafka consumers up but not processing
+
+> Kafka consumers are up, heartbeating, and assigned partitions, but messages are not being processed. What do you do?
+
+"Up" is not the same as making progress.
+
+I establish consumer group state, partition assignment, lag by partition, last poll time, last commit time, records processed per second, handler latency, error rate, DLQ rate, and downstream dependency health.
+
+A consumer can heartbeat while the processing path is blocked, depending on client behavior and threading model.
+
+It can also poll records and then stall in business logic, database writes, external API calls, locks, or synchronous logging.
+
+I correlate Kafka metrics with application thread dumps.
+
+I look for consumer threads blocked in handlers, waiting on HikariCP, stuck on a distributed lock, calling a downstream without timeout, or waiting on a full executor queue.
+
+I inspect whether one poison message is being retried forever on a partition.
+
+I check `max.poll.interval.ms`, `max.poll.records`, processing time per batch, commit strategy, rebalance frequency, and whether the application offloads processing to another pool without backpressure.
+
+Mitigation depends on correctness.
+
+If a poison message blocks one partition, I may move it to a DLQ or quarantine topic with audit metadata, then advance safely.
+
+If downstream is saturated, increasing consumer concurrency will worsen the outage.
+
+I may pause consumption, reduce concurrency, slow poll rate, open a circuit breaker, or route to a fallback path.
+
+If the process is wedged, I may restart a consumer instance, but I expect replay and rebalance side effects.
+
+Replay is safe only if the handler is idempotent.
+
+If the consumer performs payments, inventory, or email sends, duplicate side effects must be controlled before restart.
+
+Prevention includes idempotent consumers, bounded worker pools, per-partition lag and age alerts, poison-message policy, DLQ ownership, processing-time histograms, dependency budgets, and commit-after-side-effect discipline.
+
+For broader Kafka design, I would cross-link [Kafka interview](/kafka-interview) and [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency).
+
+## Q7. Connection pool exhausted
+
+> HikariCP says the connection pool is exhausted. What is your incident path?
+
+Connection-pool exhaustion is usually a symptom, not the root cause.
+
+I first establish whether the pool is exhausted because traffic increased, queries slowed, connections leaked, transactions are held too long, database locks are blocking, or the database itself is saturated.
+
+I check Hikari active, idle, pending, acquisition time, timeout count, max pool size, and connection lifetime settings.
+
+Then I correlate with database evidence: active sessions, wait events, blocked queries, lock graph, slow queries, transaction age, CPU, IO, max connections, and replication state.
+
+Thread dumps are useful because they show where request threads are waiting.
+
+If many threads are waiting in `getConnection`, the app is queueing before the database.
+
+If many hold connections while calling external APIs, transaction boundaries are wrong.
+
+If many hold connections in the same SQL, I inspect query plan, indexes, row-lock waits, and data skew.
+
+The bad mitigation is to immediately double the pool.
+
+That may push the database over max connections, increase lock contention, and make every query slower.
+
+The safe mitigation depends on bottleneck.
+
+If there is a leaked connection, restart or drain affected pods after capturing leak evidence.
+
+If a query is blocked by one transaction, kill the blocker at the database only after understanding rollback and business side effects.
+
+If a downstream call is inside a transaction, disable that path or reduce concurrency.
+
+If traffic surge is legitimate and database has headroom, a small pool increase may help, but I would verify database capacity.
+
+Prevention includes pool wait alerts, leak detection, transaction age alerts, query timeout, lock wait timeout, no remote calls inside transactions, better indexes, smaller transactions, and load tests that include database concurrency.
+
+The Principal answer is that the pool is a pressure gauge.
+
+I follow the pressure to the constriction.
+
+## Q8. API p99 is 30 seconds
+
+> An API has p99 latency of 30 seconds while median is normal. How do you localize it?
+
+Median normal and p99 bad means the system is not uniformly slow.
+
+I look for tail amplification: queueing, retries, lock contention, garbage collection, one slow shard, one tenant, one downstream, one payload class, or one cold-cache path.
+
+I first break down p99 by endpoint, tenant, region, pod, status code, payload size, and dependency.
+
+Then I use traces for tail requests, not average traces.
+
+I want to see whether the 30 seconds is spent waiting for a servlet thread, acquiring a DB connection, executing SQL, waiting on a lock, calling a downstream, serializing a response, logging, or being retried.
+
+I correlate with thread dumps during the tail event.
+
+If dumps show many threads parked on the same lock, I investigate lock convoy.
+
+If many are waiting on Hikari, I pivot to database pool and SQL.
+
+If CPU is low and threads are many, I suspect blocking wait.
+
+If CPU is high, I profile.
+
+If GC pauses align with p99 spikes, I inspect allocation and live set.
+
+Mitigation is targeted.
+
+For one slow downstream, I may enforce shorter timeout, circuit breaker, fallback, or degraded response.
+
+For one tenant, isolate or throttle.
+
+For queueing, I may reduce concurrency to protect the dependency rather than add threads.
+
+For lock contention, I may disable the feature path or shard the critical section.
+
+Restarting can clear a bad state, but if the cause is tail queueing from downstream slowness, restart just moves the queue and may amplify retries.
+
+Prevention includes tail-based tracing, per-stage latency metrics, queue wait metrics, timeout budgets, retry budgets, per-tenant isolation, and SLO alerts on latency burn rate rather than simple averages.
+
+A 30-YOE answer treats p99 as an evidence problem about a minority path, not as a generic performance problem.
+
+## Q9. Deadlock in production
+
+> You suspect a deadlock in production. What evidence do you need?
+
+I first separate Java monitor deadlock, `ReentrantLock` deadlock, database deadlock, distributed deadlock, and thread-pool starvation.
+
+They look similar from the user perspective, but the evidence and mitigation are different.
+
+For Java monitor deadlock, a JVM thread dump may directly report a deadlock and show which threads own and wait for which monitors.
+
+For `ReentrantLock`, I need stack correlation because the JVM may not always present it as cleanly as monitor deadlock.
+
+For database deadlock, I look at database logs, blocked sessions, lock waits, transaction age, and victim cancellation.
+
+For distributed deadlock, I inspect traces across services, request ids, locks or leases, synchronous calls, and timeout ordering.
+
+For thread-pool starvation, every task may be waiting for work scheduled onto the same exhausted pool.
+
+That is not a classical lock deadlock, but it is operationally dead.
+
+I capture multiple thread dumps and correlate them with CPU, pool metrics, database locks, and traces.
+
+If the same cycle remains, I map the wait-for graph.
+
+Mitigation depends on what is safe to break.
+
+Killing one JVM may break a Java lock cycle but can roll back in-flight work or create duplicate external side effects.
+
+Killing a database session can release locks but may roll back a large transaction and cause retries.
+
+Restarting both services in a distributed cycle may trigger recovery, but it may also drop evidence and create a retry surge.
+
+I prefer targeted cancellation where possible: cancel the request, kill the blocked query, pause the consumer, or drain the affected instance.
+
+Prevention is lock ordering, timeouts, bounded waits, no nested remote calls under local locks, transaction minimization, executor separation, fencing tokens for leases, and tests that exercise concurrent ordering.
+
+For distributed lock design, I would reference [distributed locking fundamentals](/distributed-systems/locking-fundamentals-and-layers) and [lock observability](/distributed-systems/lock-observability-and-debugging).
+
+## Q10. QA versus prod intermittent failure
+
+> QA cannot reproduce an intermittent production failure. How do you proceed?
+
+I do not conclude that production is haunted.
+
+I assume QA is missing some combination of scale, data, topology, timing, dependency behavior, configuration, or customer traffic shape.
+
+I first establish the production signature.
+
+Which endpoint, tenant, payload, pod, region, database shard, Kafka partition, browser, client version, or time window is affected?
+
+What is the failure mode: timeout, wrong result, duplicate side effect, stale read, deadlock, OOM, or exception?
+
+Then I correlate logs, traces, metrics, dumps, deploy history, feature flags, database state, cache state, and dependency status around the failing requests.
+
+Intermittent failures often come from races, timeouts, retries, cache expiry, clock issues, lock ordering, data skew, partition hot spots, eventual consistency, thread starvation, or environment differences.
+
+I try to reduce the problem to a reproducible condition rather than a reproducible full environment.
+
+For example, if prod failures happen only for one tenant with 500 line items, QA with five line items is irrelevant.
+
+If failures happen at top of hour, scheduled jobs and cache expiry matter.
+
+If failures happen only during Kafka rebalance, QA must simulate rebalance.
+
+If failures happen only with production latency, QA must inject latency and jitter.
+
+Mitigation may be feature disablement, tenant isolation, retry budget changes, cache invalidation, lowering concurrency, pausing a consumer, or reverting a config.
+
+I avoid speculative restarts unless the state is clearly wedged or customer impact requires it.
+
+Restarting intermittent failures can erase the evidence and reset the clock without proving safety.
+
+Prevention includes production-like load tests, fault injection, trace exemplars for failed requests, per-tenant metrics, deterministic replay where safe, better invariants, canary analysis, shadow reads, and incident-linked test cases.
+
+The Principal framing is simple:
+
+QA not reproducing does not lower severity.
+
+It increases the need for production evidence and narrower hypotheses.
+
+## Cross-question patterns
+
+Across Q1 through Q10, the same operational muscles repeat.
+
+Do not treat metrics as independent facts.
+
+Correlate them into a timeline.
+
+For each incident, ask:
+
+- What changed in customer experience?
+- What changed in resource saturation?
+- What changed in queue age?
+- What changed in dependency behavior?
+- What did the JVM say at the same time?
+- What did traces say about where time was spent?
+- What would kill or restart improve?
+- What would kill or restart destroy?
+- What evidence will be lost?
+- What recurrence control will prevent another pager?
+
+## Interview closing answer
+
+If you need one short summary for the whole section, use this:
+
+> In a production incident I do not start with a fix. I establish blast radius, protect the system from cascade, capture safe evidence, and correlate JVM dumps, metrics, traces, logs, and dependency state. I mitigate with the smallest action that changes the bad state, while explicitly considering side effects of kill, restart, scale-out, rollback, and failover. After recovery, I convert the root cause into controls: deadlines, bounded queues, idempotency, pool and transaction discipline, observability, tests, and operational runbooks.
+
+That is the 30-YOE voice.

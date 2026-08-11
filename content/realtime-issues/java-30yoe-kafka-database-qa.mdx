@@ -1,0 +1,459 @@
+---
+slug: java-30yoe-kafka-database-qa
+title: 'Java 30 YOE Principal Q&A: Kafka, Database, and Batch Incidents'
+description: 'Principal-level answers for Kafka lag, partitioning, delivery semantics, DLQs, offset commits, high-throughput Java consumers, database bottlenecks, N+1 queries, and large batch processing.'
+category: 'Real-Time Issues'
+difficulty: Principal
+tags: [Real-Time Issues, Java, Kafka, PostgreSQL, JDBC, JPA, R2DBC, Principal Interview]
+readingTime: 26 min
+publishedAt: '2026-08-11'
+---
+
+## How to use this guide
+
+These answers assume the interviewer wants production judgment, not API trivia.
+Kafka gives replay, ordering per partition, and consumer-group coordination; the database gives durable business constraints.
+A mature answer keeps lag, locks, connection pools, replay, and idempotency in the same mental model.
+When in doubt, prove whether the bottleneck is broker, Java consumer, database, downstream API, or poison data before scaling anything.
+
+Related guides:
+
+- [Kafka architecture interview](/kafka-interview/kafka-architecture-interview)
+- [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency)
+- [Processing a 10GB file interview answer](/realtime-issues/process-10gb-interview-answer-and-followups)
+- [Checkpoint, idempotency, and crash recovery](/realtime-issues/process-10gb-checkpoint-idempotency)
+- [Java 30 YOE Spring and microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa)
+- [Java 30 YOE distributed caching and migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa)
+
+## Q51. A Kafka consumer is slow. What do you check first?
+
+First I would establish the production shape of slow Kafka consumption before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: split broker fetch time, consumer poll cadence, Java processing time, database write time, downstream HTTP latency, GC pauses, and partition skew.
+
+- Evidence: check consumer lag by partition, records per second, poll interval, rebalance count, commit latency, `jstack`, JFR, Hikari wait time, DB slow queries, and downstream p95 or p99 latency.
+
+- Mitigate: pause or reduce intake if the database is saturated, increase consumers only up to partition and downstream capacity, and quarantine poison records blocking a partition.
+
+- Contain blast radius: use bounded worker queues, separate CPU work from blocking I/O, and isolate replay traffic from live consumers.
+
+- Recover safely: commit offsets only after durable processing; on crash, rely on idempotent writes so replay is safe.
+
+- Prevent recurrence: add dashboards for lag slope, drain time, rebalance churn, processing latency, commit failures, and dependency saturation.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: higher batch sizes improve throughput but increase replay cost and latency; more consumers help only when partitions and downstream capacity exist.
+
+- What not to do: do not blindly add threads, increase `max.poll.interval.ms` to hide stuck processing, or blame Kafka while the database is waiting on locks.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency).
+
+## Q52. Lag grew from 10K to 10M. How do you respond?
+
+First I would establish the production shape of rapid Kafka lag growth before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: find the slope change and decide whether producers spiked, consumers slowed, rebalances started, a partition got hot, or downstream persistence degraded.
+
+- Evidence: plot lag by partition, produce rate, consume rate, consumer group events, broker throttling, DB locks, connection pool waits, error logs, and deployment markers.
+
+- Mitigate: stop nonessential producers if possible, pause low-priority consumers, scale only within downstream limits, and compute drain time from sustained consume minus produce rate.
+
+- Contain blast radius: separate live traffic from backlog reprocessing and protect critical dependencies with rate limits and bulkheads.
+
+- Recover safely: if stale backlog has low value, decide with product and risk owners whether to skip, compact, transform, or replay through a controlled lane.
+
+- Prevent recurrence: prevent recurrence with lag-slope alerts, producer quotas, capacity tests, hot-key detection, and documented backlog policies per topic.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: draining everything preserves completeness but may violate freshness; skipping stale work protects recovery but needs explicit business approval and audit.
+
+- What not to do: do not reset offsets casually, launch unlimited consumers, or let DLQ replay compete with live customer work.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [RCA and observability guide](/realtime-issues/stuck-thread-rca-prevention-observability).
+
+## Q53. How do you choose Kafka partition count?
+
+First I would establish the production shape of Kafka partition count before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: start from peak bytes per second, messages per second, ordering key, required consumer parallelism, retention, broker count, and expected growth.
+
+- Evidence: measure current partition throughput, key distribution, hot partitions, broker CPU, disk I/O, network, controller load, open file handles, and consumer concurrency.
+
+- Mitigate: choose enough partitions for peak and near-term growth, then load-test producer and consumer behavior with realistic key distribution.
+
+- Contain blast radius: avoid coupling unrelated workloads to one topic when retention, ordering, or consumer shape differs.
+
+- Recover safely: if partition count is already too low, consider topic versioning or a planned partition increase with ordering impact analysis.
+
+- Prevent recurrence: prevent future pain with topic design reviews, capacity models, and partition-key tests in load environments.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: more partitions improve parallelism but increase metadata, leader election work, storage overhead, and cross-partition reasoning.
+
+- What not to do: do not pick partitions from a rule of thumb, ignore key skew, or assume partitions can be changed later without semantic impact.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka architecture interview](/kafka-interview/kafka-architecture-interview).
+
+## Q54. What can go wrong when increasing partitions?
+
+First I would establish the production shape of increasing Kafka partitions before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: confirm whether producers use keyed partitioning and whether ordering by account, order, payment, or customer is assumed downstream.
+
+- Evidence: compare key-to-partition mapping before and after, consumer ordering assumptions, rebalance duration, broker load, lag, and hot partition movement.
+
+- Mitigate: for critical keyed workflows, create a new topic version or migration plan instead of changing partition count in place.
+
+- Contain blast radius: roll changes by producer and consumer compatibility, with dual-read or shadow validation when business ordering matters.
+
+- Recover safely: if ordering breaks, stop affected consumers, identify keys with interleaved sequence numbers, and rebuild state from a known ordered source if possible.
+
+- Prevent recurrence: prevent recurrence by documenting partition count as part of the topic contract and requiring review before changes.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: in-place partition increase is operationally easy but semantically risky; new topics cost migration effort but preserve ordering guarantees.
+
+- What not to do: do not assume Kafka rehashing is transparent, increase partitions during an incident without a plan, or ignore compacted-topic side effects.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency).
+
+## Q55. Explain Kafka delivery semantics in production terms.
+
+First I would establish the production shape of Kafka delivery semantics before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: translate semantics into business outcomes: at-most-once can lose work, at-least-once can duplicate work, and Kafka exactly-once is scoped, not universal.
+
+- Evidence: review producer acks, idempotent producer settings, transactions, offset commit timing, consumer crashes, DB writes, and external side effects.
+
+- Mitigate: assume at-least-once for business processing and enforce idempotency where durable side effects occur.
+
+- Contain blast radius: keep read-process-write Kafka transactions separate from database and bank-call guarantees in diagrams and runbooks.
+
+- Recover safely: on replay, treat duplicate detection as success for offset advancement when the durable business state already exists.
+
+- Prevent recurrence: prevent confusion through architecture docs that state delivery, processing, and business-effect semantics separately.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: exactly-once inside Kafka can reduce duplicate events in a Kafka-only pipeline, but it does not make PostgreSQL or a payment provider exactly-once.
+
+- What not to do: do not tell stakeholders Kafka guarantees no duplicate payments, or commit offsets before work is durable unless loss is acceptable.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [architecture and code review Q&A](/realtime-issues/java-30yoe-architecture-code-qa).
+
+## Q56. Why do duplicate Kafka messages happen?
+
+First I would establish the production shape of duplicate Kafka messages before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: enumerate producer retry ambiguity, broker ack loss, consumer crash after side effect, rebalance during processing, replay, DLQ re-drive, and upstream semantic duplicates.
+
+- Evidence: inspect event ids, producer logs, broker acks, offset commits, consumer group rebalances, processed-message tables, and database unique-constraint conflicts.
+
+- Mitigate: dedupe by event id or deterministic business key at the side-effect boundary, and compare payload hash for conflicting duplicates.
+
+- Contain blast radius: rate-limit replays and keep DLQ repair separate from live traffic to avoid duplicate storms.
+
+- Recover safely: if duplicates already caused side effects, reconcile authoritative records and issue corrections through auditable paths.
+
+- Prevent recurrence: prevent recurrence with producer idempotence, stable event ids, consumer idempotency tests, and replay drills.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: dedupe tables add write cost and storage, but they turn duplicate delivery into a predictable success path.
+
+- What not to do: do not use topic, partition, and offset as the business identity if events can be republished or transformed.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency).
+
+## Q57. How should a DLQ and replay flow work?
+
+First I would establish the production shape of DLQ and replay flow before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: determine whether the DLQ is for poison data, transient infrastructure failure, schema mismatch, or an unrecoverable business rule.
+
+- Evidence: preserve original topic, partition, offset, key, headers, payload, exception class, stack trace, attempt count, first failure time, and application version.
+
+- Mitigate: fix the code or data first, select records deliberately, replay at a controlled rate, and run through the same idempotency controls as live traffic.
+
+- Contain blast radius: separate DLQ ownership by domain and alert on age, count, and high-value message types.
+
+- Recover safely: when replay fails again, stop and analyze; repeated replay without a fix is load amplification.
+
+- Prevent recurrence: prevent silent trash cans with SLOs for DLQ aging, audit trails, dashboards, and runbooks for approval and sampling.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: automatic replay reduces manual toil but can reintroduce poison records; manual replay is safer but needs clear ownership.
+
+- What not to do: do not drop payload context, replay everything after a deploy without rate limits, or hide DLQ depth from business owners.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [checkpoint and crash recovery](/realtime-issues/process-10gb-checkpoint-idempotency).
+
+## Q58. What if the consumer crashes after DB commit but before offset commit?
+
+First I would establish the production shape of crash after DB commit before offset commit before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: recognize the classic at-least-once window: the database side effect is durable, but Kafka will redeliver because the offset was not committed.
+
+- Evidence: look for duplicate-key conflicts, processed-message rows, offset commit logs, consumer restart time, and traces ending after commit but before acknowledgement.
+
+- Mitigate: make the database operation idempotent, then treat duplicate detection on replay as successful processing and commit the offset.
+
+- Contain blast radius: keep offset commit policy aligned with transaction boundaries and avoid long asynchronous gaps after durable writes.
+
+- Recover safely: if idempotency is missing, stop consumers before replay multiplies effects and reconcile rows touched by the crashed interval.
+
+- Prevent recurrence: prevent recurrence with processed-message tables, unique business constraints, outbox patterns, and chaos tests that kill consumers at every boundary.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: committing offsets after processing causes duplicates but avoids loss; committing before processing avoids duplicates but can lose work.
+
+- What not to do: do not rely on auto-commit for side-effecting consumers, or manually advance offsets until you know the database state.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency).
+
+## Q59. What does idempotent Kafka processing mean?
+
+First I would establish the production shape of idempotent Kafka processing before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: define the durable business outcome and make repeated delivery converge to that outcome without repeated side effects.
+
+- Evidence: inspect event id uniqueness, payload hash, business key, database constraints, processed-message storage, outgoing outbox rows, and side-effect calls.
+
+- Mitigate: insert or update under a unique constraint, detect duplicates as success, reject conflicting duplicates, and publish onward through an outbox.
+
+- Contain blast radius: ensure downstream HTTP calls or payment calls also receive idempotency keys, not just internal database writes.
+
+- Recover safely: during replay, observe duplicate rate and commit offsets only when the business effect is confirmed or already present.
+
+- Prevent recurrence: prevent gaps with replay tests, DLQ re-drive drills, and runbooks that describe duplicate handling as normal operation.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: idempotent processing adds storage and comparison logic, but it is cheaper than compensating duplicated financial or customer-visible effects.
+
+- What not to do: do not make only the Java method idempotent while the database, provider, or notification system can still duplicate the effect.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Spring microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa).
+
+## Q60. How do you process 100K messages per second in Java?
+
+First I would establish the production shape of 100K messages per second in Java before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: start with message size, serialization, partition count, key skew, broker capacity, CPU, allocation rate, GC, network, and downstream write capacity.
+
+- Evidence: use consumer metrics, broker fetch metrics, JFR allocation profiles, async-profiler if available, `jstack`, GC logs, DB batch latency, and commit cost.
+
+- Mitigate: batch reads and writes, use efficient serialization, minimize allocations, tune fetch sizes, and keep worker queues bounded with backpressure.
+
+- Contain blast radius: separate CPU parsing, blocking database writes, and external calls into owned executors or stages with clear capacity limits.
+
+- Recover safely: if latency spikes or lag grows, slow intake, reduce batch size, or shed non-critical topics before saturating the database.
+
+- Prevent recurrence: prevent recurrence with load tests at peak plus retry traffic, performance budgets, and dashboards for throughput, latency, GC, queue depth, and drain time.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: large batches increase throughput but worsen tail latency and replay cost; small batches simplify recovery but may waste broker and database efficiency.
+
+- What not to do: do not add consumers beyond partition count, allocate one object graph per record unnecessarily, or benchmark without the real sink.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Processing a 10GB file interview answer](/realtime-issues/process-10gb-interview-answer-and-followups).
+
+## Q61. How do you prove the database is the bottleneck?
+
+First I would establish the production shape of database bottleneck proof before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: correlate Kafka lag and application latency with database evidence instead of assuming slow SQL from Java timing alone.
+
+- Evidence: check Hikari active and pending connections, pool wait, `pg_stat_activity`, `pg_locks`, slow query logs, execution plans, CPU, I/O, WAL pressure, and rows scanned.
+
+- Mitigate: temporarily replace the database writer with a no-op or local durable sink in a controlled test to prove consumer capacity separately.
+
+- Contain blast radius: throttle consumers or reduce batch concurrency when lock waits or write amplification threaten online traffic.
+
+- Recover safely: if locks are blocking, identify blockers, long transactions, missing indexes, and hot rows before increasing pools.
+
+- Prevent recurrence: prevent recurrence with query budgets, plan regression tests, lock-wait alerts, pool sizing reviews, and schema ownership for high-write tables.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: database scaling may help real capacity limits, but it will not fix missing indexes, hot counters, or transaction design.
+
+- What not to do: do not set Hikari to 500, blame Kafka lag alone, or trust application timers that include pool wait and object mapping.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [stuck thread DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools).
+
+## Q62. Why is a pool of 500 often worse than 50?
+
+First I would establish the production shape of oversized database pools before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: count total possible connections across pods, jobs, canaries, and admin tools; a per-pod setting is not the real system limit.
+
+- Evidence: observe DB CPU, memory, context switches, lock waits, active versus idle connections, Hikari pending threads, timeout rates, and query latency.
+
+- Mitigate: reduce pool size to measured useful concurrency, set bounded wait timeouts, and push back at the application when the database is saturated.
+
+- Contain blast radius: reserve capacity for critical services and separate batch or replay traffic so large jobs cannot starve online requests.
+
+- Recover safely: if the database is already overloaded, shrinking pools can improve tail latency by reducing contention and queue collapse.
+
+- Prevent recurrence: prevent recurrence with connection budgets per service, deployment admission checks, and shared ownership of maximum cluster connections.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: small pools expose backpressure earlier; large pools can hide overload until the database has already lost useful concurrency.
+
+- What not to do: do not treat connections as worker threads, multiply pool size by replica count casually, or use huge pools to mask slow queries.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [RCA and observability guide](/realtime-issues/stuck-thread-rca-prevention-observability).
+
+## Q63. What are symptoms of too many database connections?
+
+First I would establish the production shape of too many database connections before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: look for connection storms, slow authentication, DB memory pressure, context switching, Hikari timeouts, lock queues, and noisy-neighbor incidents.
+
+- Evidence: query total connections by application, `pg_stat_activity` states, wait events, database max connections, pod replica counts, and connection churn after deployments.
+
+- Mitigate: cap pools, stagger rollouts, introduce PgBouncer where transaction pooling fits, and stop noncritical jobs until online capacity is stable.
+
+- Contain blast radius: allocate connection budgets by service tier and protect admin, migration, and reconciliation access separately.
+
+- Recover safely: when a storm occurs, scale down callers or lower pools carefully rather than restarting the database into another storm.
+
+- Prevent recurrence: prevent recurrence with dashboards that multiply pool size by replicas, alerts on connection saturation, and review of every new worker deployment.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: poolers reduce connection overhead but can complicate session state, prepared statements, and transaction semantics.
+
+- What not to do: do not raise database max connections reflexively, ignore idle-in-transaction sessions, or let every microservice choose its own pool size.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [distributed caching and migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa).
+
+## Q64. Java says SQL is slow. What do you inspect?
+
+First I would establish the production shape of slow SQL reported by Java before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: break the timing into pool wait, transaction wait, query execution, network transfer, result fetching, ORM mapping, and lazy loading.
+
+- Evidence: capture SQL text, bind values, execution plan, rows examined, index usage, lock waits, normalized query fingerprints, spans, and `pg_stat_activity` wait events.
+
+- Mitigate: fix the dominant component: index or query shape for scan, transaction design for locks, projection for over-fetch, and pool sizing for wait.
+
+- Contain blast radius: protect DB health by limiting result sizes, using pagination or cursors, and stopping expensive ad hoc queries during incidents.
+
+- Recover safely: if a release changed query shape, roll back or use a feature flag while comparing plans and row counts.
+
+- Prevent recurrence: prevent recurrence with query plan checks, repository-level tests, ORM SQL logging in non-prod, and tracing that links request ids to database fingerprints.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: ORM productivity is real, but hidden SQL shape can make reviews miss the actual production cost.
+
+- What not to do: do not optimize Java loops before proving SQL behavior, add indexes without plan evidence, or ignore bind-value skew.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka database Q&A](/realtime-issues/java-30yoe-kafka-database-qa).
+
+## Q65. How do N+1 queries show up in production?
+
+First I would establish the production shape of N+1 queries before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: look for many small queries per request, per Kafka message, or per serialization path, usually from lazy relationships or object graph traversal.
+
+- Evidence: measure query count per request, repository calls, Hibernate statistics, slow aggregate latency, connection churn, spans, and DB CPU with low individual query latency.
+
+- Mitigate: use fetch joins, projections, entity graphs, batch size, explicit queries, or denormalized read models depending on access pattern.
+
+- Contain blast radius: cap page sizes and avoid serializing entities directly so a single request cannot walk the entire object graph.
+
+- Recover safely: if an N+1 release is live, disable the feature or switch to a projection path before increasing the connection pool.
+
+- Prevent recurrence: prevent recurrence with SQL-count tests, review rules against entity serialization, and dashboards for queries per endpoint or message.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: fetch joins can over-fetch and duplicate rows; projections are leaner but create more DTO code.
+
+- What not to do: do not hide N+1 by caching every relationship, making the pool huge, or blaming the database for application access patterns.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [architecture and code review Q&A](/realtime-issues/java-30yoe-architecture-code-qa).
+
+## Q66. How do you process a 10GB file without loading it into memory?
+
+First I would establish the production shape of 10GB file processing before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: determine file format, record boundaries, ordering needs, validation rules, restart point, and destination capacity before writing parsing code.
+
+- Evidence: watch heap, GC logs, JFR allocations, file read throughput, batch write latency, checkpoint age, failure counts, and poison record locations.
+
+- Mitigate: stream with a format-aware parser, process bounded batches, commit durable writes, and checkpoint only after the batch is safely stored.
+
+- Contain blast radius: limit memory with fixed buffers, bounded queues, and backpressure from the database or broker sink.
+
+- Recover safely: on crash, restart from the last checkpoint and rely on idempotent writes for the final partially processed batch.
+
+- Prevent recurrence: prevent recurrence with checksums, manifest files, run ids, idempotency keys, and dashboards for processed count and reconciliation totals.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: larger batches improve throughput but increase duplicate replay after crash; smaller batches lower replay cost but increase overhead.
+
+- What not to do: do not use `readAllLines`, DOM parse huge XML or JSON blindly, collect all records into a list, or checkpoint before durable writes.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Processing a 10GB file interview answer](/realtime-issues/process-10gb-interview-answer-and-followups).
+
+## Q67. How do you run a 100M-record batch safely?
+
+First I would establish the production shape of 100M-record batch before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: treat restartability, observability, and idempotency as prerequisites before optimizing throughput.
+
+- Evidence: track chunk leases, checkpoint positions, processed count, failure count, poison records, DB latency, lock waits, CPU, GC, and reconciliation deltas.
+
+- Mitigate: partition work by stable ranges or shards, lease chunks to workers, commit bounded batches, and quarantine bad records with full context.
+
+- Contain blast radius: throttle writes to protect online traffic and run heavy jobs in an isolated lane or maintenance window when required.
+
+- Recover safely: if a worker dies, another worker should resume only expired leases and reprocess safely due to idempotent destination writes.
+
+- Prevent recurrence: prevent recurrence with dry runs, canaries, chunk-level audit, dashboards, and a documented stop, resume, and rollback procedure.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: parallelism shortens wall-clock duration but raises lock contention and downstream risk; serial batches are safer but may miss business windows.
+
+- What not to do: do not run one giant transaction, hold table locks, skip reconciliation, or rely on a spreadsheet to remember progress.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [checkpoint and crash recovery](/realtime-issues/process-10gb-checkpoint-idempotency).
+
+## Q68. JDBC vs JPA vs Spring Data vs R2DBC: how do you choose?
+
+First I would establish the production shape of Java persistence technology choice before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: start from workload: OLTP aggregate persistence, high-throughput batch, streaming ingestion, query complexity, transaction model, and team expertise.
+
+- Evidence: compare generated SQL, query plans, connection usage, thread model, backpressure, latency, CPU, object allocation, and production debugging requirements.
+
+- Mitigate: use JDBC for explicit high-throughput SQL, JPA for domain persistence when query shape is controlled, Spring Data for repository productivity, and R2DBC for true end-to-end nonblocking I/O.
+
+- Contain blast radius: keep critical payment or ledger paths explicit enough that SQL, locking, and retries are reviewable.
+
+- Recover safely: if an abstraction hides a production issue, drop to explicit queries for that path rather than replacing the whole stack.
+
+- Prevent recurrence: prevent recurrence with technology decision records, performance tests, and review gates for high-volume repository methods.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: JPA speeds feature delivery but can hide flushes and N+1; JDBC is explicit but verbose; R2DBC helps thread utilization but does not make the database faster.
+
+- What not to do: do not choose R2DBC to fix slow SQL, use JPA entities as API payloads, or treat Spring Data as a performance guarantee.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Spring microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa).
+

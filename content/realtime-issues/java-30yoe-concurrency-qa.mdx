@@ -1,0 +1,458 @@
+---
+slug: java-30yoe-concurrency-qa
+title: "Java 30-YOE Concurrency Q&A: Principal Answers Q11-Q18"
+description: "Principal-level Java concurrency answers covering ExecutorService, locks, atomics, concurrent collections, semaphores, latches, CompletableFuture, bounded pools, async design, and distributed wait failures."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java, Concurrency, ExecutorService, Thread Pools, Locks, CompletableFuture, Principal Engineer]
+readingTime: 50 min
+publishedAt: "2026-08-11"
+---
+
+## How Principal engineers answer concurrency questions
+
+At 30 YOE, concurrency is not a language-feature quiz.
+
+The interviewer is testing whether you can predict failure modes under load.
+
+They want to hear boundedness, ownership, cancellation, fairness, backpressure, observability, and recovery.
+
+They also want to hear what happens when the concurrency design fails in production.
+
+Does it create 500 blocked threads?
+
+Does it hide queue growth?
+
+Does it turn downstream slowness into local thread starvation?
+
+Does it duplicate a payment after restart?
+
+Does it make every pod retry the same dependency at the same time?
+
+Use these answers with:
+
+- [Stuck thread incident response](/realtime-issues/stuck-thread-incident-response)
+- [DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools)
+- [Distributed concurrency, deadlocks, and timeouts](/distributed-systems/concurrency-deadlocks-and-timeouts)
+- [Distributed locking master index](/distributed-systems/distributed-locking-master-index)
+- [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa)
+
+## Q11. ExecutorService real scenario
+
+> Explain a real production scenario where `ExecutorService` was the right abstraction.
+
+I use `ExecutorService` when I need explicit control over concurrency, queueing, lifecycle, and failure handling.
+
+A good production example is a payment reconciliation service that reads a bounded batch of pending transactions, calls a partner API, validates the response, and writes the final state.
+
+I would not create one thread per transaction.
+
+I would create a named, bounded executor sized to the limiting resource.
+
+If the partner allows 50 concurrent calls and the database can safely handle 30 concurrent writes, the executor design respects those constraints rather than CPU core count alone.
+
+The design starts with state:
+
+- how many units of work can exist
+- how expensive each unit is
+- what dependency is limiting
+- how long a unit can run
+- what happens when the queue is full
+- whether work is idempotent after retry or restart
+
+I prefer a bounded queue and an explicit rejection policy.
+
+An unbounded queue hides overload by moving it into heap and latency.
+
+For payments, I usually prefer `CallerRunsPolicy` only when slowing the producer is safe.
+
+If the producer is an HTTP request thread, blocking it may consume servlet capacity.
+
+If the producer is a scheduler, slowing it may be acceptable.
+
+Every task needs a deadline.
+
+A task that calls a partner without timeout can pin a worker forever and slowly convert the executor into a stuck-thread incident.
+
+I want task-level metrics: active workers, queue depth, queue age, completed count, failed count, rejection count, task duration, dependency latency, and cancellation count.
+
+During an incident, I correlate those metrics with thread dumps.
+
+If all workers are waiting in the partner client, increasing pool size worsens the partner outage.
+
+If all workers are blocked on `getConnection`, the database pool is the limit.
+
+If CPU is low and queue age grows, we are blocked, not compute-bound.
+
+Mitigation could be pausing intake, reducing concurrency, opening a circuit breaker, draining a bad pod, or rejecting low-priority work.
+
+Restarting the service can release stuck workers, but it may also replay tasks.
+
+Replay is safe only with idempotency keys and durable state transitions.
+
+The durable fix is bounded pools, explicit timeouts, lifecycle shutdown, work idempotency, and dashboards that make queueing visible.
+
+The Principal signal is that I size the executor by system constraints, not by folklore.
+
+## Q12. Choosing synchronized, ReentrantLock, ReadWriteLock, Atomic, ConcurrentHashMap, Semaphore, CountDownLatch, and CompletableFuture
+
+> When do you use each Java concurrency primitive?
+
+I choose the primitive based on the invariant I need to protect.
+
+`synchronized` is appropriate for simple mutual exclusion inside one JVM when the critical section is small, ownership is obvious, and I do not need timed lock acquisition, fairness, or interruptible wait.
+
+It is often the best choice for boring correctness.
+
+`ReentrantLock` is useful when I need `tryLock`, timed waits, interruptible lock acquisition, condition variables, or explicit fairness tradeoffs.
+
+It also makes some incident mitigations easier because a thread can fail fast instead of waiting forever.
+
+`ReadWriteLock` is useful only when reads dominate, writes are rare, critical sections are meaningful, and the implementation does not starve writers.
+
+I am careful with it because many systems think they are read-heavy until cache misses or writes arrive in bursts.
+
+Atomic variables are good for single-value lock-free state such as counters, references, flags, and compare-and-set transitions.
+
+They are not a substitute for protecting multi-field invariants unless the state is modeled as one immutable object reference.
+
+`ConcurrentHashMap` is good for concurrent key-based access, but I still reason about compound operations.
+
+`computeIfAbsent` is powerful, but the mapping function must not perform slow remote calls or acquire unrelated locks.
+
+`Semaphore` is my tool for bounding access to a scarce resource: partner calls, file handles, GPU slots, expensive validations, or per-tenant concurrency.
+
+It is often clearer than oversizing a thread pool.
+
+`CountDownLatch` is useful for one-shot coordination, such as waiting for several startup checks or parallel probes to complete.
+
+It is not reusable, and I do not use it as a general workflow engine.
+
+`CompletableFuture` is useful for composing asynchronous work, especially when I can run independent calls concurrently and combine results.
+
+But I always ask which executor is used.
+
+Using the common pool accidentally can starve unrelated work.
+
+Every async chain needs timeout, cancellation, error handling, and bounded fan-out.
+
+During incidents, the primitive choice shapes the evidence.
+
+`synchronized` contention appears as `BLOCKED` on monitors.
+
+`ReentrantLock` may show parking.
+
+Semaphores show threads waiting for permits.
+
+Futures show threads waiting on completion.
+
+The mitigation is not always restart.
+
+It may be reducing concurrency, cancelling a dependency call, disabling a feature, changing lock ordering, or draining one instance after collecting dumps.
+
+The recurrence control is documenting the invariant, limiting wait time, exposing contention metrics, and testing concurrent interleavings.
+
+## Q13. One thousand expensive downstream calls
+
+> You must make one thousand expensive downstream calls without exhausting threads. How do you design it?
+
+I start by rejecting the phrase "make one thousand calls" as a concurrency requirement.
+
+The real requirement is business completion under downstream limits.
+
+I ask for the downstream rate limit, concurrency limit, timeout expectation, payload size, retry policy, idempotency model, and user-facing deadline.
+
+If the caller is waiting synchronously for all one thousand results, we may already have a product problem.
+
+For production design, I use bounded fan-out.
+
+That can be a fixed executor, a semaphore around async HTTP calls, or a reactive client with a concurrency cap.
+
+The cap is set by downstream capacity and local resource budgets, not by the number of requested items.
+
+If the downstream allows 25 concurrent calls, I run 25, not one thousand.
+
+Each call has a timeout, retry budget, jitter, and classification of retryable versus permanent errors.
+
+The aggregate request has a deadline shorter than the client and ingress timeout.
+
+When the deadline expires, outstanding work must be cancelled or detached into a durable background workflow.
+
+I do not allow orphan calls to keep burning threads after the customer response is gone.
+
+I also avoid collecting huge intermediate results if streaming or partial aggregation is possible.
+
+Metrics are required: in-flight calls, queue depth, queue age, downstream latency, retry count, timeout count, cancellation count, and success by dependency status.
+
+During an incident, I correlate those with thread dumps and traces.
+
+If thread dumps show many workers waiting on the downstream, raising the pool size is wrong.
+
+If traces show a small number of slow calls causing the aggregate to wait, I need hedging, partial response, quorum semantics, or a product-level timeout decision.
+
+Mitigation during overload may be lowering the concurrency cap, disabling retries, serving partial results, rejecting requests earlier, or moving the work to an asynchronous job.
+
+Restarting the caller may cancel local calls, but the downstream may still process requests already sent.
+
+That matters for non-idempotent side effects.
+
+Prevention includes bulkheads, per-dependency concurrency caps, idempotency keys, deadline propagation, adaptive rate limiting, and load tests that simulate downstream slowness.
+
+The Principal answer is that bounded concurrency is a correctness and reliability control, not just a performance optimization.
+
+## Q14. Five hundred threads, 20 percent CPU, and timeouts
+
+> A Java service has 500 threads, only 20 percent CPU, and timeouts. What is happening?
+
+Low CPU with many threads and timeouts usually means the service is waiting, not computing.
+
+I establish what the threads are waiting on.
+
+The likely causes are database pool exhaustion, slow SQL, external API calls without timeouts, lock contention, blocked logging, full executor queues, socket waits, or thread-pool starvation.
+
+The first mistake is adding more threads.
+
+More threads can increase memory, context switching, connection demand, and downstream pressure while doing no useful work.
+
+I correlate thread dumps with metrics.
+
+If many request threads wait in `HikariPool.getConnection`, the database pool or database is the bottleneck.
+
+If many are parked on `CompletableFuture.get`, I inspect the executor that should complete the futures.
+
+If many are waiting on the same monitor, I inspect lock ownership and critical section duration.
+
+If many are in socket read, I inspect client timeouts and downstream latency.
+
+If many executor workers are occupied and the queue is growing, I inspect whether tasks call back into the same executor and starve it.
+
+I also check container CPU throttling, but 20 percent CPU with timeout symptoms usually points to blocked waits.
+
+Mitigation is to reduce wait creation.
+
+That may mean lowering ingress concurrency, applying backpressure, opening a circuit breaker, pausing Kafka consumers, killing a blocking database query, or disabling the dependency path.
+
+Restarting may clear stuck sockets or leaked connections, but if the downstream remains slow, the new process will refill the same waits.
+
+Worse, restart can synchronize retries and create a connection storm.
+
+Prevention is explicit timeouts, deadline propagation, bounded pools, queue age alerts, no nested waits on the same executor, separate pools for unrelated work, and dashboards that show blocked time.
+
+The interview signal is recognizing that thread count is not throughput.
+
+Five hundred threads can be a graveyard.
+
+## Q15. Unbounded executor queue
+
+> An executor has an unbounded queue that keeps growing. What do you do?
+
+An unbounded queue is often an outage delayed into heap.
+
+I first establish producer rate, consumer rate, queue depth, queue age, task memory footprint, task duration, dependency latency, error rate, and whether tasks are still valuable when delayed.
+
+If queue age is high, the system is violating the business deadline even if no task has failed yet.
+
+I inspect thread dumps to see what workers are doing.
+
+If workers are CPU-bound, I profile and size by cores.
+
+If workers are waiting on database or downstream API, I size by dependency capacity and add backpressure.
+
+If workers are blocked on locks, I inspect critical sections and lock ordering.
+
+Immediate mitigation is to stop the queue from growing.
+
+That may mean pausing intake, shedding low-priority work, disabling the producer, lowering Kafka poll rate, reducing HTTP concurrency, or draining the pod.
+
+I do not simply raise worker count unless evidence says workers are the bottleneck and dependencies have headroom.
+
+The difficult question is what to do with already queued work.
+
+If tasks are idempotent and stale tasks are harmful, I may discard or quarantine expired work.
+
+If tasks represent payments or financial state transitions, I need durable reconciliation and cannot silently drop them.
+
+If tasks are in memory only, restart loses them.
+
+That may be acceptable for cache refresh and unacceptable for orders.
+
+For recurrence, I replace unbounded queues with bounded queues and explicit rejection or backpressure.
+
+I add queue age metrics, not just queue size.
+
+I define task deadlines, priority, durability, and cancellation policy.
+
+For Kafka producers, I align poll size, worker capacity, commit timing, and idempotency.
+
+For HTTP producers, I return overload responses before accepting work I cannot complete.
+
+The Principal answer is that a queue is a promise.
+
+If the system cannot keep the promise within the deadline, it must say no or slow the producer.
+
+## Q16. Bounded pool for payments
+
+> Design a bounded thread pool for payments.
+
+For payments, I design the pool around correctness first and throughput second.
+
+The payment operation must be idempotent, auditable, timeout-bound, and recoverable.
+
+I start by identifying external constraints: payment processor concurrency, database capacity, fraud service latency, ledger write limits, and user-facing timeout.
+
+Then I define separate execution zones.
+
+HTTP request threads should not be consumed indefinitely by processor calls.
+
+Payment authorization workers should be bounded by processor capacity.
+
+Ledger writes should be protected from partner slowness.
+
+Reconciliation and retry work should not share the same pool as live checkout unless explicitly prioritized.
+
+The pool has a bounded queue and a rejection policy that maps to business semantics.
+
+For live checkout, if the queue is full, I may fail fast with a retriable response before taking money.
+
+For internal reconciliation, I may persist work to a durable table and process later.
+
+Every task carries an idempotency key, payment intent id, deadline, tenant, trace id, and attempt number.
+
+Timeouts are layered: client timeout, service deadline, partner timeout, database timeout, and retry budget.
+
+I avoid remote calls inside long database transactions.
+
+I commit local intent state, call the processor with idempotency, then record the outcome with compare-and-set state transitions.
+
+Thread-pool metrics include active count, queue depth, queue age, rejection count, timeout count, partner latency, DB latency, retry count, and duplicate-idempotency detection.
+
+During an incident, if the pool saturates, I do not blindly increase it.
+
+I check whether partner latency rose, database writes slowed, fraud checks blocked, or a small tenant is dominating.
+
+Mitigation could be pausing retries, reducing concurrency to the partner, isolating tenants, disabling non-critical checks, or draining one bad pod.
+
+Restart side effects are serious.
+
+In-flight authorizations may still complete at the partner while the local JVM dies.
+
+On restart, workers must reconcile by idempotency key instead of issuing a second charge.
+
+Prevention includes durable payment state machines, idempotency keys enforced by storage, outbox or reconciliation jobs, bounded pools, alerting on queue age, and chaos tests for process death after partner success but before local commit.
+
+The Principal signal is that the thread-pool design encodes payment invariants.
+
+## Q17. Mutual wait between microservices
+
+> Two microservices are waiting on each other. How do you diagnose and prevent it?
+
+I first build the wait graph.
+
+Service A is waiting for Service B, but why is B waiting for A?
+
+It might be a synchronous cycle, a distributed lock cycle, a transaction boundary crossing service calls, a callback design, a shared executor starvation issue, or a database lock held while making remote calls.
+
+I correlate traces across services using the same request id and time window.
+
+I inspect inbound and outbound latency, thread dumps, executor queues, connection pools, database locks, and retry behavior on both sides.
+
+If A holds a database transaction and calls B, while B calls back into A or waits on the same row, we have a design deadlock.
+
+If both services use all request threads waiting on each other, we have thread-pool starvation.
+
+If both services retry each other with no deadline, we have a retry-amplified cycle.
+
+Mitigation is to break the cycle safely.
+
+That may mean disabling one callback path, opening a circuit breaker, cancelling a query, pausing a consumer, reducing retries, or draining one service.
+
+Restarting one side may appear to fix it, but it can also cause the other side to retry and recreate the cycle.
+
+If either service performs side effects, I need to know whether partial work will be replayed.
+
+Prevention is architectural.
+
+Avoid synchronous cycles.
+
+Do not hold local locks or database transactions while making remote calls.
+
+Use clear ownership boundaries, asynchronous events where appropriate, sagas for multi-step workflows, idempotency, and timeouts with cancellation.
+
+If a lease or distributed lock is involved, use fencing tokens and observability.
+
+The right cross-reference is [distributed concurrency and timeouts](/distributed-systems/concurrency-deadlocks-and-timeouts) and [transactions, sagas, 2PC, and 3PC](/distributed-systems/transactions-2pc-3pc-saga).
+
+The Principal answer shows that distributed deadlocks are rarely fixed by one bigger timeout.
+
+They are fixed by removing the cycle or bounding it with ownership and deadlines.
+
+## Q18. Async versus sync
+
+> When do you choose async over sync, and when is async the wrong answer?
+
+I choose async when it changes the shape of waiting in a useful way.
+
+Async helps when work is independent, latency is dominated by IO, the caller does not need immediate completion, or we need to decouple producer and consumer with durable buffering.
+
+Examples include sending notifications after order placement, running enrichment jobs, concurrently calling independent read-only dependencies, and consuming Kafka with bounded workers.
+
+Async is wrong when it hides backpressure, loses errors, breaks transaction semantics, makes user-visible state ambiguous, or uses an unbounded queue as a fake reliability layer.
+
+The first question is ownership of completion.
+
+If the HTTP response says the operation succeeded, but the async side effect can fail silently later, the design may be lying.
+
+If the business can accept "accepted for processing," then the async workflow needs durable state, retry policy, idempotency, observability, and customer-visible status.
+
+For `CompletableFuture`, I inspect the executor.
+
+Async code on the common pool can interfere with unrelated work.
+
+Async chains need timeouts, cancellation, exception handling, and bounded fan-out.
+
+For message-driven async, I inspect ordering, duplicate handling, poison messages, DLQs, and replay behavior.
+
+During incidents, async systems fail differently.
+
+The API may look healthy while the queue age grows.
+
+Consumers may be "up" but not making progress.
+
+Retries may lag behind and then stampede a recovered downstream.
+
+Restarting may replay messages, lose in-memory tasks, or trigger rebalances.
+
+Mitigation includes pausing consumers, shedding intake, lowering concurrency, moving poison messages safely, or degrading the producer path.
+
+Prevention includes durable queues, idempotent handlers, queue age SLOs, explicit acceptance semantics, bounded concurrency, retry budgets, and trace propagation across async boundaries.
+
+The Principal answer is not "async is faster."
+
+Async is a coordination model.
+
+It improves reliability only when the ownership, durability, and backpressure contracts are explicit.
+
+## Cross-question summary
+
+Concurrency incidents are often hidden queueing incidents.
+
+A thread pool is a bulkhead only if it is bounded.
+
+A future is safe only if someone owns timeout and failure.
+
+A lock is safe only if wait time and ordering are understood.
+
+A queue is safe only if the system can keep its promise before work expires.
+
+When an interviewer asks a Java concurrency question, answer with:
+
+```text
+1. What invariant am I protecting?
+2. What resource am I bounding?
+3. What happens when the dependency slows down?
+4. What evidence proves the current wait state?
+5. What side effects happen if I kill or restart?
+6. What control prevents recurrence?
+```
+
+That is the difference between a concurrency answer and a production ownership answer.

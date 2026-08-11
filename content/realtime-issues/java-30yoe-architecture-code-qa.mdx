@@ -1,0 +1,467 @@
+---
+slug: java-30yoe-architecture-code-qa
+title: 'Java 30 YOE Principal Q&A: Payment Architecture and Code Review Traps'
+description: 'Principal-level answers for payment platform architecture, high-throughput engines, reconciliation, immutable audit trails, and Java code-review traps seen in production incidents.'
+category: 'Real-Time Issues'
+difficulty: Principal
+tags: [Real-Time Issues, Java, Architecture, Payments, Code Review, Principal Interview]
+readingTime: 24 min
+publishedAt: '2026-08-11'
+---
+
+## How to use this guide
+
+This final set moves from architecture design to code-review traps that quietly create production incidents.
+The Principal signal is the same in both: name the invariant, identify the scarce resource, and design failure handling before tuning syntax.
+Payment architecture answers must connect user APIs, ledgers, provider ambiguity, reconciliation, and operator workflows.
+Code-review answers must connect a small Java smell to thread starvation, duplicate side effects, memory leaks, lost auditability, or unrecoverable operations.
+
+Related guides:
+
+- [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+- [Checkpoint, idempotency, and crash recovery](/realtime-issues/process-10gb-checkpoint-idempotency)
+- [Transactions, 2PC, 3PC, and Saga](/distributed-systems/transactions-2pc-3pc-saga)
+- [Java 30 YOE Spring and microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa)
+- [Java 30 YOE Kafka and database Q&A](/realtime-issues/java-30yoe-kafka-database-qa)
+
+## Q87. Design a payment platform that handles 1M payments per hour.
+
+First I would establish the production shape of a 1M-per-hour payment platform before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: translate average rate into peak rate, retry rate, provider slowness, reconciliation volume, merchant skew, and the no-double-charge invariant.
+
+- Evidence: measure API rate, idempotency conflicts, ledger write latency, provider p99, outbox lag, Kafka lag, reconciliation mismatch count, DB locks, and incident runbook timings.
+
+- Mitigate: build API gateway, payment command service, idempotency store, ledger, risk checks, provider adapters, outbox, event stream, reconciliation, audit, and operator tooling.
+
+- Contain blast radius: partition by merchant, account, or payment key, and isolate provider adapters so one bank cannot consume all workers or Hikari connections.
+
+- Recover safely: after ambiguous provider outcomes, record unknown state and converge through provider status, webhook, settlement file, or reconciliation.
+
+- Prevent recurrence: prevent recurrence with state-machine tests, outbox relay alerts, provider SLOs, reconciliation ownership, and game days for timeout-after-success.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: peak-safe design costs more storage and operational tooling than a simple synchronous flow, but it prevents hidden financial drift.
+
+- What not to do: do not sell throughput alone, ignore retries, store only final status, or design without an operator path for unknown outcomes.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study).
+
+- Design review check: ask which team owns a 1M-per-hour payment platform, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q88. What makes a high-throughput payment engine safe?
+
+First I would establish the production shape of a high-throughput payment engine before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: separate safety from throughput: stable idempotency, short local transactions, ledger constraints, outbox publishing, bounded retries, and reconciliation make speed safe.
+
+- Evidence: watch ledger unique violations, duplicate command ids, provider attempt references, outbox lag, GC pauses, worker queue depth, database wait events, and payment state transitions.
+
+- Mitigate: keep the hot path short and durable, batch non-critical work, use efficient serialization, and avoid global locks.
+
+- Contain blast radius: bulkhead risk, provider, notification, analytics, and replay paths away from capture or authorization workers.
+
+- Recover safely: if capacity drops, shed optional work and preserve authoritative state transitions before optimizing notifications or analytics.
+
+- Prevent recurrence: prevent recurrence with performance tests that include duplicate retries, provider latency, DB lock contention, and replay traffic.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: global ordering is easy to reason about but kills throughput; partitioned ordering scales but requires careful key choice and skew handling.
+
+- What not to do: do not use in-memory dedupe, unbounded queues, or async fire-and-forget provider calls for irreversible money movement.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka database Q&A](/realtime-issues/java-30yoe-kafka-database-qa).
+
+- Design review check: ask which team owns a high-throughput payment engine, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q89. How do you guarantee no double payment?
+
+First I would establish the production shape of no-double-payment control before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: avoid casual guarantees; point to the exact controls that admit an external side effect once and only once for a business operation.
+
+- Evidence: query idempotency table, ledger constraints, provider attempt references, request hashes, state-machine transitions, webhooks, and reconciliation records.
+
+- Mitigate: use unique idempotency keys, unique provider attempt ids, monotonic payment states, and a rule that pending or unknown attempts block a second debit.
+
+- Contain blast radius: make duplicate API calls return the prior result or pending state instead of creating new provider requests.
+
+- Recover safely: when timeout-after-success is possible, reconcile before retrying the external payment instruction.
+
+- Prevent recurrence: prevent recurrence with duplicate-payment incident tests, provider idempotency contracts, and audit reports for conflicting keys.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: strict admission can increase pending states, but pending is recoverable; duplicate money movement is reputational and regulatory damage.
+
+- What not to do: do not mark timeout as failed, let operators replay with a new key, or trust a cache as the uniqueness boundary.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Spring microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa).
+
+- Design review check: ask which team owns no-double-payment control, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q90. What does reconciliation do in a payment system?
+
+First I would establish the production shape of payment reconciliation before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: compare internal ledger, provider status, bank files, network settlement, callbacks, and customer-visible projections to find divergence.
+
+- Evidence: track missing callbacks, timeout-after-success, duplicate captures, amount mismatch, late reversal, stuck pending, file checksum, row count, and correction aging.
+
+- Mitigate: build idempotent reconciliation jobs that read provider files or APIs, produce auditable differences, and apply corrections through normal ledger mechanisms.
+
+- Contain blast radius: run reconciliation in isolated batch capacity so it does not starve online payments or consumers.
+
+- Recover safely: if differences appear, classify severity, freeze unsafe automation if needed, and correct through reversible, audited entries.
+
+- Prevent recurrence: prevent recurrence with daily and intraday recon, file manifests, checkpointing, DLQs, aging alerts, and ownership for unmatched items.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: full reconciliation costs data engineering and operations effort, but it is the control that closes ambiguity after distributed failures.
+
+- What not to do: do not treat reconciliation as spreadsheet work, update final status without audit, or skip it because webhooks are usually reliable.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Checkpoint, idempotency, and crash recovery](/realtime-issues/process-10gb-checkpoint-idempotency).
+
+- Design review check: ask which team owns payment reconciliation, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q91. Bank sent the payment but your service got no response. What now?
+
+First I would establish the production shape of bank timeout after possible success before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: classify the result as unknown, not failed, because the external side effect may have completed after your client timed out.
+
+- Evidence: collect provider request id, idempotency key, HTTP timeout, trace id, ledger attempt row, provider logs, webhook status, and settlement or recon evidence.
+
+- Mitigate: persist unknown or pending state and query provider status or wait for webhook and settlement reconciliation before sending another instruction.
+
+- Contain blast radius: return pending to the user when immediate certainty is impossible and expose a clear status lookup path.
+
+- Recover safely: if the provider later confirms success, transition once to succeeded; if it confirms failure, transition through a controlled retry decision.
+
+- Prevent recurrence: prevent recurrence with provider idempotency keys, timeout budgets, attempt tables, and runbooks for ambiguous outcomes.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: short client timeouts protect threads but create more unknown states; long timeouts reduce ambiguity but can exhaust service capacity.
+
+- What not to do: do not retry immediately with a new request id, tell the user it failed without evidence, or reverse state manually from logs.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study).
+
+- Design review check: ask which team owns bank timeout after possible success, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q92. How do you design an immutable audit trail?
+
+First I would establish the production shape of immutable audit trail before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: define who must trust the trail: customers, finance, regulators, support, security, and incident responders.
+
+- Evidence: record actor, action, timestamp, request id, correlation id, causation id, before and after references, source system, and integrity checks.
+
+- Mitigate: store append-only events or ledger rows where corrections are new entries, not updates that erase history.
+
+- Contain blast radius: separate audit write path from optional analytics but keep it in the same local transaction when it proves the business invariant.
+
+- Recover safely: during incidents, use audit to reconstruct facts and operator actions, then repair with new auditable entries.
+
+- Prevent recurrence: prevent recurrence with tamper-evident storage, access audit, retention policy, schema versioning, and replay-safe event design.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: immutability costs storage and migration work, but mutable audit trails fail exactly when trust matters most.
+
+- What not to do: do not let support edit history, store only latest status, or omit failed attempts and operator actions.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [RCA and observability guide](/realtime-issues/stuck-thread-rca-prevention-observability).
+
+- Design review check: ask which team owns immutable audit trail, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q93. What is wrong with `containsKey` followed by `put`?
+
+First I would establish the production shape of `containsKey` followed by `put` before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: recognize it as a check-then-act race: two threads can both observe absence and both perform the side effect.
+
+- Evidence: look for duplicate logs, racey code paths, concurrency tests, thread dumps, production duplicate keys, and missing database unique constraints.
+
+- Mitigate: use `putIfAbsent`, database unique constraints, `computeIfAbsent` with care, or a durable idempotency table depending on the invariant.
+
+- Contain blast radius: keep expensive or blocking side effects outside map-compute locks and make the durable store the final arbiter for business uniqueness.
+
+- Recover safely: if duplicates happened, reconcile durable effects first; changing the map code does not undo previous side effects.
+
+- Prevent recurrence: prevent recurrence with code-review checks for check-then-act, concurrency tests, and explicit idempotency requirements on side-effecting paths.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: atomic map operations help inside one JVM, but they do not protect multiple pods or survive restarts.
+
+- What not to do: do not use a static map as payment idempotency, or perform an external call between the check and the put.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [distributed caching and migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa).
+
+- Design review check: ask which team owns `containsKey` followed by `put`, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q94. What is wrong with `synchronized` around an external call?
+
+First I would establish the production shape of `synchronized` around an external call before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: see the local lock as a JVM bottleneck that waits on a dependency with unknown latency and protects nothing in other pods.
+
+- Evidence: capture `jstack` showing BLOCKED or WAITING threads, JFR lock events, HTTP latency, executor queue depth, Hikari waits, and pod-level concurrency.
+
+- Mitigate: move the external call outside the synchronized region and protect the real invariant with database constraints, idempotency, leases with fencing, or a command queue.
+
+- Contain blast radius: bound critical sections to in-memory state only and use timeouts and bulkheads for remote work.
+
+- Recover safely: if threads are stuck, shed traffic, open circuit breakers, or roll back before the JVM loses all request capacity.
+
+- Prevent recurrence: prevent recurrence with review rules against blocking I/O inside locks and tests that simulate slow downstream calls.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: local serialization is simple but does not scale horizontally; durable serialization costs design work but matches distributed reality.
+
+- What not to do: do not synchronize controller methods, hold locks during bank calls, or assume one JVM lock protects Kubernetes replicas.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Stuck thread Spring, Kafka, and locks](/realtime-issues/stuck-thread-spring-kafka-locks).
+
+- Design review check: ask which team owns `synchronized` around an external call, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q95. What is dangerous about an unbounded executor queue?
+
+First I would establish the production shape of unbounded executor queue before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: identify it as hidden overload: the service accepts work faster than workers complete it, so latency and memory grow until collapse.
+
+- Evidence: watch active threads, queue depth, task wait time, rejected count, heap, GC, OOM risk, CPU, downstream latency, and caller timeout rate.
+
+- Mitigate: replace with bounded queues, explicit rejection, caller backpressure, deadlines, and per-workload executors.
+
+- Contain blast radius: isolate high-priority user work from batch, replay, notifications, and slow provider calls.
+
+- Recover safely: when a queue is already huge, stop intake and drain or discard by business priority rather than letting stale work execute blindly.
+
+- Prevent recurrence: prevent recurrence with capacity budgets, load tests, alerts on queue age, and code review for every executor construction.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: bounded queues fail earlier and visibly; unbounded queues look friendly until recovery becomes impossible.
+
+- What not to do: do not use `LinkedBlockingQueue` defaults casually, hide rejection from callers, or size threads without downstream capacity.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [RCA and observability guide](/realtime-issues/stuck-thread-rca-prevention-observability).
+
+- Design review check: ask which team owns unbounded executor queue, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q96. What is risky about CompletableFuture default ForkJoinPool usage?
+
+First I would establish the production shape of CompletableFuture common-pool usage before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: determine whether async stages use the common ForkJoinPool and whether any stage performs blocking I/O, database calls, or HTTP requests.
+
+- Evidence: capture `jstack`, ForkJoinPool metrics, JFR thread events, blocked-worker traces, queue depth, HTTP latency, and unrelated async tasks delayed in the same JVM.
+
+- Mitigate: provide named bounded executors per workload, propagate deadlines and cancellation, and keep blocking work off the common pool.
+
+- Contain blast radius: separate CPU-bound transformations from I/O-bound calls so capacity is owned and observable.
+
+- Recover safely: if common-pool starvation is live, move the path behind a feature flag or configure an explicit executor quickly.
+
+- Prevent recurrence: prevent recurrence with static analysis or review rules requiring explicit executors for production async chains.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: default executors are convenient for small CPU work but dangerous for blocking service code.
+
+- What not to do: do not assume async means nonblocking, start many futures without backpressure, or ignore tracing context across stages.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [architecture and code review Q&A](/realtime-issues/java-30yoe-architecture-code-qa).
+
+- Design review check: ask which team owns CompletableFuture common-pool usage, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q97. Why is a static HashMap a production leak?
+
+First I would establish the production shape of static HashMap leak before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: treat static mutable maps as classloader-lifetime state that can retain user data, tenant data, request objects, class references, and stale configuration.
+
+- Evidence: inspect heap dumps, dominator trees, retained size, classloader references, map cardinality, GC logs, JFR allocations, and thread-safety failures.
+
+- Mitigate: replace with bounded caches such as Caffeine, explicit TTL, maximum size, metrics, and clear ownership, or move durable state to a database.
+
+- Contain blast radius: avoid storing request-scoped objects, security principals, or tenant-specific data in static structures.
+
+- Recover safely: if memory is growing, capture heap before restart, identify keys and owners, and roll back or disable the feature causing growth.
+
+- Prevent recurrence: prevent recurrence with cache guidelines, leak tests, memory dashboards, and review rules against static mutable collections.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: in-memory caches are fast but process-local and lossy; durable stores are slower but observable and recoverable.
+
+- What not to do: do not clear the map periodically as a strategy, use plain `HashMap` concurrently, or treat static state as a distributed cache.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Redis caching patterns interview](/redis-interview/redis-caching-patterns-interview).
+
+- Design review check: ask which team owns static HashMap leak, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q98. Why is `parallelStream` dangerous in REST code?
+
+First I would establish the production shape of `parallelStream` in REST code before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: recognize that it hides concurrency in the common ForkJoinPool and can amplify downstream calls per request without explicit budgeting.
+
+- Evidence: use `jstack`, JFR, HTTP client metrics, DB connection pool waits, request fan-out traces, CPU, and common-pool activity to prove the effect.
+
+- Mitigate: replace with explicit bounded executors, bulkheads, batching, or a simpler sequential loop when downstream capacity is the limit.
+
+- Contain blast radius: limit per-request fan-out and enforce deadlines so one user request cannot monopolize shared resources.
+
+- Recover safely: if a release added parallel streams and latency spikes, roll back or disable that code path while measuring downstream saturation.
+
+- Prevent recurrence: prevent recurrence with review rules that forbid hidden parallelism around blocking calls and require load tests for fan-out changes.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: parallelism can help CPU-bound pure functions; it often hurts blocking REST and database workflows.
+
+- What not to do: do not call blocking repositories or HTTP clients inside `parallelStream`, or assume more local threads create more downstream capacity.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka database Q&A](/realtime-issues/java-30yoe-kafka-database-qa).
+
+- Design review check: ask which team owns `parallelStream` in REST code, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q99. What is wrong with `Optional.get`?
+
+First I would establish the production shape of `Optional.get` before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: frame absence as a domain outcome, not a surprise `NoSuchElementException` that becomes a generic 500.
+
+- Evidence: inspect error logs, stack traces, endpoint status codes, SLO impact, missing-data frequency, and whether upstream data contracts allow absence.
+
+- Mitigate: use `orElseThrow` with meaningful exceptions, `map`, `flatMap`, explicit branching, or a domain result type.
+
+- Contain blast radius: map absence to not found, conflict, pending, or validation failure according to business semantics.
+
+- Recover safely: if production 500s are happening, patch the error mapping and reconcile any partial workflow state triggered before the exception.
+
+- Prevent recurrence: prevent recurrence with API contract tests, nullability annotations where useful, and code review that asks what absence means.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: explicit handling is more verbose but makes business behavior observable and testable.
+
+- What not to do: do not replace `Optional.get` with `orElse(null)`, swallow absence, or let missing payment state fall into generic retry logic.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Spring microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa).
+
+- Design review check: ask which team owns `Optional.get`, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Q100. When are Java Streams overused?
+
+First I would establish the production shape of overused Java Streams before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: look for streams that hide side effects, database calls, exception handling, short-circuit rules, metrics, or meaningful business names.
+
+- Evidence: inspect generated SQL, query counts, lazy loading, allocation profiles in JFR, stack traces, code coverage, and debugging difficulty in incidents.
+
+- Mitigate: replace complex chains with named steps, explicit loops, projections, or collector logic that makes failure and metrics visible.
+
+- Contain blast radius: keep ORM entities out of deep stream chains that can trigger lazy loading and N+1 behavior.
+
+- Recover safely: if a stream chain causes production load, simplify the path first, then optimize with evidence.
+
+- Prevent recurrence: prevent recurrence with readability review standards and tests that assert query counts and exception behavior.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: streams are excellent for small pure transformations; imperative code can be safer for workflows with I/O, branching, and observability needs.
+
+- What not to do: do not optimize for cleverness, hide checked exceptions in lambdas, or let a stream perform irreversible side effects without idempotency.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka database Q&A](/realtime-issues/java-30yoe-kafka-database-qa).
+
+- Design review check: ask which team owns overused Java Streams, which SLO is being protected, and what exact alarm proves the design is degrading before customers report it.
+
+- Code review check: look for hidden blocking calls, unbounded memory growth, missing idempotency keys, weak exception handling, and optimistic assumptions that only hold in a single JVM.
+
+- Operations check: make the runbook name the safe toggle, the rollback artifact, the data reconciliation query, and the person allowed to approve destructive remediation.
+
+## Top-15 Principal drill list
+
+Use this list as a final oral rehearsal. Each item links to the answer section that should become muscle memory.
+
+1. Explain the 1M-per-hour payment architecture: [Q87](#q87-design-a-payment-platform-that-handles-1m-payments-per-hour).
+2. State why throughput alone does not make a payment engine safe: [Q88](#q88-what-makes-a-high-throughput-payment-engine-safe).
+3. Defend the no-double-payment controls: [Q89](#q89-how-do-you-guarantee-no-double-payment).
+4. Explain timeout-after-success with a bank: [Q91](#q91-bank-sent-the-payment-but-your-service-got-no-response-what-now).
+5. Connect reconciliation to large-file restartability: [Q90](#q90-what-does-reconciliation-do-in-a-payment-system).
+6. Connect audit design to retries and operators: [Q92](#q92-how-do-you-design-an-immutable-audit-trail).
+7. Explain check-then-act races: [Q93](#q93-what-is-wrong-with-containskey-followed-by-put).
+8. Explain why local synchronization does not protect distributed state: [Q94](#q94-what-is-wrong-with-synchronized-around-an-external-call).
+9. Describe overload hidden by unbounded queues: [Q95](#q95-what-is-dangerous-about-an-unbounded-executor-queue).
+10. Explain common-pool starvation: [Q96](#q96-what-is-risky-about-completablefuture-default-forkjoinpool-usage).
+11. Identify static cache leaks and thread-safety risks: [Q97](#q97-why-is-a-static-hashmap-a-production-leak).
+12. Explain why `parallelStream` can hurt REST services: [Q98](#q98-why-is-parallelstream-dangerous-in-rest-code).
+13. Turn `Optional.get` into a domain decision: [Q99](#q99-what-is-wrong-with-optionalget).
+14. Spot stream chains that hide database work: [Q100](#q100-when-are-java-streams-overused).
+15. Cross-study the full payment outage walkthrough: [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study).
+

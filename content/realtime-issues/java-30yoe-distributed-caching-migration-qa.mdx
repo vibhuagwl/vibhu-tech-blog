@@ -1,0 +1,459 @@
+---
+slug: java-30yoe-distributed-caching-migration-qa
+title: 'Java 30 YOE Principal Q&A: Distributed Caching, Locking, and Java Migration'
+description: 'Principal-level answers for account concurrency, Redis locks, cross-service idempotency, clock skew, CAP, multi-DC availability, cache strategies, stampedes, and Java 8 to 17 migration.'
+category: 'Real-Time Issues'
+difficulty: Principal
+tags: [Real-Time Issues, Java, Redis, Caching, Distributed Locks, Java 17, Principal Interview]
+readingTime: 27 min
+publishedAt: '2026-08-11'
+---
+
+## How to use this guide
+
+These answers connect distributed systems theory to Java services, Redis, caches, multi-region behavior, and runtime migration.
+The repeated Principal stance is simple: protect the invariant first, then optimize throughput and developer convenience.
+A Redis lock, cache entry, timestamp, or Java version bump is never isolated from operational reality.
+Use the answers as incident language: diagnose with evidence, mitigate without corrupting state, then prevent with stronger ownership and automation.
+
+Related guides:
+
+- [Redis distributed lock deep dive](/distributed-systems/redis-distributed-lock-deep-dive)
+- [Distributed locking master index](/distributed-systems/distributed-locking-master-index)
+- [Redis caching patterns interview](/redis-interview/redis-caching-patterns-interview)
+- [Stuck thread Spring, Kafka, and locks](/realtime-issues/stuck-thread-spring-kafka-locks)
+- [Java 30 YOE Spring and microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa)
+- [Java 30 YOE Kafka and database Q&A](/realtime-issues/java-30yoe-kafka-database-qa)
+
+## Q69. Two services update the same account concurrently. What protects correctness?
+
+First I would establish the production shape of concurrent account updates before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: find the authoritative writer and the invariant: balance cannot go negative, ledger entries must be unique, and command ordering must be defined.
+
+- Evidence: inspect database constraints, version columns, row locks, `pg_locks`, ledger sequence numbers, service traces, Kafka keying, and duplicate command ids.
+
+- Mitigate: use row-level locking, optimistic version checks, append-only ledger entries, unique constraints, or a single account command stream.
+
+- Contain blast radius: route conflicting commands to one owner where possible and keep external side effects outside long database locks.
+
+- Recover safely: if conflicting writes occurred, stop new writes for affected accounts, reconcile ledger versus provider state, and repair through auditable adjustments.
+
+- Prevent recurrence: prevent recurrence by making account ownership explicit, testing concurrent commands, and alerting on optimistic-lock failure spikes or lock waits.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: single-writer streams simplify ordering but can create hot partitions; optimistic locking scales but requires correct conflict handling.
+
+- What not to do: do not rely on service call order, cache flags, or Redis locks alone for a financial invariant.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency).
+
+## Q70. When do you use distributed locking?
+
+First I would establish the production shape of distributed locking before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: use it only for temporary mutual exclusion across processes where work is short, bounded, and safe if the lease expires.
+
+- Evidence: measure lock acquisition rate, hold time, expiry count, contention, Redis latency, GC pauses, network errors, and downstream write acceptance.
+
+- Mitigate: apply locks to leader election, one-owner cache rebuilds, and guarded schedulers; move true correctness into database constraints or fencing tokens.
+
+- Contain blast radius: bound lock-protected work with timeouts and avoid holding the lease across unbounded bank, HTTP, or batch operations.
+
+- Recover safely: if a stale owner may have continued, use fencing-aware downstream state to reject old writes and reconcile any accepted writes.
+
+- Prevent recurrence: prevent recurrence with lock libraries that enforce owner tokens, Lua release, TTLs, metrics, and runbooks for contention.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: locks reduce duplicate work but introduce availability and liveness risk; constraints cost write contention but are stronger for correctness.
+
+- What not to do: do not use a distributed lock to fake a cross-service transaction or to protect a system that cannot reject stale owners.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Redis distributed lock deep dive](/distributed-systems/redis-distributed-lock-deep-dive).
+
+## Q71. How should a Redis lock be implemented?
+
+First I would establish the production shape of Redis lock implementation before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: confirm whether Redis is being used as a lease service and whether stale owners can still perform the protected write.
+
+- Evidence: inspect `SET NX PX` usage, unique owner tokens, Lua release scripts, TTL choice, Redis failover logs, client timeouts, and lock metrics.
+
+- Mitigate: use `SET key value NX PX ttlMillis` with a unique token and release through Lua that deletes only when the token matches.
+
+- Contain blast radius: keep the critical section short, add acquisition timeouts, and design downstream writes to accept fencing tokens where correctness matters.
+
+- Recover safely: on ambiguous release or failover, assume the lease may be lost and let the next owner rebuild from durable state.
+
+- Prevent recurrence: prevent recurrence with a shared lock abstraction, tests for token mismatch, TTL expiry, GC pause, and Redis outage behavior.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: long TTLs reduce premature expiry but slow recovery; short TTLs improve liveness but increase stale-owner risk.
+
+- What not to do: do not release by plain `DEL`, use wall-clock assumptions for correctness, or extend locks indefinitely without proving ownership.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Distributed locking master index](/distributed-systems/distributed-locking-master-index).
+
+## Q72. What are the common Redis lock problems?
+
+First I would establish the production shape of Redis lock failure modes before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: look for lease expiry during GC pause, network partition, Redis failover, slow downstream calls, missing token checks, and retry storms during contention.
+
+- Evidence: use Redis command latency, lock expiry metrics, owner ids, JVM GC logs, JFR, `jstack`, downstream write logs, and fencing token comparisons.
+
+- Mitigate: shorten protected work, add fencing, stop aggressive retry loops, and move durable invariants into the database or ledger.
+
+- Contain blast radius: protect Redis with client timeouts, connection limits, and separate pools so lock contention does not break unrelated cache traffic.
+
+- Recover safely: if stale owners wrote after expiry, reconcile using the downstream durable sequence or ledger, not lock logs alone.
+
+- Prevent recurrence: prevent recurrence through simulations that pause JVM threads, kill Redis primary, and verify stale writes are rejected.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: Redis locks are simple and fast for coordination, but they are not consensus and not exactly-once execution.
+
+- What not to do: do not hold locks around long transactions, assume Redis TTL means the old owner is harmless, or ignore GC pauses in Java services.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Stuck thread Spring, Kafka, and locks](/realtime-issues/stuck-thread-spring-kafka-locks).
+
+## Q73. How do you design cross-service idempotency?
+
+First I would establish the production shape of cross-service idempotency before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: assign stable business ids at command boundaries and make every side-effecting service dedupe according to its own invariant.
+
+- Evidence: trace correlation id, causation id, event id, command id, request hash, provider reference, and unique-constraint conflicts across services.
+
+- Mitigate: store processed commands and responses at the service that performs the side effect, and propagate idempotency keys to external providers.
+
+- Contain blast radius: separate retries by operation type and prevent replay tools from bypassing the same dedupe path as live traffic.
+
+- Recover safely: on duplicate or conflicting replay, return the prior result or reject the conflicting command with an auditable reason.
+
+- Prevent recurrence: prevent recurrence with contract tests, replay drills, DLQ tooling, and shared libraries for idempotency metadata without centralizing business rules.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: global idempotency services can standardize APIs but become coupling points; local idempotency aligns with local invariants.
+
+- What not to do: do not trust upstream dedupe blindly, generate a new id on retry, or treat message offset as the operation identity.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Spring microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa).
+
+## Q74. Why does clock skew matter?
+
+First I would establish the production shape of clock skew before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: identify any correctness rule depending on wall-clock time: lock expiry, JWT validity, scheduled jobs, event ordering, reconciliation windows, and freshness checks.
+
+- Evidence: check NTP or chrony status, node offsets, application timestamps, database server time, Kafka record time, Redis TTL behavior, and logs from different regions.
+
+- Mitigate: replace wall-clock correctness with version columns, database sequences, broker offsets, monotonic timers, leases with fencing, or consensus where required.
+
+- Contain blast radius: during incidents, widen validation windows only when security and business owners accept the risk, and prefer queueing over accepting conflicting writes.
+
+- Recover safely: recover by ordering facts using authoritative sequence numbers rather than log timestamps whenever possible.
+
+- Prevent recurrence: prevent recurrence with time-sync alerts, clock-skew dashboards, and design reviews that reject wall time as sole concurrency control.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: wall time is useful for observability and SLAs; logical ordering is safer for correctness but requires explicit modeling.
+
+- What not to do: do not decide payment ordering, lock ownership, or account balance correctness from unsynchronized timestamps alone.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [RCA and observability guide](/realtime-issues/stuck-thread-rca-prevention-observability).
+
+## Q75. How do you explain CAP for a financial system?
+
+First I would establish the production shape of CAP in a financial system before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: discuss one operation at a time: balance display, debit, notification, statement search, and settlement file ingestion do not need identical behavior under partition.
+
+- Evidence: use region health, replication lag, quorum status, error rates, ledger sequence gaps, and customer-impact dashboards to classify the failure.
+
+- Mitigate: for money movement, prefer rejecting, queueing, or routing to an owner over accepting conflicting writes during a partition.
+
+- Contain blast radius: keep read-only and eventually consistent features available where stale semantics are explicit and safe.
+
+- Recover safely: after partition, reconcile queued commands, duplicate attempts, and regional projections against the authoritative ledger.
+
+- Prevent recurrence: prevent recurrence by documenting degraded modes per operation and testing region partition scenarios.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: choosing consistency for debit reduces availability for that operation but prevents invalid financial state; choosing availability requires later conflict resolution that may be unacceptable.
+
+- What not to do: do not recite CAP as a slogan, claim the whole bank must be down, or make every feature as strict as the ledger.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [architecture and code review Q&A](/realtime-issues/java-30yoe-architecture-code-qa).
+
+## Q76. How do you design multi-DC availability for financial workloads?
+
+First I would establish the production shape of multi-DC financial availability before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: classify operations by consistency need, customer expectation, provider locality, data residency, and recovery objective.
+
+- Evidence: measure replication lag, quorum health, region ownership, Kafka mirror lag, database failover time, DNS or load-balancer behavior, and provider connectivity.
+
+- Mitigate: use home-region ownership, account sharding, consensus-backed ledger, or explicit queueing for money-moving commands.
+
+- Contain blast radius: allow active-active for safe reads, cached reference data, notifications, and projections with clear freshness indicators.
+
+- Recover safely: during region failure, switch to read-only, queue commands, fail over owners, or require manual approval depending on risk.
+
+- Prevent recurrence: prevent recurrence with failover drills, regional runbooks, reconciliation after failback, and dashboards that show freshness and ownership.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: active-active improves availability but makes conflict resolution hard; active-passive simplifies correctness but may increase failover time.
+
+- What not to do: do not accept writes in two partitions for the same account unless a deterministic conflict protocol and audit model exist.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [distributed locking master index](/distributed-systems/distributed-locking-master-index).
+
+## Q77. Cache hit rate dropped suddenly. What do you check?
+
+First I would establish the production shape of cache hit-rate drop before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: correlate the drop with deployment, key format changes, TTL changes, eviction, serialization changes, traffic shift, hot-key movement, and cache cluster errors.
+
+- Evidence: inspect hit rate by keyspace, Redis memory, evictions, command latency, key cardinality, backend DB load, deployment versions, and sample keys from old and new code.
+
+- Mitigate: roll back bad key changes, warm critical keys, add temporary rate limits, and enable stale or degraded responses where product semantics allow.
+
+- Contain blast radius: protect the database first with concurrency limits, request coalescing, and bulkheads around cache-miss rebuild paths.
+
+- Recover safely: if inconsistent keys exist, run a controlled migration or dual-read period rather than deleting the entire cache under load.
+
+- Prevent recurrence: prevent recurrence with key builders as shared code, cache contract tests, TTL review, and alerts on miss-storm slope plus backend latency.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: short TTL improves freshness but raises miss risk; longer TTL reduces backend load but requires stronger invalidation semantics.
+
+- What not to do: do not flush all Redis keys during peak, increase database pool size first, or ignore correctness issues caused by key drift.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Redis caching patterns interview](/redis-interview/redis-caching-patterns-interview).
+
+## Q78. How do you choose caching strategy by data type?
+
+First I would establish the production shape of cache strategy by data type before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: classify data by source of truth, change rate, staleness tolerance, size, cardinality, security sensitivity, and miss cost.
+
+- Evidence: measure hit rate, key cardinality, TTL effectiveness, eviction, serialization cost, backend query latency, and invalidation event delay.
+
+- Mitigate: use cache-aside for simple reference data, refresh-ahead for hot stable keys, explicit invalidation for catalogs, and extreme caution for financial balances.
+
+- Contain blast radius: keep sensitive session data encrypted or minimized and separate operational caches from security-critical state.
+
+- Recover safely: on bad cache data, invalidate scoped keys and rebuild from the authoritative store rather than trusting cached copies.
+
+- Prevent recurrence: prevent recurrence with data-classification guidelines, key ownership, invalidation tests, and dashboards per cache domain.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: freshness and availability compete; the right strategy is different for balances, product names, feature flags, and recommendations.
+
+- What not to do: do not cache because Redis is available, cache mutable money state without semantics, or use one TTL policy for every data type.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [distributed caching and migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa).
+
+## Q79. Compare cache-aside, write-through, write-behind, and refresh-ahead.
+
+First I would establish the production shape of cache pattern comparison before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: first define whether reads dominate, writes dominate, staleness is acceptable, and whether write loss is tolerable.
+
+- Evidence: compare cache hit rate, write latency, invalidation delay, queue durability, backend load, stale reads, and failure behavior during Redis or DB outage.
+
+- Mitigate: choose cache-aside for simplicity, write-through for tighter read consistency, write-behind only with durable queues and audit, and refresh-ahead for known hot keys.
+
+- Contain blast radius: limit background refresh concurrency and protect the source of truth from rebuild storms.
+
+- Recover safely: when cache and store disagree, trust the authoritative store and repair or invalidate cache entries.
+
+- Prevent recurrence: prevent recurrence with pattern-specific runbooks, failure tests, and metrics that reveal stale age and refresh failures.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: write-through adds latency, write-behind adds data-loss risk, cache-aside adds stampede risk, and refresh-ahead adds background load.
+
+- What not to do: do not use write-behind for irreversible financial state without durable persistence and reconciliation.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Redis caching patterns interview](/redis-interview/redis-caching-patterns-interview).
+
+## Q80. What is cache stampede?
+
+First I would establish the production shape of cache stampede before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: detect many callers missing or expiring the same key and all rebuilding it against the source of truth at once.
+
+- Evidence: watch miss rate, hot-key metrics, backend QPS, DB locks, Redis latency, expiration alignment, and request traces showing duplicate rebuild work.
+
+- Mitigate: use TTL jitter, request coalescing, single-flight locks, stale-while-revalidate, refresh-ahead, and per-key rate limits.
+
+- Contain blast radius: serve stale data for safe domains and shed low-value requests before taking down the source database.
+
+- Recover safely: after the storm, rebuild hot keys gradually and verify backend recovery before lifting limits.
+
+- Prevent recurrence: prevent recurrence with hot-key dashboards, randomized TTLs, capacity tests, and cache-miss budgets per endpoint.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: serving stale data improves availability but must be visible where users may make decisions from it.
+
+- What not to do: do not let all pods rebuild the same key, set identical TTLs for millions of keys, or hold long Redis locks around backend calls.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [stuck thread DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools).
+
+## Q81. Ten thousand users hit the same expired key. What do you do?
+
+First I would establish the production shape of hot expired cache key before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: confirm the key, backend cost, staleness tolerance, and whether the rebuild path is already saturating database or downstream APIs.
+
+- Evidence: check Redis hot-key tools, miss count, backend query latency, Hikari wait, `pg_locks`, thread dumps, request queue depth, and error rates.
+
+- Mitigate: allow one bounded rebuilder, make others wait briefly, serve stale data, or return a controlled fallback depending on product semantics.
+
+- Contain blast radius: protect backend systems with per-key concurrency limits and global rate limits while the key is rebuilt.
+
+- Recover safely: if rebuild fails, keep stale serving or fallback active and escalate ownership rather than hammering the backend repeatedly.
+
+- Prevent recurrence: prevent recurrence with TTL jitter, refresh-ahead for top keys, pre-warming after deploy, and cache-miss load tests.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: single-flight can add caller latency; stale serving can show old data; fallback protects stability but may reduce product quality.
+
+- What not to do: do not flush the namespace, spawn ten thousand rebuilds, or keep extending a lock while an external dependency hangs.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Redis caching patterns interview](/redis-interview/redis-caching-patterns-interview).
+
+## Q82. How do you plan a Java 8 to 17 migration for 200 dependencies?
+
+First I would establish the production shape of Java 8 to 17 migration before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: inventory direct and transitive dependencies, plugins, annotation processors, bytecode tools, logging, security providers, app servers, and reflection-heavy libraries.
+
+- Evidence: use Maven or Gradle dependency reports, `jdeps`, build scans, SCA tooling, CI smoke tests, JFR comparisons, GC logs, and container memory metrics.
+
+- Mitigate: upgrade build tooling and major frameworks first, then run representative services on Java 17 through tests, smoke, load, and canary.
+
+- Contain blast radius: separate runtime migration from major business features and avoid mixing framework, database, and protocol changes in the same release.
+
+- Recover safely: if a canary fails, roll back the image and preserve illegal-access logs, stack traces, heap or JFR evidence, and dependency diffs.
+
+- Prevent recurrence: prevent recurrence with supported-baseline policies, dependency freshness dashboards, and CI gates that block unsupported libraries.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: moving early reduces security and support risk; moving late means more compatibility cliffs and larger dependency jumps.
+
+- What not to do: do not migrate all 200 dependencies in one blind commit, rely on compilation only, or keep `--add-opens` forever without ownership.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Spring microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa).
+
+## Q83. What compatibility issues commonly appear moving to Java 17?
+
+First I would establish the production shape of Java 17 compatibility issues before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: look for old Spring or Hibernate versions, JAXB or JAX-WS removal, bytecode libraries, Lombok, Mockito, PowerMock, illegal reflection, and TLS changes.
+
+- Evidence: collect compile failures, runtime stack traces, illegal reflective access logs, `jdeps` output, test failures, startup logs, and canary metrics.
+
+- Mitigate: upgrade or replace incompatible libraries, add explicit dependencies for removed Java EE modules, and update agents or bytecode tools before runtime rollout.
+
+- Contain blast radius: keep compatibility fixes behind small commits and canaries so root cause is visible.
+
+- Recover safely: if runtime proxies fail, reproduce with integration tests rather than only unit tests that avoid the container.
+
+- Prevent recurrence: prevent recurrence with dependency compatibility matrices, plugin updates, and smoke tests that cover serialization, proxies, persistence, and security.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: temporary `--add-opens` can unblock migration but creates technical debt and future fragility.
+
+- What not to do: do not ignore warnings that become failures later, or assume library compile compatibility equals production runtime compatibility.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [RCA and observability guide](/realtime-issues/stuck-thread-rca-prevention-observability).
+
+## Q84. How do you find incompatible dependencies?
+
+First I would establish the production shape of finding incompatible dependencies before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: scan both direct and transitive dependencies, especially bytecode manipulation, XML binding, logging bridges, JDBC drivers, Netty, and observability agents.
+
+- Evidence: use dependency trees, Maven Enforcer, Gradle dependency insight, `jdeps`, OWASP or SCA tools, plugin reports, and Java 17 runtime smoke tests.
+
+- Mitigate: upgrade, replace, shade carefully, or remove libraries based on ownership, maintenance status, and blast radius.
+
+- Contain blast radius: test representative services because a library may pass in isolation but fail under Spring proxies, serialization, or native image assumptions.
+
+- Recover safely: when incompatibility appears in production, roll back quickly and reproduce with the exact artifact and JVM flags.
+
+- Prevent recurrence: prevent recurrence with Renovate or similar dependency automation, version baselines, and scheduled platform upgrade windows.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: automatic upgrades reduce toil but can introduce behavior changes; manual upgrades are safer but often lag security fixes.
+
+- What not to do: do not trust direct dependency freshness when an old transitive ASM, CGLIB, Netty, or Jackson version is still present.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [architecture and code review Q&A](/realtime-issues/java-30yoe-architecture-code-qa).
+
+## Q85. What is your Java migration checklist?
+
+First I would establish the production shape of Java migration checklist before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: cover JDK, compiler release, Maven or Gradle plugins, Spring Boot baseline, Hibernate, JDBC drivers, Kafka and Redis clients, Docker image, and CI runtime.
+
+- Evidence: record JVM flags, GC choice, heap sizing, container memory behavior, TLS providers, locale behavior, observability agents, and startup scripts.
+
+- Mitigate: run unit, integration, smoke, load, and canary tests while comparing latency, CPU, GC pauses, memory, startup, and error rates.
+
+- Contain blast radius: keep rollback images and old runtime artifacts available until the new baseline survives real production load.
+
+- Recover safely: if metrics regress, determine whether the cause is JVM ergonomics, library behavior, container limits, or changed application code.
+
+- Prevent recurrence: prevent recurrence by updating runbooks, dashboards, alerts, incident templates, and developer documentation for the new runtime.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: a checklist slows the initial migration but prevents repeated service-by-service rediscovery of the same runtime failures.
+
+- What not to do: do not declare migration complete after CI compiles, forget agents and base images, or leave operators without Java 17 diagnostics.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [RCA and observability guide](/realtime-issues/stuck-thread-rca-prevention-observability).
+
+## Q86. How do you roll out Java 17 safely?
+
+First I would establish the production shape of Java 17 rollout before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: choose representative canaries by traffic, dependencies, latency sensitivity, and operational importance rather than the easiest service only.
+
+- Evidence: compare p50, p95, p99, CPU, GC pauses, memory, startup time, error rate, thread count, connection pools, and downstream latency.
+
+- Mitigate: roll by service tier and traffic slice, keeping fast rollback to the Java 8 image until evidence is strong.
+
+- Contain blast radius: avoid simultaneous schema, framework, and JVM flag changes so failures remain attributable.
+
+- Recover safely: if a canary degrades, roll back first, then analyze JFR, GC logs, thread dumps, and dependency behavior offline.
+
+- Prevent recurrence: prevent recurrence by making Java 17 default in CI, blocking unsupported dependencies, and removing temporary flags under ownership.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: slow rollout costs coordination but protects fleet stability; fast rollout reduces dual-runtime complexity but risks widespread hidden incompatibility.
+
+- What not to do: do not rely on one low-traffic canary, change every JVM flag at once, or ignore container memory changes between runtimes.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Spring microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa).
+
