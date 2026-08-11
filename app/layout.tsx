@@ -25,6 +25,7 @@ export default function RootLayout({children}:{children:React.ReactNode}){
               <Link href="/distributed-systems">Distributed Systems</Link>
               <Link href="/fintech">FinTech</Link>
               <Link href="/behavior">Behavior</Link>
+              <Link href="/leadership-principles">Leadership Principles</Link>
               <Link href="/interview-questions">Interview Questions</Link>
               <Link href="/about">About</Link>
             </nav>

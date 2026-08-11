@@ -84,4 +84,6 @@ export const SECTION_CATEGORIES={
   'distributed-systems':['Distributed Systems','Caching','Messaging','Infrastructure','Reliability'],
   fintech:['FinTech'],
   behavior:['Behavior'],
+  'leadership-principles':['Leadership Principles'],
 } as const;
+

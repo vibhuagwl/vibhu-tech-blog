@@ -10,6 +10,7 @@ export default function sitemap():MetadataRoute.Sitemap{
     {path:'/distributed-systems', key:'distributed-systems' as const},
     {path:'/fintech', key:'fintech' as const},
     {path:'/behavior', key:'behavior' as const},
+    {path:'/leadership-principles', key:'leadership-principles' as const},
   ];
 
   return [

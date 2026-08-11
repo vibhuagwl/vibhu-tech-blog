@@ -1,0 +1,73 @@
+---
+slug: lp-hire-and-develop-the-best
+title: "Hire and Develop the Best — Amazon LP Interview Answers"
+description: "Hire and Develop the Best LP prep: leading four engineers, raising the bar with design/code reviews, and growing Kafka/microservice skills on the team."
+category: Leadership Principles
+difficulty: Advanced
+tags: [Amazon, Leadership Principles, Behavioral, STAR, Kafka, Interview]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## Principle
+
+Leaders raise the performance bar with every hire and promotion. They recognize exceptional talent and willingly move them throughout the organization. Leaders develop leaders and take seriously their role in coaching others.
+
+## Primary STAR — Leading 4 engineers (JPMorgan)
+
+**Q: Tell me how you develop engineers.**
+
+**Situation:** As SDE III I led four software engineers on microservices for trading/tax/cash flows.
+
+**Task:** Raise consistency, maintainability, and code quality while shipping Deloitte tax and payment work.
+
+**Action:**
+1. Architecture forums and design reviews before large builds.
+2. Code review standards: correctness for money paths, idempotency, tests, observability.
+3. Paired on Kafka consumer patterns (DLQ, retries, keys).
+4. Delegated ownership of slices (e.g., regression framework modules) with coaching, not drive-by criticism.
+5. Created space for juniors to present designs.
+
+**Result:** More consistent delivery, better maintainability, higher review quality; team could ship onboarding/payment APIs with less rework.
+
+## Common questions
+
+### Q1. Tell me about raising the bar in hiring or reviews.
+
+**A:** In reviews I reject “works on my machine” for payment APIs — require failure tests (duplicate events, timeout, invalid SWIFT). That bar prevented escaped defects more than style nits.
+
+### Q2. How did you coach a struggling engineer?
+
+**A:** Broke Kafka lag RCA into a mentored investigation: metrics first, hypothesis board, then change. They later owned a consumer improvement PR independently.
+
+### Q3. How do you grow seniors vs juniors differently?
+
+**A:** Juniors: tight feedback loops on design basics. Seniors: push system-level ownership (SLIs, cross-team contracts, teaching others).
+
+### Q4. Example of moving talent / expanding scope.
+
+**A:** Rotated an engineer who loved tooling onto the Playwright framework ownership — matched strength to org need and grew a force-multiplier.
+
+
+## Kafka case bank (reuse across follow-ups)
+
+Use these concrete cases when the interviewer digs into Kafka after your story.
+
+| Case | What happened | What you owned | Result |
+|---|---|---|---|
+| Consumer lag spike | Downstream HSBC/SWIFT validation slowed; lag grew on payment topic | Tuned concurrency, partitioned hot keys, added lag alerts + backpressure | Restored SLA without data loss |
+| Poison message / DLQ | Bad SWIFT payload blocked partition processing | Built DLQ + bulk replay tool with account/SWIFT validation | Incident recovery time **−50%** |
+| Duplicate events | Retries after broker blip caused duplicate tax/payment side effects | Idempotency keys + dedupe store; exactly-once *effect* design | Zero double-posting in replay drills |
+| Schema / contract break | Producer shipped incompatible event | Compatibility checks in CI, consumer defensive parsing, canary topic | Caught before broad blast radius |
+| Rebalance storm | Rolling deploy caused frequent rebalances | `max.poll.interval`, sticky assignor, drain-before-shutdown | Stable throughput during deploys |
+| Out-of-order cash events | Same account events across partitions | Key by account/cash-line; ordering within key | Correct reconciliation order |
+| Analytics pipeline | Merchant reports took hours from batch DB pulls | Real-time Kafka logging → parallel consumers | Report generation **−90%** time (PayPal) |
+| Observability gap | Hard to prove “message landed then failed downstream” | Correlation IDs, lag/DLQ dashboards (Splunk/CloudWatch) | Faster RCA, fewer finger-pointing loops |
+
+
+## Weak vs strong
+
+| Weak | Strong |
+|---|---|
+| “I assign tickets.” | “I run design reviews and grow ownership of frameworks.” |
+| Only hires heroes | Builds systems so average day is high quality |

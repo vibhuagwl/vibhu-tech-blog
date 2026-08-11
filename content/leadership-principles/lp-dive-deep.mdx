@@ -1,0 +1,88 @@
+---
+slug: lp-dive-deep
+title: "Dive Deep — Amazon LP Interview Answers"
+description: "Dive Deep LP: Kafka lag RCA, API p99 investigations, batch vesting bottlenecks, and audit-level detail for Amazon interviews."
+category: Leadership Principles
+difficulty: Advanced
+tags: [Amazon, Leadership Principles, Behavioral, STAR, Kafka, Interview]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## Principle
+
+Leaders operate at all levels, stay connected to the details, audit frequently, and are skeptical when metrics and anecdotes differ. No task is beneath them.
+
+## Primary STAR — Kafka lag & DLQ deep dive (JPMorgan)
+
+**Q: Tell me about a time you dived deep.**
+
+**Situation:** Payment/SWIFT processing lag and DLQ growth; anecdotes blamed “Kafka being down,” but brokers looked healthy.
+
+**Task:** Find the real constraint and fix it permanently.
+
+**Action:**
+1. Separated symptoms: broker ISR health vs consumer lag vs DLQ rate vs downstream latency.
+2. Correlated lag with HSBC/SWIFT validation latency and specific poison payloads.
+3. Inspected keys/partitions for hot accounts; checked rebalance logs during deploys.
+4. Traced a sample message end-to-end with correlation IDs.
+5. Built validated DLQ replay + alerts so deep dives become shorter next time.
+
+**Result:** Recovery **−50%**; team stopped misrouting blame; data integrity strengthened.
+
+## Backup — API p99 / batch deep dive (PayPal + JPMC)
+
+Used profiling, slow queries, cache hit ratios, and batch stage timers → **−60%** API latency, **+70%** throughput, **~80%** faster batch; Redis for hot config on tax simulator; SQS for async tax responses.
+
+## Dive-deep question tree (practice aloud)
+
+1. What exact metric moved (p99, lag, DLQ depth)?
+2. What was the first hypothesis and what disproved it?
+3. Show the before/after dashboard narrative.
+4. Which log line or trace changed your mind?
+5. What audit do you run weekly now?
+
+
+## Kafka case bank (reuse across follow-ups)
+
+Use these concrete cases when the interviewer digs into Kafka after your story.
+
+| Case | What happened | What you owned | Result |
+|---|---|---|---|
+| Consumer lag spike | Downstream HSBC/SWIFT validation slowed; lag grew on payment topic | Tuned concurrency, partitioned hot keys, added lag alerts + backpressure | Restored SLA without data loss |
+| Poison message / DLQ | Bad SWIFT payload blocked partition processing | Built DLQ + bulk replay tool with account/SWIFT validation | Incident recovery time **−50%** |
+| Duplicate events | Retries after broker blip caused duplicate tax/payment side effects | Idempotency keys + dedupe store; exactly-once *effect* design | Zero double-posting in replay drills |
+| Schema / contract break | Producer shipped incompatible event | Compatibility checks in CI, consumer defensive parsing, canary topic | Caught before broad blast radius |
+| Rebalance storm | Rolling deploy caused frequent rebalances | `max.poll.interval`, sticky assignor, drain-before-shutdown | Stable throughput during deploys |
+| Out-of-order cash events | Same account events across partitions | Key by account/cash-line; ordering within key | Correct reconciliation order |
+| Analytics pipeline | Merchant reports took hours from batch DB pulls | Real-time Kafka logging → parallel consumers | Report generation **−90%** time (PayPal) |
+| Observability gap | Hard to prove “message landed then failed downstream” | Correlation IDs, lag/DLQ dashboards (Splunk/CloudWatch) | Faster RCA, fewer finger-pointing loops |
+
+
+### Kafka deep-dive mini answers
+
+| Topic | Talking points |
+|---|---|
+| Lag | `records-lag`, consume rate vs produce rate, downstream RPS, max.poll.interval |
+| Poison | Exception type, offset stuck, DLQ headers, payload schema |
+| Ordering | Key choice, single-partition key vs shuffle |
+| Duplicates | at-least-once + idempotency key in DB unique constraint |
+| Rebalance | session timeout, cooperative sticky, shutdown hooks |
+| Replay | validate → publish → monitor → quarantine failures |
+
+## Common questions
+
+### Q1. When did metrics and anecdotes disagree?
+
+**A:** Anecdote: “network issue.” Metrics: validation latency and error class spike on specific SWIFT fields. Fix was validation + replay, not network tickets.
+
+### Q2. What’s a detail you audit regularly?
+
+**A:** DLQ depth, consumer lag SLOs, failed replay counts, and payment API error budgets.
+
+## Weak vs strong
+
+| Weak | Strong |
+|---|---|
+| “Checked the logs.” | Hypothesis board + disconfirming metrics + lasting controls |
+| Stays only strategic | Willing to read a poison payload and a flame graph |
