@@ -1,0 +1,73 @@
+---
+slug: redis-data-structures-interview
+title: "Redis Data Structures Interview (Q16–Q30)"
+description: "When to use String, Hash, List, Stream, Set, Sorted Set, HyperLogLog, Bitmaps; plus leaderboards, rate limits, locks, sessions, and Streams vs Kafka."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## 16. String vs Hash
+
+| Use String | Use Hash |
+|---|---|
+| Opaque blob / JSON document / counter (`INCR`) | Many fields of one object (`user:1` → email, name) |
+| Simple cache value | Partial field updates without rewriting whole blob |
+
+Trade-off: many tiny keys vs one hash (encoding + `HGETALL` risks).
+
+## 17. List vs Stream
+
+| List | Stream |
+|---|---|
+| Simple queue/stack | Consumer groups, IDs, ACK, pending entries |
+| `LPUSH/BRPOP` patterns | Durable-ish log within Redis retention |
+| No rich consumer-group semantics | Better for fanout work queues |
+
+## 18–20. Set vs Sorted Set; skiplist; leaderboard
+
+- **Set:** unique membership, intersections (tags, uniqueness).
+- **Sorted Set:** score-ordered (leaderboards, delay queues, range queries). Implemented with hash table + **skiplist** (by score/member).
+
+**Leaderboard:** `ZADD leaderboard score userId`; `ZREVRANGE 0 9 WITHSCORES`; update with `ZINCRBY`.
+
+## 21. Rate limiter
+
+Patterns: fixed window `INCR`+`EXPIRE`; sliding window with Sorted Set timestamps; token bucket via Lua. Prefer atomic Lua/`INCR` to avoid races.
+
+## 22. Distributed lock
+
+`SET key token NX PX ttl` + safe unlock (token compare in Lua). See distributed systems guide / Redlock debate in Q94–100.
+
+## 23. Sliding-window counter
+
+ZSET of event timestamps; `ZREMRANGEBYSCORE` old; `ZCARD`; or approximate with Redis TimeSeries / counters per bucket.
+
+## 24–25. Session store / distributed cache
+
+Sessions: String/Hash + TTL; sticky sessions optional. Cache: cache-aside with TTL/jitter; Redis as **acceleration**, DB as truth (usually).
+
+## 26. Autocomplete
+
+Sorted sets with prefix scores, or Redis Search / RediSearch module; or trie-like keys `prefix:an` → members. Watch cardinality explosion.
+
+## 27. Millions of user relationships
+
+Don’t store giant sets blindly. Shard by user (`following:{userId}`), sample/paginate, consider graph DB for deep traversals; Redis for hot adjacency / feed fanout caches.
+
+## 28–29. HyperLogLog / Bitmaps
+
+- **HLL:** approximate distinct counts (UV) with tiny memory.
+- **Bitmaps:** boolean flags / daily active bits (`SETBIT`), efficient AND/OR analytics for dense IDs.
+
+## 30. Redis Streams vs Kafka?
+
+| Prefer Streams | Prefer Kafka |
+|---|---|
+| Lightweight in existing Redis ops | Multi-subscriber durable log at scale |
+| Small/medium workloads | Huge retention, replay, many independent consumer groups |
+| Simple job queues | Payment event bus, audit, cross-team contracts |
+
+**Payments:** Kafka (or similar) for event backbone; Redis for cache/idempotency/locks — not a Kafka replacement.

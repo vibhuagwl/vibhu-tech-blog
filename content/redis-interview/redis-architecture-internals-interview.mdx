@@ -1,0 +1,87 @@
+---
+slug: redis-architecture-internals-interview
+title: "Redis Architecture & Internals Interview (Q1–Q15)"
+description: "Staff+ Redis architecture answers: event loop, why Redis is fast, Redis 6/7 I/O threads, memory, eviction policies, expiration, hot keys and big keys."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## 1. Explain Redis architecture and its event-driven model
+
+Redis is an **in-memory data structure server** with a single primary command-processing thread using an **event loop** (historically ae / now based on epoll/kqueue):
+
+```text
+Clients → socket events → event loop
+                         → execute command (O(1)/O(log n) typically)
+                         → reply buffer → write events
+```
+
+Persistence, replication, and (in newer versions) I/O threads surround this core. Data lives primarily in RAM with optional durability to disk.
+
+**Principal close:** Redis optimizes for **low-latency structured ops**, not general OLTP SQL.
+
+## 2. Why is Redis so fast vs traditional DBs?
+
+| Factor | Effect |
+|---|---|
+| In-memory | No disk seek on the hot path |
+| Efficient C structures | Strings, hash tables, skiplists, etc. |
+| Single-threaded command exec | No lock contention on data structures |
+| Simple protocol | RESP, pipelining |
+| Event-driven I/O | Many connections, few threads |
+
+**Follow-up trap:** “Then why doesn’t every DB use memory?” — cost, durability semantics, dataset size, query model, multi-key ACID, analytics. Memory is expensive and volatile without careful persistence/HA.
+
+## 3–4. Single-threaded? Redis 6/7 I/O threading?
+
+**Command execution** remains largely single-threaded (one command at a time per instance — simplifying correctness).
+
+**Redis 6+:** optional **I/O threads** for reading/writing sockets (not parallelizing arbitrary commands). Helps under high concurrency / large payloads.
+
+**Redis 7:** continued improvements (functions, better cluster/ACL stories, etc.) — still don’t assume full multi-core command parallelism like a DB engine.
+
+## 5. Millions of concurrent connections?
+
+Event-driven non-blocking I/O + efficient connection structs. Practically limited by `maxclients`, file descriptors, memory per client buffer, and CPU for protocol parsing. Tune OS (`ulimit`, TCP backlog), pipelining, connection pooling in apps (don’t open a connection per request naively).
+
+## 6. Memory management
+
+Redis allocator (jemalloc typically) + object overhead + encoding optimizations (ziplist/listpack/intset for small collections). Monitor `used_memory`, fragmentation (`mem_fragmentation_ratio`), RSS vs used.
+
+## 7–9. Out of memory & `maxmemory` policies
+
+When `maxmemory` hit, policy decides:
+
+| Policy | Behavior |
+|---|---|
+| `noeviction` | Writes error when full (reads OK) |
+| `allkeys-lru` | Evict any key by LRU |
+| `volatile-lru` | Evict only keys with TTL, LRU |
+| `allkeys-lfu` | Evict any by LFU |
+| `volatile-lfu` | TTL keys by LFU |
+| `volatile-ttl` | Evict soonest-expiring |
+| `volatile-random` / `allkeys-random` | Random |
+
+**Payments/idempotency store:** often `noeviction` + capacity alerts (never silently drop keys). **CDN-like cache:** `allkeys-lru`/`lfu`.
+
+## 10–11. Key expiration: lazy vs active
+
+- **Lazy:** expire checked on access.
+- **Active:** periodic sampling deletes expired keys.
+
+Without active expiration, expired-but-unaccessed keys linger until sampled/accessed — memory can grow.
+
+## 12–15. Large keys, hot keys, big keys
+
+| Term | Meaning | Fix |
+|---|---|---|
+| **Big key** | Huge value / huge collection cardinality | Split, SCAN-delete, avoid `KEYS`, monitor with `--bigkeys` / memory doctor |
+| **Hot key** | Disproportionate QPS on one key | Local cache, replicas, key sharding/copy, request coalescing |
+| **Large key ops** | `HGETALL` huge hash, `LRANGE` all | Paginate, redesign structure |
+
+**Identify hot keys:** proxy metrics, CLIENT TRACKING / MONITOR carefully, redis-cli hotkeys tools, app-side metrics by key pattern.
+
+**Identify big keys:** `MEMORY USAGE`, `redis-cli --bigkeys`, sampling SCAN (never `KEYS *` in prod).

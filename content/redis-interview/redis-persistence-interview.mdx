@@ -1,0 +1,49 @@
+---
+slug: redis-persistence-interview
+title: "Redis Persistence Interview (Q31–Q43)"
+description: "RDB vs AOF, fsync policies, AOF rewrite, fork() copy-on-write memory impact, crash behavior, and durability trade-offs for financial systems."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## 31–32. RDB vs AOF; when RDB?
+
+| RDB | AOF |
+|---|---|
+| Point-in-time compact snapshots | Append-only command log |
+| Faster restarts sometimes | Better durability granularity |
+| Can lose minutes since last save | Tunable fsync |
+
+Choose RDB-heavy when dataset is cache-like and loss OK; AOF (often + RDB) when you need stronger durability.
+
+## 33–34. Can AOF lose data? `appendfsync`
+
+Yes. With `everysec` (common), up to ~1s loss on crash. `always` = fsync each write (slow). `no` = OS decides (more loss risk).
+
+## 35–36. AOF rewrite & RDB snapshot
+
+Rewrite: create compact AOF reflecting current dataset without stopping serving (background). Snapshot: fork child writes RDB.
+
+## 37–39. `fork()` and latency
+
+Linux COW: child shares pages until parent writes → **memory spike** under write-heavy load during save/rewrite. Latency spikes from COW faults + disk.
+
+**Reduce:** more headroom RAM, disk speed, tune `save`/`auto-aof-rewrite`, isolate write spikes, Redis on hosts sized for peak RSS during fork, consider replicas for persistence offload (`replica` saves).
+
+## 40. Crash during AOF rewrite?
+
+Original AOF still valid until rewrite succeeds and is renamed atomically (design intent). Understand recovery: Redis loads RDB+AOF per config; validate with `redis-check-aof`.
+
+## 41–43. Zero data loss? Financial config? Trade-offs
+
+**Zero loss** is not realistic with async replication + `everysec`. For money:
+
+- Prefer DB as system of record
+- Redis for cache/idempotency with clear failure modes
+- If Redis must be durable: AOF `always` or `everysec` + wait replication (`WAIT`) acknowledging risk/latency
+- HA with automated failover + app retries/idempotency
+
+**Trade-off:** every fsync/WAIT buys durability with latency/throughput cost.

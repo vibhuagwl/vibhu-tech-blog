@@ -1,0 +1,64 @@
+---
+slug: redis-scenario-drills-staff-plus
+title: "Redis Scenario Drills — Staff+ / Principal Fire Questions"
+description: "Payment idempotency, inventory oversell, cache stampede, hot keys, and Redis outage degradation — walk-through answers with trade-offs."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## How to answer
+
+```text
+Impact → Safety → Mitigate → Diagnose → Fix → Prevent → Trade-off
+```
+
+---
+
+### Scenario 1 — Payment idempotency in Redis
+
+**Design:** Key `idem:{key}` → status (`IN_PROGRESS`/`DONE` + response). `SET NX` to claim; store final result; TTL days (chargeback/support window).
+
+**Follow-ups:**
+- Simultaneous requests: only one NX wins; loser reads winner result or waits.
+- Redis fail: **DB unique constraint on idempotency key** is source of truth; Redis is acceleration/coordination.
+- Exactly-once business: DB state machine + unique keys; Redis alone insufficient.
+- TTL too short → duplicate charge risk; too long → memory.
+
+---
+
+### Scenario 2 — Last item, two buyers
+
+Prefer **DB transaction / row lock** for inventory truth. Redis can optimistic-check:
+
+```text
+Lua: if stock>0 then decr else fail
+```
+
+But Redis crash can desync — reconcile from DB. Distributed lock around DB check is slower but safer for correctness. **Don’t** rely on bare `DECR` without durable truth.
+
+---
+
+### Scenario 3 — Cache stampede on popular product
+
+50k miss → DB meltdown.
+
+**Solve with layered defenses:** TTL jitter; singleflight per key (one loader); soft TTL / probabilistic early expire; serve stale while refresh; local in-process cache; capacity limits to DB; optional lock with wait.
+
+---
+
+### Scenario 4 — Hot key 1M rps
+
+Local Caffeine cache; read replicas; replicate key to N cache keys (`key#1..N`) + client random; request coalescing; split data; CDN for public content; never one Redis key as global SPOF for celebrity traffic.
+
+---
+
+### Scenario 5 — Redis down
+
+```text
+Timeouts → retries (budgeted) → circuit breaker → fallback
+```
+
+Fallback: DB read with shed load; disable noncritical features; fail closed on rate limits if policy requires; alert; don’t infinite retry. Recovery: warm cache, clear breaker, watch stampede on reconnect.

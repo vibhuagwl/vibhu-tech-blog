@@ -1,0 +1,51 @@
+---
+slug: redis-caching-patterns-interview
+title: "Redis Caching Patterns Interview (Q101–Q116)"
+description: "Cache-aside, read-through, write-through/behind, invalidation, stampede, penetration, avalanche, warming, microservice invalidation, and graceful degradation when Redis is down."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## 101–103. Cache-aside, read-through, write-through/behind
+
+| Pattern | Flow |
+|---|---|
+| **Cache-aside** | App reads cache; on miss read DB + populate; app writes DB then delete/update cache |
+| **Read-through** | Cache layer loads DB on miss transparently |
+| **Write-through** | Write goes to cache+DB synchronously |
+| **Write-behind** | Write cache first; async flush to DB (risk on crash) |
+
+Most microservice teams use **cache-aside**.
+
+## 104–105. Invalidation difficulty
+
+Multiple writers, races (update DB then stale set), TTL vs explicit delete, multi-key objects, partial updates, multi-region. “Invalidate” requires knowing **all derived keys**.
+
+## 106–110. Stampede, penetration, avalanche
+
+| Problem | Meaning | Mitigations |
+|---|---|---|
+| **Stampede / dogpile** | Many miss same key → DB thundering herd | Singleflight/lock, early refresh, jittered TTL, stale-while-revalidate |
+| **Penetration** | Queries for nonexistent keys always miss | Cache negative entries, Bloom filter |
+| **Avalanche** | Many keys expire together | TTL jitter, multi-layer cache, harden DB |
+
+## 111–112. Warming & cross-service invalidation
+
+Warm critical keys on deploy/failover. Invalidate via domain events (Kafka) so services don’t dual-write blindly; versioned keys (`product:42:v7`).
+
+## 113–116. Redis unavailable; fail open/closed; degradation; avoid SPOF
+
+**Should app fail?** Depends on path:
+
+- Auth session hard dependency → degrade carefully / fail
+- Product cache → **fail open to DB** with limits
+- Rate limit / lock → fail closed or alternative store
+
+```text
+App → timeout → circuit breaker → DB fallback / limited mode
+```
+
+Avoid SPOF: replicas+Sentinel/Cluster, multi-AZ, local Caffeine cache layer, bulkheads, not one giant shared Redis for all domains without isolation.

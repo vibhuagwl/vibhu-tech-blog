@@ -1,0 +1,41 @@
+---
+slug: redis-microservices-interview
+title: "Redis + Microservices Interview (Q117–Q127)"
+description: "Redis vs DB as source of truth, Postgres consistency, outbox→Kafka→cache, dual-write failures, idempotent cache updates, and Redis Streams vs Kafka for payments."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## 117–118. Redis in microservices; source of truth
+
+Redis: cache, sessions, rate limits, ephemeral coordination. **Database (or ledger) is source of truth** for money and durable business state unless you’ve deliberately built a Redis-backed system with strong durability/HA (rare for payments).
+
+## 119–124. Postgres ↔ Redis consistency
+
+Prefer:
+
+```text
+DB Transaction
+  → Outbox
+  → Kafka
+  → Cache updater (idempotent)
+```
+
+| Dual-write failure | Result | Prevention |
+|---|---|---|
+| DB OK, Redis fail | Stale cache | Delete-on-write / event invalidation / TTL bound |
+| Redis OK, DB fail | Phantom cache | Never write cache before DB commit |
+
+Idempotent cache updates: version fields, `SET` only if newer version (Lua), or always `DEL` on change.
+
+## 125–127. Redis + Kafka responsibilities; replace Kafka?
+
+| Kafka | Redis |
+|---|---|
+| Durable event distribution, replay | Low-latency state/cache/locks |
+| Cross-service integration | Hot path acceleration |
+
+**Don’t replace Kafka with Streams for payment event backbone.** Streams lack Kafka’s ecosystem for large retained multi-tenant logs, independent groups at scale, and ops maturity for that use case.

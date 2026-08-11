@@ -1,0 +1,47 @@
+---
+slug: redis-cluster-interview
+title: "Redis Cluster Interview (Q67–Q84)"
+description: "Hash slots, 16384 slots, failover, cluster bus, MOVED vs ASK, resharding, multi-key limits, and hash tags for co-location."
+category: Redis Interview
+difficulty: Advanced
+tags: [Redis, Interview, Staff, Principal, Architect, Caching, Distributed Systems]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## 67–70. Architecture, hash slots, why 16384?
+
+Cluster shards data into **16,384 hash slots**. Key → CRC16(key) % 16384 → slot → node.
+
+**Why 16384?** Practical gossip packet size / heartbeat bitmap trade-off (historical design constraint) — enough slots for fine-grained rebalancing without huge gossip overhead.
+
+## 71–73. Node failure, failover, cluster bus
+
+Each master ideally has replicas. On master failure, replica promoted via cluster election. **Cluster bus** (gossip port) exchanges node state, slots, fail flags.
+
+## 74–76. `MOVED` vs `ASK`
+
+| Redirect | Meaning |
+|---|---|
+| **MOVED** | Slot permanently mapped to another node — update client map |
+| **ASK** | Temporary redirect during migration — try that node once; don’t permanently remap yet |
+
+## 77–79. Resharding; add/remove nodes; unreachable
+
+Move slot ranges with migration (`MIGRATE` / cluster setslot importing/migrating). Unreachable nodes marked fail after gossip consensus; slots failover to replicas if configured.
+
+## 80–81. Availability & limitations
+
+Availability for slots whose masters+replicas aren’t all gone. Limitations: multi-key ops only if **same slot**; no cross-slot transactions arbitrarily; client must be cluster-aware; bigger ops complexity.
+
+## 82–84. Multi-key ops & hash tags
+
+Multi-key commands require keys in same slot. **Hash tags** `{...}` use only braced part for hashing:
+
+```text
+user:{123}:profile
+user:{123}:orders
+user:{123}:cart
+```
+
+All hash on `123` → same slot → safe multi-key / Lua touching those keys. **Trade-off:** can create hot slots if one tag dominates.

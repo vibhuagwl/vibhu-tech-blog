@@ -86,5 +86,6 @@ export const SECTION_CATEGORIES={
   behavior:['Behavior'],
   'leadership-principles':['Leadership Principles'],
   complexity:['Complexity'],
+  'redis-interview':['Redis Interview'],
 } as const;
 

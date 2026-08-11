@@ -18,11 +18,11 @@ export default function Interview(){
       <div className="max-w-3xl">
         <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Interview Questions</div>
         <h1 className="mt-3 text-5xl font-black tracking-[-.05em]">Practice the follow-up, not just the diagram.</h1>
-        <p className="mt-5 text-lg leading-8 text-slate-600">Senior interviews probe failure, scale, consistency and trade-offs. Use these questions after each design — and prep Amazon LPs separately.</p>
+        <p className="mt-5 text-lg leading-8 text-slate-600">Senior interviews probe failure, scale, consistency and trade-offs. Use these questions after each design — and prep Amazon LPs, Redis, and complexity separately.</p>
       </div>
 
       {prep && (
-        <section className="mt-10 grid gap-4 md:grid-cols-3">
+        <section className="mt-10 grid gap-4 md:grid-cols-2">
           <Link href={`/system-design/${prep.slug}`} className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
             <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">{prep.category} · {prep.difficulty}</div>
             <h2 className="mt-3 text-xl font-black tracking-tight">{prep.title}</h2>
@@ -34,6 +34,12 @@ export default function Interview(){
             <h2 className="mt-3 text-xl font-black tracking-tight">Leadership Principles (all 16)</h2>
             <p className="mt-3 text-sm leading-7 text-slate-500">STAR answers, Kafka follow-up case banks, metrics, and weak-vs-strong contrasts for every Amazon LP.</p>
             <div className="mt-4 text-sm font-bold text-blue-600">Open Leadership Principles →</div>
+          </Link>
+          <Link href="/redis-interview" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
+            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Staff+ · Redis</div>
+            <h2 className="mt-3 text-xl font-black tracking-tight">Redis Interview (165+)</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-500">Internals, Sentinel/Cluster, stampede/hot keys, locks/Redlock, and architect designs for Principal rounds.</p>
+            <div className="mt-4 text-sm font-bold text-blue-600">Open Redis Interview →</div>
           </Link>
           <Link href="/complexity" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
             <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">DSA · Big-O</div>
