@@ -75,7 +75,7 @@ One active controller (ZK) or **KRaft controller quorum**. Controllers do **not*
 | Follower falls behind | Removed from ISR |
 | Follower catches up | Rejoins ISR |
 | Broker dies | Removed |
-| `min.insync.replicas` | Produce with `acks=all` requires `|ISR| >= min.insync.replicas` |
+| `min.insync.replicas` | Produce with `acks=all` requires ISR size ≥ `min.insync.replicas` |
 
 **Trade-off:** small ISR → riskier durability if you still allow produce; large ISR requirement → more produce failures under partial outage.
 

@@ -69,6 +69,46 @@ a{text-decoration:none}
   color:#334155;
 }
 
+.prose-design a{
+  color:#2563eb;
+  font-weight:600;
+}
+.prose-design a:hover{text-decoration:underline}
+
+/* GFM markdown tables — readable scan, mobile scroll */
+.prose-design .table-wrap{
+  overflow-x:auto;
+  margin:1.35rem 0 1.6rem;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  background:#fff;
+}
+.prose-design table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:.92rem;
+  line-height:1.45;
+  min-width:28rem;
+}
+.prose-design thead th{
+  background:#f1f5f9;
+  color:#0f172a;
+  font-weight:800;
+  text-align:left;
+  padding:.75rem .9rem;
+  border-bottom:1px solid #e2e8f0;
+  white-space:nowrap;
+}
+.prose-design tbody td{
+  padding:.7rem .9rem;
+  border-bottom:1px solid #f1f5f9;
+  color:#334155;
+  vertical-align:top;
+}
+.prose-design tbody tr:last-child td{border-bottom:none}
+.prose-design tbody tr:nth-child(even) td{background:#f8fafc}
+.prose-design tbody tr:hover td{background:#eff6ff}
+
 .card{
   border:1px solid var(--line);
   background:white;
@@ -82,6 +122,11 @@ a{text-decoration:none}
 .dark .prose-design :not(pre) > code{background:#1e293b;color:#e2e8f0}
 .dark .prose-design pre{background:#020617;border:1px solid #1e293b}
 .dark .prose-design blockquote{background:#172554;color:#cbd5e1}
+.dark .prose-design .table-wrap{border-color:#1e293b;background:#0f172a}
+.dark .prose-design thead th{background:#1e293b;color:#e2e8f0;border-bottom-color:#334155}
+.dark .prose-design tbody td{color:#cbd5e1;border-bottom-color:#1e293b}
+.dark .prose-design tbody tr:nth-child(even) td{background:#020617}
+.dark .prose-design tbody tr:hover td{background:#172554}
 
 .problem-nav{
   scrollbar-width:thin;
