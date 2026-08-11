@@ -85,5 +85,6 @@ export const SECTION_CATEGORIES={
   fintech:['FinTech'],
   behavior:['Behavior'],
   'leadership-principles':['Leadership Principles'],
+  complexity:['Complexity'],
 } as const;
 

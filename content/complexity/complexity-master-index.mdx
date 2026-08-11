@@ -1,0 +1,46 @@
+---
+slug: complexity-master-index
+title: "Time & Space Complexity — Master Index"
+description: "Interview-ready map of Big-O calculation, data-structure complexity tables (best to worst), and sorting/searching complexities."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Data Structures, Interview, Cheatsheet]
+readingTime: 8 min
+publishedAt: "2026-08-11"
+---
+
+## What this section covers
+
+Use this track before coding interviews and system-design capacity talks. Every page favors **tables + how the bound is derived**, not memorization alone.
+
+| Guide | Use when |
+|---|---|
+| [How Big-O Is Calculated](/complexity/how-big-o-is-calculated) | You need to derive O(n), O(log n), O(n²) from code |
+| [Data Structures — Time & Space (Best → Worst)](/complexity/data-structures-time-space-complexity) | You need Array, List, Stack, Queue, Hash, Tree, Heap, Trie, Graph tables |
+| [Sorting & Searching Complexity](/complexity/sorting-and-searching-complexity) | You need sort/search algorithm tables and stability notes |
+
+## Quick complexity ladder
+
+| Name | Growth | Interview intuition |
+|---|---|---|
+| O(1) | Constant | Hash get (avg), array index |
+| O(log n) | Logarithmic | Binary search, balanced BST height |
+| O(n) | Linear | Single scan |
+| O(n log n) | Linearithmic | Efficient comparison sorts |
+| O(n²) | Quadratic | Nested loops over n |
+| O(2ⁿ) | Exponential | Subsets / naive recursion |
+| O(n!) | Factorial | Full permutations |
+
+## How to answer in an interview
+
+1. State **input size** (`n` = elements, `V`/`E` for graphs).
+2. Give **time**: best / average / worst when they differ.
+3. Give **extra space** (not counting input unless asked).
+4. Name the **assumption** (e.g. hash uniform; tree balanced).
+5. One sentence on **why** (loop structure / tree height / hash collisions).
+
+## Related on this site
+
+- [Capacity Estimation](/system-design/capacity-estimation)
+- [LLD — LRU Cache](/system-design/lld-lru-cache)
+- [Cheat Sheet — Last-Minute Revision](/system-design/cheat-sheet-last-minute-revision)
