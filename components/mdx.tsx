@@ -9,5 +9,16 @@ export const mdxComponents={
   pre:(p:any)=><pre {...p}/>,
   blockquote:(p:any)=><blockquote {...p}/>,
   code:(p:any)=><code {...p}/>,
+  a:(p:any)=><a {...p}/>,
+  table:(p:any)=>(
+    <div className="table-wrap">
+      <table {...p}/>
+    </div>
+  ),
+  thead:(p:any)=><thead {...p}/>,
+  tbody:(p:any)=><tbody {...p}/>,
+  tr:(p:any)=><tr {...p}/>,
+  th:(p:any)=><th {...p}/>,
+  td:(p:any)=><td {...p}/>,
   Mermaid,
 };

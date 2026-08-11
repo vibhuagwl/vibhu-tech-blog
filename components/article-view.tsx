@@ -1,6 +1,7 @@
 import {notFound} from 'next/navigation';
 import Link from 'next/link';
 import {compileMDX} from 'next-mdx-remote/rsc';
+import remarkGfm from 'remark-gfm';
 import {getAllPosts,getPost,getPostsByCategories,SECTION_CATEGORIES} from '@/lib/posts';
 import {hrefForPost} from '@/lib/href';
 import {mdxComponents} from '@/components/mdx';
@@ -36,7 +37,15 @@ export default async function ArticleView({
   const allowed=new Set<string>(SECTION_CATEGORIES[section]);
   if(!p || !allowed.has(p.category)) notFound();
 
-  const {content}=await compileMDX({source:p.content,components:mdxComponents});
+  const {content}=await compileMDX({
+    source:p.content,
+    components:mdxComponents,
+    options:{
+      mdxOptions:{
+        remarkPlugins:[remarkGfm],
+      },
+    },
+  });
   const related=getPostsByCategories([...SECTION_CATEGORIES[section]])
     .filter((x)=>x.slug!==p.slug && x.tags.some((t)=>p.tags.includes(t)))
     .slice(0,3);
