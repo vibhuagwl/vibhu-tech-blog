@@ -1,0 +1,39 @@
+---
+slug: behavioral-failure-crisis-bank
+title: "Failure, Accountability & Crisis Bank (Q101–Q128)"
+description: "Failure and crisis leadership: mistakes, outages, first 15 minutes, rollback, blameless postmortems, and prevention."
+category: Behavioral Interview
+difficulty: Advanced
+tags: [Behavioral, STAR, Leadership, Principal, Architect, Interview]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## Failure STAR pattern
+
+Own the miss → impact → what you changed in system/process → how you know it won’t recur.
+
+## Q101–Q115 — Failure & accountability
+
+| Prompt | Story angle |
+|---|---|
+| Biggest failure / project failed | **O1** late stakeholder alignment |
+| Technical mistake / outage decision | Underestimated poison-message ops → **R1** |
+| Didn’t scale | Hot key / capacity miss → measure + redesign |
+| Underestimated complexity/cost | Dual-write risk; outbox lesson |
+| Missed deadline | Renegotiate scope early; feature flag |
+| Wrong hire / trust | Clearer bar in interviews; closer coaching loops |
+| Lesson / do differently / prevent twice | Contracts + checkpoints + game days + alerts |
+
+## Q116–Q128 — Crisis & incidents
+
+**First 15 minutes:** declare severity; stabilize customers; assign roles (incident lead, comms, tech); stop the bleeding (rollback/flag); avoid deep RCA yet.
+
+**Organize:** parallel stabilize/diagnose/comms tracks.  
+**Incomplete info:** act on blast radius; time-box hypotheses.  
+**Wrong initial RCA:** update narrative without ego.  
+**Rollback:** prefer customer safety over “debug in prod.”  
+**Customer vs integrity:** never corrupt money for uptime theater — degrade gracefully.  
+**Blameless postmortem:** timeline, contributing factors, action items with owners/dates.  
+**Human vs process:** if a careful person can still fail, fix the system.  
+**Prevention:** tests, alerts, runbooks, architecture changes (**R1**).
