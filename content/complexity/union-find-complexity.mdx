@@ -1,0 +1,206 @@
+---
+slug: union-find-complexity
+title: "Union-Find Complexity"
+description: "Find and union complexity with path compression, union by rank or size, and why inverse Ackermann is effectively constant."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Union-Find, DSU, Graphs, Java]
+readingTime: 12 min
+publishedAt: "2026-08-11"
+---
+
+## What union-find answers
+
+Union-find, or Disjoint Set Union (DSU), maintains groups of connected items.
+
+| Operation | Meaning |
+|---|---|
+| `find(x)` | Return representative/root of x's set |
+| `union(a, b)` | Merge the sets containing a and b |
+| `connected(a, b)` | Check whether both representatives match |
+
+Typical uses:
+
+- Kruskal's minimum spanning tree
+- Connected components
+- Cycle detection in undirected graphs
+- Dynamic grouping problems
+
+## Baseline idea
+
+Every element points to a parent. A root points to itself.
+
+```text
+0    1    2    3
+|    |    |    |
+0    1    2    3
+```
+
+After unions:
+
+```text
+0 <- 1 <- 2 <- 3
+```
+
+If the tree becomes a chain, `find(3)` walks 3 edges. In the worst case without balancing, `find` can become **O(N)**.
+
+## Summary table
+
+| Implementation | `find` | `union` | Space | Derivation |
+|---|---|---|---|---|
+| Quick find | O(1) | O(N) | O(N) | Union rewrites many ids |
+| Quick union | O(N) | O(N) | O(N) | Trees can become chains |
+| Union by rank/size only | O(log N) | O(log N) | O(N) | Smaller tree attaches under larger tree |
+| Path compression only | Amortized near O(log N) | Same as find | O(N) | Paths flatten over time |
+| Rank/size + path compression | O(alpha(N)) amortized | O(alpha(N)) amortized | O(N) | Tarjan bound |
+
+`alpha(N)` is the inverse Ackermann function. For any realistic input size, it is less than 5, so interviewers often describe DSU as "almost O(1)" while still writing the formal bound as **O(alpha(N)) amortized**.
+
+## Why union by size helps
+
+When union always attaches the smaller tree under the larger tree:
+
+```text
+size of tree containing x at least doubles
+every time x moves one level deeper
+```
+
+An element can double from `1` to at most `N` only `log2 N` times, so tree height is **O(log N)** without path compression.
+
+## Why path compression helps
+
+Path compression rewires every node on the search path directly to the root.
+
+Before:
+
+```text
+0 <- 1 <- 2 <- 3 <- 4
+```
+
+After `find(4)`:
+
+```text
+0 <- 1
+^    ^
+|    |
+2    3
+|
+4
+```
+
+Future finds on those nodes are much faster. The cost of one unlucky find is paid back by many cheap future finds, which is why the bound is amortized.
+
+## Java 17 DSU
+
+```java
+final class DSU {
+    private final int[] parent;
+    private final int[] size;
+    private int components;
+
+    DSU(int n) {
+        this.parent = new int[n];          // O(N) space
+        this.size = new int[n];            // O(N) space
+        this.components = n;               // O(1)
+        for (int i = 0; i < n; i++) {      // O(N)
+            parent[i] = i;                 // O(1)
+            size[i] = 1;                   // O(1)
+        }
+    }
+
+    int find(int x) {
+        if (parent[x] == x) {              // O(1)
+            return x;                      // O(1)
+        }
+        parent[x] = find(parent[x]);       // Path compression
+        return parent[x];                  // O(1)
+    }
+
+    boolean union(int a, int b) {
+        int rootA = find(a);               // O(alpha(N)) amortized
+        int rootB = find(b);               // O(alpha(N)) amortized
+        if (rootA == rootB) return false;  // O(1)
+
+        if (size[rootA] < size[rootB]) {   // O(1)
+            int tmp = rootA;               // O(1)
+            rootA = rootB;                 // O(1)
+            rootB = tmp;                   // O(1)
+        }
+
+        parent[rootB] = rootA;             // O(1)
+        size[rootA] += size[rootB];        // O(1)
+        components--;                      // O(1)
+        return true;                       // O(1)
+    }
+
+    boolean connected(int a, int b) {
+        return find(a) == find(b);         // O(alpha(N)) amortized
+    }
+
+    int components() {
+        return components;                 // O(1)
+    }
+}
+```
+
+## Deriving the operations
+
+### Constructor
+
+```text
+two arrays of length N -> O(N) space
+one initialization loop over N -> O(N) time
+```
+
+### Find
+
+With both optimizations:
+
+```text
+single call may walk a path
+compression shortens that path for future calls
+rank/size prevents paths from growing freely
+amortized over many operations -> O(alpha(N))
+```
+
+### Union
+
+```text
+2 finds + constant pointer/size updates
+= 2 * O(alpha(N)) + O(1)
+= O(alpha(N))
+```
+
+### Connected
+
+```text
+2 finds + one equality check
+= O(alpha(N))
+```
+
+## Kruskal example
+
+Kruskal's algorithm sorts edges, then uses DSU to decide whether an edge connects two different components.
+
+```text
+sort E edges: O(E log E)
+E union attempts: E * O(alpha(V))
+total: O(E log E)
+```
+
+The sort dominates because `alpha(V)` grows extremely slowly.
+
+## Interview wording
+
+| If asked... | Say... |
+|---|---|
+| Worst-case without optimizations? | O(N) find due to chains |
+| With union by size only? | O(log N) height |
+| With path compression + size/rank? | O(alpha(N)) amortized |
+| Is alpha(N) exactly O(1)? | No formally, but it is effectively constant for practical N |
+| Space complexity? | O(N) for parent and rank/size arrays |
+
+## Related links
+
+- [Graph Algorithms Complexity](/complexity/graph-algorithms-complexity)
+- [How Big-O Is Calculated](/complexity/how-big-o-is-calculated)

@@ -1,0 +1,332 @@
+---
+slug: calculate-complexity-from-code
+title: "Calculate Complexity from Code"
+description: "A systematic five-step method for deriving Big-O from Java code using executions, formulas, simplification, and cases."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Loops, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Many candidates can recognize common Big-O answers, but interviews often ask: **"How did you calculate that?"**
+
+Use this repeatable method:
+
+```text
+1. Define input sizes.
+2. Identify the dominant operation.
+3. Count executions.
+4. Write the mathematical formula.
+5. Simplify to Big-O.
+```
+
+The required pattern is:
+
+```text
+CODE -> executions -> formula -> simplify -> Big-O
+```
+
+For foundations, see [/complexity/complexity-fundamentals](/complexity/complexity-fundamentals).
+
+## The Five-Step Method
+
+| Step | Question | Output |
+|---|---|---|
+| 1. Define variables | What is N? Are there M, K, V, E? | `N = nums.length` |
+| 2. Pick dominant work | What repeats and controls runtime? | comparisons, additions, hash lookups |
+| 3. Count executions | How many times does the work run? | `N`, `N*M`, `N(N-1)/2` |
+| 4. Build formula | Combine loops and branches mathematically | `3N + N^2 + 4` |
+| 5. Simplify | Drop constants and lower-order terms | `O(N^2)` |
+
+## Example 1: Single Loop
+
+### Problem
+
+Sum an array of N integers.
+
+### Java Code
+
+```java
+public static int sum(int[] nums) {
+    int total = 0;
+    for (int i = 0; i < nums.length; i++) {
+        total += nums[i];
+    }
+    return total;
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> one loop over N elements
+executions -> 1 + 1 + (N + 1) + N + N + 1
+formula -> 3N + 4
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+extra variables -> total and i
+formula -> 2
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Time | Auxiliary Space |
+|---|---|
+| O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"The dominant operation is the addition inside the loop. It runs once for each of the N elements, so the exact count is linear, like 3N plus constants if we include loop checks. Dropping constants gives O(N) time, and only a couple of variables are used, so auxiliary space is O(1)."
+
+## Example 2: Independent Nested Loops
+
+### Problem
+
+Compare every value in one array with every value in another array.
+
+### Java Code
+
+```java
+public static int countPairs(int[] a, int[] b) {
+    int count = 0;
+    for (int i = 0; i < a.length; i++) {
+        for (int j = 0; j < b.length; j++) {
+            if (a[i] == b[j]) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> for each item in a, scan every item in b
+executions -> N outer iterations * M inner iterations
+formula -> N * M
+simplify -> NM
+Big-O -> O(NM)
+```
+
+If `a` and `b` are the same size, then `M = N`:
+
+```text
+formula -> N * N
+simplify -> N^2
+Big-O -> O(N^2)
+```
+
+### Space
+
+```text
+extra variables -> count, i, j
+formula -> 3
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Time | Auxiliary Space |
+|---|---|
+| O(NM) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"There are two independent input sizes. The outer loop executes N times and the inner loop executes M times for each outer iteration. Multiplying gives N times M comparisons, so the time is O(NM). The algorithm uses only counters and the result variable, so space is O(1)."
+
+## Example 3: Dependent Nested Loops
+
+### Problem
+
+Print all pairs `(i, j)` where `j < i`.
+
+### Java Code
+
+```java
+public static void printLowerTriangle(int n) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < i; j++) {
+            System.out.println(i + "," + j);
+        }
+    }
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> inner loop runs i times for each i
+executions -> 0 + 1 + 2 + ... + (N - 1)
+formula -> N(N - 1) / 2
+simplify -> (N^2 - N) / 2
+simplify -> N^2
+Big-O -> O(N^2)
+```
+
+### Space
+
+```text
+extra variables -> i and j
+formula -> 2
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Time | Auxiliary Space |
+|---|---|
+| O(N^2) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"Although the inner loop is not always N, its total executions form the arithmetic series 0 through N minus 1. That sum is N(N-1)/2, which simplifies to a quadratic term. Therefore the runtime is O(N^2), while the extra space is O(1)."
+
+## Example 4: Sequential Loops
+
+### Problem
+
+Find the minimum and maximum in separate passes.
+
+### Java Code
+
+```java
+public static int range(int[] nums) {
+    int min = nums[0];
+    for (int x : nums) {
+        if (x < min) min = x;
+    }
+
+    int max = nums[0];
+    for (int x : nums) {
+        if (x > max) max = x;
+    }
+
+    return max - min;
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> one full scan, then another full scan
+executions -> N + N + constants
+formula -> 2N + 4
+simplify -> N
+Big-O -> O(N)
+```
+
+Sequential loops add; nested loops multiply.
+
+### Space
+
+```text
+extra variables -> min, max, loop variable
+formula -> 3
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Time | Auxiliary Space |
+|---|---|
+| O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"The two loops are sequential, not nested. Each loop scans N elements, so the total work is N plus N, or 2N. After dropping the constant factor, the time is O(N). Only a fixed number of variables are used, so space is O(1)."
+
+## Example 5: Early Break
+
+### Problem
+
+Return whether an array contains a target value.
+
+### Java Code
+
+```java
+public static boolean contains(int[] nums, int target) {
+    for (int i = 0; i < nums.length; i++) {
+        if (nums[i] == target) {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+### Mathematical Calculation
+
+```text
+Best:
+CODE -> match on first comparison
+executions -> 1
+formula -> 1
+simplify -> constant
+Big-O -> O(1)
+
+Average:
+CODE -> match around the middle
+executions -> N / 2
+formula -> N / 2
+simplify -> N
+Big-O -> O(N)
+
+Worst:
+CODE -> scan every element
+executions -> N
+formula -> N
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+extra variables -> i
+formula -> 1
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Case | Time | Auxiliary Space |
+|---|---|---|
+| Best | O(1) | O(1) |
+| Average | O(N) | O(1) |
+| Worst | O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"The early return changes the best case, because the target might be first and the loop stops after one comparison. But the worst case still scans every item when the target is absent or last. So best is O(1), average is O(N), worst is O(N), and auxiliary space is O(1)."
+
+## Common Mistakes
+
+| Mistake | Correction |
+|---|---|
+| Calling sequential loops O(N^2) | Add sequential work: N + N = O(N) |
+| Calling every nested loop O(N^2) | Check whether variables are independent: N * M may be O(NM) |
+| Ignoring dependent bounds | Sum the inner loop: 0 + 1 + ... + N - 1 |
+| Treating early break as always O(1) | Report best, average, and worst |
+| Combining time and space | Analyze them separately |
+
+## Final Complexity Checklist
+
+```text
+define inputs -> count executions -> write formula -> simplify -> state time and auxiliary space
+```

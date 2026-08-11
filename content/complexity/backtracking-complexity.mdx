@@ -1,0 +1,331 @@
+---
+slug: backtracking-complexity
+title: "Backtracking Complexity: Subsets, Permutations, N-Queens, Maze, and Word Search"
+description: "Derive backtracking complexity with recursion trees, branching factors, copy costs, stack space, and stored-answer space."
+category: Complexity
+difficulty: Advanced
+tags: [Complexity, Big-O, Java, Backtracking, Recursion, N-Queens]
+readingTime: 19 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Backtracking explores a decision tree and undoes choices while returning.
+
+```text
+time = states visited * work per state
+space = recursion depth + path + optional stored answers
+```
+
+The most common interview mistake is forgetting answer-copy cost or mixing up stack space with output storage.
+
+---
+
+## Subsets
+
+### Problem
+
+Generate every subset of `N` values.
+
+### Java Code
+
+```java
+static java.util.List<java.util.List<Integer>> subsets(int[] nums) {
+    java.util.List<java.util.List<Integer>> ans = new java.util.ArrayList<>();
+    dfsSubsets(nums, 0, new java.util.ArrayList<>(), ans);
+    return ans;
+}
+
+static void dfsSubsets(int[] nums, int i, java.util.List<Integer> path,
+                       java.util.List<java.util.List<Integer>> ans) {
+    if (i == nums.length) {
+        ans.add(new java.util.ArrayList<>(path));
+        return;
+    }
+    dfsSubsets(nums, i + 1, path, ans);
+    path.add(nums[i]);
+    dfsSubsets(nums, i + 1, path, ans);
+    path.remove(path.size() - 1);
+}
+```
+
+### Math
+
+Each element has include/exclude choices:
+
+```text
+leaves = 2^N
+states = 1 + 2 + 4 + ... + 2^N = O(2^N)
+copy each answer costs up to O(N)
+T(N) = O(N * 2^N)
+```
+
+### Space
+
+```text
+recursion depth + path = O(N)
+stored answers = O(N * 2^N)
+```
+
+### Final
+
+Subsets are `O(N * 2^N)` time, `O(N)` auxiliary space excluding output, and `O(N * 2^N)` output space.
+
+### Interview Explanation
+
+"The recursion tree has `2^N` leaves, and copying each subset adds the `N` factor."
+
+---
+
+## Permutations
+
+### Problem
+
+Generate all orderings of `N` distinct values.
+
+### Java Code
+
+```java
+static void permute(int[] nums, boolean[] used, java.util.List<Integer> path,
+                    java.util.List<java.util.List<Integer>> ans) {
+    if (path.size() == nums.length) {
+        ans.add(new java.util.ArrayList<>(path));
+        return;
+    }
+    for (int i = 0; i < nums.length; i++) {
+        if (used[i]) continue;
+        used[i] = true;
+        path.add(nums[i]);
+        permute(nums, used, path, ans);
+        path.remove(path.size() - 1);
+        used[i] = false;
+    }
+}
+```
+
+### Math
+
+Choices shrink by one each level:
+
+```text
+leaves = N * (N - 1) * ... * 1 = N!
+copy cost per answer = O(N)
+T(N) = O(N * N!)
+```
+
+### Space
+
+```text
+used + path + stack = O(N)
+stored answers = O(N * N!)
+```
+
+### Final
+
+Permutations are `O(N * N!)` time and `O(N)` auxiliary space excluding output.
+
+### Interview Explanation
+
+"There are `N!` permutations, and materializing each one costs `O(N)`."
+
+---
+
+## Combinations
+
+### Problem
+
+Choose `K` elements from `N`.
+
+### Java Code
+
+```java
+static void combine(int start, int n, int k, java.util.List<Integer> path,
+                    java.util.List<java.util.List<Integer>> ans) {
+    if (path.size() == k) {
+        ans.add(new java.util.ArrayList<>(path));
+        return;
+    }
+    for (int x = start; x <= n; x++) {
+        path.add(x);
+        combine(x + 1, n, k, path, ans);
+        path.remove(path.size() - 1);
+    }
+}
+```
+
+### Math
+
+The number of answers is:
+
+```text
+C(N,K) = N! / (K!(N-K)!)
+copy cost = O(K)
+T(N,K) = O(K * C(N,K))
+```
+
+### Space
+
+Stack and path have depth `K`, so auxiliary space is `O(K)`. Stored output is `O(K * C(N,K))`.
+
+### Final
+
+Combinations are `O(K * C(N,K))` time and `O(K)` auxiliary space excluding output.
+
+### Interview Explanation
+
+"For fixed-size choices, the exact answer count is `C(N,K)`, not always `2^N`."
+
+---
+
+## N-Queens
+
+### Problem
+
+Place `N` queens on an `N x N` board without attacks.
+
+### Java Code
+
+```java
+static int place(int row, int n, boolean[] col, boolean[] d1, boolean[] d2) {
+    if (row == n) return 1;
+    int count = 0;
+    for (int c = 0; c < n; c++) {
+        int a = row - c + n - 1, b = row + c;
+        if (col[c] || d1[a] || d2[b]) continue;
+        col[c] = d1[a] = d2[b] = true;
+        count += place(row + 1, n, col, d1, d2);
+        col[c] = d1[a] = d2[b] = false;
+    }
+    return count;
+}
+```
+
+### Math
+
+Row-by-row placement leaves at most one queen per column:
+
+```text
+choices <= N * (N - 1) * ... * 1 = N!
+constant conflict check with arrays
+T(N) = O(N!)
+```
+
+### Space
+
+Column and diagonal arrays plus recursion depth are `O(N)`. If boards are stored, add `solutions * O(N^2)`.
+
+### Final
+
+N-Queens counting is `O(N!)` time and `O(N)` auxiliary space.
+
+### Interview Explanation
+
+"The optimized arrays make each safety check constant; the factorial bound comes from shrinking column choices."
+
+---
+
+## Maze search
+
+### Problem
+
+Find paths through a grid by trying neighboring cells.
+
+### Java Code
+
+```java
+static boolean maze(char[][] grid, int r, int c, int endR, int endC) {
+    if (r < 0 || c < 0 || r == grid.length || c == grid[0].length) return false;
+    if (grid[r][c] == '#') return false;
+    if (r == endR && c == endC) return true;
+
+    grid[r][c] = '#';
+    boolean ok = maze(grid, r + 1, c, endR, endC)
+            || maze(grid, r - 1, c, endR, endC)
+            || maze(grid, r, c + 1, endR, endC)
+            || maze(grid, r, c - 1, endR, endC);
+    grid[r][c] = '.';
+    return ok;
+}
+```
+
+### Math
+
+For `R*C` cells, a loose simple-path bound is exponential:
+
+```text
+depth <= R*C
+branching <= 4 first, then about 3 without immediate backtracking
+T = O(3^(R*C)) loose worst case
+```
+
+### Space
+
+In-place marking gives recursion depth `O(R*C)`.
+
+### Final
+
+Maze backtracking is exponential in path length in the worst case and uses `O(R*C)` stack space.
+
+### Interview Explanation
+
+"Grid size controls maximum depth; branching creates the exponential search tree."
+
+---
+
+## Word search
+
+### Problem
+
+Search for a word of length `L` in an `R x C` board.
+
+### Java Code
+
+```java
+static boolean word(char[][] b, String w, int r, int c, int i) {
+    if (i == w.length()) return true;
+    if (r < 0 || c < 0 || r == b.length || c == b[0].length) return false;
+    if (b[r][c] != w.charAt(i)) return false;
+    char old = b[r][c];
+    b[r][c] = '#';
+    boolean found = word(b, w, r + 1, c, i + 1)
+            || word(b, w, r - 1, c, i + 1)
+            || word(b, w, r, c + 1, i + 1)
+            || word(b, w, r, c - 1, i + 1);
+    b[r][c] = old;
+    return found;
+}
+```
+
+### Math
+
+```text
+starts = R*C
+paths per start <= 4 * 3^(L-1)
+T(R,C,L) = O(R*C*3^L)
+```
+
+### Space
+
+In-place marking uses `O(L)` recursion stack. A separate visited matrix would add `O(R*C)`.
+
+### Final
+
+Word search is `O(R*C*3^L)` time and `O(L)` auxiliary space with in-place marking.
+
+### Interview Explanation
+
+"The board gives start positions, but word length drives recursion depth and branching."
+
+## Summary table
+
+| Problem | Time | Auxiliary space excluding output | Stored output space |
+|---|---:|---:|---:|
+| Subsets | `O(N*2^N)` | `O(N)` | `O(N*2^N)` |
+| Permutations | `O(N*N!)` | `O(N)` | `O(N*N!)` |
+| Combinations | `O(K*C(N,K))` | `O(K)` | `O(K*C(N,K))` |
+| N-Queens count | `O(N!)` | `O(N)` | `O(1)` |
+| Maze path search | exponential | `O(R*C)` | path-dependent |
+| Word search | `O(R*C*3^L)` | `O(L)` | `O(1)` |
+
+Related: [recursion](/complexity/recursion-complexity), [DFS](/complexity/dfs-complexity), [dynamic programming](/complexity/dynamic-programming-complexity).

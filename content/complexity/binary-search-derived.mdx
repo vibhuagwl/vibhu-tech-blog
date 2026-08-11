@@ -1,0 +1,306 @@
+---
+slug: binary-search-derived
+title: "Binary Search Complexity Derived Step by Step"
+description: "Derive iterative and recursive binary search time and space complexity from halving the search interval."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Binary Search, Searching, Recursion]
+readingTime: 12 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Given a sorted array, find whether `target` exists.
+
+Binary search works only because sorted order lets us discard half the remaining search interval after one comparison.
+
+| Requirement | Why it matters |
+|---|---|
+| Sorted input | Decides which half can be ignored |
+| Random access | Reads middle element in `O(1)` |
+| Monotonic predicate | Generalizes from arrays to "first true" problems |
+
+---
+
+## Iterative binary search
+
+### Problem
+
+Return the index of `target`, or `-1` if absent.
+
+### Java Code
+
+```java
+static int binarySearch(int[] nums, int target) {
+    int left = 0;
+    int right = nums.length - 1;
+
+    while (left <= right) {
+        int mid = left + (right - left) / 2;
+
+        if (nums[mid] == target) {
+            return mid;
+        } else if (nums[mid] < target) {
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+
+    return -1;
+}
+```
+
+### Math
+
+Let `N` be the initial search interval length.
+
+After one iteration:
+
+```text
+remaining <= N / 2
+```
+
+After two iterations:
+
+```text
+remaining <= N / 4
+```
+
+After `k` iterations:
+
+```text
+remaining <= N / 2^k
+```
+
+Stop when the remaining interval is at most `1`:
+
+```text
+N / 2^k <= 1
+N <= 2^k
+log2 N <= k
+k = O(log N)
+```
+
+Each iteration does constant work:
+
+```text
+T(N) = O(1) * O(log N)
+T(N) = O(log N)
+```
+
+### Space
+
+The iterative version stores only indexes:
+
+```text
+left, right, mid = O(1)
+S_aux = O(1)
+```
+
+### Final
+
+Iterative binary search is `O(log N)` time and `O(1)` auxiliary space.
+
+### Interview Explanation
+
+"Every comparison cuts the remaining candidates roughly in half. After `k` cuts the interval is `N / 2^k`, so solving `N / 2^k = 1` gives `k = log2 N`."
+
+---
+
+## Recursive binary search
+
+### Problem
+
+Implement the same halving logic recursively.
+
+### Java Code
+
+```java
+static int binarySearchRecursive(int[] nums, int target) {
+    return search(nums, target, 0, nums.length - 1);
+}
+
+static int search(int[] nums, int target, int left, int right) {
+    if (left > right) return -1;
+
+    int mid = left + (right - left) / 2;
+    if (nums[mid] == target) return mid;
+    if (nums[mid] < target) {
+        return search(nums, target, mid + 1, right);
+    }
+    return search(nums, target, left, mid - 1);
+}
+```
+
+### Math
+
+The recurrence is one recursive call on half the input plus constant work:
+
+```text
+T(N) = T(N / 2) + O(1)
+T(N) = T(N / 4) + O(1) + O(1)
+T(N) = T(N / 8) + 3 * O(1)
+...
+T(N) = T(N / 2^k) + k * O(1)
+```
+
+The base case happens when `N / 2^k = 1`:
+
+```text
+k = log2 N
+T(N) = O(log N)
+```
+
+### Space
+
+Each recursive call remains on the call stack until the base case or target is found.
+
+```text
+stack depth = number of halvings = O(log N)
+S_aux = O(log N)
+```
+
+### Final
+
+Recursive binary search is `O(log N)` time and `O(log N)` auxiliary stack space.
+
+### Interview Explanation
+
+"The time is still logarithmic, but unlike the iterative version, recursion stores a call frame for each halving level."
+
+---
+
+## First true template
+
+### Problem
+
+Many interview problems ask for the first index where a monotonic predicate becomes true.
+
+### Java Code
+
+```java
+static int firstTrue(int n) {
+    int left = 0;
+    int right = n; // answer may be n if no index is true
+
+    while (left < right) {
+        int mid = left + (right - left) / 2;
+        if (predicate(mid)) {
+            right = mid;
+        } else {
+            left = mid + 1;
+        }
+    }
+
+    return left;
+}
+
+static boolean predicate(int index) {
+    return index >= 0; // placeholder
+}
+```
+
+### Math
+
+The interval length is `right - left`. Each iteration keeps one half:
+
+```text
+length after k iterations <= N / 2^k
+N / 2^k <= 1
+k = O(log N)
+```
+
+If `predicate(mid)` costs `P`, then:
+
+```text
+T(N) = O(P * log N)
+```
+
+For constant-time predicates, this is `O(log N)`.
+
+### Space
+
+The template is iterative:
+
+```text
+S_aux = O(1)
+```
+
+### Final
+
+The first-true binary search template is `O(log N)` predicate calls and `O(1)` space.
+
+### Interview Explanation
+
+"Binary search is not only for exact values. It applies whenever the answer space is monotonic: false false false true true true."
+
+---
+
+## Best, average, and worst case
+
+### Problem
+
+Binary search can finish immediately if the middle element is the target.
+
+### Java Code
+
+```java
+if (nums[mid] == target) {
+    return mid; // best case
+}
+```
+
+### Math
+
+Best case:
+
+```text
+target at first mid
+comparisons = 1
+T_best(N) = O(1)
+```
+
+Average and worst case:
+
+```text
+number of halvings = log2 N
+T_avg(N) = O(log N)
+T_worst(N) = O(log N)
+```
+
+### Space
+
+Best, average, and worst space do not change for the same implementation:
+
+```text
+iterative = O(1)
+recursive = O(log N)
+```
+
+### Final
+
+Binary search is best `O(1)`, average/worst `O(log N)`.
+
+### Interview Explanation
+
+"I mention `O(1)` best case only if the interviewer asks. The standard answer is `O(log N)` because worst case is usually what Big-O means in interviews."
+
+## Interview script
+
+Use this concise answer:
+
+```text
+Binary search maintains a sorted search interval. Each comparison checks the middle and discards one half, so after k steps the interval size is N / 2^k. Setting N / 2^k = 1 gives k = log2 N, so time is O(log N). The iterative implementation uses O(1) extra space; the recursive implementation uses O(log N) stack space.
+```
+
+## Summary table
+
+| Version | Best time | Average time | Worst time | Auxiliary space |
+|---|---:|---:|---:|---:|
+| Iterative exact search | `O(1)` | `O(log N)` | `O(log N)` | `O(1)` |
+| Recursive exact search | `O(1)` | `O(log N)` | `O(log N)` | `O(log N)` |
+| First-true template | `O(1)` possible | `O(log N)` | `O(log N)` | `O(1)` |
+
+Related: [sorting derivations](/complexity/sorting-algorithms-derived), [recursion](/complexity/recursion-complexity), [how Big-O is calculated](/complexity/how-big-o-is-calculated).

@@ -1,0 +1,202 @@
+---
+slug: two-pointers-complexity
+title: "Two Pointers Complexity"
+description: "Two-pointer time and space complexity for opposite-end and same-direction patterns, with Java examples."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Two Pointers, Arrays, Strings, Java]
+readingTime: 12 min
+publishedAt: "2026-08-11"
+---
+
+## Core idea
+
+Two-pointer algorithms keep two indices and move them according to an invariant.
+
+```text
+opposite ends:
+[L . . . . . R]
+
+same direction:
+[L . R . . . .]
+```
+
+The usual complexity proof is:
+
+```text
+each pointer moves at most N steps
+total pointer moves <= 2N
+2N -> O(N)
+```
+
+## Summary table
+
+| Pattern | Time | Space | Derivation |
+|---|---|---|---|
+| Opposite ends | O(N) | O(1) | Left increases or right decreases each step |
+| Same direction | O(N) | O(1) to O(K) | Both pointers move forward at most N times |
+| Merge two sorted arrays | O(N + M) | O(1) or output size | Each array pointer advances once per consumed item |
+| Brute-force pairs | O(N^2) | O(1) | Tests all pairs instead of moving by invariant |
+
+## Opposite-end example: two sum in sorted array
+
+Given a sorted array, find whether two values sum to target.
+
+```text
+if sum too small: move left rightward
+if sum too large: move right leftward
+```
+
+Java:
+
+```java
+static boolean hasPairWithSum(int[] a, int target) {
+    int left = 0;                         // O(1)
+    int right = a.length - 1;             // O(1)
+
+    while (left < right) {                // At most N - 1 iterations
+        int sum = a[left] + a[right];     // O(1)
+        if (sum == target) {
+            return true;                  // O(1)
+        }
+        if (sum < target) {
+            left++;                       // O(1), move only forward
+        } else {
+            right--;                      // O(1), move only backward
+        }
+    }
+    return false;                         // O(1)
+}
+```
+
+Derivation:
+
+```text
+left starts at 0 and can increment at most N times
+right starts at N - 1 and can decrement at most N times
+each loop moves one pointer
+total iterations <= N
+time = O(N)
+space = O(1)
+```
+
+Why sorting matters: if the array is not sorted, the "sum too small" decision does not prove which pointer to move. Sorting first changes total time to **O(N log N)**.
+
+## Opposite-end example: valid palindrome
+
+```java
+static boolean isPalindrome(String s) {
+    int left = 0;
+    int right = s.length() - 1;
+
+    while (left < right) {                // O(N)
+        if (s.charAt(left) != s.charAt(right)) {
+            return false;                 // O(1)
+        }
+        left++;                           // O(1)
+        right--;                          // O(1)
+    }
+    return true;
+}
+```
+
+Each character is compared at most once, so time is **O(N)** and extra space is **O(1)**.
+
+## Same-direction example: remove duplicates from sorted array
+
+The slow pointer marks where to write the next unique value. The fast pointer scans input.
+
+```java
+static int removeDuplicates(int[] a) {
+    if (a.length == 0) return 0;          // O(1)
+
+    int write = 1;                        // O(1)
+    for (int read = 1; read < a.length; read++) { // read moves N times
+        if (a[read] != a[write - 1]) {    // O(1)
+            a[write] = a[read];           // O(1)
+            write++;                      // At most N times
+        }
+    }
+    return write;                         // O(1)
+}
+```
+
+Derivation:
+
+```text
+read pointer scans N - 1 elements -> O(N)
+write pointer only advances after unique values -> <= N
+total -> O(N)
+space -> O(1)
+```
+
+## Same-direction example: merge sorted arrays
+
+If arrays have lengths `N` and `M`, count both inputs.
+
+```java
+static int[] mergeSorted(int[] a, int[] b) {
+    int[] out = new int[a.length + b.length]; // O(N + M) output space
+    int i = 0;
+    int j = 0;
+    int k = 0;
+
+    while (i < a.length && j < b.length) {    // Each iteration consumes one item
+        if (a[i] <= b[j]) {
+            out[k++] = a[i++];                // O(1)
+        } else {
+            out[k++] = b[j++];                // O(1)
+        }
+    }
+    while (i < a.length) out[k++] = a[i++];   // Remaining a items
+    while (j < b.length) out[k++] = b[j++];   // Remaining b items
+    return out;
+}
+```
+
+Derivation:
+
+```text
+i advances N times
+j advances M times
+k writes N + M items
+time = O(N + M)
+extra space = O(N + M) for output
+```
+
+If the merge is into existing spare capacity, extra space can be **O(1)**.
+
+## Two pointers vs sliding window
+
+| Technique | Window must be contiguous? | Typical invariant |
+|---|---|---|
+| Two pointers, opposite ends | No | Sorted order or symmetric check |
+| Two pointers, same direction | Sometimes | Maintain write/read or valid region |
+| Sliding window | Yes | Current contiguous range satisfies condition |
+
+Sliding window is a specialized two-pointer pattern where the area between pointers is the current answer candidate.
+
+## Common mistakes
+
+| Mistake | Correction |
+|---|---|
+| Claiming O(N^2) just because there are two pointers | Count moves, not variables |
+| Moving pointers without a sorted/invariant reason | The proof depends on the invariant |
+| Forgetting sorting cost | Sort + two pointers is O(N log N), not O(N) |
+| Ignoring output space | Merging into a new array uses O(N + M) space |
+
+## Interview proof template
+
+Use this sentence:
+
+```text
+The left pointer can move at most N times and the right pointer can move at most N times.
+Every loop iteration moves at least one pointer, so total iterations are at most 2N, which is O(N).
+```
+
+For opposite ends, the bound is often even tighter than `2N`, but `2N -> O(N)` is easy and correct.
+
+## Related links
+
+- [Sliding Window Complexity](/complexity/sliding-window-complexity)
+- [Sorting and Searching Complexity](/complexity/sorting-and-searching-complexity)

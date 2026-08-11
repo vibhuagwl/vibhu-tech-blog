@@ -1,0 +1,386 @@
+---
+slug: arrays-complexity
+title: "Arrays Complexity"
+description: "Time and space complexity for array access, search, insertion, deletion, traversal, sorting, and Java ArrayList behavior."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Array, ArrayList]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Arrays are contiguous memory blocks. That one property explains most of their complexity:
+
+```text
+index:   0   1   2   3   4
+value:  [7] [4] [9] [2] [5]
+addr:   B  B+s B+2s B+3s B+4s
+```
+
+Where:
+
+```text
+B = base address
+s = element size
+address(i) = B + i * s
+```
+
+Because the address formula is direct arithmetic, indexing is constant time.
+
+For related data-structure comparisons, see [/complexity/linked-list-complexity](/complexity/linked-list-complexity).
+
+## Complexity Table
+
+| Operation | Static array | Java `ArrayList` | Why |
+|---|---:|---:|---|
+| Access by index | O(1) | O(1) | direct address calculation |
+| Search unsorted | O(N) | O(N) | may scan all elements |
+| Search sorted | O(log N) | O(log N) | binary search if sorted |
+| Insert at beginning | O(N) | O(N) | shift N elements |
+| Insert in middle | O(N) | O(N) | shift about N/2 elements |
+| Insert at end | not resizable | amortized O(1), worst O(N) | resize may copy |
+| Delete beginning | O(N) | O(N) | shift N - 1 elements |
+| Delete middle | O(N) | O(N) | shift about N/2 elements |
+| Delete end | O(1) | O(1) | no shift |
+| Traversal | O(N) | O(N) | visit every element |
+
+## Access by Index
+
+### Problem
+
+Read the value at a known position.
+
+### Java Code
+
+```java
+public static int getAt(int[] nums, int index) {
+    return nums[index];
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> compute base + index * elementSize, then load memory
+executions -> 1 address calculation + 1 read
+formula -> 2
+simplify -> constant
+Big-O -> O(1)
+```
+
+### Space
+
+```text
+extra variables -> none beyond parameter references
+formula -> constant
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Time | Auxiliary Space |
+|---|---|
+| O(1) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"Array indexing is O(1) because arrays are contiguous. The runtime does not depend on how many elements are in the array; the address is computed as base plus index times element size, then the value is read. That is a fixed amount of work and O(1) auxiliary space."
+
+## Unsorted Search
+
+### Problem
+
+Find whether an unsorted array contains a target.
+
+### Java Code
+
+```java
+public static boolean contains(int[] nums, int target) {
+    for (int value : nums) {
+        if (value == target) {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> scan until target is found or array ends
+executions -> worst case N comparisons
+formula -> N
+simplify -> N
+Big-O -> O(N)
+```
+
+Average case:
+
+```text
+CODE -> target equally likely at any position
+executions -> (1 + 2 + ... + N) / N
+formula -> (N(N + 1) / 2) / N
+simplify -> (N + 1) / 2
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+extra variables -> loop value
+formula -> 1
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Case | Time | Auxiliary Space |
+|---|---|---|
+| Best | O(1) | O(1) |
+| Average | O(N) | O(1) |
+| Worst | O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"Because the array is unsorted, there is no way to eliminate a region. In the worst case, the target is absent or last, so we perform N comparisons. The formula is N, which simplifies to O(N), and the scan uses only constant extra space."
+
+## Insert at Beginning
+
+### Problem
+
+Insert a new value at index 0 while preserving order.
+
+### Java Code
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+
+public static void insertBeginning(List<Integer> values, int value) {
+    values.add(0, value);
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> insert before current first element
+executions -> N existing elements shift one slot right
+formula -> N shifts + 1 write
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+ArrayList with spare capacity -> constant temporary variables
+formula -> 1
+simplify -> constant
+Big-O auxiliary space -> O(1)
+
+If resize is required -> copy N references into a larger array -> O(N) temporary space
+```
+
+### Final Complexity
+
+| Implementation | Time | Auxiliary Space |
+|---|---:|---:|
+| Static array copy | O(N) | O(N) |
+| `ArrayList.add(0, value)` with capacity | O(N) | O(1) |
+| `ArrayList.add(0, value)` with resize | O(N) | O(N) temporary |
+
+### Interview Explanation (20-30 sec)
+
+"Inserting at the beginning has to preserve order, so every existing element moves one slot right. That gives N shifts plus one write, which simplifies to O(N). Space is O(1) if the ArrayList has spare capacity, or O(N) during resize/static-array copy."
+
+## Insert in the Middle
+## Insert in the Middle
+
+### Problem
+
+Insert at index `k`.
+
+### Java Code
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+
+public static void insertMiddle(List<Integer> values, int index, int value) {
+    values.add(index, value);
+}
+```
+
+### Mathematical Calculation
+
+Elements from `index` through `N - 1` shift right.
+
+```text
+CODE -> shift suffix after index
+executions -> N - index shifts
+formula -> N - index
+simplify -> N in worst case
+Big-O -> O(N)
+```
+
+If `index = N / 2`:
+
+```text
+executions -> N - N/2
+formula -> N/2
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+with enough ArrayList capacity -> no new element array
+formula -> constant temporary variables
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+If capacity is full, `ArrayList` grows and copies N elements, so temporary resize space is O(N).
+
+### Final Complexity
+
+| Case | Time | Auxiliary Space |
+|---|---|---|
+| Insert at end with capacity | O(1) | O(1) |
+| Insert middle | O(N) | O(1) if no resize |
+| Insert middle with resize | O(N) | O(N) temporary backing array |
+
+### Interview Explanation (20-30 sec)
+
+"Inserting in the middle requires shifting the suffix. If the insertion index is k, then N minus k elements move. In the worst case k is near zero, so the formula is N minus k, which simplifies to O(N). Space is usually O(1) auxiliary for ArrayList unless a resize occurs."
+
+## Delete from Beginning, Middle, or End
+
+### Problem
+
+Remove an element while preserving order.
+
+### Java Code
+
+```java
+import java.util.List;
+
+public static int removeAt(List<Integer> values, int index) {
+    return values.remove(index);
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> remove index, shift all later elements left
+executions -> N - index - 1 shifts
+formula -> N - index - 1
+simplify -> N in worst case
+Big-O -> O(N)
+```
+
+Deleting the last element:
+
+```text
+CODE -> remove index N - 1
+executions -> N - (N - 1) - 1 shifts + constant cleanup
+formula -> 0 + constant
+simplify -> constant
+Big-O -> O(1)
+```
+
+### Space
+
+```text
+extra variables -> removed value and index
+formula -> constant
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Delete position | Time | Auxiliary Space |
+|---|---:|---:|
+| Beginning | O(N) | O(1) |
+| Middle | O(N) | O(1) |
+| End | O(1) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"Deletion is cheap only at the end. At the beginning or middle, later elements shift left. The shift count is N minus index minus one, which is O(N) in the worst case; auxiliary space is O(1)."
+
+## Traversal, Sorting, and ArrayList Notes
+## Traversal, Sorting, and ArrayList Notes
+
+Traversal:
+
+```java
+public static void printAll(int[] nums) {
+    for (int value : nums) System.out.println(value);
+}
+```
+
+```text
+CODE -> visit every element once
+executions -> N visits
+formula -> N
+simplify -> N
+Big-O -> O(N)
+```
+
+Sorting note:
+
+| Operation | Typical Java API | Time | Space note |
+|---|---|---:|---|
+| Primitive array sort | `Arrays.sort(int[])` | O(N log N) average/worst behavior | implementation-dependent extra space |
+| Object/list sort | `Arrays.sort(Object[])`, `List.sort` | O(N log N) | often O(N) temporary storage |
+| Binary search after sort | `Arrays.binarySearch` | O(log N) | O(1) |
+
+Sort once, then binary search once:
+
+```text
+CODE -> sort array, then binary search
+executions -> N log N + log N
+formula -> N log N + log N
+simplify -> N log N
+Big-O -> O(N log N)
+```
+
+Java array vs `ArrayList`: arrays are fixed length; `ArrayList` uses a contiguous internal array that grows. Access is O(1) for both. Middle insert/delete is O(N) for both because references shift. Append to `ArrayList` is amortized O(1):
+
+```text
+CODE -> append N times, double capacity when full
+executions -> N writes + copies at 1, 2, 4, ..., N/2
+formula -> N + (1 + 2 + 4 + ... + N/2)
+simplify -> N + less than N -> 2N
+Big-O total -> O(N), amortized per append -> O(1)
+```
+
+## Final Complexity
+## Final Complexity
+
+| Operation | Time | Derivation |
+|---|---:|---|
+| Index access | O(1) | `base + index * size` |
+| Unsorted search | O(N) | at most N comparisons |
+| Insert beginning | O(N) | N shifts |
+| Insert middle | O(N) | N - index shifts |
+| Insert end | amortized O(1) | geometric resize cost over many appends |
+| Delete beginning | O(N) | N - 1 shifts |
+| Delete middle | O(N) | N - index - 1 shifts |
+| Delete end | O(1) | no shift |
+| Traversal | O(N) | N visits |
+
+## Interview Explanation (20-30 sec)
+
+"Arrays are fast for indexed access because the address is computed directly as base plus index times element size, so access is O(1). Search and traversal are O(N) because they may inspect every element. Insertions and deletions away from the end are O(N) because elements must shift to preserve order. ArrayList append is amortized O(1) because resize copies form a geometric series."

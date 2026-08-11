@@ -1,0 +1,259 @@
+---
+slug: complexity-fundamentals
+title: "Complexity Fundamentals"
+description: "A practical foundation for Big-O, Theta, Omega, growth rates, space analysis, cases, and amortized reasoning."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Algorithms, Space Complexity]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Complexity analysis answers one interview question: **as the input grows, how fast does the work or memory grow?**
+
+The exact machine, CPU cache, and compiler matter in production, but interviews usually abstract them away. We count dominant operations as a mathematical function of input size.
+
+Use this pattern throughout the complexity series:
+
+```text
+CODE -> executions -> formula -> simplify -> Big-O
+```
+
+Related deep dives:
+
+| Topic | Link |
+|---|---|
+| Calculating from code | [/complexity/calculate-complexity-from-code](/complexity/calculate-complexity-from-code) |
+| Logarithmic complexity | [/complexity/logarithmic-complexity](/complexity/logarithmic-complexity) |
+| Arrays | [/complexity/arrays-complexity](/complexity/arrays-complexity) |
+| HashMap and HashSet | [/complexity/hashmap-hashset-complexity](/complexity/hashmap-hashset-complexity) |
+
+## Big-O, Theta, and Omega
+
+| Notation | Meaning | Interview translation | Example |
+|---|---|---|---|
+| Big-O | Upper bound | "No worse than this growth class" | Linear search worst case is O(N) |
+| Theta | Tight bound | "Exactly this growth class up to constants" | Visiting every array item is Theta(N) |
+| Omega | Lower bound | "At least this much work" | Printing N items is Omega(N) |
+
+Formal intuition:
+
+```text
+f(N) is O(g(N))     if f(N) <= c * g(N) for large enough N
+f(N) is Omega(g(N)) if f(N) >= c * g(N) for large enough N
+f(N) is Theta(g(N)) if both are true
+```
+
+Example:
+
+```text
+f(N) = 3N + 10
+For N >= 10: 3N + 10 <= 4N
+So f(N) is O(N).
+
+Also for N >= 1: 3N + 10 >= 3N
+So f(N) is Omega(N).
+
+Therefore f(N) is Theta(N).
+```
+
+## Constants and Lower-Order Terms
+
+Big-O ignores constant multipliers and eventually smaller terms.
+
+| Formula | Simplification | Big-O | Why |
+|---|---|---|---|
+| 10 | 10 | O(1) | Constant work does not grow with N |
+| 3N + 8 | N | O(N) | Drop constant multiplier and constant term |
+| N^2 + 100N + 7 | N^2 | O(N^2) | N^2 dominates N for large N |
+| 5N log N + 30N | N log N | O(N log N) | N log N dominates N |
+| 2^N + N^10 | 2^N | O(2^N) | Exponential dominates polynomial |
+
+Derivation example:
+
+```text
+CODE -> one loop of N plus one loop of 2N
+executions -> N + 2N
+formula -> 3N
+simplify -> N
+Big-O -> O(N)
+```
+
+## Growth Comparison Table
+
+Assume N grows and one basic operation costs the same.
+
+| Class | Name | Shape | Typical example |
+|---|---|---|---|
+| O(1) | Constant | Flat | Array index access |
+| O(log N) | Logarithmic | Slowly increasing | Binary search |
+| O(N) | Linear | Proportional | Scan an array |
+| O(N log N) | Linearithmic | Scan times divide | Merge sort |
+| O(N^2) | Quadratic | Pair comparison | Double nested loops |
+| O(2^N) | Exponential | Doubles per item | Subset enumeration |
+| O(N!) | Factorial | Permutations | Traveling-salesperson brute force |
+
+Small ASCII view:
+
+```text
+faster --------------------------------------------------------> slower
+O(1)   O(log N)   O(N)   O(N log N)   O(N^2)   O(2^N)   O(N!)
+```
+
+## Proving the Growth Ladder
+
+The standard ladder is:
+
+```text
+O(1) < O(log N) < O(N) < O(N log N) < O(N^2) < O(2^N) < O(N!)
+```
+
+Each step can be justified by a limit. If `f(N) / g(N) -> 0`, then `f` grows strictly slower than `g`.
+
+| Comparison | Ratio | Limit as N grows | Conclusion |
+|---|---:|---:|---|
+| 1 vs log N | 1 / log N | 0 | O(1) grows slower |
+| log N vs N | log N / N | 0 | O(log N) grows slower |
+| N vs N log N | N / (N log N) = 1 / log N | 0 | O(N) grows slower |
+| N log N vs N^2 | (N log N) / N^2 = log N / N | 0 | O(N log N) grows slower |
+| N^2 vs 2^N | N^2 / 2^N | 0 | O(N^2) grows slower |
+| 2^N vs N! | 2^N / N! | 0 | O(2^N) grows slower |
+
+Why `2^N / N! -> 0`:
+
+```text
+N! = 1 * 2 * 3 * ... * N
+For N >= 4, most factors are >= 2, and many are much larger than 2.
+
+2^N / N! = (2/1) * (2/2) * (2/3) * (2/4) * ... * (2/N)
+
+After the first two terms, every factor is <= 1, and from 3 onward
+the factors keep shrinking. The product approaches 0.
+```
+
+## N vs M: Multiple Inputs
+
+Do not collapse unrelated inputs into one variable.
+
+```java
+public static int countMatches(int[] a, int[] b) {
+    int count = 0;
+    for (int x : a) {
+        for (int y : b) {
+            if (x == y) count++;
+        }
+    }
+    return count;
+}
+```
+
+Calculation:
+
+```text
+CODE -> outer loop over a, inner loop over b
+executions -> N outer iterations * M inner iterations
+formula -> N * M
+simplify -> N * M
+Big-O -> O(NM), not O(N^2) unless N and M are known to be proportional
+```
+
+## Time vs Space
+
+Time counts operations. Space counts memory.
+
+| Type | What it counts | Example |
+|---|---|---|
+| Input space | Memory used by the provided input | The array passed into a method |
+| Auxiliary space | Extra memory allocated by the algorithm | A HashSet built while processing |
+| Total space | Input space plus auxiliary space | Array input plus HashSet |
+
+Most interview answers report **auxiliary space** unless asked for total space.
+
+```java
+public static int sum(int[] nums) {
+    int total = 0;
+    for (int x : nums) {
+        total += x;
+    }
+    return total;
+}
+```
+
+Calculation:
+
+```text
+CODE -> one loop over N elements
+executions -> N additions
+formula -> N
+simplify -> N
+Big-O time -> O(N)
+
+space -> one int total plus loop variable
+formula -> 2 constants
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+## Best, Average, and Worst Case
+
+The same code can have different cases.
+
+```java
+public static boolean contains(int[] nums, int target) {
+    for (int x : nums) {
+        if (x == target) return true;
+    }
+    return false;
+}
+```
+
+| Case | Executions | Formula | Big-O |
+|---|---:|---:|---|
+| Best | 1 comparison | 1 | O(1) |
+| Average | About N / 2 comparisons | N / 2 | O(N) |
+| Worst | N comparisons | N | O(N) |
+
+Interview default: if not specified, give worst case, then mention best/average when they differ.
+
+## Amortized Complexity
+
+Amortized analysis averages a sequence of operations, not random probability.
+
+Dynamic arrays are the classic example:
+
+```text
+append 1 item -> O(1)
+append another -> O(1)
+capacity full, resize and copy N items -> O(N)
+many future appends -> O(1) each
+```
+
+If capacity doubles, total copies over N appends are bounded by a geometric series:
+
+```text
+1 + 2 + 4 + 8 + ... + N/2 < N
+
+total work = N direct writes + fewer than N copied elements
+formula -> N + N
+simplify -> 2N -> N
+Big-O for N appends -> O(N)
+amortized per append -> O(N) / N = O(1)
+```
+
+## Final Complexity
+
+| Concept | Practical rule |
+|---|---|
+| Big-O | Upper bound, usually worst-case growth |
+| Theta | Tight bound |
+| Omega | Lower bound |
+| Constants | Drop them after deriving the formula |
+| N vs M | Keep independent variables separate |
+| Auxiliary space | Extra memory created by the algorithm |
+| Amortized | Average cost across an operation sequence |
+
+## Interview Explanation (20-30 sec)
+
+"I first define the input variables, then count how many times the dominant operation executes. I write the exact formula, drop constants and lower-order terms, and then state Big-O. If the input has independent sizes like N and M, I keep both. Time and auxiliary space are analyzed separately, and if an operation has occasional expensive resizes, I use amortized analysis over a sequence of operations."

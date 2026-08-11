@@ -1,0 +1,446 @@
+---
+slug: complexity-practice-problems
+title: "Complexity Practice Problems"
+description: "Practice deriving time and space complexity from 30 Java snippets across loops, recursion, graphs, heaps, maps, sorting, segment trees, and DP."
+category: Complexity
+difficulty: Advanced
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 35 min
+publishedAt: "2026-08-11"
+---
+
+## How to practice
+
+For each snippet, answer time and extra space before reading the derivation.
+Unless stated, `N` is the main input size and output space is excluded.
+
+## 1. Single scan
+
+```java
+int sum(int[] a) {
+    int s = 0;
+    for (int x : a) s += x;
+    return s;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N)`, space `O(1)`. Derivation: loop visits each of `N` elements once; work per element is constant; only `s` is extra.
+
+## 2. Two sequential scans
+
+```java
+int range(int[] a) {
+    int min = a[0], max = a[0];
+    for (int x : a) min = Math.min(min, x);
+    for (int x : a) max = Math.max(max, x);
+    return max - min;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N)`, space `O(1)`. Derivation: `N + N = 2N`, constants drop; only two variables are stored.
+
+## 3. Full nested loops
+
+```java
+int pairs(int[] a) {
+    int c = 0;
+    for (int i = 0; i < a.length; i++)
+        for (int j = 0; j < a.length; j++)
+            c++;
+    return c;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N^2)`, space `O(1)`. Derivation: for each of `N` values of `i`, `j` runs `N` times, so `N*N`.
+
+## 4. Triangular nested loops
+
+```java
+int upperTriangle(int n) {
+    int c = 0;
+    for (int i = 1; i <= n; i++)
+        for (int j = 1; j <= i; j++)
+            c++;
+    return c;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N^2)`, space `O(1)`. Derivation: total is `1+2+...+N=N(N+1)/2`, dominant term `N^2`.
+
+## 5. Logarithmic loop
+
+```java
+int countHalves(int n) {
+    int c = 0;
+    while (n > 1) {
+        n /= 2;
+        c++;
+    }
+    return c;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(log N)`, space `O(1)`. Derivation: after `k` iterations size is `N/2^k`; stop at 1, so `k=log N`.
+
+## 6. Linear times logarithmic
+
+```java
+void printLevels(int n) {
+    for (int i = 1; i < n; i *= 2)
+        for (int j = 0; j < n; j++)
+            System.out.println(i + j);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N log N)`, space `O(1)`. Derivation: outer doubles for `log N` iterations; inner runs `N` each time.
+
+## 7. Two pointers
+
+```java
+boolean hasPair(int[] a, int target) {
+    int l = 0, r = a.length - 1;
+    while (l < r) {
+        int s = a[l] + a[r];
+        if (s == target) return true;
+        if (s < target) l++; else r--;
+    }
+    return false;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N)`, space `O(1)`. Derivation: each iteration moves `l` or `r`; total pointer moves are at most `N`.
+
+## 8. Sliding window
+
+```java
+int longestAtMostK(int[] a, int k) {
+    int left = 0, sum = 0, best = 0;
+    for (int right = 0; right < a.length; right++) {
+        sum += a[right];
+        while (sum > k) sum -= a[left++];
+        best = Math.max(best, right - left + 1);
+    }
+    return best;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N)`, space `O(1)`. Derivation: `right` moves `N` times and `left` moves at most `N` times total.
+
+## 9. Sorting then scan
+
+```java
+int countUnique(int[] a) {
+    Arrays.sort(a);
+    int unique = 0;
+    for (int i = 0; i < a.length; i++)
+        if (i == 0 || a[i] != a[i - 1]) unique++;
+    return unique;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N log N)`, space sort-dependent. Derivation: sorting dominates `O(N)` scan; state Java sort assumptions.
+
+## 10. HashMap frequency
+
+```java
+Map<Integer, Integer> freq(int[] a) {
+    Map<Integer, Integer> m = new HashMap<>();
+    for (int x : a) m.put(x, m.getOrDefault(x, 0) + 1);
+    return m;
+}
+```
+
+Ask: Time + Space?
+Answer: Average time `O(N)`, worst `O(N^2)`, space `O(U)`. Derivation: `N` average `O(1)` hash updates; `U` distinct keys stored.
+
+## 11. ArrayList append
+
+```java
+List<Integer> build(int n) {
+    List<Integer> a = new ArrayList<>();
+    for (int i = 0; i < n; i++) a.add(i);
+    return a;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N)`, space `O(N)`. Derivation: appends are amortized `O(1)` because resize copies `1+2+4+...<N`.
+
+## 12. ArrayList front insertion
+
+```java
+List<Integer> buildFront(int n) {
+    List<Integer> a = new ArrayList<>();
+    for (int i = 0; i < n; i++) a.add(0, i);
+    return a;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N^2)`, space `O(N)`. Derivation: insertion at index 0 shifts current size; total `0+1+...+(N-1)`.
+
+## 13. Heap top K
+
+```java
+List<Integer> topK(int[] a, int k) {
+    PriorityQueue<Integer> pq = new PriorityQueue<>();
+    for (int x : a) {
+        pq.offer(x);
+        if (pq.size() > k) pq.poll();
+    }
+    return new ArrayList<>(pq);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N log K)`, space `O(K)`. Derivation: heap size stays at most `K`; each offer/poll costs `log K`.
+
+## 14. Heap contains
+
+```java
+boolean hasValue(PriorityQueue<Integer> pq, int target) {
+    return pq.contains(target);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N)`, space `O(1)`. Derivation: a heap only orders parent before children; arbitrary search scans storage.
+
+## 15. Binary search recursion
+
+```java
+int bs(int[] a, int lo, int hi, int x) {
+    if (lo > hi) return -1;
+    int mid = lo + (hi - lo) / 2;
+    if (a[mid] == x) return mid;
+    return a[mid] < x ? bs(a, mid + 1, hi, x) : bs(a, lo, mid - 1, x);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(log N)`, stack `O(log N)`. Derivation: recurrence `T(N)=T(N/2)+1`; depth is `log N`.
+
+## 16. Merge-sort recurrence
+
+```java
+void divide(int n) {
+    if (n <= 1) return;
+    divide(n / 2);
+    divide(n / 2);
+    for (int i = 0; i < n; i++) work(i);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N log N)`, stack `O(log N)`. Derivation: each level costs `N`; there are `log N` levels.
+
+## 17. Unbalanced recursion
+
+```java
+void shrinkOne(int n) {
+    if (n <= 0) return;
+    for (int i = 0; i < n; i++) work(i);
+    shrinkOne(n - 1);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N^2)`, stack `O(N)`. Derivation: `T(N)=T(N-1)+N`; sum is `N+(N-1)+...+1`.
+
+## 18. Binary branching recursion
+
+```java
+void branch(int i, int n) {
+    if (i == n) return;
+    branch(i + 1, n);
+    branch(i + 1, n);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(2^N)`, stack `O(N)`. Derivation: level widths are `1,2,4,...,2^N`.
+
+## 19. Generate subsets with output
+
+```java
+void subsets(int i, int[] a, List<Integer> cur, List<List<Integer>> ans) {
+    if (i == a.length) { ans.add(new ArrayList<>(cur)); return; }
+    subsets(i + 1, a, cur, ans);
+    cur.add(a[i]);
+    subsets(i + 1, a, cur, ans);
+    cur.remove(cur.size() - 1);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N*2^N)`, space including output `O(N*2^N)`. Derivation: `2^N` leaves and copying `cur` can cost up to `N`.
+
+## 20. Permutations
+
+```java
+void permute(List<Integer> a, int i) {
+    if (i == a.size()) return;
+    for (int j = i; j < a.size(); j++) {
+        Collections.swap(a, i, j);
+        permute(a, i + 1);
+        Collections.swap(a, i, j);
+    }
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N!)`, stack `O(N)`. Derivation: branching choices are `N*(N-1)*...*1`.
+
+## 21. Memoized Fibonacci
+
+```java
+int fib(int n, int[] memo) {
+    if (n <= 1) return n;
+    if (memo[n] != -1) return memo[n];
+    return memo[n] = fib(n - 1, memo) + fib(n - 2, memo);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(N)`, space `O(N)`. Derivation: there are `N+1` states, each computed once with constant transition work.
+
+## 22. 2D dynamic programming
+
+```java
+int paths(int m, int n) {
+    int[][] dp = new int[m][n];
+    for (int r = 0; r < m; r++)
+        for (int c = 0; c < n; c++)
+            dp[r][c] = r == 0 || c == 0 ? 1 : dp[r - 1][c] + dp[r][c - 1];
+    return dp[m - 1][n - 1];
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(MN)`, space `O(MN)`. Derivation: one state per grid cell; each transition is constant.
+
+## 23. DFS graph
+
+```java
+void dfs(int u, List<List<Integer>> g, boolean[] seen) {
+    seen[u] = true;
+    for (int v : g.get(u))
+        if (!seen[v]) dfs(v, g, seen);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(V+E)`, space `O(V)`. Derivation: each vertex is marked once and each adjacency entry is scanned once; stack can be `V`.
+
+## 24. BFS graph
+
+```java
+void bfs(int s, List<List<Integer>> g) {
+    boolean[] seen = new boolean[g.size()];
+    Queue<Integer> q = new ArrayDeque<>();
+    seen[s] = true; q.offer(s);
+    while (!q.isEmpty()) for (int v : g.get(q.poll())) if (!seen[v]) { seen[v] = true; q.offer(v); }
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(V+E)`, space `O(V)`. Derivation: vertices enter queue once; edges are scanned through adjacency lists; queue can hold a layer.
+
+## 25. Adjacency matrix scan
+
+```java
+void scanMatrix(boolean[][] g) {
+    for (int i = 0; i < g.length; i++)
+        for (int j = 0; j < g.length; j++)
+            if (g[i][j]) work(i, j);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(V^2)`, extra space `O(1)`. Derivation: every possible pair of vertices is checked.
+
+## 26. Dijkstra with heap
+
+```java
+void dijkstra(List<List<int[]>> g, int s) {
+    PriorityQueue<int[]> pq = new PriorityQueue<>(Comparator.comparingInt(e -> e[1]));
+    pq.offer(new int[]{s, 0});
+    while (!pq.isEmpty()) {
+        int[] cur = pq.poll();
+        for (int[] e : g.get(cur[0])) pq.offer(new int[]{e[0], cur[1] + e[1]});
+    }
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O((V+E) log E)` for this simple duplicate-push form, space `O(E)`. Derivation: up to `E` heap entries; each push/poll costs `log E`.
+
+## 27. Segment tree query
+
+```java
+int query(int node, int l, int r, int ql, int qr) {
+    if (qr < l || r < ql) return 0;
+    if (ql <= l && r <= qr) return tree[node];
+    int m = (l + r) / 2;
+    return query(node * 2, l, m, ql, qr) + query(node * 2 + 1, m + 1, r, ql, qr);
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(log N)`, stack `O(log N)`. Derivation: query visits a constant number of relevant nodes per level; tree height is `log N`.
+
+## 28. Fenwick update
+
+```java
+void add(int i, int delta, int n) {
+    for (i++; i <= n; i += i & -i) bit[i] += delta;
+}
+```
+
+Ask: Time + Space?
+Answer: Time `O(log N)`, extra space `O(1)`. Derivation: index jumps by the lowest set bit, touching at most one node per binary level.
+
+## 29. Union find
+
+```java
+int find(int x) {
+    if (parent[x] != x) parent[x] = find(parent[x]);
+    return parent[x];
+}
+```
+
+Ask: Time + Space?
+Answer: Amortized time `O(alpha(N))`, stack up to `O(log N)` with union by rank. Derivation: path compression flattens future finds; inverse Ackermann grows nearly constant.
+
+## 30. Mixed interview snippet
+
+```java
+int solve(int[] a, int k) {
+    Arrays.sort(a);
+    Map<Integer, Integer> m = new HashMap<>();
+    int ans = 0;
+    for (int x : a) {
+        ans += m.getOrDefault(k - x, 0);
+        m.put(x, m.getOrDefault(x, 0) + 1);
+    }
+    return ans;
+}
+```
+
+Ask: Time + Space?
+Answer: Average time `O(N log N)`, space `O(U)`. Derivation: sort is `O(N log N)`; `N` average `O(1)` map operations add `O(N)`; dominant term is sorting, and `U` keys are stored.
+
+## Continue the curriculum
+
+- Previous: [Complexity Cheat Sheet](/complexity/complexity-cheat-sheet)
+- Next: [Complexity Formula Sheet](/complexity/complexity-formula-sheet)
+- Framework: [Complexity Calculation Framework](/complexity/complexity-calculation-framework)

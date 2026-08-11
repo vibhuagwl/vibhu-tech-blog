@@ -1,0 +1,260 @@
+---
+slug: bfs-complexity
+title: "BFS Complexity for Trees and Graphs"
+description: "Derive breadth-first search complexity for tree queues and graph adjacency lists by counting enqueues, dequeues, vertices, and edges."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, BFS, Graphs, Trees, Queue]
+readingTime: 14 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Breadth-first search explores all nodes at distance `0`, then distance `1`, then distance `2`, and so on.
+
+We derive two common cases:
+
+| Case | Input size | Result |
+|---|---|---|
+| Tree BFS | `N` tree nodes | `O(N)` time, `O(N)` space |
+| Graph BFS | `V` vertices and `E` edges | `O(V + E)` time, `O(V)` auxiliary space |
+
+The main idea is simple: count how many times an item can enter the queue and how many adjacency entries are scanned.
+
+---
+
+## Tree BFS with a Java LinkedList queue
+
+### Problem
+
+Traverse every tree node level by level.
+
+### Java Code
+
+```java
+final class TreeNode {
+    int value;
+    TreeNode left;
+    TreeNode right;
+}
+
+static java.util.List<Integer> bfsTree(TreeNode root) {
+    java.util.List<Integer> order = new java.util.ArrayList<>();
+    if (root == null) return order;
+
+    java.util.Queue<TreeNode> queue = new java.util.LinkedList<>();
+    queue.offer(root);
+
+    while (!queue.isEmpty()) {
+        TreeNode node = queue.poll();
+        order.add(node.value);
+
+        if (node.left != null) {
+            queue.offer(node.left);
+        }
+        if (node.right != null) {
+            queue.offer(node.right);
+        }
+    }
+
+    return order;
+}
+```
+
+### Math
+
+In a tree, each non-root node has exactly one parent. That means each node is enqueued once.
+
+```text
+offer operations = N
+poll operations = N
+value visits = N
+child checks = 2N
+
+T(N) = N + N + N + 2N
+T(N) = 5N
+T(N) = O(N)
+```
+
+The use of `LinkedList` matters only if queue operations are constant time. Java `Queue.offer` and `Queue.poll` on `LinkedList` are `O(1)`, so the derivation holds.
+
+### Space
+
+The queue contains the current frontier. In a perfect binary tree, the widest level is the last level:
+
+```text
+last level size = 2^(H-1)
+total nodes N = 2^H - 1
+last level = (N + 1) / 2
+max queue size = O(N)
+```
+
+The output list also stores `N` values.
+
+### Final
+
+Tree BFS is `O(N)` time and `O(N)` auxiliary space in the worst case.
+
+### Interview Explanation
+
+"For tree BFS, every node is enqueued once and dequeued once. Queue operations are constant time, so time is linear. Space is the maximum width; a balanced tree can have about half its nodes on one level, so worst-case queue space is `O(N)`."
+
+---
+
+## Graph BFS with adjacency lists
+
+### Problem
+
+Given a graph represented as adjacency lists, visit all vertices reachable from `start`.
+
+### Java Code
+
+```java
+static java.util.List<Integer> bfsGraph(
+        java.util.List<java.util.List<Integer>> graph,
+        int start) {
+    int vertices = graph.size();
+    boolean[] visited = new boolean[vertices];
+    java.util.List<Integer> order = new java.util.ArrayList<>();
+    java.util.Queue<Integer> queue = new java.util.ArrayDeque<>();
+
+    visited[start] = true;
+    queue.offer(start);
+
+    while (!queue.isEmpty()) {
+        int vertex = queue.poll();
+        order.add(vertex);
+
+        for (int neighbor : graph.get(vertex)) {
+            if (!visited[neighbor]) {
+                visited[neighbor] = true;
+                queue.offer(neighbor);
+            }
+        }
+    }
+
+    return order;
+}
+```
+
+### Math
+
+Each vertex becomes visited at most once because `visited[neighbor] = true` happens before enqueue:
+
+```text
+vertex enqueues <= V
+vertex dequeues <= V
+vertex processing = O(V)
+```
+
+The `for` loop scans adjacency-list entries. Across the entire run:
+
+```text
+directed graph: total adjacency entries = E
+undirected graph: total adjacency entries = 2E
+edge scans = O(E)
+```
+
+Combining both parts:
+
+```text
+T(V, E) = O(V) + O(E)
+T(V, E) = O(V + E)
+```
+
+### Space
+
+Auxiliary data structures:
+
+```text
+visited[] = O(V)
+queue = O(V) worst case
+order = O(V) if returned
+```
+
+The adjacency list input itself is `O(V + E)`, but that is input storage, not extra BFS auxiliary space.
+
+### Final
+
+Graph BFS on an adjacency list is `O(V + E)` time and `O(V)` auxiliary space.
+
+### Interview Explanation
+
+"The `visited` array prevents repeated vertex processing. The outer loop processes each vertex once, and all adjacency lists together contain `E` directed entries or `2E` undirected entries. Constants disappear, so graph BFS is `O(V + E)`."
+
+---
+
+## BFS on a disconnected graph
+
+### Problem
+
+To visit every component, run BFS from each unvisited vertex.
+
+### Java Code
+
+```java
+static int countComponents(java.util.List<java.util.List<Integer>> graph) {
+    boolean[] visited = new boolean[graph.size()];
+    int components = 0;
+
+    for (int start = 0; start < graph.size(); start++) {
+        if (visited[start]) continue;
+
+        components++;
+        java.util.Queue<Integer> queue = new java.util.ArrayDeque<>();
+        visited[start] = true;
+        queue.offer(start);
+
+        while (!queue.isEmpty()) {
+            int vertex = queue.poll();
+            for (int neighbor : graph.get(vertex)) {
+                if (!visited[neighbor]) {
+                    visited[neighbor] = true;
+                    queue.offer(neighbor);
+                }
+            }
+        }
+    }
+
+    return components;
+}
+```
+
+### Math
+
+The outer loop checks `V` vertices. Across all BFS runs, no vertex is enqueued twice and no adjacency list is scanned twice:
+
+```text
+outer checks = V
+all BFS vertex work = V
+all adjacency scans = E
+T(V, E) = O(V + E)
+```
+
+### Space
+
+The same `visited` array and queue bounds apply:
+
+```text
+S_aux = O(V)
+```
+
+### Final
+
+Disconnected-graph BFS is still `O(V + E)` time and `O(V)` auxiliary space.
+
+### Interview Explanation
+
+"Starting BFS multiple times does not multiply the cost by components because the visited array partitions the work. Each vertex and edge entry is still handled a constant number of times."
+
+## Common mistakes
+
+| Mistake | Correction |
+|---|---|
+| Saying tree BFS space is `O(H)` | BFS uses a queue by width, so worst case is `O(N)` |
+| Saying graph BFS is `O(V * E)` | Edges are scanned through adjacency lists once overall |
+| Forgetting disconnected graphs | Add an outer loop, still `O(V + E)` |
+| Counting input graph as auxiliary space | Input is `O(V + E)` total storage; BFS extra space is `O(V)` |
+
+Related: [tree traversals](/complexity/tree-traversals-complexity), [DFS](/complexity/dfs-complexity), [trees and BSTs](/complexity/trees-bst-avl-complexity).

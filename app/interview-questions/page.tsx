@@ -56,7 +56,7 @@ export default function Interview(){
           <Link href="/complexity" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
             <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">DSA · Big-O</div>
             <h2 className="mt-3 text-xl font-black tracking-tight">Time & Space Complexity</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-500">Best/average/worst tables for all major data structures, plus how Big-O is calculated from code.</p>
+            <p className="mt-3 text-sm leading-7 text-slate-500">Full Java master guide: derive time/space from code — arrays through graphs, DP, practice problems, and formula sheet.</p>
             <div className="mt-4 text-sm font-bold text-blue-600">Open Complexity →</div>
           </Link>
         </section>

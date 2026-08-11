@@ -1,0 +1,238 @@
+---
+slug: recursion-tree-method
+title: "Recursion Tree Method"
+description: "Use ASCII recursion trees and level sums to derive divide-and-conquer and branching recurrence costs."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, Interview]
+readingTime: 14 min
+publishedAt: "2026-08-11"
+---
+
+## The idea
+
+A recursion tree expands a recurrence into levels.
+For each level:
+
+1. Count how many nodes are on the level.
+2. Count work per node.
+3. Multiply to get level cost.
+4. Sum all levels.
+
+This is the safest method when Master Theorem does not apply, such as `T(N)=T(N-1)+N` or `T(N)=2T(N-1)+1`.
+
+## Template
+
+| Step | Question | Example answer |
+|---|---|---|
+| 1 | What is the root cost? | `N` |
+| 2 | How many children per node? | `2` |
+| 3 | How does input shrink? | `N/2` or `N-1` |
+| 4 | What is cost at depth `d`? | nodes times work per node |
+| 5 | How many levels? | until size reaches 1 |
+| 6 | What is the sum? | arithmetic, geometric, or harmonic |
+
+## Example 1: `T(N)=2T(N/2)+N`
+
+This models merge sort: two half-size recursive calls plus linear merge.
+
+Java shape:
+
+```java
+void solve(int n) {
+    if (n <= 1) return;
+    solve(n / 2);
+    solve(n / 2);
+    doLinearWork(n);
+}
+```
+
+ASCII tree:
+
+```text
+Level 0:                 N
+                        / \
+Level 1:             N/2   N/2
+                    /  \   /  \
+Level 2:          N/4 N/4 N/4 N/4
+                 ...
+Level logN:       1  1  1  ...  1
+```
+
+Level costs:
+
+| Level | Nodes | Work per node | Level cost |
+|---:|---:|---:|---:|
+| 0 | `1` | `N` | `N` |
+| 1 | `2` | `N/2` | `N` |
+| 2 | `4` | `N/4` | `N` |
+| d | `2^d` | `N / 2^d` | `N` |
+| `log2 N` | `N` | `1` | `N` |
+
+Number of levels:
+
+```text
+N / 2^d = 1
+N = 2^d
+d = log2(N)
+```
+
+Sum:
+
+```text
+N + N + N + ... + N
+= N * (log N + 1)
+= O(N log N)
+```
+
+Extra space:
+
+```text
+height = log N
+stack = O(log N)
+```
+
+If merge sort uses a temp array, add `O(N)` extra array space.
+
+## Example 2: `T(N)=T(N-1)+N`
+
+This appears in worst-case Quick Sort or recursion that removes one item each time and scans the rest.
+
+Java shape:
+
+```java
+void solve(int n) {
+    if (n <= 1) return;
+    doLinearWork(n);
+    solve(n - 1);
+}
+```
+
+ASCII tree:
+
+```text
+Level 0:        N
+                |
+Level 1:       N-1
+                |
+Level 2:       N-2
+                |
+               ...
+                |
+Level N-1:      1
+```
+
+Level costs:
+
+| Level | Nodes | Work per node | Level cost |
+|---:|---:|---:|---:|
+| 0 | `1` | `N` | `N` |
+| 1 | `1` | `N-1` | `N-1` |
+| 2 | `1` | `N-2` | `N-2` |
+| d | `1` | `N-d` | `N-d` |
+| `N-1` | `1` | `1` | `1` |
+
+Sum:
+
+```text
+N + (N - 1) + (N - 2) + ... + 1
+= N(N + 1) / 2
+= O(N^2)
+```
+
+Extra space:
+
+```text
+height = N
+stack = O(N)
+```
+
+## Example 3: `T(N)=2T(N-1)+1`
+
+This appears when recursion branches twice but reduces size by only one each time.
+Naive include/exclude recursion has this shape.
+
+Java shape:
+
+```java
+void choose(int index, int n) {
+    if (index == n) return;
+    choose(index + 1, n); // exclude
+    choose(index + 1, n); // include
+}
+```
+
+In terms of remaining items, this is:
+
+```text
+T(N) = 2T(N - 1) + 1
+```
+
+ASCII tree:
+
+```text
+Level 0:                 1 call of size N
+                        / \
+Level 1:        2 calls of size N-1
+                / \       / \
+Level 2:  4 calls of size N-2
+          ...
+Level d:  2^d calls of size N-d
+          ...
+Level N:  2^N base calls
+```
+
+Level costs:
+
+| Level | Nodes | Work per node | Level cost |
+|---:|---:|---:|---:|
+| 0 | `1` | `1` | `1` |
+| 1 | `2` | `1` | `2` |
+| 2 | `4` | `1` | `4` |
+| d | `2^d` | `1` | `2^d` |
+| N | `2^N` | `1` | `2^N` |
+
+Sum:
+
+```text
+1 + 2 + 4 + ... + 2^N
+= 2^(N + 1) - 1
+= O(2^N)
+```
+
+Extra space:
+
+```text
+height = N
+stack = O(N)
+```
+
+If the recursion also stores every subset, output space is `O(N * 2^N)` because there are `2^N` subsets and each can contain up to `N` values.
+
+## How to choose the right sum
+
+| Recurrence shape | Tree shape | Sum | Final pattern |
+|---|---|---|---|
+| `T(N)=2T(N/2)+N` | Balanced, equal level cost | `N` repeated `log N` times | `O(N log N)` |
+| `T(N)=T(N-1)+N` | Chain, shrinking linear work | `N + ... + 1` | `O(N^2)` |
+| `T(N)=2T(N-1)+1` | Binary tree, depth N | `1 + 2 + ... + 2^N` | `O(2^N)` |
+| `T(N)=T(N/2)+1` | One branch, halving | `1` repeated `log N` times | `O(log N)` |
+| `T(N)=2T(N/2)+1` | Balanced, leaves dominate | `1 + 2 + ... + N` | `O(N)` |
+
+## Interview answer pattern
+
+```text
+I will draw the recursion tree.
+At depth d there are 2^d nodes.
+Each node has size N / 2^d, so each node costs N / 2^d.
+Level cost is 2^d * N / 2^d = N.
+There are log N levels.
+Total time is O(N log N).
+Stack space is O(log N), plus any output or helper arrays.
+```
+
+## Continue the curriculum
+
+- Previous: [Master Theorem](/complexity/master-theorem)
+- Next: [Amortized Complexity](/complexity/amortized-complexity)
+- Deep practice: [Complexity Practice Problems](/complexity/complexity-practice-problems)

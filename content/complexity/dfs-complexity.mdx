@@ -1,0 +1,303 @@
+---
+slug: dfs-complexity
+title: "DFS Complexity: Recursive, Iterative, Tree, and Graph"
+description: "Derive depth-first search complexity from node visits, edge scans, visited arrays, recursion stack, and explicit stack usage."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, DFS, Graphs, Trees, Recursion]
+readingTime: 15 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Depth-first search explores as far as possible along one path before backtracking.
+
+We derive complexity for:
+
+| Input | Time | Auxiliary space |
+|---|---:|---:|
+| Tree recursive DFS | `O(N)` | `O(H)` |
+| Tree iterative DFS | `O(N)` | `O(N)` worst case |
+| Graph DFS adjacency list | `O(V + E)` | `O(V)` |
+
+Always separate **auxiliary space** from **total space**:
+
+```text
+auxiliary space = extra structures used by the algorithm
+total space = input + output + auxiliary space
+```
+
+---
+
+## Recursive DFS on a tree
+
+### Problem
+
+Visit every node in a binary tree using recursion.
+
+### Java Code
+
+```java
+final class TreeNode {
+    int value;
+    TreeNode left;
+    TreeNode right;
+}
+
+static int sum(TreeNode node) {
+    if (node == null) return 0;
+    return node.value + sum(node.left) + sum(node.right);
+}
+```
+
+### Math
+
+For a node with left subtree size `L` and right subtree size `R`:
+
+```text
+T(N) = T(L) + T(R) + O(1)
+L + R = N - 1
+T(N) = O(N)
+```
+
+Counting directly:
+
+```text
+each real node is visited once = N
+each visit does constant work = O(1)
+T(N) = N * O(1) = O(N)
+```
+
+### Space
+
+The recursion stack contains the current path:
+
+```text
+S_aux = O(H)
+balanced tree H = O(log N)
+skewed tree H = O(N)
+```
+
+### Final
+
+Recursive tree DFS is `O(N)` time and `O(H)` auxiliary space.
+
+### Interview Explanation
+
+"DFS on a tree is linear because every node contributes one constant-time visit. The stack is not `O(N)` for every tree; it is `O(H)`, which becomes `O(log N)` if balanced and `O(N)` if skewed."
+
+---
+
+## Iterative DFS on a tree
+
+### Problem
+
+Replace recursion with an explicit stack.
+
+### Java Code
+
+```java
+static java.util.List<Integer> dfsIterative(TreeNode root) {
+    java.util.List<Integer> order = new java.util.ArrayList<>();
+    if (root == null) return order;
+
+    java.util.Deque<TreeNode> stack = new java.util.ArrayDeque<>();
+    stack.push(root);
+
+    while (!stack.isEmpty()) {
+        TreeNode node = stack.pop();
+        order.add(node.value);
+
+        if (node.right != null) stack.push(node.right);
+        if (node.left != null) stack.push(node.left);
+    }
+
+    return order;
+}
+```
+
+### Math
+
+Each node is pushed once when discovered and popped once when processed:
+
+```text
+pushes = N
+pops = N
+visits = N
+T(N) = 3N
+T(N) = O(N)
+```
+
+### Space
+
+The explicit stack stores pending nodes. It is at most `O(N)`.
+
+If the output list is returned:
+
+```text
+auxiliary stack = O(N) worst case
+output = O(N)
+total extra including output = O(N)
+```
+
+### Final
+
+Iterative tree DFS is `O(N)` time and `O(N)` worst-case auxiliary space.
+
+### Interview Explanation
+
+"Iterative DFS has the same time as recursive DFS. It can be safer for deep trees because it avoids call-stack overflow, but it still needs stack memory for pending work."
+
+---
+
+## Recursive graph DFS
+
+### Problem
+
+Visit every reachable vertex in an adjacency-list graph.
+
+### Java Code
+
+```java
+static void dfsGraph(
+        int vertex,
+        java.util.List<java.util.List<Integer>> graph,
+        boolean[] visited,
+        java.util.List<Integer> order) {
+    visited[vertex] = true;
+    order.add(vertex);
+
+    for (int neighbor : graph.get(vertex)) {
+        if (!visited[neighbor]) {
+            dfsGraph(neighbor, graph, visited, order);
+        }
+    }
+}
+```
+
+### Math
+
+The visited array ensures each vertex starts a DFS call at most once:
+
+```text
+DFS calls <= V
+constant vertex work = O(V)
+```
+
+The loop over neighbors scans adjacency entries. Across all calls:
+
+```text
+directed graph adjacency entries = E
+undirected graph adjacency entries = 2E
+edge scan work = O(E)
+```
+
+Therefore:
+
+```text
+T(V, E) = O(V) + O(E)
+T(V, E) = O(V + E)
+```
+
+### Space
+
+Auxiliary structures:
+
+```text
+visited[] = O(V)
+recursion stack = O(V) worst case
+order output = O(V) if stored
+```
+
+Input adjacency-list storage is `O(V + E)`. That is total input space, not DFS auxiliary space.
+
+### Final
+
+Graph DFS is `O(V + E)` time and `O(V)` auxiliary space.
+
+### Interview Explanation
+
+"For adjacency lists, DFS is vertices plus edges. `visited` prevents repeated DFS calls, and the neighbor loops collectively scan every adjacency entry once."
+
+---
+
+## Iterative graph DFS
+
+### Problem
+
+Use a stack instead of recursion to traverse a graph.
+
+### Java Code
+
+```java
+static java.util.List<Integer> dfsGraphIterative(
+        java.util.List<java.util.List<Integer>> graph,
+        int start) {
+    boolean[] visited = new boolean[graph.size()];
+    java.util.List<Integer> order = new java.util.ArrayList<>();
+    java.util.Deque<Integer> stack = new java.util.ArrayDeque<>();
+
+    stack.push(start);
+
+    while (!stack.isEmpty()) {
+        int vertex = stack.pop();
+        if (visited[vertex]) continue;
+
+        visited[vertex] = true;
+        order.add(vertex);
+
+        for (int neighbor : graph.get(vertex)) {
+            if (!visited[neighbor]) {
+                stack.push(neighbor);
+            }
+        }
+    }
+
+    return order;
+}
+```
+
+### Math
+
+If vertices are marked only when popped, the same vertex may be pushed more than once by different parents. With adjacency lists, the number of such pushes is still bounded by edge scans:
+
+```text
+edge scans = O(E)
+stack pushes <= O(E)
+vertex final visits = O(V)
+T(V, E) = O(V + E)
+```
+
+If you mark on push instead, each vertex is pushed once and the result is also `O(V + E)`.
+
+### Space
+
+```text
+visited[] = O(V)
+stack = O(V) to O(E) depending on duplicate push policy
+output = O(V)
+```
+
+The common interview answer with mark-on-push is `O(V)` auxiliary space.
+
+### Final
+
+Iterative graph DFS is `O(V + E)` time. Auxiliary space is `O(V)` with mark-on-push; careless duplicate pushes can temporarily grow toward `O(E)`.
+
+### Interview Explanation
+
+"The clean version marks vertices when they are discovered, so each vertex enters the stack once. Even with pop-time marking, the work is still bounded by adjacency scans, but the stack bound is less clean."
+
+## Auxiliary vs total space
+
+| Component | Counts as auxiliary? | Size |
+|---|---:|---:|
+| Input adjacency list | No | `O(V + E)` |
+| Input tree nodes | No | `O(N)` |
+| `visited[]` | Yes | `O(V)` |
+| Recursion stack | Yes | `O(V)` graph, `O(H)` tree |
+| Explicit stack | Yes | `O(V)` typical |
+| Returned order list | Usually output | `O(V)` or `O(N)` |
+
+Related: [BFS](/complexity/bfs-complexity), [tree traversals](/complexity/tree-traversals-complexity), [recursion](/complexity/recursion-complexity).

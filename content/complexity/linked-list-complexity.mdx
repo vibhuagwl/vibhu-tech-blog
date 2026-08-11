@@ -1,0 +1,398 @@
+---
+slug: linked-list-complexity
+title: "Linked List Complexity"
+description: "Complexity of singly, doubly, and circular linked lists, including access, search, insert, delete, Java LinkedList, and reversal."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Linked List, Data Structures]
+readingTime: 19 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+A linked list stores elements in nodes connected by references.
+
+```text
+singly:
+head -> [A|next] -> [B|next] -> [C|null]
+
+doubly:
+null <- [prev|A|next] <-> [prev|B|next] <-> [prev|C|next] -> null
+
+circular:
+head -> [A] -> [B] -> [C]
+         ^             |
+         |-------------|
+```
+
+Unlike arrays, nodes are not contiguous. That means no direct formula like `base + index * size`.
+
+See the array contrast at [/complexity/arrays-complexity](/complexity/arrays-complexity).
+
+## Complexity Table
+
+| Operation | Singly | Doubly | Circular | Why |
+|---|---:|---:|---:|---|
+| Access by index | O(N) | O(N) | O(N) | follow links |
+| Search by value | O(N) | O(N) | O(N) | may scan all nodes |
+| Insert at head | O(1) | O(1) | O(1) | pointer changes |
+| Insert at tail with tail pointer | O(1) | O(1) | O(1) | tail known |
+| Insert at tail without tail pointer | O(N) | O(N) | O(N) | must find tail |
+| Insert after known node | O(1) | O(1) | O(1) | local pointer changes |
+| Delete known node | O(N) singly if previous unknown | O(1) | O(1) with predecessor/tail handling |
+| Delete by value | O(N) | O(N) | O(N) | search first |
+| Reverse | O(N) | O(N) | O(N) | visit each node |
+
+## Access by Index
+
+### Problem
+
+Return the value at index `k`.
+
+### Java Code
+
+```java
+public static int getAt(Node head, int index) {
+    Node current = head;
+    for (int i = 0; i < index; i++) {
+        current = current.next;
+    }
+    return current.value;
+}
+
+static class Node {
+    int value;
+    Node next;
+
+    Node(int value) {
+        this.value = value;
+    }
+}
+```
+
+### Mathematical Calculation
+
+Worst case index is `N - 1`.
+
+```text
+CODE -> move one link at a time from head to index
+executions -> index pointer hops
+formula -> N - 1 in worst case
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+extra variables -> current and i
+formula -> 2
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Time | Auxiliary Space |
+|---|---|
+| O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"A linked list has no constant-time address calculation for index k. To access index k, we start at head and follow k next pointers. In the worst case k is N minus one, so the formula is N minus one, which simplifies to O(N). Extra space is O(1)."
+
+## Search by Value
+
+### Problem
+
+Find whether a value exists in the list.
+
+### Java Code
+
+```java
+public static boolean contains(Node head, int target) {
+    for (Node current = head; current != null; current = current.next) {
+        if (current.value == target) return true;
+    }
+    return false;
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> visit nodes until target is found or list ends
+executions -> worst case N comparisons
+formula -> N
+simplify -> N
+Big-O -> O(N)
+```
+
+Average case:
+
+```text
+CODE -> target equally likely in any position
+executions -> (1 + 2 + ... + N) / N
+formula -> (N(N + 1) / 2) / N
+simplify -> (N + 1) / 2 -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+extra variables -> current
+formula -> 1
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Interview Explanation (20-30 sec)
+
+"Search is linear because the list is only connected by links. Best case is O(1) at the head, but worst case is absent or last, requiring N comparisons. Average is about N/2, which is still O(N)."
+
+## Insert Operations
+## Insert Operations
+
+### Problem
+
+Insert at the head, tail, or after a known node.
+
+### Java Code
+
+```java
+public static Node insertHead(Node head, int value) {
+    Node node = new Node(value);
+    node.next = head;
+    return node;
+}
+
+public static void insertAfter(Node previous, int value) {
+    Node node = new Node(value);
+    node.next = previous.next;
+    previous.next = node;
+}
+```
+
+### Mathematical Calculation
+
+Known location:
+
+```text
+CODE -> allocate node and rewrite a constant number of pointers
+executions -> at most 3 pointer operations
+formula -> 3
+simplify -> constant
+Big-O -> O(1)
+```
+
+Location must be found first:
+
+```text
+CODE -> search by index/value, then perform constant pointer insert
+executions -> N search steps + 3 pointer operations
+formula -> N + 3
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+new node -> 1 allocation
+formula -> 1
+simplify -> constant per insertion
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Scenario | Time | Auxiliary Space |
+|---|---:|---:|
+| Insert head | O(1) | O(1) |
+| Insert tail with tail pointer | O(1) | O(1) |
+| Insert after known node | O(1) | O(1) |
+| Insert by index/value | O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"Linked-list insertion is O(1) only when the insertion location is already known, because it just rewrites a few pointers. If the API gives an index or value, we first traverse up to N nodes, so the total becomes O(N)."
+
+## Delete: Known Node vs Search First
+
+### Problem
+
+Remove a node from a singly or doubly linked list.
+
+### Java Code
+
+```java
+public static void deleteKnownDoublyNode(DoublyNode node) {
+    if (node.prev != null) node.prev.next = node.next;
+    if (node.next != null) node.next.prev = node.prev;
+}
+```
+
+### Mathematical Calculation
+
+Known doubly node or known singly predecessor:
+
+```text
+CODE -> update neighboring references
+executions -> at most 2 pointer writes
+formula -> 2
+simplify -> constant
+Big-O -> O(1)
+```
+
+Delete by value or index:
+
+```text
+CODE -> traverse until target, then unlink
+executions -> up to N comparisons + constant unlink
+formula -> N + 2
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+extra references -> current and previous
+formula -> 2
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Scenario | Time | Auxiliary Space |
+|---|---:|---:|
+| Doubly node known | O(1) | O(1) |
+| Singly previous known | O(1) | O(1) |
+| Delete by value/index | O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"Deletion is constant when the necessary neighboring references are already available. If we only know a value or index, the list must be searched first. That adds up to N visits, so delete-by-value or delete-by-index is O(N)."
+
+## Singly, Doubly, Circular, and Java LinkedList
+
+| Structure | Extra links | Strength | Cost implication |
+|---|---:|---|---|
+| Singly | one `next` | minimal memory | cannot move backward |
+| Doubly | `prev` and `next` | O(1) unlink with known node | more memory per node |
+| Circular singly | tail points to head | round-robin traversal | must stop when returning to head |
+| Circular doubly | cycle with prev/next | deque-like operations | more pointer updates |
+
+Circular traversal:
+
+```java
+public static int sizeCircular(Node head) {
+    if (head == null) return 0;
+    int count = 0;
+    Node current = head;
+    do {
+        count++;
+        current = current.next;
+    } while (current != head);
+    return count;
+}
+```
+
+```text
+CODE -> visit each node exactly once and stop at head
+executions -> N visits
+formula -> N
+simplify -> N
+Big-O -> O(N)
+```
+
+Java `LinkedList<E>` is doubly linked and implements `Deque<E>`. `addFirst`, `addLast`, `removeFirst`, and `removeLast` are O(1). `contains(value)` is O(N). `get(index)` starts from the nearer end, but:
+
+```text
+CODE -> traverse from closer end
+executions -> min(index, N - 1 - index)
+formula -> at most N / 2
+simplify -> N
+Big-O -> O(N)
+```
+
+## Reverse a Linked List
+## Reverse a Linked List
+
+### Problem
+
+Reverse all links in a singly linked list.
+
+### Java Code
+
+```java
+public static Node reverse(Node head) {
+    Node previous = null;
+    Node current = head;
+
+    while (current != null) {
+        Node next = current.next;
+        current.next = previous;
+        previous = current;
+        current = next;
+    }
+
+    return previous;
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> each node's next pointer is rewritten exactly once
+executions -> N nodes * constant pointer operations
+formula -> 4N + 2
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+extra variables -> previous, current, next
+formula -> 3
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+Recursive reversal would use a call stack:
+
+```text
+CODE -> one recursive call per node
+executions -> N stack frames
+formula -> N
+simplify -> N
+Big-O auxiliary space -> O(N)
+```
+
+### Final Complexity
+
+| Version | Time | Auxiliary Space |
+|---|---|---|
+| Iterative reverse | O(N) | O(1) |
+| Recursive reverse | O(N) | O(N) |
+
+### Interview Explanation (20-30 sec)
+
+"Reversal visits each node once and changes its next pointer once. The work is a constant amount per node, so the formula is c times N plus constants, which simplifies to O(N). The iterative version uses three references regardless of list size, so auxiliary space is O(1)."
+
+## Final Complexity
+
+| Operation | Time | Key derivation |
+|---|---:|---|
+| Access index | O(N) | up to N - 1 hops |
+| Search value | O(N) | up to N comparisons |
+| Insert head | O(1) | constant pointer rewrites |
+| Insert after known node | O(1) | constant pointer rewrites |
+| Insert by index/value | O(N) | search plus O(1) insert |
+| Delete known doubly node | O(1) | local prev/next rewrites |
+| Delete by value | O(N) | search plus O(1) unlink |
+| Reverse | O(N) | one pointer rewrite per node |

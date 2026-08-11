@@ -1,0 +1,293 @@
+---
+slug: recursion-complexity
+title: "Recursion Complexity: Recurrences, Stack Space, and Recursion Trees"
+description: "Derive recursive algorithm complexity with linear, binary, divide-and-conquer, tail, and tree recursion patterns."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, Recursion, Recurrence, Master Theorem]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Recursive complexity comes from two questions:
+
+```text
+How many recursive calls are made?
+How much work happens outside those calls?
+```
+
+A recurrence writes that relationship mathematically. Then we simplify it into Big-O.
+
+| Pattern | Recurrence | Big-O |
+|---|---:|---:|
+| Linear recursion | `T(n) = T(n - 1) + O(1)` | `O(n)` |
+| Binary tree recursion | `T(n) = 2T(n - 1) + O(1)` | `O(2^n)` |
+| Divide and conquer | `T(n) = 2T(n / 2) + O(n)` | `O(n log n)` |
+| Tail recursion | Often `T(n) = T(n - 1) + O(1)` | `O(n)` |
+
+---
+
+## Linear recursion
+
+### Problem
+
+Compute a sum from `1` to `n` recursively.
+
+### Java Code
+
+```java
+static int sumToN(int n) {
+    if (n == 0) return 0;
+    return n + sumToN(n - 1);
+}
+```
+
+### Math
+
+Each call makes one smaller call and does constant work:
+
+```text
+T(n) = T(n - 1) + O(1)
+T(n) = T(n - 2) + O(1) + O(1)
+T(n) = T(n - 3) + 3 * O(1)
+...
+T(n) = T(0) + n * O(1)
+T(n) = O(n)
+```
+
+### Space
+
+There are `n + 1` active calls before the base case returns:
+
+```text
+S(n) = O(n)
+```
+
+### Final
+
+Linear recursion is `O(n)` time and `O(n)` stack space.
+
+### Interview Explanation
+
+"One recursive call per level creates a chain, not a tree. There are `n` levels and constant work per level, so time is linear. The call stack is also linear."
+
+---
+
+## Tail recursion
+
+### Problem
+
+Tail recursion places the recursive call as the final action.
+
+### Java Code
+
+```java
+static int factorialTail(int n, int acc) {
+    if (n <= 1) return acc;
+    return factorialTail(n - 1, acc * n);
+}
+```
+
+### Math
+
+The recurrence is still a single chain:
+
+```text
+T(n) = T(n - 1) + O(1)
+T(n) = O(n)
+```
+
+### Space
+
+Java does not guarantee tail-call optimization:
+
+```text
+Java stack space = O(n)
+```
+
+In languages with guaranteed tail-call elimination, the stack can become `O(1)`.
+
+### Final
+
+Tail-recursive Java code is usually `O(n)` time and `O(n)` stack space.
+
+### Interview Explanation
+
+"Tail recursion improves readability in some languages, but in Java I should still count the call stack unless I convert it to a loop."
+
+---
+
+## Binary tree recursion
+
+### Problem
+
+A function that branches into two calls of size `n - 1` creates an exponential recursion tree.
+
+### Java Code
+
+```java
+static int slowFib(int n) {
+    if (n <= 1) return n;
+    return slowFib(n - 1) + slowFib(n - 2);
+}
+```
+
+This exact Fibonacci recurrence is `T(n) = T(n - 1) + T(n - 2) + O(1)`, which is exponential. The simpler upper-bound pattern is:
+
+```text
+T(n) = 2T(n - 1) + O(1)
+```
+
+### Math
+
+Expand the simpler binary pattern:
+
+```text
+level 0 calls = 1
+level 1 calls = 2
+level 2 calls = 4
+...
+level n calls = 2^n
+
+total calls = 1 + 2 + 4 + ... + 2^n
+total calls = 2^(n + 1) - 1
+T(n) = O(2^n)
+```
+
+### Space
+
+Even though the total number of calls is exponential, the maximum active depth is only `n`:
+
+```text
+S(n) = O(n)
+```
+
+### Final
+
+Binary branching recursion can be `O(2^n)` time and `O(n)` stack space.
+
+### Interview Explanation
+
+"Do not confuse total calls with stack depth. The recursion tree has exponentially many nodes, but a depth-first execution keeps only one root-to-leaf path active."
+
+---
+
+## Divide and conquer recursion
+
+### Problem
+
+Merge sort splits the input in half, solves both halves, then merges linearly.
+
+### Java Code
+
+```java
+static void mergeSort(int[] nums, int left, int right, int[] buffer) {
+    if (left >= right) return;
+
+    int mid = left + (right - left) / 2;
+    mergeSort(nums, left, mid, buffer);
+    mergeSort(nums, mid + 1, right, buffer);
+    merge(nums, left, mid, right, buffer);
+}
+
+static void merge(int[] nums, int left, int mid, int right, int[] buffer) {
+    int i = left;
+    int j = mid + 1;
+    int k = left;
+
+    while (i <= mid && j <= right) {
+        buffer[k++] = nums[i] <= nums[j] ? nums[i++] : nums[j++];
+    }
+    while (i <= mid) buffer[k++] = nums[i++];
+    while (j <= right) buffer[k++] = nums[j++];
+    for (int p = left; p <= right; p++) nums[p] = buffer[p];
+}
+```
+
+### Math
+
+Two subproblems of half size plus linear merge work:
+
+```text
+T(n) = 2T(n / 2) + O(n)
+```
+
+Use a recursion tree:
+
+```text
+level 0 work = n
+level 1 work = 2 * (n / 2) = n
+level 2 work = 4 * (n / 4) = n
+...
+number of levels = log2 n
+total work = n * log2 n
+T(n) = O(n log n)
+```
+
+### Space
+
+Merge sort uses a buffer plus recursion stack:
+
+```text
+buffer = O(n)
+stack depth = O(log n)
+S_aux = O(n)
+```
+
+### Final
+
+`T(n) = 2T(n / 2) + O(n)` gives `O(n log n)` time and `O(n)` auxiliary space for merge sort.
+
+### Interview Explanation
+
+"Each level of the recursion tree does `n` total merge work, and there are `log n` levels because the array halves each time."
+
+---
+
+## Master theorem preview
+
+### Problem
+
+For divide-and-conquer recurrences:
+
+```text
+T(n) = aT(n / b) + f(n)
+```
+
+`a` is the number of subproblems, `b` is the shrink factor, and `f(n)` is non-recursive work.
+
+### Math
+
+Compare `f(n)` with `n^(log_b a)`.
+
+| Recurrence | Comparison | Result |
+|---|---|---|
+| `T(n) = T(n / 2) + O(1)` | `f(n)` smaller | `O(log n)` |
+| `T(n) = 2T(n / 2) + O(n)` | equal | `O(n log n)` |
+| `T(n) = 2T(n / 2) + O(1)` | `f(n)` smaller | `O(n)` |
+| `T(n) = 2T(n / 2) + O(n^2)` | `f(n)` larger | `O(n^2)` |
+
+### Space
+
+Master theorem is about time. Space still requires separate stack and auxiliary-memory analysis.
+
+### Final
+
+Use the master theorem for standard balanced divide-and-conquer recurrences, then separately derive memory.
+
+### Interview Explanation
+
+"I first write `a`, `b`, and `f(n)`. Then I compare combine work with the leaf expansion term. For interviews, a recursion tree explanation is often clearer than naming theorem cases."
+
+## Quick checklist
+
+| Code shape | Formula | Big-O |
+|---|---:|---:|
+| One call on `n - 1` | `T(n)=T(n-1)+O(1)` | `O(n)` |
+| Two calls on `n - 1` | `T(n)=2T(n-1)+O(1)` | `O(2^n)` |
+| Two calls on `n / 2`, linear merge | `T(n)=2T(n/2)+O(n)` | `O(n log n)` |
+| One call on `n / 2` | `T(n)=T(n/2)+O(1)` | `O(log n)` |
+
+Related: [backtracking](/complexity/backtracking-complexity), [dynamic programming](/complexity/dynamic-programming-complexity), [binary search](/complexity/binary-search-derived).

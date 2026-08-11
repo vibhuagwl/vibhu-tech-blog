@@ -1,0 +1,347 @@
+---
+slug: heap-priorityqueue-complexity
+title: "Heap and Java PriorityQueue Complexity"
+description: "Derive Java PriorityQueue operation costs and prove why build-heap is O(N), not O(N log N), using the sum of node heights."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, Heap, PriorityQueue, Data Structures]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Java `PriorityQueue` is a binary heap. By default it is a min-heap, so the smallest element is at the root.
+
+| Operation | Heap action |
+|---|---|
+| `offer` / `add` | Append, then sift up |
+| `peek` | Read root |
+| `poll` | Remove root, replace with last, sift down |
+| `remove(Object)` | Find by scan, then repair heap |
+| `contains(Object)` | Scan array |
+| Build from collection | Bottom-up heapify |
+
+---
+
+## Heap height
+
+### Problem
+
+Most heap operations are bounded by heap height.
+
+### Java Code
+
+```java
+java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>();
+pq.offer(10);
+pq.offer(3);
+pq.offer(7);
+```
+
+### Math
+
+A binary heap is complete:
+
+```text
+N <= 1 + 2 + 4 + ... + 2^h
+N <= 2^(h + 1) - 1
+h = O(log N)
+```
+
+### Space
+
+The internal array stores `N` elements; individual operations use `O(1)` auxiliary space.
+
+### Final
+
+Heap height is `O(log N)`.
+
+### Interview Explanation
+
+"A complete tree cannot become a chain, so root-to-leaf movement is logarithmic."
+
+---
+
+## offer and add
+
+### Problem
+
+Insert an element.
+
+### Java Code
+
+```java
+static void addValues(java.util.PriorityQueue<Integer> pq) {
+    pq.offer(5);
+    pq.add(2);
+}
+```
+
+Conceptual sift-up:
+
+```java
+while (index > 0 && heap[parent(index)] > heap[index]) {
+    swap(heap, index, parent(index));
+    index = parent(index);
+}
+```
+
+### Math
+
+The inserted item moves up at most one root-to-leaf path:
+
+```text
+iterations <= height = O(log N)
+work per iteration = O(1)
+T(N) = O(log N)
+```
+
+Backing-array growth may copy elements occasionally, but insertion remains amortized `O(log N)`.
+
+### Space
+
+Auxiliary space is `O(1)`.
+
+### Final
+
+`offer` and `add` are `O(log N)` time and `O(1)` auxiliary space.
+
+### Interview Explanation
+
+"Append preserves completeness; sift-up restores heap order over at most `log N` levels."
+
+---
+
+## peek
+
+### Problem
+
+Read the priority element without removing it.
+
+### Java Code
+
+```java
+static Integer min(java.util.PriorityQueue<Integer> pq) {
+    return pq.peek();
+}
+```
+
+### Math
+
+The root is stored at array index `0`:
+
+```text
+one array read = O(1)
+```
+
+### Space
+
+Auxiliary space is `O(1)`.
+
+### Final
+
+`peek` is `O(1)`.
+
+### Interview Explanation
+
+"The heap invariant makes the root globally minimal."
+
+---
+
+## poll
+
+### Problem
+
+Remove and return the priority element.
+
+### Java Code
+
+```java
+static Integer removeMin(java.util.PriorityQueue<Integer> pq) {
+    return pq.poll();
+}
+```
+
+Conceptual sift-down:
+
+```java
+while (node has a smaller child) {
+    swap(node, smallerChild);
+    node = smallerChild;
+}
+```
+
+### Math
+
+After replacing the root with the last element, the replacement may move down:
+
+```text
+levels moved <= height = O(log N)
+constant comparisons per level
+T(N) = O(log N)
+```
+
+### Space
+
+Auxiliary space is `O(1)`.
+
+### Final
+
+`poll` is `O(log N)` time and `O(1)` auxiliary space.
+
+### Interview Explanation
+
+"Removal repairs one path from root downward, so the height controls the cost."
+
+---
+
+## contains and remove(Object)
+
+### Problem
+
+Find or remove an arbitrary value, not necessarily the root.
+
+### Java Code
+
+```java
+static boolean hasValue(java.util.PriorityQueue<Integer> pq, int value) {
+    return pq.contains(value);
+}
+
+static boolean deleteValue(java.util.PriorityQueue<Integer> pq, int value) {
+    return pq.remove(value);
+}
+```
+
+### Math
+
+A heap is not a sorted array:
+
+```text
+contains scan = O(N)
+remove(Object) = find O(N) + repair O(log N)
+remove(Object) = O(N)
+```
+
+### Space
+
+Auxiliary space is `O(1)`.
+
+### Final
+
+`contains` and `remove(Object)` are `O(N)`.
+
+### Interview Explanation
+
+"The heap only tells me parent priority relative to children. It gives no binary-search rule for arbitrary lookup."
+
+---
+
+## VERY IMPORTANT: why build-heap is O(N), not O(N log N)
+
+### Problem
+
+Repeated `offer` is `O(N log N)`, but bottom-up heapify is `O(N)`.
+
+### Java Code
+
+```java
+static void buildHeap(int[] heap) {
+    for (int i = heap.length / 2 - 1; i >= 0; i--) {
+        siftDown(heap, i, heap.length);
+    }
+}
+```
+
+Java's `PriorityQueue(Collection)` uses heapify-style construction for the initial collection.
+
+### Math
+
+The loose argument is:
+
+```text
+N nodes * O(log N) each = O(N log N)
+```
+
+But most nodes are near leaves and have tiny height:
+
+```text
+nodes of height 0 <= N/2
+nodes of height 1 <= N/4
+nodes of height 2 <= N/8
+...
+nodes of height h <= N / 2^(h + 1)
+```
+
+Sum each node's possible sift-down distance:
+
+```text
+total work <= N * sum(h / 2^(h + 1))
+sum(h / 2^h) = 2
+sum(h / 2^(h + 1)) = 1
+total work <= N * constant
+T(N) = O(N)
+```
+
+### Space
+
+Bottom-up heapify rearranges the existing array with `O(1)` auxiliary space.
+
+### Final
+
+Build-heap is `O(N)`, not `O(N log N)`. Building by `N` separate inserts is `O(N log N)`.
+
+### Interview Explanation
+
+"Only the root can move `log N` levels. Half the nodes are leaves and move zero levels. Summing heights across all nodes gives a linear total."
+
+---
+
+## K largest pattern
+
+### Problem
+
+Keep only the top `K` elements using a min-heap.
+
+### Java Code
+
+```java
+static int kthLargest(int[] nums, int k) {
+    java.util.PriorityQueue<Integer> heap = new java.util.PriorityQueue<>();
+    for (int x : nums) {
+        heap.offer(x);
+        if (heap.size() > k) heap.poll();
+    }
+    return heap.peek();
+}
+```
+
+### Math
+
+The heap size never exceeds `K`:
+
+```text
+N offers * O(log K)
+up to N polls * O(log K)
+T(N,K) = O(N log K)
+```
+
+### Space
+The heap stores at most `K` values: `O(K)`.
+### Final
+Top-`K` heap algorithms are often `O(N log K)` time and `O(K)` space.
+### Interview Explanation
+"The logarithm is over heap size `K`, not total input size `N`."
+## Summary table
+| Java `PriorityQueue` operation | Time | Auxiliary space | Why |
+|---|---:|---:|---|
+| `offer(e)` | `O(log N)` amortized | `O(1)` | Sift up |
+| `add(e)` | `O(log N)` amortized | `O(1)` | Same heap insertion |
+| `peek()` | `O(1)` | `O(1)` | Read root |
+| `poll()` | `O(log N)` | `O(1)` | Sift down |
+| `contains(o)` | `O(N)` | `O(1)` | Linear scan |
+| `remove(o)` | `O(N)` | `O(1)` | Scan dominates |
+| Build from collection | `O(N)` | `O(N)` storage | Bottom-up heapify |
+| Repeated inserts | `O(N log N)` | `O(N)` storage | `N` sift-ups |
+Related: [sorting derivations](/complexity/sorting-algorithms-derived), [trees and BSTs](/complexity/trees-bst-avl-complexity), [BFS](/complexity/bfs-complexity).

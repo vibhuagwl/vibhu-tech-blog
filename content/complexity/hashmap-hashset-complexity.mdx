@@ -1,0 +1,350 @@
+---
+slug: hashmap-hashset-complexity
+title: "HashMap & HashSet Complexity (Derived)"
+description: "Derive average O(1) and worst O(N) HashMap/HashSet operations, collisions, load factor, rehashing, and Java treeify behavior."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, HashMap, HashSet]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Goal
+
+`HashMap` and `HashSet` are usually summarized as average O(1).
+This article derives that answer from buckets, hash functions, collisions, load factor, and resizing.
+It also explains why the worst case can still be O(N), and what Java 17 treeified buckets change.
+
+Definitions:
+
+- `N`: stored entries
+- `M`: bucket count
+- `K`: entries in one selected bucket
+- `alpha = N / M`: load factor
+
+## Bucket Model
+
+A hash table stores entries in an array of buckets.
+
+```text
+key -> hashCode() -> spread bits -> bucket index
+
+0: .
+1: (cat, 1) -> (tac, 5)
+2: .
+3: (dog, 2)
+```
+
+Array indexing is O(1).
+The cost after that is the cost of searching or updating one bucket.
+
+## Java 17 Hash Function Sketch
+
+This is a simplified version of the bucket-index idea used by Java's `HashMap`.
+
+```java
+static int bucketIndex(Object key, int capacity) {
+    int h = key.hashCode();
+    int spread = h ^ (h >>> 16);
+    return spread & (capacity - 1);
+}
+```
+
+For fixed-size keys:
+
+```text
+hash key -> O(1)
+spread integer bits -> O(1)
+mask to array index -> O(1)
+Big-O -> O(1)
+```
+
+For a `String` of length `L`, computing the hash may cost O(L).
+Many interview answers assume fixed-size keys, then bucket operations dominate.
+
+## Collision Derivation
+
+A collision means multiple keys land in the same bucket.
+
+```text
+bucket b: e1 -> e2 -> e3 -> ... -> eK
+```
+
+Searching this bucket costs:
+
+```text
+compare candidate entries -> K
+bucket scan -> O(K)
+whole operation -> O(1) hash + O(K) bucket work
+Big-O -> O(1 + K)
+```
+
+Every HashMap/HashSet operation starts from this formula.
+To get average O(1), we need expected `K` to be constant.
+
+## Load Factor Derivation
+
+Load factor is:
+
+```text
+alpha = N / M
+```
+
+Example:
+
+```text
+12 entries / 16 buckets = 0.75
+```
+
+Java's default `HashMap` load factor is `0.75`.
+When the size passes `capacity * loadFactor`, the table resizes.
+With a good hash function:
+
+```text
+expected bucket size = N / M
+expected bucket size = alpha
+```
+
+Because resizing keeps `alpha` bounded:
+
+```text
+O(1 + expected K)
+= O(1 + alpha)
+= O(1 + constant)
+= O(1)
+```
+
+That is the derivation for average O(1).
+Load factor does not prevent a malicious or broken hash function from putting all keys in one bucket.
+
+## `get` and `containsKey`
+
+`containsKey` is a lookup just like `get`; it returns a boolean instead of a value.
+
+```java
+import java.util.Map;
+
+static int countOf(Map<String, Integer> counts, String word) {
+    return counts.getOrDefault(word, 0);
+}
+
+static boolean hasWord(Map<String, Integer> counts, String word) {
+    return counts.containsKey(word);
+}
+```
+
+Average case:
+
+```text
+hash -> O(1)
+choose bucket -> O(1)
+scan expected bucket length alpha -> O(alpha)
+alpha is bounded -> O(1)
+Big-O -> O(1)
+```
+
+Worst case:
+
+```text
+all N keys collide
+lookup key is last or absent
+comparisons -> N
+Big-O -> O(N)
+```
+
+So `get` and `containsKey` are average O(1), worst O(N).
+
+## `put`
+
+`put` inserts a new entry or updates an existing key.
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+static Map<String, Integer> frequencies(String[] words) {
+    Map<String, Integer> counts = new HashMap<>();
+    for (String word : words) {
+        counts.put(word, counts.getOrDefault(word, 0) + 1);
+    }
+    return counts;
+}
+```
+
+Normal put without resize:
+
+```text
+hash and choose bucket -> O(1)
+search bucket for existing key -> O(K)
+write new value or entry -> O(1)
+total -> O(1 + K)
+```
+
+Average case:
+
+```text
+expected K = alpha
+alpha is bounded
+O(1 + K) -> O(1)
+```
+
+Worst collision case:
+
+```text
+K = N
+must scan N collided entries before insert/update
+Big-O -> O(N)
+```
+
+If this operation triggers resizing, it may move all existing entries:
+
+```text
+move N entries -> O(N)
+single resize put -> O(N)
+```
+
+Precise result: `put` is average amortized O(1), but one operation can be O(N).
+
+## `remove`
+
+`remove` first finds the key, then unlinks the entry.
+
+```java
+import java.util.Map;
+
+static boolean removeWord(Map<String, Integer> counts, String word) {
+    return counts.remove(word) != null;
+}
+```
+
+Average case:
+
+```text
+lookup expected constant bucket -> O(1)
+unlink entry -> O(1)
+Big-O -> O(1)
+```
+
+Worst case:
+
+```text
+all entries collide into one bucket
+scan N entries before hit or miss
+unlink after scan is constant
+Big-O -> O(N)
+```
+
+## Rehashing and Amortized Resizing
+
+Rehashing means entries are placed into a new, larger bucket array.
+A single resize costs O(N), because existing entries must be visited.
+
+Assume capacity doubles.
+Across many inserts, resize copy sizes are bounded by:
+
+```text
+1 + 2 + 4 + 8 + ... + N < 2N
+```
+
+Add ordinary insert work:
+
+```text
+N normal inserts -> N
+all resize moves -> less than 2N
+total -> less than 3N
+Big-O for N inserts -> O(N)
+amortized per insert -> O(N) / N = O(1)
+```
+
+This is why resizing is expensive once, but `put` remains amortized O(1).
+
+## Java HashMap Treeify Behavior
+
+Java 17 `HashMap` can convert a crowded bucket from a linked list into a red-black tree when the bucket is large enough and the table has enough capacity.
+Conceptually:
+
+```text
+linked bucket lookup -> O(K)
+treeified bucket lookup -> O(log K)
+```
+
+Derivation:
+
+```text
+balanced tree height with K nodes -> O(log K)
+search follows one root-to-leaf path
+Big-O -> O(log K), bounded by O(log N)
+```
+
+Treeification improves heavy collision buckets.
+The broad worst-case answer is still often stated as O(N) unless the question specifically asks about Java's tree bins.
+
+## HashSet as a HashMap Wrapper
+
+`HashSet` stores membership only.
+Conceptually, it stores each set element as a key in a `HashMap` with a dummy value.
+
+```text
+set.add(x) -> map.put(x, dummy)
+set.contains(x) -> map.containsKey(x)
+set.remove(x) -> map.remove(x)
+```
+
+Java 17 example:
+
+```java
+import java.util.HashSet;
+import java.util.Set;
+
+static int uniqueCount(int[] nums) {
+    Set<Integer> seen = new HashSet<>();
+    for (int x : nums) {
+        seen.add(x);
+    }
+    return seen.size();
+}
+```
+
+Build average case:
+
+```text
+N values
+add average amortized -> O(1)
+total -> N * O(1)
+Big-O -> O(N)
+```
+
+Build worst collision case:
+
+```text
+bucket scans grow as 0 + 1 + 2 + ... + (N - 1)
+sum -> N(N - 1) / 2
+Big-O -> O(N^2)
+```
+
+Space:
+
+```text
+U unique values stored
+space -> O(U), worst O(N)
+```
+
+## Summary Table
+
+| Operation | Average | Worst | Derivation |
+|---|---:|---:|---|
+| `HashMap.get` | O(1) | O(N) | O(1 + K), expected K is bounded |
+| `HashMap.containsKey` | O(1) | O(N) | Same lookup path as `get` |
+| `HashMap.put` | O(1) amortized | O(N) | Bucket search plus possible resize |
+| `HashMap.remove` | O(1) | O(N) | Lookup plus unlink |
+| `HashSet.add` | O(1) amortized | O(N) | Wrapper around map insert |
+| `HashSet.contains` | O(1) | O(N) | Wrapper around key lookup |
+| `HashSet.remove` | O(1) | O(N) | Wrapper around key removal |
+| One resize | O(N) | O(N) | Moves existing entries |
+
+## Final Answer
+
+HashMap and HashSet operations are average O(1) because hashing selects a bucket and bounded load factor makes expected bucket length constant.
+The derived formula is `O(1 + K)`; under good distribution, expected `K` is constant.
+Worst case is O(N) when all keys collide.
+Java 17 can treeify crowded buckets to O(log K), and resizing stays amortized O(1) because `1 + 2 + 4 + ... + N < 2N`.
