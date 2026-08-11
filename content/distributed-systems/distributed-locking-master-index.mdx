@@ -1,0 +1,137 @@
+---
+slug: distributed-locking-master-index
+title: "Distributed Locking Master Index: Principal-Level Curriculum"
+description: A Principal-level study path for deciding when to lock, how to lock, and how to prove safety with Java, Spring, PostgreSQL, Redis, ZooKeeper, and etcd.
+category: Distributed Systems
+difficulty: Principal
+tags: [Distributed Locking, Redis, PostgreSQL, ZooKeeper, etcd, Interview]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## Purpose
+
+This hub is a **25+ YOE** distributed locking curriculum for Staff / Principal / Architect interviews and production architecture reviews.
+
+It is not a catalog of lock APIs. It separates:
+
+```text
+mutual exclusion
+lease ownership
+resource fencing
+idempotency
+transactional invariants
+exactly-once myths
+```
+
+A Principal answer explains why a lock may reduce races yet still fail to guarantee safe business effects.
+
+## Full curriculum map
+
+### Foundations
+
+| # | Guide | Focus |
+|---:|---|---|
+| 01 | [Locking fundamentals and layers](/distributed-systems/locking-fundamentals-and-layers) | Multi-instance problem; lock hierarchy |
+| 02 | [JVM and Spring locking](/distributed-systems/jvm-and-spring-locking) | `synchronized`, ReentrantLock, Spring maps, K8s scope |
+| 03 | [Distributed locking overview](/distributed-systems/distributed-locking) | Short interview answer: leases, fencing, alternatives |
+
+### Coordinators
+
+| # | Guide | Focus |
+|---:|---|---|
+| 04 | [Redis distributed lock](/distributed-systems/redis-distributed-lock-deep-dive) | `SET NX PX`, Lua unlock, safety vs liveness |
+| 05 | [Redisson watchdog and fencing](/distributed-systems/redisson-watchdog-and-fencing) | Watchdog, TTL vs work, fencing tokens |
+| 06 | [ZooKeeper and etcd](/distributed-systems/zookeeper-etcd-locking) | Ephemeral sequential locks, quorum, watches |
+
+### Databases and workflows
+
+| # | Guide | Focus |
+|---:|---|---|
+| 07 | [PostgreSQL locking](/distributed-systems/postgresql-locking-deep-dive) | `FOR UPDATE`, optimistic, advisory, isolation, deadlocks |
+| 08 | [Transactions, 2PC, 3PC, Saga](/distributed-systems/transactions-2pc-3pc-saga) | Lock vs transaction; XA; compensation |
+| 09 | [Kafka, locking, idempotency](/distributed-systems/kafka-locking-and-idempotency) | Partition ownership; outbox; no lock around external APIs |
+
+### Production engineering
+
+| # | Guide | Focus |
+|---:|---|---|
+| 10 | [Concurrency, deadlocks, timeouts](/distributed-systems/concurrency-deadlocks-and-timeouts) | Matrices, ordering, retry storms |
+| 11 | [Observability and debugging](/distributed-systems/lock-observability-and-debugging) | Metrics, owner metadata, PG/Redis playbooks |
+| 12 | [Failures, K8s, security](/distributed-systems/locking-failures-k8s-and-security) | Lease incidents, partitions, graceful shutdown |
+| 13 | [Performance and architecture](/distributed-systems/lock-performance-and-architecture) | Little’s Law, when NOT to lock, golden rules |
+
+### Comparisons and delivery
+
+| # | Guide | Focus |
+|---:|---|---|
+| 14 | [NoSQL locking and comparisons](/distributed-systems/nosql-locking-and-comparisons) | Mongo/Dynamo/Cassandra/etcd; decision matrices |
+| 15 | [Spring Boot implementations](/distributed-systems/spring-boot-locking-implementations) | Six versions: JVM → Redisson → fencing |
+| 16 | [Payment and inventory case studies](/distributed-systems/payment-inventory-locking-case-studies) | Where locks belong (and don’t) |
+| 17 | [Interview Q&A (50+)](/distributed-systems/distributed-locking-interview-qa) | Staff/Principal scenario answers |
+
+## The Principal decision
+
+Every design must answer:
+
+| Question | Principal-level answer |
+|---|---|
+| Who owns the lock? | A specific process attempt owns a **lease** for a key + token |
+| Where is ownership stored? | Redis key, DB row, ZK node, or etcd key with lease |
+| Who expires ownership? | Lock service lease, session timeout, or transaction end |
+| Who fences writes? | The **resource of record** via monotonic token/version |
+| Who observes failure? | Metrics, traces, audits, fence rejects |
+
+```text
+T0  A acquires token 41
+T1  A pauses (GC)
+T2  lease expires; B gets token 42
+T3  B writes with token 42
+T4  A resumes with token 41
+T5  DB rejects token 41 (last_token = 42)
+```
+
+## Decision matrix
+
+| Need | Prefer | Why |
+|---|---|---|
+| Duplicate payment capture | Idempotency key + unique constraint | Deduplicate at side-effect source |
+| Account balance race | Postgres row lock / optimistic version | Invariant lives in DB |
+| Scheduler leader | ZK / etcd lease | Membership problem |
+| Short cache rebuild | Redis lock + token-safe release | Bounded, discardable work |
+| Hot inventory | Atomic `UPDATE … WHERE qty > 0` or SKU queue | Stock is the resource |
+
+```text
+can a DB constraint express the invariant?  → use DB
+can partition ownership serialize the key? → Kafka/queue
+is work short and best-effort?             → Redis lease (+ fence if writes matter)
+is leadership/membership the core?         → ZK/etcd
+otherwise                                  → redesign before adding a lock
+```
+
+## Study path
+
+1. Fundamentals → JVM/Spring → Redis → Redisson/fencing → ZK/etcd  
+2. PostgreSQL → 2PC/Saga → Kafka/idempotency  
+3. Deadlocks/timeouts → Observability → Failures/K8s → Performance  
+4. Spring implementations → Payment/inventory cases → Interview Q&A  
+
+## Interview answer template
+
+```text
+1. Name the invariant.
+2. Prefer local enforcement at the resource.
+3. If a cross-process lock remains, use a lease + owner token.
+4. Fence writes with monotonic tokens/versions.
+5. Make retries idempotent.
+6. Monitor wait, hold, expiry, renewal, fence rejects.
+7. State the failure mode you intentionally accept.
+```
+
+## Related on this site
+
+- [Consistent Hashing](/distributed-systems/consistent-hashing)
+- [Kafka Staff+ Interview](/kafka-interview)
+- [Redis Staff+ Interview](/redis-interview)
+- [Reliability Patterns](/distributed-systems/reliability-patterns) (if present)
+- [CDC and Outbox](/system-design/cdc-and-outbox)

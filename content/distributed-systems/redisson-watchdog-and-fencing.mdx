@@ -1,0 +1,450 @@
+---
+slug: redisson-watchdog-and-fencing
+title: "Redisson Watchdog and Fencing: RLock Is Not the Finish Line"
+description: Principal-level guide to Redisson RLock, lock versus lease time, watchdog renewal, crash and partition behavior, and fencing with Redis, PostgreSQL, ZooKeeper, and version columns.
+category: Distributed Systems
+difficulty: Principal
+tags: [Redisson, Redis, Fencing Tokens, PostgreSQL, Java]
+readingTime: 25 min
+publishedAt: "2026-08-11"
+---
+
+## Definition: Redisson `RLock`
+
+Redisson `RLock` is a Java-friendly distributed lock abstraction backed by Redis. It implements familiar `Lock`-like operations while handling Redis scripts, ownership metadata, reentrancy, and optional automatic lease renewal.
+
+Mechanism:
+
+| Redisson concept | Meaning |
+|---|---|
+| lock name | Redis key representing the resource |
+| owner | Redisson client id plus thread id |
+| reentrancy | same owner can acquire the same lock multiple times |
+| lease | Redis TTL on the lock key |
+| watchdog | background renewal when no explicit lease time is supplied |
+
+Timeline:
+
+```text
+T0  Java thread calls redisson.getLock("lock:order:55").lock()
+T1  Redisson writes Redis lock metadata with TTL
+T2  watchdog renews TTL while client is alive
+T3  thread completes work
+T4  unlock script checks owner and releases
+```
+
+Java example:
+
+```java
+@Service
+public class RedissonOrderService {
+    private final RedissonClient redisson;
+
+    public void transition(String orderId) {
+        RLock lock = redisson.getLock("lock:order:" + orderId);
+        lock.lock();
+        try {
+            transitionOrderInDatabase(orderId);
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+```
+
+Failure: the API looks like a local Java lock, but the failure model is distributed. JVM pauses, Redis failover, network partitions, and stale owners still matter.
+
+Monitoring:
+
+| Metric | Why |
+|---|---|
+| lock acquire latency | contention and Redis health |
+| lock held duration | critical-section sizing |
+| watchdog renewal failures | owner may lose lease |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Convenient Java API | Can hide lease semantics |
+| Reentrant behavior | Thread ownership surprises async code |
+
+When to use: use Redisson when Redis is the chosen coordinator and a mature Java client is preferable to hand-rolled Lua and retry code.
+
+Interview question: "Does Redisson make Redis locks safe automatically?" It makes Redis lock operations safer, but protected writes still need idempotency or fencing.
+
+## `lock()` with watchdog
+
+Definition: `lock()` without an explicit lease time uses Redisson's lock watchdog. The watchdog renews the Redis TTL while the Redisson client believes the owner is alive.
+
+Mechanism:
+
+```text
+default watchdog timeout is commonly 30 seconds
+renewal runs before TTL expires
+crash stops renewal
+Redis eventually expires the lock
+```
+
+Timeline:
+
+```text
+T0   A lock() sets TTL 30s
+T10  watchdog renews TTL back toward 30s
+T20  watchdog renews again
+T25  A crashes hard
+T55  Redis expires key after renewals stop
+T56  B can acquire
+```
+
+Java example:
+
+```java
+public void rebuildCache(String cacheName) {
+    RLock lock = redisson.getLock("lock:cache-rebuild:" + cacheName);
+    lock.lock(); // watchdog renewal applies
+    try {
+        rebuild(cacheName);
+    } finally {
+        if (lock.isHeldByCurrentThread()) {
+            lock.unlock();
+        }
+    }
+}
+```
+
+Failure: watchdog renewal improves liveness for long work but can extend a bad critical section indefinitely. If the code hangs while the JVM remains alive, other workers may wait until operators intervene.
+
+Monitoring:
+
+| Signal | Action |
+|---|---|
+| lock duration exceeds expected p99 | inspect stuck worker |
+| watchdog renewals continue for old request | add deadline around work |
+| active locks by owner | identify wedged pods |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Avoids false expiry for legitimate long work | Can mask stuck work |
+| Good for unpredictable bounded tasks | Depends on client renewal loop |
+| Crash still eventually releases | Partition behavior is subtle |
+
+When to use: use watchdog mode when work duration is variable but bounded by application deadlines and observability.
+
+Interview question: "Why is `lock()` dangerous for unbounded jobs?" The watchdog can keep renewing forever while the job is stuck.
+
+## `lock(leaseTime)` and `tryLock(wait, lease)`
+
+Definition: supplying an explicit lease time tells Redisson to let the lock expire after that duration. The watchdog does not keep extending it.
+
+Mechanism:
+
+```java
+lock.lock(10, TimeUnit.SECONDS);
+boolean acquired = lock.tryLock(500, 10_000, TimeUnit.MILLISECONDS);
+```
+
+Timeline:
+
+```text
+T0  A calls lock(10s)
+T1  A starts work
+T9  A is still working
+T10 Redis expires key
+T11 B acquires
+T12 A continues unless code checks deadline or resource fence rejects it
+```
+
+Java example:
+
+```java
+public boolean runShortTask(String taskId) throws InterruptedException {
+    RLock lock = redisson.getLock("lock:task:" + taskId);
+    if (!lock.tryLock(200, 5, TimeUnit.SECONDS)) {
+        return false;
+    }
+    try {
+        runTaskWithDeadline(taskId, Instant.now().plusSeconds(4));
+        return true;
+    } finally {
+        if (lock.isHeldByCurrentThread()) {
+            lock.unlock();
+        }
+    }
+}
+```
+
+Failure: `isHeldByCurrentThread()` avoids throwing during unlock after expiry, but it does not prove the protected work was safe. The work may have overlapped with a newer owner.
+
+Monitoring:
+
+| Metric | Why |
+|---|---|
+| task duration vs lease | detect false expiry |
+| unlock skipped because not owner | identify TTL overruns |
+| acquisition wait timeout | contention or stuck owner |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Bounded recovery after owner stalls | False expiry if work exceeds lease |
+| Clear operational maximum | Requires accurate duration budget |
+| Useful for short tasks | Not safe without fences for durable writes |
+
+When to use: use explicit leases for short, measured critical sections where bounded recovery is more important than letting work continue indefinitely.
+
+Interview question: "Which is safer, `lock()` or `lock(leaseTime)`?" Neither is universally safer. `lock()` risks indefinite renewal; explicit lease risks stale owners after expiry.
+
+## Crash and partition behavior
+
+Definition: crash failure stops the process. Partition failure may leave the process running but unable to communicate with Redis or downstream systems.
+
+Mechanism:
+
+| Failure | What Redisson may observe | What the worker may do |
+|---|---|---|
+| JVM crash | renewal stops | no more Java work |
+| pod killed | renewal stops | no more Java work after termination |
+| long GC pause | renewal thread pauses | work may resume stale |
+| Redis partition | renewal fails or blocks | worker may still reach PostgreSQL |
+
+Timeline:
+
+```text
+time  owner A              Redis                 PostgreSQL            owner B
+----  -------------------  --------------------  --------------------  ----------------
+0s    lock acquired        token A active
+5s    network to Redis cut renewal fails
+30s                        key expires
+31s                                                                    B lock acquired
+32s                                              B writes token 42
+33s   A can still reach DB                        A write must be fenced
+```
+
+Java example:
+
+```java
+public void guardedWrite(String orderId, long fenceToken) {
+    int rows = jdbc.update("""
+        update orders
+           set status = 'PROCESSING',
+               fence_token = ?
+         where id = ?
+           and fence_token < ?
+        """, fenceToken, orderId, fenceToken);
+    if (rows != 1) {
+        throw new StaleLockOwnerException(orderId);
+    }
+}
+```
+
+Failure: Redis reachability and PostgreSQL reachability can differ. A worker that lost Redis ownership can still write to PostgreSQL during asymmetric partitions.
+
+Monitoring:
+
+| Signal | Why |
+|---|---|
+| Redis connection churn by pod | partition or failover |
+| renewal failure with successful DB writes | stale-owner danger |
+| PostgreSQL fence rejections | defense working |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Redis TTL handles crashed owners | Asymmetric partitions remain hard |
+| Redisson abstracts scripts | Application must stop work on lease loss |
+| Fencing protects the database | Requires schema and write-path changes |
+
+When to use: assume crash recovery works only for crashed processes. For partitions and pauses, design the protected resource to reject stale owners.
+
+Interview question: "If a worker loses Redis but can still reach PostgreSQL, what saves you?" A PostgreSQL fence or idempotent conditional write.
+
+## Fencing tokens
+
+Definition: a fencing token is a monotonically increasing number issued on lock acquisition. The resource accepts writes only from tokens newer than the last accepted token.
+
+Mechanism:
+
+```text
+Redis lock says "you may try"
+fencing token says "resource can reject old tries"
+PostgreSQL stores last accepted token
+```
+
+Timeline:
+
+```text
+T0  A acquire -> fence 41
+T1  A pauses
+T2  B acquire -> fence 42
+T3  B update where last_fence_token < 42 succeeds
+T4  A update where last_fence_token < 41 fails
+```
+
+Java example issuing a token with Redis:
+
+```java
+public Optional<FencedRedisGrant> tryAcquireFenced(String resource, Duration ttl) {
+    String lockKey = "lock:" + resource;
+    String token = UUID.randomUUID().toString();
+    Boolean locked = redis.opsForValue().setIfAbsent(lockKey, token, ttl);
+    if (!Boolean.TRUE.equals(locked)) {
+        return Optional.empty();
+    }
+    Long fence = redis.opsForValue().increment("fence:" + resource);
+    return Optional.of(new FencedRedisGrant(lockKey, token, fence));
+}
+
+public record FencedRedisGrant(String lockKey, String ownerToken, long fenceToken) {}
+```
+
+Failure: if the lock acquire succeeds and fence increment fails, release the lock and return failure. The grant must contain both ownership proof and a monotonic fence.
+
+Monitoring:
+
+| Metric | Meaning |
+|---|---|
+| fence issued total | acquisition volume |
+| stale fence rejection | zombie owners caught |
+| fence counter reset | critical Redis persistence/configuration issue |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Converts stale owner into rejected write | Requires all writes to carry token |
+| Works with Redis, ZK, etcd, DB versions | Counter durability matters |
+| Easy to explain in interviews | External APIs may not support fencing |
+
+When to use: use fencing for durable state changes where stale owners would corrupt data.
+
+Interview question: "Is a UUID token a fencing token?" No. It identifies an owner, but it is not ordered.
+
+## PostgreSQL fencing column
+
+Definition: a PostgreSQL fencing column stores the largest accepted token for a row or aggregate.
+
+Mechanism:
+
+```sql
+alter table account
+  add column last_fence_token bigint not null default 0;
+```
+
+Timeline:
+
+```text
+owner token 41 -> update where last_fence_token < 41
+owner token 42 -> update where last_fence_token < 42
+owner token 41 retry after token 42 -> zero rows
+```
+
+Java example:
+
+```java
+@Transactional
+public void applyDebit(String accountId, BigDecimal amount, long fenceToken) {
+    int rows = jdbc.update("""
+        update account
+           set balance = balance - ?,
+               last_fence_token = ?
+         where id = ?
+           and balance >= ?
+           and last_fence_token < ?
+        """, amount, fenceToken, accountId, amount, fenceToken);
+
+    if (rows != 1) {
+        throw new StaleOrInvalidDebitException(accountId);
+    }
+}
+```
+
+Failure: only checking the fence on the first write is insufficient if later writes in the workflow touch other tables. The token must protect every durable effect or the workflow must commit through one fenced aggregate.
+
+Monitoring:
+
+| Signal | Reason |
+|---|---|
+| zero-row fenced updates | stale owner or business conflict |
+| max token per aggregate | audit ownership history |
+| token regression | data corruption or counter reset |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Strong local enforcement at the data | Schema and repository changes |
+| Easy to test with SQL | Multi-row workflows need design |
+| Survives Java pauses | Does not fence external services directly |
+
+When to use: use PostgreSQL fencing when the protected resource is a row, aggregate, or state machine in PostgreSQL.
+
+Interview question: "What happens when the stale owner writes after waking?" PostgreSQL returns zero rows because its token is lower than the stored token.
+
+## ZooKeeper, etcd, and version-column fences
+
+Definition: fencing can be derived from any monotonic source that the protected resource can compare. ZooKeeper sequence numbers, etcd revision numbers, Redis counters, and PostgreSQL version columns are common options.
+
+Mechanism:
+
+| Source | Token | Caveat |
+|---|---|---|
+| Redis | `INCR fence:resource` | Counter durability and reset policy |
+| ZooKeeper | sequential node number | Must parse and propagate sequence |
+| etcd | create revision or mod revision | Tied to etcd key history |
+| PostgreSQL | version column | Resource-local but may require DB-first lock design |
+
+Timeline:
+
+```text
+ZooKeeper:
+  /locks/job/lock-0000000041 -> fence 41
+  /locks/job/lock-0000000042 -> fence 42
+
+PostgreSQL:
+  update ... where version = 12
+  next version becomes 13
+```
+
+Java example with a version column:
+
+```java
+public boolean transitionOrder(String orderId, long expectedVersion) {
+    int rows = jdbc.update("""
+        update orders
+           set status = 'PAID',
+               version = version + 1
+         where id = ?
+           and status = 'AUTHORIZED'
+           and version = ?
+        """, orderId, expectedVersion);
+    return rows == 1;
+}
+```
+
+Failure: a version column fences only the row it updates. If the workflow also sends an email, calls a provider, or writes Kafka events, those effects need idempotency or an outbox.
+
+Monitoring:
+
+| Metric | Why |
+|---|---|
+| optimistic conflict count | expected version contention |
+| ZK sequence gaps | normal abandoned attempts or churn |
+| outbox duplicate suppression | side-effect safety |
+
+Pros and cons:
+
+| Approach | Pros | Cons |
+|---|---|---|
+| Redis counter | Simple with Redis lock | Durability and reset must be controlled |
+| ZooKeeper sequence | Natural with lock recipe | Operationally heavier |
+| etcd revision | Strong CAS ecosystem | Requires etcd expertise |
+| PostgreSQL version | Resource-local | May not coordinate process leadership |
+
+When to use: derive the fence from the system already responsible for ordering ownership, then enforce it in the system responsible for durable effects.
+
+Interview question: "Where should the fencing token be checked?" At the protected resource, not just in the lock client.

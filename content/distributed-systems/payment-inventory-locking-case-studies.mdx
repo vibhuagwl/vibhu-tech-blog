@@ -1,0 +1,426 @@
+---
+slug: payment-inventory-locking-case-studies
+title: "Distributed Locking 53-54: Payment and Inventory Case Studies"
+description: "End-to-end payment and last-item inventory race case studies showing where locks help, where they hurt, and which design wins in production."
+category: Distributed Systems
+difficulty: "Staff/Principal"
+tags: [Payments, Inventory, Distributed Locking, Idempotency, Outbox, Kafka, Spring Boot]
+readingTime: 25 min
+publishedAt: "2026-08-11"
+---
+
+## Series map
+
+- [NoSQL locking and comparisons](/distributed-systems/nosql-locking-and-comparisons)
+- [Locking failures, Kubernetes and security](/distributed-systems/locking-failures-k8s-and-security)
+- [Lock performance and architecture](/distributed-systems/lock-performance-and-architecture)
+- [Spring Boot locking implementations](/distributed-systems/spring-boot-locking-implementations)
+- [Payment and inventory locking case studies](/distributed-systems/payment-inventory-locking-case-studies)
+- [Distributed locking interview Q&A](/distributed-systems/distributed-locking-interview-qa)
+
+## 53. End-to-end payment: idempotency, outbox and Kafka
+
+Payment systems are the fastest way to expose weak lock thinking. The goal is not "only one thread executes." The goal is:
+
+```text
+For one business payment intent, the platform records one durable outcome,
+communicates with the PSP idempotently, publishes state changes after commit,
+and can reconcile ambiguous external responses.
+```
+
+### Payment flow
+
+```text
+Client
+  -> POST /payments with Idempotency-Key
+  -> API inserts payment_attempt if key is new
+  -> DB commits intent and outbox event
+  -> outbox publisher sends PaymentCaptureRequested to Kafka
+  -> worker calls PSP with provider idempotency key
+  -> worker records PSP result transactionally
+  -> outbox publishes PaymentCaptured or PaymentFailed
+  -> reconciler checks ambiguous attempts
+```
+
+### Schema sketch
+
+```sql
+CREATE TABLE payment_attempt (
+    payment_id UUID PRIMARY KEY,
+    merchant_id TEXT NOT NULL,
+    order_id TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    amount_cents BIGINT NOT NULL,
+    currency CHAR(3) NOT NULL,
+    status TEXT NOT NULL,
+    provider_request_id TEXT NOT NULL,
+    provider_reference TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (merchant_id, idempotency_key),
+    UNIQUE (provider_request_id)
+);
+
+CREATE TABLE outbox_event (
+    event_id UUID PRIMARY KEY,
+    aggregate_id UUID NOT NULL,
+    event_type TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    published_at TIMESTAMPTZ
+);
+```
+
+### API service
+
+```java
+@Service
+public class PaymentCommandService {
+    private final PaymentAttemptRepository attempts;
+    private final OutboxRepository outbox;
+    private final Clock clock;
+
+    @Transactional
+    public PaymentResponse createPayment(CreatePaymentRequest request) {
+        return attempts.findByMerchantAndIdempotencyKey(
+                request.merchantId(),
+                request.idempotencyKey()
+            )
+            .map(PaymentAttempt::toResponse)
+            .orElseGet(() -> createNewAttempt(request));
+    }
+
+    private PaymentResponse createNewAttempt(CreatePaymentRequest request) {
+        UUID paymentId = UUID.randomUUID();
+        String providerRequestId = "psp-" + paymentId;
+
+        PaymentAttempt attempt = PaymentAttempt.pending(
+            paymentId,
+            request.merchantId(),
+            request.orderId(),
+            request.idempotencyKey(),
+            request.amountCents(),
+            request.currency(),
+            providerRequestId,
+            clock.instant()
+        );
+
+        attempts.save(attempt);
+        outbox.insert(paymentId, "PaymentCaptureRequested", Map.of(
+            "paymentId", paymentId.toString(),
+            "providerRequestId", providerRequestId
+        ));
+        return attempt.toResponse();
+    }
+}
+```
+
+No distributed lock is used here. The unique constraint on `(merchant_id, idempotency_key)` is the concurrency control.
+
+### Worker service
+
+```java
+@Service
+public class PaymentCaptureWorker {
+    private final PaymentAttemptRepository attempts;
+    private final PaymentProviderClient provider;
+    private final OutboxRepository outbox;
+
+    public void handle(PaymentCaptureRequested event) {
+        PaymentAttempt attempt = attempts.findById(event.paymentId())
+            .orElseThrow(() -> new MissingPaymentAttemptException(event.paymentId()));
+
+        if (attempt.isTerminal()) {
+            return;
+        }
+
+        ProviderCaptureResult result = provider.capture(new ProviderCaptureRequest(
+            attempt.providerRequestId(),
+            attempt.amountCents(),
+            attempt.currency()
+        ));
+
+        recordResult(attempt.paymentId(), result);
+    }
+
+    @Transactional
+    void recordResult(UUID paymentId, ProviderCaptureResult result) {
+        PaymentAttempt attempt = attempts.findByIdForUpdate(paymentId)
+            .orElseThrow(() -> new MissingPaymentAttemptException(paymentId));
+
+        if (attempt.isTerminal()) {
+            return;
+        }
+
+        attempt.applyProviderResult(result);
+        attempts.save(attempt);
+        outbox.insert(paymentId, attempt.toDomainEventType(), attempt.toEventPayload());
+    }
+}
+```
+
+The PSP call is outside the database lock. The recording transaction locks only the payment row and checks terminal state again.
+
+### Kafka placement
+
+Use Kafka for:
+
+- Durable asynchronous capture requests.
+- Retrying transient PSP failures.
+- Publishing payment state changes to downstream services.
+- Ordering by `paymentId` if multiple commands can target one payment.
+
+Do not rely on Kafka alone for:
+
+- Exactly-once PSP calls.
+- Idempotency across HTTP retries.
+- Reconciliation of unknown PSP timeouts.
+
+### Where locks should be
+
+| Place | Lock? | Reason |
+|---|---|---|
+| HTTP create payment | No distributed lock | Unique idempotency key is stronger |
+| Insert attempt and outbox | DB transaction | Local atomicity is required |
+| Call PSP | No DB row lock | Remote latency would block sessions |
+| Record PSP result | Short row lock | Prevent conflicting terminal updates |
+| Outbox publishing | Claim rows with DB update | Avoid duplicate work; downstream still idempotent |
+| Reconciliation job | Lease or job claim | One worker per shard is useful |
+
+### Outbox publisher with claim
+
+```java
+@Repository
+public class OutboxClaimRepository {
+    private final NamedParameterJdbcTemplate jdbc;
+
+    @Transactional
+    public List<OutboxEvent> claimBatch(String workerId, int limit) {
+        String sql = """
+            WITH candidate AS (
+                SELECT event_id
+                FROM outbox_event
+                WHERE published_at IS NULL
+                  AND (claim_expires_at IS NULL OR claim_expires_at < now())
+                ORDER BY created_at
+                LIMIT :limit
+                FOR UPDATE SKIP LOCKED
+            )
+            UPDATE outbox_event e
+            SET claimed_by = :workerId,
+                claim_expires_at = now() + interval '30 seconds'
+            FROM candidate
+            WHERE e.event_id = candidate.event_id
+            RETURNING e.*
+            """;
+        return jdbc.query(sql, Map.of("workerId", workerId, "limit", limit), mapper);
+    }
+}
+```
+
+This is a database claim, not a global distributed lock. Each event is the unit of ownership.
+
+### Payment incident design review
+
+Ask:
+
+1. What happens if the client retries after a 499 timeout?
+2. What happens if the PSP captured but our worker timed out?
+3. What happens if Kafka redelivers the capture event?
+4. What happens if two workers record results concurrently?
+5. What happens if outbox publish succeeds but marking published fails?
+6. What happens during deploy while captures are in flight?
+
+The answers should be idempotency, terminal-state checks, outbox retry, reconciliation and short database transactions. A distributed lock is not the primary payment safety mechanism.
+
+## 54. Inventory last-item race
+
+Scenario:
+
+```text
+SKU-42 has quantity=1
+Alice and Bob click buy at the same time
+System must not sell two units
+Latency target is low
+Audit and idempotency are required
+```
+
+We compare five designs.
+
+## Option 1: Postgres pessimistic row lock
+
+```java
+@Transactional(timeout = 2)
+public ReservationResult reservePessimistic(String sku, String orderId, String key) {
+    if (reservations.existsByIdempotencyKey(key)) {
+        return reservations.findResult(key);
+    }
+
+    InventoryItem item = inventory.findBySkuForUpdate(sku)
+        .orElseThrow(() -> new UnknownSkuException(sku));
+
+    if (item.quantity() <= 0) {
+        reservations.insertRejected(orderId, sku, key, "SOLD_OUT");
+        return ReservationResult.soldOut(sku);
+    }
+
+    item.decrement();
+    reservations.insertAccepted(orderId, sku, key);
+    outbox.insert("InventoryReserved", orderId);
+    return ReservationResult.accepted(orderId, sku);
+}
+```
+
+Evaluation:
+
+- Correct: yes, if transaction is short.
+- Throughput: good for moderate contention.
+- Failure: crash rolls back.
+- Risk: long waits under hot SKU.
+
+## Option 2: optimistic `@Version`
+
+```java
+public ReservationResult reserveOptimistic(String sku, String orderId, String key) {
+    for (int attempt = 1; attempt <= 3; attempt++) {
+        try {
+            return transactionTemplate.execute(status -> {
+                InventoryItem item = inventory.findById(sku).orElseThrow();
+                item.reserveOne();
+                reservations.insertAccepted(orderId, sku, key);
+                return ReservationResult.accepted(orderId, sku);
+            });
+        } catch (ObjectOptimisticLockingFailureException conflict) {
+            jitter(attempt);
+        }
+    }
+    throw new LockBusyException(sku);
+}
+```
+
+Evaluation:
+
+- Correct: yes with versioned row and idempotency.
+- Throughput: good under low conflict.
+- Failure: retry storm under flash sale.
+- Risk: wasted work and poor tail latency on the last item.
+
+## Option 3: Redis lock around read/write
+
+```java
+public ReservationResult reserveWithRedisLock(String sku, String orderId, String key) {
+    String lockKey = "lock:v1:inventory:" + sha256(sku);
+    try (RedisLockHandle ignored = redisLocks.tryAcquire(lockKey, WAIT, LEASE)
+            .orElseThrow(() -> new LockBusyException(sku))) {
+        InventoryItem item = inventory.findById(sku).orElseThrow();
+        if (item.quantity() <= 0) {
+            return ReservationResult.soldOut(sku);
+        }
+        item.decrement();
+        inventory.save(item);
+        return ReservationResult.accepted(orderId, sku);
+    }
+}
+```
+
+Evaluation:
+
+- Correct: not by itself.
+- Throughput: adds Redis dependency and round trips.
+- Failure: GC pause or Redis failover can create stale owner.
+- Risk: if DB write is not conditional, oversell is still possible.
+
+Redis can reduce duplicate pressure, but it should not own the invariant.
+
+## Option 4: atomic update
+
+```java
+@Transactional
+public ReservationResult reserveAtomic(String sku, String orderId, String key) {
+    return reservations.findByIdempotencyKey(key)
+        .map(ReservationRecord::toResult)
+        .orElseGet(() -> reserveNewAtomic(sku, orderId, key));
+}
+
+private ReservationResult reserveNewAtomic(String sku, String orderId, String key) {
+    int rows = jdbc.update("""
+        UPDATE inventory
+        SET quantity = quantity - 1,
+            updated_at = now()
+        WHERE sku = :sku
+          AND quantity > 0
+        """, Map.of("sku", sku));
+
+    if (rows == 0) {
+        reservations.insertRejected(orderId, sku, key, "SOLD_OUT");
+        return ReservationResult.soldOut(sku);
+    }
+
+    reservations.insertAccepted(orderId, sku, key);
+    outbox.insert("InventoryReserved", orderId, Map.of("sku", sku));
+    return ReservationResult.accepted(orderId, sku);
+}
+```
+
+Evaluation:
+
+- Correct: yes, the database atomically checks and decrements.
+- Throughput: excellent for single-row invariant.
+- Failure: crash rolls back transaction.
+- Risk: not enough for multi-SKU bundle unless extended carefully.
+
+## Option 5: Kafka partition
+
+```text
+Produce ReserveInventory(orderId, sku) with key=sku
+Consumer for partition processes SKU commands in order
+Consumer updates database and emits result event
+```
+
+Evaluation:
+
+- Correct: yes if all writes for a SKU go through the partitioned command path.
+- Throughput: one lane per hot SKU partition.
+- Failure: reprocessing requires idempotent command IDs.
+- Risk: asynchronous UX and hot-key lag.
+
+Kafka is excellent when the business accepts "reservation pending." It is not ideal when the API must synchronously answer in a few milliseconds for a flash-sale hot key.
+
+## Winner
+
+For synchronous last-item inventory in a relational store, the winner is **Option 4: atomic update**.
+
+Reasoning:
+
+1. The invariant is exactly `quantity must not go below zero`.
+2. Postgres owns the quantity.
+3. One conditional statement expresses the invariant.
+4. It has the shortest critical section.
+5. It survives app crash through transaction rollback.
+6. It avoids lease expiry, stale owner and Redis failover hazards.
+7. It composes with idempotency and outbox in the same transaction.
+
+Use pessimistic row locks when the invariant requires reading and changing several columns or rows. Use Kafka partitioning when asynchronous ordered command processing is a product fit. Use Redis locks for duplicate suppression around expensive non-critical work, not as the source of truth for last-item sales.
+
+## Combined architecture
+
+```text
+Checkout API
+  -> idempotency key
+  -> atomic inventory decrement
+  -> reservation row
+  -> outbox event
+  -> Kafka InventoryReserved
+  -> payment intent creation
+  -> payment capture workflow
+```
+
+Notice that inventory and payment do not share one giant distributed lock. Each subsystem protects its own invariant:
+
+- Inventory: atomic decrement and reservation idempotency.
+- Payment: payment idempotency and terminal-state transitions.
+- Kafka: durable communication and per-key ordering where needed.
+- Outbox: publish after commit.
+- Reconciliation: repairs ambiguity.
+
+This is the Staff/Principal answer: keep lock scope local to the invariant, use durable idempotency for retries, and design every external side effect to be safely replayed or reconciled.

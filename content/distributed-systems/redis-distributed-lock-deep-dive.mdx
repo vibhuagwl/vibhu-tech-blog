@@ -1,0 +1,450 @@
+---
+slug: redis-distributed-lock-deep-dive
+title: "Redis Distributed Lock Deep Dive: SET NX PX, Tokens, TTLs, and Failure"
+description: Principal-level Redis locking guide covering SET NX PX, unique owner tokens, Lua unlock, lease expiry, GC pauses, safety, liveness, and why locks are not exactly-once.
+category: Distributed Systems
+difficulty: Principal
+tags: [Redis, Distributed Lock, Java, Lua, Spring]
+readingTime: 26 min
+publishedAt: "2026-08-11"
+---
+
+## Definition: Redis lease lock
+
+A Redis distributed lock is usually a **lease** stored as a key with a time-to-live. The common primitive is `SET key value NX PX ttlMillis`: set the key only if absent and expire it automatically.
+
+Mechanism:
+
+| Part | Meaning |
+|---|---|
+| `key` | Logical resource such as `lock:account:100` |
+| `value` | Unique owner token, not just a service name |
+| `NX` | Acquire only when the key does not exist |
+| `PX` | Lease duration in milliseconds |
+| TTL | Liveness fallback when owner crashes |
+
+Timeline:
+
+```text
+T0  worker A -> SET lock:account:100 token-A NX PX 10000
+T1  Redis -> OK
+T2  worker B -> SET lock:account:100 token-B NX PX 10000
+T3  Redis -> null because key already exists
+T4  worker A completes work
+T5  worker A releases only if value is token-A
+```
+
+Java example with Spring Data Redis:
+
+```java
+@Component
+public class RedisLeaseLockClient {
+    private final StringRedisTemplate redis;
+
+    public Optional<RedisLockGrant> tryAcquire(String key, Duration ttl) {
+        String token = UUID.randomUUID().toString();
+        Boolean ok = redis.opsForValue().setIfAbsent(key, token, ttl);
+        if (!Boolean.TRUE.equals(ok)) {
+            return Optional.empty();
+        }
+        return Optional.of(new RedisLockGrant(key, token, Instant.now().plus(ttl)));
+    }
+}
+
+public record RedisLockGrant(String key, String token, Instant expiresAt) {}
+```
+
+Failure: acquiring the key only proves that Redis accepted a lease at that moment. It does not prove the worker will finish before TTL or that downstream systems will reject stale writes.
+
+Monitoring:
+
+| Metric | Why it matters |
+|---|---|
+| acquire success rate | lock availability and contention |
+| acquire latency | Redis health and client backpressure |
+| lock TTL remaining at release | TTL sizing |
+| expired-owner write attempts | stale owner risk |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Fast and simple | Lease can expire while owner still runs |
+| TTL cleans up crashed owners | Requires careful release token |
+| Easy to deploy if Redis already exists | Does not provide fencing by itself |
+
+When to use: Redis locks are reasonable for short, bounded, low-latency critical sections where duplicate work is tolerable or fenced at the resource.
+
+Interview question: "What exactly does `SET NX PX` guarantee?" It guarantees Redis set the key if absent and will expire it after TTL. It does not guarantee exactly-once execution.
+
+## Unique owner tokens
+
+Definition: an owner token identifies a specific lock acquisition attempt. It must be unique per acquire, not per service, host, or thread.
+
+Mechanism:
+
+```text
+lock key   = lock:payment:intent-abc
+token      = 3b5b3e0c-1d0e-4f5e-9d1f-146a5f8f82d1
+lease ttl  = 10 seconds
+owner log  = pod/payment-7 attempt/3b5b3e0c...
+```
+
+Timeline:
+
+```text
+T0  A acquires key with token-A
+T1  A pauses and TTL expires
+T2  B acquires same key with token-B
+T3  A wakes and tries to release key
+T4  release must not delete B's token
+```
+
+Java example:
+
+```java
+public RedisLockGrant acquireOrThrow(String resourceId) {
+    String key = "lock:order:" + resourceId;
+    return tryAcquire(key, Duration.ofSeconds(10))
+        .orElseThrow(() -> new BusyResourceException(resourceId));
+}
+```
+
+Failure: using a constant value such as `"locked"` makes safe release impossible. The old owner cannot distinguish its expired lease from the new owner's active lease.
+
+Monitoring:
+
+| Signal | Good practice |
+|---|---|
+| token in structured logs | redact only if policy requires |
+| owner id | include pod and request id |
+| release mismatch count | count stale or duplicate release attempts |
+| TTL at critical milestones | understand lease budget |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Prevents deleting another owner's lock | Does not stop stale writes |
+| Makes logs audit-friendly | Token must be propagated through code |
+| Enables Lua compare-and-delete | Still needs TTL discipline |
+
+When to use: always use unique tokens for Redis locks. A Redis lock without a unique owner token should be treated as unsafe.
+
+Interview question: "Can the token be the hostname?" No. A single host can acquire, lose, and reacquire the same key; each attempt needs a new token.
+
+## Unsafe `DEL`
+
+Definition: unsafe unlock deletes the lock key without checking that the stored value still belongs to the caller.
+
+Mechanism:
+
+```java
+public void unsafeRelease(RedisLockGrant grant) {
+    redis.delete(grant.key());
+}
+```
+
+Timeline:
+
+```text
+T0  A gets lock token-A ttl 5s
+T1  A pauses for 8s
+T2  Redis expires token-A
+T3  B gets lock token-B ttl 5s
+T4  A wakes and calls DEL lock
+T5  Redis deletes token-B
+T6  C gets lock while B is still in critical section
+```
+
+Failure: unsafe release turns one stale owner into three concurrent owners: A is still running, B lost its active key, and C can enter.
+
+Monitoring:
+
+| Metric | Symptom |
+|---|---|
+| release-after-expiry count | owners exceeded TTL |
+| delete-without-token usage | code smell |
+| concurrent critical-section traces | actual safety failure |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| One Redis command | Can delete another owner's lease |
+| Easy to write | Destroys safety under pauses |
+| Looks fine in happy-path tests | Fails during the event locks are meant to handle |
+
+When to use: never use plain `DEL` for releasing a shared Redis lock unless the key is unambiguously private to the owner.
+
+Interview question: "Why is `DEL` dangerous after TTL expiry?" The key may now represent another owner's lease.
+
+## Lua compare-and-delete unlock
+
+Definition: token-safe unlock atomically checks the current value and deletes the key only if it matches the caller's token.
+
+Mechanism:
+
+```lua
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("del", KEYS[1])
+else
+  return 0
+end
+```
+
+Timeline:
+
+```text
+T0  A gets token-A
+T1  A pauses past TTL
+T2  B gets token-B
+T3  A runs Lua release with token-A
+T4  Redis compares token-B to token-A
+T5  Redis returns 0 and preserves B's lease
+```
+
+Java example:
+
+```java
+private static final DefaultRedisScript<Long> RELEASE_SCRIPT = new DefaultRedisScript<>(
+    """
+    if redis.call('get', KEYS[1]) == ARGV[1] then
+      return redis.call('del', KEYS[1])
+    else
+      return 0
+    end
+    """,
+    Long.class
+);
+
+public boolean release(RedisLockGrant grant) {
+    Long removed = redis.execute(RELEASE_SCRIPT, List.of(grant.key()), grant.token());
+    return Long.valueOf(1L).equals(removed);
+}
+```
+
+Failure: token-safe release prevents deleting another owner's key, but it does not cancel stale work already running in Java. The stale owner can still write to PostgreSQL unless the write is fenced or idempotent.
+
+Monitoring:
+
+| Metric | Interpretation |
+|---|---|
+| release success | normal completion |
+| release mismatch | TTL expired, duplicate release, or stolen key |
+| unlock script errors | Redis scripting or deployment issue |
+| lock key no longer exists at release | work exceeded TTL or manual deletion |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Atomic ownership check | Requires script deployment/testing |
+| Protects newer owner leases | Does not fence downstream writes |
+| Industry-standard Redis unlock | Still bounded by Redis availability |
+
+When to use: token-safe Lua release is the baseline for Redis locks in Java services.
+
+Interview question: "Why not `GET` then `DEL` from Java?" Another client can acquire the lock between the two commands. The compare and delete must be atomic.
+
+## GC pause and TTL stale-owner timeline
+
+Definition: a stale owner is a process that continues executing after its lease expired or after another owner acquired a newer lease.
+
+Mechanism:
+
+```text
+lease TTL = 10s
+critical section expected p99 = 2s
+rare full GC pause = 18s
+```
+
+Timeline:
+
+```text
+time  owner A                         Redis                         owner B
+----  ------------------------------  ----------------------------  ----------------
+0s    SET lock token-A PX 10000       stores token-A
+1s    starts payment reconciliation
+2s    JVM stop-the-world GC begins
+10s                                   expires token-A
+11s                                                                 SET token-B OK
+12s                                                                 writes result
+20s   GC ends; A continues
+21s   A writes stale result unless fenced
+22s   A Lua release returns 0
+```
+
+Java example with fence check:
+
+```java
+public void reconcile(String paymentId) {
+    RedisLockGrant grant = acquireOrThrow(paymentId);
+    try {
+        jdbc.update("""
+            update payment_reconciliation
+               set status = 'RUNNING',
+                   lock_token = ?
+             where payment_id = ?
+               and (lock_token is null or lock_token = ?)
+            """, grant.token(), paymentId, grant.token());
+    } finally {
+        release(grant);
+    }
+}
+```
+
+Failure: token strings are not monotonic fences. The example above only defends a narrow ownership write. For stale-result rejection, use a monotonic fencing token or version column, covered in [Redisson watchdog and fencing](/distributed-systems/redisson-watchdog-and-fencing).
+
+Monitoring:
+
+| Signal | Action |
+|---|---|
+| JVM pause duration | set TTL from measured pause and work duration |
+| work duration divided by TTL | alert near 0.8 |
+| stale release mismatch | investigate pauses or slow downstreams |
+| fence rejection | expected defense against zombies |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| TTL restores liveness after crash | TTL creates stale-owner windows |
+| Short TTL recovers faster | Short TTL increases false expiry |
+| Long TTL reduces false expiry | Long TTL slows recovery |
+
+When to use: tune TTL only after measuring critical-section duration and JVM pause behavior. If stale writes are unacceptable, TTL tuning is not enough.
+
+Interview question: "Can you choose a TTL that makes Redis locks safe?" No. You can reduce probability, but pauses and partitions mean the protected resource still needs idempotency or fencing.
+
+## Safety versus liveness
+
+Definition: safety means nothing bad happens, such as two owners committing conflicting writes. Liveness means something good eventually happens, such as a crashed owner not blocking the system forever.
+
+Mechanism:
+
+| Design choice | Helps safety | Helps liveness | Risk |
+|---|---:|---:|---|
+| No TTL | sometimes | no | dead lock after crash |
+| Short TTL | no | yes | false expiry |
+| Long TTL | somewhat | slower | long outage after crash |
+| Lua unlock | yes | neutral | stale work still runs |
+| Fencing token | yes | neutral | requires resource integration |
+| Retry with backoff | neutral | yes | can amplify load if unbounded |
+
+Timeline:
+
+```text
+no TTL:
+  A crashes -> key remains -> B waits forever
+
+short TTL:
+  A pauses -> key expires -> B enters -> A wakes -> safety depends on fence
+```
+
+Java example for bounded wait:
+
+```java
+public Optional<RedisLockGrant> acquireWithBackoff(String key, Duration ttl, Duration maxWait)
+        throws InterruptedException {
+    Instant deadline = Instant.now().plus(maxWait);
+    long sleepMillis = 25;
+    while (Instant.now().isBefore(deadline)) {
+        Optional<RedisLockGrant> grant = tryAcquire(key, ttl);
+        if (grant.isPresent()) {
+            return grant;
+        }
+        Thread.sleep(ThreadLocalRandom.current().nextLong(sleepMillis));
+        sleepMillis = Math.min(500, sleepMillis * 2);
+    }
+    return Optional.empty();
+}
+```
+
+Failure: unbounded spin retries can become a denial-of-service against Redis and the protected resource.
+
+Monitoring:
+
+| Metric | Why |
+|---|---|
+| acquire attempts per success | retry amplification |
+| max wait exceeded | user-visible contention |
+| Redis CPU | spin-loop damage |
+| key-level contention | hot resource diagnosis |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Explicit trade-off vocabulary | Requires product decision on failure mode |
+| Bounded waits improve resilience | May reject valid work under load |
+| Backoff protects Redis | Adds latency variance |
+
+When to use: define whether callers should wait, fail fast, enqueue, or degrade before implementing the lock.
+
+Interview question: "Which is more important, safety or liveness?" For money movement, safety usually dominates. For cache rebuilds, liveness and bounded staleness may dominate.
+
+## A lock is not exactly-once
+
+Definition: exactly-once means an effect happens once despite retries, crashes, timeouts, and ambiguous responses. A lock only tries to limit concurrent execution during a lease interval.
+
+Mechanism:
+
+```text
+exactly-once-ish payment capture requires:
+  idempotency key at payment provider
+  unique request record in PostgreSQL
+  retry-safe state machine
+  reconciliation for ambiguous responses
+  optional lock to reduce concurrent attempts
+```
+
+Timeline:
+
+```text
+T0  A acquires Redis lock
+T1  A calls payment provider
+T2  provider captures money
+T3  network timeout hides response from A
+T4  A crashes before DB commit
+T5  B retries later
+T6  only provider idempotency key can prevent second capture
+```
+
+Java example:
+
+```java
+@Transactional
+public UUID createPaymentAttempt(String orderId) {
+    return jdbc.queryForObject("""
+        insert into payment_attempt(order_id, idempotency_key, status)
+        values (?, gen_random_uuid(), 'NEW')
+        on conflict (order_id) do update
+          set order_id = excluded.order_id
+        returning idempotency_key
+        """, UUID.class, orderId);
+}
+```
+
+Failure: the Redis lock can be perfectly implemented and still not know whether the external provider captured funds during an ambiguous timeout.
+
+Monitoring:
+
+| Signal | Owner |
+|---|---|
+| idempotency-key reuse | payment workflow |
+| ambiguous provider responses | integration layer |
+| duplicate external captures | provider and reconciliation |
+| Redis lock contention | coordination layer |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Lock reduces simultaneous duplicate attempts | Does not solve ambiguous side effects |
+| Idempotency handles retry semantics | Requires end-to-end design |
+| DB unique constraint gives durable dedupe | Must model state carefully |
+
+When to use: use Redis locks to reduce duplicate in-flight work, not as the source of exactly-once truth.
+
+Interview question: "If the lock worked, why did the payment happen twice?" Because exactly-once is an end-to-end property; the payment provider and durable idempotency records must participate.

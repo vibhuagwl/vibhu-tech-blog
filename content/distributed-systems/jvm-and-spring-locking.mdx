@@ -1,0 +1,450 @@
+---
+slug: jvm-and-spring-locking
+title: "JVM and Spring Locking: Local Mutual Exclusion in a Multi-Pod World"
+description: Deep dive into synchronized, ReentrantLock, ReadWriteLock, StampedLock, Spring lock managers, striped locking, dynamic-key leaks, and why local locks fail across Kubernetes pods.
+category: Distributed Systems
+difficulty: Staff
+tags: [Java, Spring, JVM, ReentrantLock, Kubernetes]
+readingTime: 23 min
+publishedAt: "2026-08-11"
+---
+
+## Definition: local locking
+
+Local locking coordinates threads that share one JVM. It is the right tool for protecting local memory, caches, counters, lazy initialization, and per-process scheduling. It is the wrong sole tool for protecting account, payment, order, or inventory invariants across multiple service instances.
+
+Mechanism: Java lock state lives in process memory. Kubernetes scaling multiplies process memory.
+
+Timeline:
+
+```text
+deployment replicas = 2
+
+request 1 -> pod A -> JVM A -> local lock "account-100" acquired
+request 2 -> pod B -> JVM B -> local lock "account-100" acquired
+
+Both statements are true because the locks are different objects.
+```
+
+Java example:
+
+```java
+@Service
+public class AccountControllerGuard {
+    public synchronized void debit(String accountId, BigDecimal amount) {
+        // One thread at a time in this bean instance and JVM.
+        performDebit(accountId, amount);
+    }
+}
+```
+
+Failure: the code passes load tests with one instance and fails after autoscaling. The lock was never designed to see the second JVM.
+
+Monitoring:
+
+| Signal | Scope |
+|---|---|
+| JVM blocked threads | One pod |
+| duplicate idempotency keys | Whole service |
+
+Pros and cons: local locks are low latency and dependency-free, but process-local and lost on restart.
+
+When to use: local locking is excellent for in-memory performance and correctness inside one JVM. Treat it as an implementation detail, not a business invariant boundary.
+
+Interview question: "How would you demonstrate `synchronized` is insufficient after horizontal scaling?" Draw two pods, two heaps, and two separate monitor objects for the same logical key.
+
+## `synchronized`
+
+Definition: `synchronized` acquires a monitor associated with an object instance or `Class` object. The JVM releases it automatically when the synchronized block exits.
+
+Mechanism:
+
+| Form | Monitor identity | Scope |
+|---|---|---|
+| `synchronized (this)` | Current object | One object in one JVM |
+| `synchronized method` | Current object | One bean instance in one JVM |
+| `static synchronized` | Class object | One class loader in one JVM |
+| `synchronized (lockObject)` | Given object reference | Threads sharing that reference |
+
+Timeline:
+
+```text
+T0  thread-1 enters synchronized(orderLock)
+T1  thread-2 blocks on same object reference
+T2  thread-1 exits
+T3  thread-2 enters
+T4  pod B threads were never part of this queue
+```
+
+Java example:
+
+```java
+public final class OrderAccumulator {
+    private final Object lock = new Object();
+    private final List<String> pendingOrderIds = new ArrayList<>();
+
+    public void add(String orderId) {
+        synchronized (lock) {
+            pendingOrderIds.add(orderId);
+        }
+    }
+}
+```
+
+Failure: using interned strings or public objects as monitors can accidentally couple unrelated code. Using request-derived lock objects without reuse can fail to protect anything.
+
+Monitoring:
+
+| Tool | What to inspect |
+|---|---|
+| Java Flight Recorder | monitor enter duration |
+| thread dumps | `BLOCKED` threads and monitor owners |
+| Micrometer custom timer | duration inside critical section |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Simple syntax | No timeout or fairness controls |
+| Automatic release on exit | Hard to instrument directly |
+| Correct for object invariants | Cannot span JVMs |
+
+When to use: protect small object invariants and local collections when no timeout or condition queue is needed.
+
+Interview question: "Does `static synchronized` coordinate across pods?" No. The `Class` object exists per JVM and class loader.
+
+## `ReentrantLock`
+
+Definition: `ReentrantLock` is an explicit Java lock with optional fairness, timed acquisition, interruptible waits, and condition variables.
+
+Mechanism:
+
+```java
+public class LocalAccountLock {
+    private final ReentrantLock lock = new ReentrantLock(true);
+
+    public boolean tryDebit(String accountId, BigDecimal amount) throws InterruptedException {
+        if (!lock.tryLock(100, TimeUnit.MILLISECONDS)) {
+            return false;
+        }
+        try {
+            debitInMemoryProjection(accountId, amount);
+            return true;
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+```
+
+Timeline:
+
+```text
+T0  thread A calls tryLock
+T1  thread A owns lock
+T2  thread B waits up to 100 ms
+T3  thread B returns false if A is still inside
+T4  remote pod C is unaffected
+```
+
+Failure: forgetting `unlock()` in `finally` creates a permanent local outage. Enabling fairness can reduce starvation but lower throughput. Condition variables are useful for local queues, but they do not change the one-JVM scope.
+
+Monitoring:
+
+| Metric | Meaning |
+|---|---|
+| queue length estimate | local contention |
+| wait timeout count | backpressure inside pod |
+| critical section timer | TTL sizing if later replaced by distributed lease |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Timeout and interrupt support | More verbose |
+| Condition variables | Manual release required |
+| Optional fairness | Still JVM-local |
+
+When to use: use `ReentrantLock` when you need try-lock, timeout, interruptibility, or multiple conditions inside one process.
+
+Interview question: "Why might `tryLock` be better than blocking forever?" It lets a service fail fast, shed load, or return a retryable response instead of exhausting request threads.
+
+## `ReadWriteLock` and `StampedLock`
+
+Definition: `ReadWriteLock` allows many local readers or one local writer. `StampedLock` adds optimistic reads that must be validated before use.
+
+Mechanism:
+
+| Primitive | Read path | Write path | Caveat |
+|---|---|---|---|
+| `ReadWriteLock` | shared read lock | exclusive write lock | writer starvation depends on settings |
+| `StampedLock` | optimistic stamp or read lock | exclusive stamped write lock | non-reentrant and easy to misuse |
+
+Timeline:
+
+```text
+ReadWriteLock:
+  reader A enters
+  reader B enters
+  writer C waits
+  readers exit
+  writer C enters
+
+StampedLock:
+  reader gets stamp 10
+  writer changes state
+  reader validates stamp 10 -> false
+  reader falls back to read lock
+```
+
+Java example:
+
+```java
+public class LocalPricingCache {
+    private final ReadWriteLock rw = new ReentrantReadWriteLock();
+    private final StampedLock stamped = new StampedLock();
+    private Map<String, BigDecimal> prices = Map.of();
+    private int available;
+
+    public BigDecimal getPrice(String sku) {
+        rw.readLock().lock();
+        try {
+            return prices.get(sku);
+        } finally {
+            rw.readLock().unlock();
+        }
+    }
+
+    public int optimisticAvailable() {
+        long stamp = stamped.tryOptimisticRead();
+        int value = available;
+        if (!stamped.validate(stamp)) {
+            stamp = stamped.readLock();
+            try {
+                value = available;
+            } finally {
+                stamped.unlockRead(stamp);
+            }
+        }
+        return value;
+    }
+}
+```
+
+Failure: a local read lock does not make a cached value globally current, and an unvalidated stamped read is a data race.
+
+Monitoring:
+
+| Metric | Why |
+|---|---|
+| read latency during refresh | writer impact |
+| optimistic validation failure rate | write pressure |
+| stale cache age | distributed freshness issue |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Better local read concurrency | More complex than immutable replacement |
+| Useful for local snapshots | No cross-pod visibility |
+
+When to use: read-mostly local state. Do not use either primitive as a distributed cache-stampede or payment-deduplication mechanism.
+
+Interview question: "Would these locks protect Redis-backed cache rebuilds across pods?" No. They reduce contention only inside one JVM.
+
+## Spring `ConcurrentHashMap` lock manager
+
+Definition: a common Spring pattern maps business keys to local lock objects. It gives per-key exclusion inside one application instance.
+
+Mechanism:
+
+```java
+@Component
+public class LocalKeyedLockManager {
+    private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
+
+    public void withLock(String key, Runnable work) {
+        ReentrantLock lock = locks.computeIfAbsent(key, ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            work.run();
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+```
+
+Timeline:
+
+```text
+Instance A map:
+  account-100 -> ReentrantLock@A1
+
+Instance B map:
+  account-100 -> ReentrantLock@B1
+
+A1 and B1 are unrelated.
+```
+
+Java example for the duplicate:
+
+```java
+@RestController
+public class AccountController {
+    private final LocalKeyedLockManager localLocks;
+
+    @PostMapping("/accounts/{id}/debit")
+    public void debit(@PathVariable String id, @RequestBody DebitRequest request) {
+        localLocks.withLock("account-" + id, () -> service.debit(id, request.amount()));
+    }
+}
+```
+
+Failure: two Kubernetes pods both call `computeIfAbsent("account-100", ...)` and both succeed locally. If the map never removes keys, every new account or order id leaves a lock object behind.
+
+Monitoring:
+
+| Metric | Reason |
+|---|---|
+| lock map size | dynamic-key memory leak |
+| keys created per minute | cardinality pressure |
+| per-key wait time | hot keys inside one pod |
+| heap after traffic spike | stale lock retention |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Per-key local concurrency | Memory leak risk |
+| Simple Spring bean | False sense of distributed safety |
+| Useful for local request coalescing | Needs cleanup protocol |
+
+When to use: request coalescing, local cache rebuild protection, and per-pod throttling. Avoid for durable business invariants unless paired with database enforcement.
+
+Interview question: "Why do Instance A and Instance B both get `account-100`?" Because each has a separate `ConcurrentHashMap` in its own heap.
+
+## Dynamic-key leaks and striped locking
+
+Definition: a dynamic-key leak happens when every distinct account, order, or SKU creates a lock object that is never removed. Striped locking maps many keys onto a fixed set of locks to bound memory.
+
+Mechanism:
+
+| Approach | Storage | Benefit | Cost |
+|---|---|---|---|
+| Per-key map | one lock per key | precise local exclusion | cleanup is hard |
+| remove-when-idle | map with deletion | lower memory | race-prone if casual |
+| reference-counted wrapper | map plus users | safer cleanup | more code |
+| bounded cache | cache-managed entries | mature eviction | eviction semantics matter |
+| striping | fixed lock array | bounded memory | false contention |
+
+Timeline:
+
+```text
+dynamic map:
+  order-1 ... order-1,000,000 -> 1,000,000 locks retained -> heap pressure
+
+striped:
+  account-100 -> stripe 7
+  account-240 -> stripe 7
+  order-55    -> stripe 3
+  account-100 and account-240 block each other locally
+```
+
+Java example:
+
+```java
+public class StripedLocalLocks {
+    private final ReentrantLock[] stripes;
+
+    public StripedLocalLocks(int stripeCount) {
+        this.stripes = IntStream.range(0, stripeCount)
+            .mapToObj(i -> new ReentrantLock())
+            .toArray(ReentrantLock[]::new);
+    }
+
+    public void withStripe(String key, Runnable work) {
+        ReentrantLock lock = stripes[Math.floorMod(key.hashCode(), stripes.length)];
+        lock.lock();
+        try {
+            work.run();
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+```
+
+Failure: unsafe map cleanup can split one logical key across two lock objects. Striping avoids the leak but lets a hot key delay unrelated keys on the same stripe; across pods, each pod still has its own stripes.
+
+Monitoring:
+
+| Metric | Interpretation |
+|---|---|
+| keyed-lock map size | leak pressure |
+| old generation heap growth | retained lock keys |
+| wait time by stripe | hot stripe skew |
+| operations by stripe | hash distribution |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Keyed locks preserve local parallelism | Cleanup can break safety |
+| Stripes bound memory | False contention |
+| Both help cache coalescing | Neither is distributed |
+
+When to use: local throttling and cache rebuild coalescing. If correctness matters, push enforcement to PostgreSQL, Redis with fencing, or a coordinator.
+
+Interview question: "What is the bug in a naive `ConcurrentHashMap` lock registry?" It either leaks per-key locks forever or removes locks unsafely and breaks mutual exclusion.
+
+## Kubernetes pod scope
+
+Definition: a pod is an operational boundary, not a mutual-exclusion boundary. Each pod has its own JVM, heap, thread pools, Spring beans, and local locks.
+
+Mechanism:
+
+| Kubernetes event | Effect on local locks |
+|---|---|
+| scale out | creates more independent lock domains |
+| rolling deploy | old and new pods hold separate locks |
+| pod restart | all local lock state disappears |
+| HPA burst | increases duplicate execution opportunities |
+
+Timeline:
+
+```text
+T0  one pod: local lock appears safe
+T1  HPA scales to five pods
+T2  retry for same order lands on pod 4
+T3  pod 4 local lock is free
+T4  duplicate critical section runs
+```
+
+Java example:
+
+```java
+String ownerId = System.getenv("HOSTNAME") + ":" +
+    ManagementFactory.getRuntimeMXBean().getName();
+```
+
+Failure: logs show "lock acquired" once per pod, which can mislead responders. Include pod name, owner id, request id, and business key.
+
+Monitoring:
+
+| Dashboard | Group by |
+|---|---|
+| lock acquisitions | pod, key prefix, route |
+| duplicate requests | idempotency key, customer, order |
+| invariant violations | global resource id |
+
+Pros and cons:
+
+| Pros | Cons |
+|---|---|
+| Pod-local locks are predictable | Horizontal scale weakens business protection |
+| Great for local pressure relief | Rolling deploy overlaps lock domains |
+
+When to use: use pod-local locks deliberately for pod-local state. For account, order, payment, and inventory correctness, pair local performance tricks with PostgreSQL constraints, idempotency, Redis leases with fencing, or queue partitioning.
+
+Interview question: "A service had no duplicates until HPA scaled it. What changed?" The concurrency domain grew from one JVM to many JVMs, but the lock authority stayed inside one JVM.

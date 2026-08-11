@@ -1,0 +1,530 @@
+---
+slug: distributed-locking-interview-qa
+title: "Distributed Locking — Staff/Principal Interview Q&A (50+)"
+description: "50+ hard Staff/Principal interview questions on JVM locks, Redis/Redisson, fencing, PostgreSQL locks, Kafka, Saga, K8s, and production debugging with detailed answers."
+category: Distributed Systems
+difficulty: Principal
+tags: [Distributed Lock, Interview, Redis, PostgreSQL, Fencing, Kafka]
+readingTime: 40 min
+publishedAt: "2026-08-11"
+---
+
+This guide is a scenario-heavy Staff/Principal interview drill for distributed locking.
+It assumes the candidate has shipped production systems, debugged incidents, and can
+explain when a lock is the right tool versus when idempotency, storage constraints,
+streams, or workflow design are safer.
+
+Related deep dives:
+
+- [Distributed locking fundamentals](/distributed-systems/locking-fundamentals-and-layers)
+- [Redis distributed lock deep dive](/distributed-systems/redis-distributed-lock-deep-dive)
+- [Redisson watchdog and fencing](/distributed-systems/redisson-watchdog-and-fencing)
+- [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive)
+- [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency)
+- [Payment and inventory locking case
+  studies](/distributed-systems/payment-inventory-locking-case-studies)
+- [Transactions, 2PC, 3PC, and Saga](/distributed-systems/transactions-2pc-3pc-saga)
+- [Lock observability and
+  debugging](/distributed-systems/lock-observability-and-debugging)
+
+## Staff/Principal distributed locking interview Q&A
+
+### 1. Two workers both believe they own the same Redis lock. What are the most likely causes?
+
+The common causes are lease expiry while the first worker is paused, blind unlock
+deleting a newer owner's key, Redis failover losing an acknowledged write, or a
+split-brain window during promotion. In an incident, I would collect the lock value,
+owner metadata, acquisition timestamps, Redis failover logs, JVM GC logs, network
+errors, and release code. The fix is not simply "increase TTL"; the protected resource
+needs owner-checked release and, for correctness-critical writes, fencing tokens or
+storage-level conditional writes that reject stale owners.
+
+### 2. A JVM pauses for 20 seconds while holding a 10 second Redis lease. Is mutual exclusion preserved?
+
+No. A lease is a time-bounded claim, so another worker can acquire the lock after 10
+seconds while the paused JVM resumes at 20 seconds and continues executing old code.
+This is the classic stale owner problem. If the work mutates durable state, each write
+must carry a monotonic fencing token and the database or downstream system must reject
+any token older than the highest one already accepted.
+
+### 3. How do fencing tokens work in a real design?
+
+Each successful acquisition receives a monotonically increasing token from a
+linearizable source, such as a database sequence, etcd revision, ZooKeeper zxid-style
+ordering, or a carefully designed lock table. The protected resource stores the highest
+token accepted for the entity and rejects writes with lower tokens. Fencing does not
+prevent two processes from thinking they own the lock; it prevents the older owner from
+corrupting state after a pause, failover, or lease expiry.
+
+### 4. You see 500 blocked PostgreSQL sessions. What do you check first?
+
+I build the blocking tree from `pg_stat_activity`, `pg_locks`, wait events, query text,
+transaction age, and application name. The urgent question is which session is the
+oldest blocker and whether it is doing useful work or stuck while holding row locks. A
+typical root cause is `SELECT ... FOR UPDATE` followed by a remote API call or a thread
+waiting for another pool. The immediate mitigation may be canceling or terminating the
+oldest unsafe blocker, but the design fix is to keep transactions short and move
+external calls outside locked sections.
+
+### 5. A lock holder has been running for 5 minutes. Should on-call force unlock it?
+
+Not by default. Force unlock can create two active owners if the original worker is
+merely slow, paused, or blocked in I/O. A Staff-level runbook verifies owner identity,
+heartbeat, fencing token, pod status, current database transaction, last progress
+checkpoint, and whether stale writes are fenced before unlocking. If the system cannot
+answer those questions, the lock implementation is missing observability and the safer
+action may be to shed traffic or stop the holder cleanly.
+
+### 6. Why is Java `synchronized` useless for cross-pod coordination in Kubernetes?
+
+`synchronized` protects only threads inside one JVM process. Kubernetes usually runs
+multiple pods, each with its own heap, object monitors, and failure lifecycle. It is
+valid for local in-memory invariants such as protecting a cache map inside one process,
+but it cannot serialize payment attempts, job schedulers, or database updates across
+replicas. Cross-pod correctness must live in a shared source of truth: database
+constraints, row locks, Kafka partitioning, idempotency tables, or an external
+coordinator.
+
+### 7. Redis lock or PostgreSQL advisory lock for a nightly singleton job?
+
+If the job's checkpoints, state, and side effects are already in PostgreSQL, I prefer a
+transaction-level advisory lock or a durable job claim row in PostgreSQL. Ownership and
+progress then share the same failure domain and observability. Redis is reasonable for
+best-effort duplicate suppression, but a Redis lease can expire while the database
+transaction is still active. If the job is control-plane leadership across services,
+ZooKeeper or etcd may be a better fit than either Redis or PostgreSQL.
+
+### 8. Redis lock or database row lock for last-item inventory?
+
+Use the database invariant. The durable rule is "available quantity must not go
+negative", and PostgreSQL can enforce it with a conditional update, reservation row,
+unique constraint, or short `FOR UPDATE` transaction. A Redis lock adds TTL, failover,
+and stale-owner hazards while still requiring the database to reject oversell. For
+inventory, the Redis lock may reduce duplicate attempts, but it must not be the only
+correctness guard.
+
+### 9. Optimistic or pessimistic locking under very high contention?
+
+Under low contention, optimistic locking is attractive because requests do not block and
+stale updates fail on version checks. Under high contention, optimistic retries can turn
+into a storm: many requests read the same version, do expensive work, fail, and retry
+together. For a hot row or flash-sale item, a pessimistic short transaction or atomic
+conditional update often performs better because it serializes the small critical
+section at the storage engine. The right choice depends on conflict rate, retry cost,
+user-facing latency, and whether stale work has external side effects.
+
+### 10. What is the safest design for payment capture without a distributed lock?
+
+Use idempotency and durable state transitions. Create a payment attempt with a unique
+`(merchant_id, idempotency_key)`, write the intent and outbox event in one database
+transaction, call the payment service provider with the same idempotency key, and record
+the terminal result in a short transaction. Ambiguous timeouts are reconciled by
+querying the provider and replaying the outbox. A distributed lock around the PSP call
+would hold a lease across an uncertain external operation and still would not prove
+exactly-once payment.
+
+### 11. Why should you not hold a database lock while calling an external API?
+
+External calls have unpredictable latency and ambiguous outcomes. Holding a row lock
+while waiting on a PSP, shipping provider, feature flag service, or HTTP dependency
+blocks unrelated transactions and can grow into a database-wide incident. The safer
+shape is record local intent in a short transaction, call the external system with an
+idempotency key outside the DB lock, then store the result in another short transaction.
+This also gives replay and reconciliation paths when the external call succeeds but the
+local process dies.
+
+### 12. What does Redisson's watchdog solve, and what does it not solve?
+
+The watchdog automatically renews a lock while the Redisson client appears alive, which
+helps when the critical section takes longer than the initial lease. It does not make
+stale owners impossible. GC pauses, event-loop stalls, network partitions, Redis
+failover, client bugs, or pod termination can stop renewal long enough for the lease to
+expire. For business-critical mutation, Redisson improves ergonomics but still needs
+owner-checked unlock, bounded work chunks, metrics, and fencing at the protected
+resource.
+
+### 13. A Redis release uses `DEL lockKey`. What is wrong with it?
+
+The original holder's lease may have expired and a new holder may already own the key. A
+blind `DEL` can delete the new owner's lock and allow a third worker to acquire,
+creating overlapping critical sections. Correct Redis release stores a random owner
+value and uses a Lua compare-and-delete script that deletes only if the value matches.
+This pattern protects ownership of the lock key, though it still does not fence stale
+writes after lease expiry.
+
+### 14. How should lock TTL be chosen?
+
+TTL should exceed the normal critical-section p99 plus renewal jitter and scheduler
+delays, while remaining short enough to recover when a holder dies. It must be based on
+measured hold time, not a guess. If work duration is unpredictable, split work into
+bounded chunks, checkpoint progress, and renew explicitly with health checks. A longer
+TTL reduces duplicate owners but increases recovery time; a shorter TTL improves
+recovery but raises stale-owner risk.
+
+### 15. A lease expires while the holder is in the middle of writing to a database. What should happen?
+
+The database write should include a fencing token or conditional ownership check so
+stale work is rejected. Without that, the system has already lost the safety property:
+the old owner can still commit even though a new owner acquired the lease. For
+PostgreSQL, this might be a `WHERE token = current_owner_token` update, a monotonic
+version check, or a separate table tracking highest accepted fence. The important point
+is that lease state in Redis is advisory unless the durable resource enforces it.
+
+### 16. What is a good lease-renewal strategy?
+
+Renew well before expiry, add jitter, track renewal latency, and stop work if renewal
+fails or becomes ambiguous. Renewal should be tied to the actual owner value so a stale
+client cannot renew someone else's lock. The worker should also structure the critical
+section so it can pause between chunks and exit cleanly when ownership is lost. Renewal
+is a liveness optimization, not a substitute for fencing or idempotency.
+
+### 17. What is the difference between Redis locking and ZooKeeper or etcd locking?
+
+Redis is commonly deployed as an AP-ish cache with asynchronous replication and
+lease-based ownership, even though single-instance commands are atomic. ZooKeeper and
+etcd are CP coordination systems that provide stronger ordering, sessions, leases, and
+watch semantics through consensus. For leader election and control-plane coordination,
+ZK or etcd is usually safer. For high-QPS data-plane serialization, neither should be
+used casually; prefer partitioning, database constraints, or storage-local transactions.
+
+### 18. How does ZooKeeper's ephemeral sequential lock pattern avoid the herd effect?
+
+Each contender creates an ephemeral sequential node under a lock path and wins if it has
+the lowest sequence number. A non-winner watches only its immediate predecessor rather
+than watching the parent node. When the predecessor disappears, that contender checks
+whether it is now lowest. This avoids waking every waiter on every release and gives a
+clear acquisition order tied to ZooKeeper session lifetime.
+
+### 19. Why can Redis failover produce double owners?
+
+Redis replication is usually asynchronous. A primary can acknowledge `SET key value NX
+PX ttl` before the replica has persisted that write. If the primary dies and the replica
+is promoted, the promoted node may not know about the lock, allowing another client to
+acquire it. If double execution is unacceptable, the design needs a linearizable
+coordinator or fencing enforced by the system that receives the protected writes.
+
+### 20. Is Redlock enough for money movement?
+
+I would not rely on Redlock alone for money movement. It can reduce the probability of
+duplicate owners across independent Redis masters, but the business invariant still
+lives in the ledger database and must be protected there. Payments need idempotency
+keys, unique transaction IDs, balanced ledger entries, reconciliation, and possibly
+fencing tokens. A Staff/Principal answer should separate "coordination signal" from
+"durable correctness guarantee."
+
+### 21. A service uses one key, `lock:checkout`, for all checkout requests. What is wrong?
+
+The key is too coarse and turns unrelated customers, tenants, carts, and SKUs into one
+global critical section. That creates false contention, low throughput, and a broad
+outage domain when a holder stalls. Lock granularity should match the invariant: per
+payment attempt, per customer account, per SKU, or per merchant depending on what can
+conflict. Sensitive identifiers should be normalized or hashed, and metrics should
+report key classes rather than raw PII.
+
+### 22. How do you prevent tenant A from blocking tenant B?
+
+Scope lock keys by tenant or shard, apply per-tenant acquisition budgets, and avoid
+global locks in tenant-facing paths. Backpressure and rate limits should also be
+tenant-aware so one hot tenant cannot consume all worker threads waiting on locks.
+Observability should show top contended tenant scopes safely, with raw identifiers
+redacted or hashed. This is as much a multi-tenancy design problem as a locking problem.
+
+### 23. A lock service outage occurs. Should the application fail open or fail closed?
+
+It depends on the invariant. For a cache rebuild or analytics refresh, fail open may be
+acceptable because duplicate work is wasteful but not corrupting. For payment capture,
+inventory decrement, or ledger mutation, fail closed or fall back to the database's own
+invariant. The decision should be explicit in the design, tested, and reflected in
+health checks so the service does not silently block all request threads.
+
+### 24. How do idempotency and locks differ?
+
+A lock tries to serialize concurrent execution. Idempotency makes repeated execution
+safe by giving each logical operation a stable identity and storing its result or
+effect. Idempotency handles retries, duplicate messages, process crashes, and ambiguous
+external responses better than a lock. In robust systems, locks may reduce duplicate
+work, but idempotency is usually what protects correctness across crashes and
+distributed boundaries.
+
+### 25. What is the "exactly once" myth in Kafka plus locking designs?
+
+Kafka transactions can provide strong guarantees within Kafka and between
+consume-transform-produce pipelines, but they do not make an external database, payment
+provider, email system, or cache update exactly once. A distributed lock around the
+consumer also does not solve that. You still need stable event IDs, idempotent
+consumers, unique constraints, outbox or inbox tables, and reconciliation. The honest
+goal is effectively-once business outcome, not magical exactly-once side effects.
+
+### 26. When is a Kafka partition a better lock than Redis?
+
+If the invariant is naturally keyed, such as commands per account, order, tenant, or
+device, Kafka partitioning can serialize processing for that key while preserving replay
+and backpressure. The partition is not a lock object, but it gives single-threaded
+command order for a key group. The database still needs idempotency and version checks
+because consumers can rebalance, retry, or replay. For ordered workflows, partition
+ownership is often cleaner than ad hoc distributed locking.
+
+### 27. How do consumer group rebalances interact with lock-like ownership?
+
+During a rebalance, one consumer may lose partitions and another may gain them. If the
+old consumer continues processing after revocation, it can overlap with the new owner.
+Good consumers stop fetching, finish or abort bounded work, commit offsets carefully,
+and make database writes idempotent. For long processing, store progress externally and
+use cooperative cancellation rather than assuming partition assignment alone fences
+stale writes.
+
+### 28. What does `FOR UPDATE SKIP LOCKED` solve for job queues?
+
+It lets multiple workers claim different rows without blocking on rows another
+transaction already locked. This is excellent for outbox publishers, task queues, and
+batch claim loops where jobs are independent. It does not guarantee strict global
+ordering, and a constantly locked row can be skipped repeatedly. Use small batches,
+visibility timeouts or claim expirations, idempotent job handlers, and monitoring for
+starving rows.
+
+### 29. You find an outbox publisher protected by one global distributed lock. What would you change?
+
+I would replace the global lock with database-native claiming, usually `FOR UPDATE SKIP
+LOCKED` or an atomic claim update on small batches. The outbox table is already the
+source of truth, so workers can coordinate through row state. Publishing can still
+duplicate after a crash between publish and marking published, so events need stable IDs
+and consumers need idempotency. This improves throughput and recovery while shrinking
+the critical section.
+
+### 30. A worker publishes to Kafka and crashes before marking an outbox row published. Is the lock design broken?
+
+No, this is an expected failure mode in the outbox pattern. The row remains unpublished
+and will be retried, producing a duplicate event. The event key and event ID should be
+stable so consumers can dedupe or apply the event idempotently. Trying to use a
+distributed lock to prevent this usually hides the real requirement: exactly-once
+external side effects are not available, so the workflow must tolerate duplicates.
+
+### 31. How do retry storms happen around locks?
+
+Many callers fail to acquire the same hot lock, sleep for the same interval, and then
+retry together. That synchronized retry wave increases load on the lock service and the
+protected resource exactly when the system is already contended. Use bounded retries,
+exponential backoff, jitter, acquisition deadlines shorter than client timeouts, and
+domain responses such as 409 or 429. Sometimes the right answer is to stop retrying and
+ask the caller to retry later.
+
+### 32. What is connection pool starvation caused by locks?
+
+Threads can hold database connections while waiting for Redis locks, or hold Redis
+connections while waiting for database locks. Under load, every worker can end up
+waiting with scarce connections checked out, preventing the actual lock holder from
+making progress. The fix is to acquire resources in a disciplined order, never wait for
+remote locks while holding database connections, use separate bounded pools where
+justified, and instrument pool wait time alongside lock wait time.
+
+### 33. How do locks create deadlocks across multiple resources?
+
+Deadlocks occur when different code paths acquire resources in different orders, such as
+account A then B in one path and B then A in another. In databases, deadlock logs reveal
+the cycle, but distributed locks may only show timeouts. The design fix is a global
+acquisition order, lock leveling, or a model that avoids multi-lock transactions.
+Retrying deadlocks is necessary for resilience, but relying on retries alone leaves the
+ordering bug intact.
+
+### 34. How would you lock a transfer between two accounts?
+
+Prefer a ledger transaction that inserts balanced entries and enforces constraints in
+the database. If account rows must be locked, lock them in deterministic order by
+account ID to avoid deadlocks. Use an idempotency key for the transfer request so
+retries do not create duplicate ledger entries. I would avoid an external distributed
+lock around the transfer because the database is the source of truth and must enforce
+correctness anyway.
+
+### 35. What is wrong with a five-minute critical section?
+
+A five-minute lock hold time increases tail latency, blocks deploys and failover, raises
+the chance of TTL expiry, and makes incident response ambiguous. Long work should be
+chunked, checkpointed, and made resumable. If a single invariant truly requires long
+exclusive access, the design should be scrutinized: maybe the operation needs a state
+machine, queue, or partitioned workflow instead of a giant lock. Long holders also
+require explicit progress metrics and cancellation behavior.
+
+### 36. How should a pod shut down while holding a distributed lock?
+
+On SIGTERM, the pod should stop accepting new work, mark itself not ready, finish or
+checkpoint the current bounded chunk, release the lock only if it still owns it, and
+exit within the termination grace period. If it cannot finish, it should leave the work
+resumable and rely on lease expiry plus idempotency. Shutdown code must be
+cancellation-aware; swallowing Java interrupts can keep stale holders alive past their
+intended lifecycle.
+
+### 37. How do rolling deploys create duplicate schedulers?
+
+During a rolling deploy, a new pod can become ready before the old pod exits. If both
+run an in-process scheduler guarded only by `synchronized` or a local flag, both will
+fire jobs. Even with a distributed lease, the old holder might pause during shutdown and
+resume. A safe scheduler uses leader election or a database claim, records job execution
+idempotently, checkpoints progress, and stops scheduling as soon as readiness is
+withdrawn.
+
+### 38. How do you debug negative inventory when Redis locks were used?
+
+I first verify the database invariant: was there an atomic conditional update or only
+read-then-write under a Redis lock? Then I inspect duplicate owner evidence: Redis
+failovers, expired leases, GC pauses, blind deletes, key granularity, and retry
+behavior. The durable fix is usually `UPDATE inventory SET available = available - 1
+WHERE sku = ? AND available > 0` plus reservations and idempotency. Redis can reduce
+load, but the database must reject oversell.
+
+### 39. What metrics should every distributed lock emit?
+
+At minimum: acquisition attempts, acquisition latency, success rate, timeout rate, hold
+duration, renewal failures, release failures, forced unlocks, current holders, and top
+contended key classes. Metrics should include lock type, service, operation, tenant or
+shard class, and outcome, but not raw sensitive IDs. These metrics let on-call
+distinguish holder slowness, excessive contention, lock-service latency, and application
+bugs.
+
+### 40. What log fields make lock incidents debuggable?
+
+Include lock name or key class, hashed key, owner ID, pod name, deployment version,
+request ID, acquisition time, lease expiry, fencing token, wait budget, and release
+result. On forced unlock, log actor, reason, previous owner metadata, and the
+remediation ticket. Without owner metadata, responders are reduced to deleting keys
+blindly, which is dangerous for correctness-critical locks.
+
+### 41. What is a lock convoy?
+
+A convoy forms when many requests queue behind a slow holder and then proceed one at a
+time with high tail latency. Each holder inherits a large backlog, and thread pools can
+fill with waiters. Mitigations include shortening critical sections, fail-fast
+acquisition, stale reads for caches, per-key sharding, single-flight request coalescing,
+or replacing the lock with an atomic write. Increasing thread count usually hides the
+symptom and worsens pressure.
+
+### 42. How does Little's Law guide lock capacity planning?
+
+Little's Law says average concurrency equals arrival rate multiplied by time in system.
+If 200 requests per second wait or hold a lock for 100 ms, about 20 requests are tied up
+around that lock. This makes hold time a first-class capacity variable. A Staff-level
+review should ask for p95 and p99 hold durations, arrival rate per hot key, wait
+budgets, and pool sizing rather than only asking whether the lock is "correct."
+
+### 43. What is the hazard of session-level PostgreSQL advisory locks with connection pools?
+
+Session-level advisory locks remain attached to the database connection until explicitly
+released or the session ends. In a pool, returning a connection while it still holds a
+session lock can block unrelated future requests and make ownership hard to reason
+about. Prefer transaction-level advisory locks such as `pg_try_advisory_xact_lock` when
+possible, because commit or rollback releases them automatically. If session locks are
+required, the pool must enforce cleanup and observability.
+
+### 44. When are PostgreSQL advisory locks better than row locks?
+
+Advisory locks are useful when the resource is logical and not represented by one row,
+such as "run tenant billing job" or "migrate shard 17". They avoid creating artificial
+rows solely for locking, but they do not enforce data invariants by themselves. Row
+locks and constraints are better when the resource is actual data being mutated.
+Advisory lock keys must be carefully namespaced to avoid accidental collisions.
+
+### 45. How can `SELECT ... FOR UPDATE` become an outage?
+
+If a transaction locks rows and then waits on slow application logic, remote calls, user
+input, or another pool, every contender can queue behind it. The queue consumes database
+sessions, web threads, and sometimes locks on related tables. Once clients time out and
+retry, the system can amplify load. The remedy is short transactions, lock timeouts,
+consistent access patterns, avoiding external calls inside transactions, and clear
+dashboards for blockers.
+
+### 46. How do lock timeouts differ from statement timeouts and client timeouts?
+
+A lock timeout bounds how long the database waits to acquire a lock. A statement timeout
+bounds total execution time of a statement. A client timeout bounds how long the caller
+waits for a response. These budgets must be ordered intentionally: lock acquisition
+should usually fail before the client gives up, so the service can return a controlled
+response. If the client times out first, the server may keep waiting and doing useless
+work.
+
+### 47. What is a good API response when lock acquisition fails?
+
+Use a domain-specific response. For expected contention, 409 Conflict, 423 Locked, or
+429 Too Many Requests can be appropriate depending on API semantics. Include retry
+guidance when safe, but do not encourage immediate synchronized retries. For
+asynchronous workflows, accept the command once with an idempotency key and let workers
+process it later instead of making users wait on a hot lock.
+
+### 48. How do you design an admin force-unlock feature?
+
+Force unlock should require lock scope, tenant, current owner, fencing token if
+available, reason, and human authorization appropriate to the risk. The UI or runbook
+should show holder heartbeat, pod status, last progress, and possible side effects. It
+should audit every action and avoid generic "delete key" instructions. For critical
+workflows, mark the current work abandoned or paused before making another owner
+eligible.
+
+### 49. What security issues exist in lock key design?
+
+Lock keys can leak tenant IDs, emails, order numbers, or account numbers if written
+directly to Redis, logs, and metrics. Keys can also collide if services use inconsistent
+prefixes or unvalidated input. Use namespaced builders, hashed sensitive components,
+length limits, TLS, least-privilege ACLs, and separate credentials for lock operations
+versus cache operations. Operational safety matters because lock keys are often visible
+during incidents.
+
+### 50. How do you test a distributed lock implementation?
+
+Unit tests should cover owner values, compare-and-delete release, timeout behavior, and
+interruption handling. Integration tests should cover real Redis or PostgreSQL behavior,
+concurrent contenders, lock expiry, renewal, and transaction rollback. Fault tests
+should inject process crash, GC pause, Redis failover, network partition, DB deadlock,
+and Kubernetes termination. The pass condition is not "no exception"; it is "the
+protected invariant remains true."
+
+### 51. A candidate says, "Our distributed lock guarantees exactly once." How do you respond?
+
+I would challenge the statement. A lock may reduce concurrent execution, but
+exactly-once business effects across databases, Kafka, caches, and external APIs require
+idempotency, unique constraints, transactional outbox or inbox, replay safety, and
+reconciliation. Leases can expire, holders can pause, and messages can duplicate. A
+senior design should name the invariant and explain which durable component rejects
+duplicates or stale writes.
+
+### 52. When is a cache stampede lock acceptable?
+
+It is acceptable when duplicate work is wasteful but not corrupting. Use a short Redis
+lease or single-flight mechanism, serve stale data when possible, bound wait time, and
+allow one request to refresh while others degrade gracefully. The refreshed value should
+include version or generation metadata so an older rebuild cannot overwrite a newer one.
+This is a good Redis-lock use case because correctness does not depend solely on the
+lease.
+
+### 53. How do Saga workflows change the locking discussion?
+
+Sagas avoid holding one global transaction or lock across long-running business steps.
+Each step commits local state and defines compensating action or reconciliation for
+failures. For travel booking, fulfillment, or payment orchestration, holding a
+distributed lock for the whole workflow would be fragile and slow. The Saga still needs
+idempotent commands, state-machine transitions, and sometimes short local locks, but not
+one long cross-service critical section.
+
+### 54. How do you decide lock granularity?
+
+Choose the narrowest key that exactly covers the invariant without forcing frequent
+multi-lock acquisition. Too coarse creates false contention and broad outages; too fine
+allows conflicting operations to slip through or creates deadlocks when many keys are
+acquired. The aggregate boundary often reveals the right key: account, order, tenant,
+SKU, or device. If the design needs many locks for one business operation, the data
+model or command routing may be wrong.
+
+### 55. What is a good one-minute Staff/Principal answer to "which lock should we use?"
+
+Start with the invariant and source of truth. If the database owns the invariant, use
+constraints, conditional updates, row locks, or transaction-level advisory locks. If
+ordering is the invariant, consider Kafka partitioning or a single command owner. If
+leadership is the invariant, use a CP coordinator like etcd or ZooKeeper. Redis or
+Redisson is useful for short leases and duplicate-work suppression, but
+correctness-critical paths still need fencing, idempotency, and production runbooks.
+
+### 56. What production runbook would you require before approving a new distributed lock?
+
+The runbook should define owner metadata, dashboards, alert thresholds, safe
+force-unlock steps, retry policy, timeout budgets, shutdown behavior, and known failure
+modes. It should state whether the system fails open or closed when the lock service is
+unavailable. It should include test evidence for pause, crash, failover, deadlock, and
+duplicate message scenarios. Approval should depend on proving the business invariant
+survives those failures, not on showing that the happy-path lock acquisition works.

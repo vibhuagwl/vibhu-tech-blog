@@ -1,0 +1,439 @@
+---
+slug: postgresql-locking-deep-dive
+title: PostgreSQL Locking Deep Dive for Java and Spring Systems
+description: Staff and Principal guide to PostgreSQL row locks, Spring optimistic locking, advisory locks, isolation anomalies, deadlock detection, and production debugging queries.
+category: Distributed Systems
+difficulty: Staff/Principal
+tags: [PostgreSQL, Locks, Spring, Transactions, Interview]
+readingTime: 38 min
+publishedAt: "2026-08-11"
+---
+
+## Interview framing
+
+Most production concurrency bugs are not caused by a missing `synchronized` block.
+They happen when application code, PostgreSQL transactions, connection pools, retries, and external calls disagree about who owns a resource.
+
+This article uses Java, Spring, and PostgreSQL examples.
+It assumes the service stores money movement, inventory, booking, or workflow state in PostgreSQL and must survive duplicate requests, retries, and concurrent workers.
+
+## 11. PostgreSQL row lock modes
+
+PostgreSQL exposes several row-level lock strengths through `SELECT ... FOR ...`.
+The right mode depends on what future writes you must prevent.
+
+| Mode | Blocks | Common use |
+|---|---|---|
+| `FOR UPDATE` | Updates, deletes, and other strong row locks | You will update most columns or delete the row |
+| `FOR NO KEY UPDATE` | Updates that need a strong write lock, but not key changes | You update non-key fields in normal application writes |
+| `FOR SHARE` | Updates and deletes | You need a stable row while checking a relationship |
+| `FOR KEY SHARE` | Deletes and key-changing updates | Foreign-key style protection while allowing many normal updates |
+
+Use the weakest lock that preserves the invariant.
+A payment capture state transition usually needs `FOR UPDATE`.
+A child insert that only needs the parent row to keep existing often maps to `FOR KEY SHARE`.
+
+```sql
+BEGIN;
+
+SELECT id, status, amount_cents
+FROM payment
+WHERE id = $1
+FOR UPDATE;
+
+UPDATE payment
+SET status = 'CAPTURED'
+WHERE id = $1 AND status = 'AUTHORIZED';
+
+COMMIT;
+```
+
+In Spring Data JPA, pessimistic locks are explicit:
+
+```java
+public interface PaymentRepository extends JpaRepositoryPayment {
+    @Lock(PESSIMISTIC_WRITE)
+    @Query("select p from Payment p where p.id = :id")
+    OptionalPayment findForUpdate(UUID id);
+}
+```
+
+The important interview point: the lock lasts until transaction end, not until the Java method returns from the repository call.
+
+## 12. `FOR UPDATE` versus `FOR NO KEY UPDATE`
+
+`FOR UPDATE` is the strongest row lock you normally use.
+It is appropriate when you may delete the row or change columns that participate in foreign keys or uniqueness decisions.
+
+`FOR NO KEY UPDATE` is slightly weaker.
+It still prevents concurrent updates to the same row, but it allows `FOR KEY SHARE` readers that only need key stability.
+
+```sql
+BEGIN;
+
+SELECT id, balance_cents
+FROM account
+WHERE id = $1
+FOR NO KEY UPDATE;
+
+UPDATE account
+SET balance_cents = balance_cents - $2
+WHERE id = $1;
+
+COMMIT;
+```
+
+If every account debit uses `FOR UPDATE`, correctness is fine, but you may block unrelated foreign-key checks.
+At Staff level, say the mode is part of the data model contract: "Do we protect row existence and identity, or do we protect every mutable field?"
+
+## 13. `FOR SHARE` and `FOR KEY SHARE`
+
+Shared row locks let many transactions read a row with protection against certain writes.
+They are useful for referential and invariant checks when you do not intend to update the locked row.
+
+```sql
+BEGIN;
+
+SELECT id
+FROM merchant
+WHERE id = $1 AND status = 'ACTIVE'
+FOR KEY SHARE;
+
+INSERT INTO payout(merchant_id, amount_cents, state)
+VALUES ($1, $2, 'PENDING');
+
+COMMIT;
+```
+
+This prevents the merchant row from being deleted or having key identity changed while the payout is created.
+It does not serialize all merchant updates.
+
+Interview trap: if you read a row with no lock, then decide later to write another row based on that fact, you may have a time-of-check-to-time-of-use race.
+Shared locks are one way to close that race inside a single database.
+
+## 14. `NOWAIT`
+
+`NOWAIT` makes lock acquisition fail immediately instead of waiting.
+It is useful when waiting would violate an API contract or when the caller can try another resource.
+
+```sql
+BEGIN;
+
+SELECT id, state
+FROM invoice
+WHERE id = $1
+FOR UPDATE NOWAIT;
+
+UPDATE invoice
+SET state = 'PROCESSING'
+WHERE id = $1;
+
+COMMIT;
+```
+
+In Java, map the lock failure to a deliberate response.
+Do not let it become a generic 500.
+
+```java
+@Transactional
+public Invoice startProcessing(UUID invoiceId) {
+    try {
+        Invoice invoice = invoices.lockNowait(invoiceId)
+            .orElseThrow(NotFoundException::new);
+        invoice.markProcessing();
+        return invoice;
+    } catch (CannotAcquireLockException ex) {
+        throw new ConflictException("invoice is already being processed");
+    }
+}
+```
+
+`NOWAIT` is often better than a thread pile-up.
+The caller sees "busy" quickly and the service protects its worker pool.
+
+## 15. `SKIP LOCKED` work queue
+
+`SKIP LOCKED` is a PostgreSQL-native queue pattern.
+Workers race for pending rows, skip rows already locked by other workers, and claim different work.
+
+```sql
+WITH next_job AS (
+  SELECT id
+  FROM job
+  WHERE state = 'READY'
+  ORDER BY priority DESC, created_at
+  LIMIT 25
+  FOR UPDATE SKIP LOCKED
+)
+UPDATE job j
+SET state = 'RUNNING',
+    locked_by = $1,
+    locked_at = now()
+FROM next_job
+WHERE j.id = next_job.id
+RETURNING j.id, j.payload;
+```
+
+The claim and state transition are one statement.
+That matters because a separate select and update can double-claim under concurrency.
+
+Production notes: keep each batch small, track `locked_at`, reclaim stale jobs separately, never call external APIs while the job row remains locked, and add an index on `(state, priority, created_at)`.
+In Spring, claim under a short `@Transactional` method, process outside it, and finish with a separate idempotent update.
+
+## Optimistic locking with `@Version`
+
+Optimistic locking assumes conflicts are rare.
+JPA stores a version column and includes it in the update predicate.
+
+```java
+@Version
+private long version;
+
+void debit(long cents) {
+    if (cents > balanceCents) {
+        throw new InsufficientFundsException();
+    }
+    balanceCents -= cents;
+}
+```
+
+Conceptually, Hibernate emits an update like:
+
+```sql
+UPDATE account
+SET balance_cents = $1,
+    version = version + 1
+WHERE id = $2
+  AND version = $3;
+```
+
+If zero rows are updated, another transaction won the race.
+Spring surfaces this as an optimistic locking exception.
+
+Use optimistic locking for low-contention edits, admin workflows, and event handlers that can reload and retry.
+Avoid it as the only protection for hot counters, FIFO queues, or multi-row invariants unless backed by a unique or exclusion constraint.
+
+## Advisory locks: session versus transaction
+
+PostgreSQL advisory locks are application-defined locks using numeric keys.
+They do not protect rows by themselves.
+Every participant must agree to use the same key.
+
+Transaction-scoped advisory locks release automatically at commit or rollback:
+
+```sql
+BEGIN;
+SELECT pg_advisory_xact_lock(hashtext('merchant:' || $1));
+-- perform short critical section
+COMMIT;
+```
+
+Session-scoped advisory locks release when the database session ends or when explicitly unlocked:
+
+```sql
+SELECT pg_advisory_lock(hashtext('merchant:' || $1));
+SELECT pg_advisory_unlock(hashtext('merchant:' || $1));
+```
+
+The connection pool danger is session scope.
+In HikariCP, a "session" is a physical database connection.
+If application code acquires a session advisory lock and returns the connection to the pool without unlocking, the next request may inherit a locked session or hold a lock nobody understands.
+
+Rules for Spring services:
+
+- Prefer `pg_advisory_xact_lock` inside `@Transactional`.
+- Never use session-scoped locks unless you control connection checkout and release in the same try-finally block.
+- Add owner metadata in the application log because PostgreSQL only sees a numeric key.
+- Do not use advisory locks to hide a missing unique constraint.
+
+## 23. Isolation levels and anomaly timelines
+
+Isolation defines which interleavings are allowed.
+Locks are one implementation detail; MVCC snapshots are another.
+
+### Dirty read
+
+PostgreSQL does not allow dirty reads, even at `READ COMMITTED`.
+
+```text
+T1: BEGIN
+T1: UPDATE account SET balance_cents = 0 WHERE id = 'A'
+T2: SELECT balance_cents FROM account WHERE id = 'A'
+T2: sees the last committed value, not T1's uncommitted value
+T1: ROLLBACK
+```
+
+Interview answer: dirty reads are not the anomaly you normally debug in PostgreSQL.
+
+### Non-repeatable read
+
+At `READ COMMITTED`, each statement gets a fresh snapshot.
+
+```text
+T1: BEGIN
+T1: SELECT status FROM order_header WHERE id = 7 -- returns PENDING
+T2: UPDATE order_header SET status = 'PAID' WHERE id = 7
+T2: COMMIT
+T1: SELECT status FROM order_header WHERE id = 7 -- returns PAID
+T1: COMMIT
+```
+
+If T1 needs a stable row, use `REPEATABLE READ` or lock the row.
+
+### Phantom read
+
+A phantom is a new row appearing in a predicate range.
+
+```text
+T1: BEGIN READ COMMITTED
+T1: SELECT count(*) FROM booking WHERE room_id = 9 AND day = '2026-08-11' -- 0
+T2: INSERT INTO booking(room_id, day) VALUES (9, '2026-08-11')
+T2: COMMIT
+T1: SELECT count(*) FROM booking WHERE room_id = 9 AND day = '2026-08-11' -- 1
+```
+
+The better production design is a unique constraint on `(room_id, day)` so the invariant is stored where concurrency is resolved.
+
+### Lost update
+
+Lost updates happen when two transactions read the same value and overwrite each other.
+
+```text
+T1: SELECT balance_cents FROM account WHERE id = 'A' -- 1000
+T2: SELECT balance_cents FROM account WHERE id = 'A' -- 1000
+T1: UPDATE account SET balance_cents = 900 WHERE id = 'A'
+T2: UPDATE account SET balance_cents = 900 WHERE id = 'A'
+```
+
+Avoid read-modify-write in application memory.
+Use atomic SQL, row locks, or optimistic version checks.
+
+```sql
+UPDATE account
+SET balance_cents = balance_cents - $1
+WHERE id = $2
+  AND balance_cents >= $1;
+```
+
+### Write skew
+
+Write skew affects multi-row invariants.
+Two doctors cannot both go off call, but each transaction updates only its own row.
+
+```text
+T1: SELECT count(*) FROM on_call WHERE shift_id = 1 AND active = true -- 2
+T2: SELECT count(*) FROM on_call WHERE shift_id = 1 AND active = true -- 2
+T1: UPDATE on_call SET active = false WHERE doctor_id = 'A'
+T2: UPDATE on_call SET active = false WHERE doctor_id = 'B'
+T1: COMMIT
+T2: COMMIT
+```
+
+`REPEATABLE READ` may not be enough for every predicate invariant.
+Use `SERIALIZABLE`, an explicit guard row lock, or a constraint-based design.
+
+## Deadlock detection
+
+PostgreSQL detects deadlocks by building a wait graph after `deadlock_timeout`.
+One transaction is canceled so the others can proceed.
+The application must catch the exception and retry if the operation is safe to retry.
+
+Classic deadlock:
+
+```text
+T1: locks account A
+T2: locks account B
+T1: waits for account B
+T2: waits for account A
+PostgreSQL aborts one transaction
+```
+
+Prevent it with deterministic lock ordering:
+
+```sql
+SELECT id
+FROM account
+WHERE id IN ($1, $2)
+ORDER BY id
+FOR UPDATE;
+```
+
+## `pg_stat_activity` query for blocked sessions
+
+Use this when the app is slow but CPU is not high.
+
+```sql
+SELECT
+  a.pid AS blocked_pid,
+  a.usename AS blocked_user,
+  a.application_name AS blocked_app,
+  a.wait_event_type,
+  a.wait_event,
+  age(clock_timestamp(), a.query_start) AS blocked_duration,
+  a.query AS blocked_query
+FROM pg_stat_activity a
+WHERE a.wait_event_type = 'Lock'
+ORDER BY a.query_start;
+```
+
+## `pg_locks` query for blocking and blocked PIDs
+
+This version shows the wait edge.
+
+```sql
+SELECT
+  blocked_locks.pid AS blocked_pid,
+  blocked_activity.application_name AS blocked_app,
+  blocking_locks.pid AS blocking_pid,
+  blocking_activity.application_name AS blocking_app,
+  blocked_activity.query AS blocked_query,
+  blocking_activity.query AS blocking_query
+FROM pg_locks blocked_locks
+JOIN pg_stat_activity blocked_activity
+  ON blocked_activity.pid = blocked_locks.pid
+JOIN pg_locks blocking_locks
+  ON blocking_locks.locktype = blocked_locks.locktype
+ AND blocking_locks.database IS NOT DISTINCT FROM blocked_locks.database
+ AND blocking_locks.relation IS NOT DISTINCT FROM blocked_locks.relation
+ AND blocking_locks.page IS NOT DISTINCT FROM blocked_locks.page
+ AND blocking_locks.tuple IS NOT DISTINCT FROM blocked_locks.tuple
+ AND blocking_locks.virtualxid IS NOT DISTINCT FROM blocked_locks.virtualxid
+ AND blocking_locks.transactionid IS NOT DISTINCT FROM blocked_locks.transactionid
+ AND blocking_locks.classid IS NOT DISTINCT FROM blocked_locks.classid
+ AND blocking_locks.objid IS NOT DISTINCT FROM blocked_locks.objid
+ AND blocking_locks.objsubid IS NOT DISTINCT FROM blocked_locks.objsubid
+ AND blocking_locks.pid != blocked_locks.pid
+JOIN pg_stat_activity blocking_activity
+  ON blocking_activity.pid = blocking_locks.pid
+WHERE NOT blocked_locks.granted
+  AND blocking_locks.granted;
+```
+
+## 30. Shortcut query with `pg_blocking_pids`
+
+PostgreSQL exposes blockers directly:
+
+```sql
+SELECT
+  blocked.pid AS blocked_pid,
+  blocked.query AS blocked_query,
+  blocker.pid AS blocking_pid,
+  blocker.query AS blocking_query,
+  age(clock_timestamp(), blocked.query_start) AS blocked_for,
+  age(clock_timestamp(), blocker.query_start) AS blocker_running_for
+FROM pg_stat_activity blocked
+JOIN LATERAL unnest(pg_blocking_pids(blocked.pid)) AS blocker_pid ON true
+JOIN pg_stat_activity blocker ON blocker.pid = blocker_pid
+ORDER BY blocked.query_start;
+```
+
+Add `application_name` per service and worker role.
+Without it, every row looks like the same connection pool.
+
+## Staff interview answer
+
+A strong answer separates safety from liveness.
+Safety comes from constraints, row locks, version checks, and serializable transactions.
+Liveness comes from short transactions, lock timeouts, stable ordering, and observability.
+
+For Java and Spring systems, the production rule is simple: acquire database locks only inside the transaction that needs them, keep that transaction small, never wait on an external service while holding it, and make retries idempotent.
