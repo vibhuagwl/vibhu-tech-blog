@@ -1,0 +1,354 @@
+---
+slug: logarithmic-complexity
+title: "Logarithmic Complexity"
+description: "Derive O(log N) from repeated division and apply it to binary search, heaps, balanced BSTs, and segment trees."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, Binary Search, Heap, Tree]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Logarithmic complexity appears when each step removes a constant fraction of the remaining work.
+
+Most common shape:
+
+```text
+N -> N/2 -> N/4 -> N/8 -> ... -> 1
+```
+
+If the input is cut in half `t` times:
+
+```text
+remaining size after t steps = N / 2^t
+stop when N / 2^t <= 1
+N <= 2^t
+log2(N) <= t
+steps = ceil(log2 N)
+Big-O -> O(log N)
+```
+
+Log bases differ only by a constant factor:
+
+```text
+logK(N) = log2(N) / log2(K)
+```
+
+Since `1 / log2(K)` is constant for fixed K, `O(logK N) = O(log N)`.
+
+## Binary Search
+## Binary Search
+
+### Problem
+
+Search a sorted array by discarding half of the remaining range each comparison.
+
+```text
+indices: 0 1 2 3 4 5 6 7
+range:   [---------------]
+mid:             ^
+
+If target is larger:
+range:             [-----]
+```
+
+### Java Code
+
+```java
+public static int binarySearch(int[] nums, int target) {
+    int left = 0;
+    int right = nums.length - 1;
+
+    while (left <= right) {
+        int mid = left + (right - left) / 2;
+        if (nums[mid] == target) {
+            return mid;
+        }
+        if (nums[mid] < target) {
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+
+    return -1;
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> each loop keeps at most half the current search range
+executions -> N, N/2, N/4, ..., N/2^t
+formula -> N / 2^t <= 1
+simplify -> N <= 2^t
+simplify -> log2(N) <= t
+Big-O -> O(log N)
+```
+
+Best case:
+
+```text
+CODE -> target equals first mid
+executions -> 1 comparison
+formula -> 1
+simplify -> constant
+Big-O -> O(1)
+```
+
+Worst case is not found or found after maximum halvings: O(log N).
+
+### Space
+
+```text
+extra variables -> left, right, mid
+formula -> 3
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Case | Time | Auxiliary Space |
+|---|---|---|
+| Best | O(1) | O(1) |
+| Average | O(log N) | O(1) |
+| Worst | O(log N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"Binary search halves the remaining range every iteration. After t iterations, the range is N divided by 2 to the t. We stop when that is at most one, so t is log base 2 of N. Therefore worst-case time is O(log N), and the iterative version uses O(1) auxiliary space."
+
+## Heap Operations and Height
+
+### Problem
+
+A binary heap is a complete binary tree stored in an array. Insert may bubble up; remove may bubble down.
+
+```text
+level 0:              0
+level 1:          1       2
+level 2:        3   4   5   6
+level 3:       7 8 9 ...
+```
+
+### Java Code
+
+```java
+import java.util.PriorityQueue;
+
+public static int removeSmallest(PriorityQueue<Integer> heap) {
+    return heap.remove();
+}
+```
+
+### Mathematical Calculation
+
+A complete binary tree with height `h` has at most:
+
+```text
+level 0 -> 1 node
+level 1 -> 2 nodes
+level 2 -> 4 nodes
+...
+level h -> 2^h nodes
+```
+
+Total nodes through height `h`:
+
+```text
+1 + 2 + 4 + ... + 2^h = 2^(h + 1) - 1
+```
+
+Derive height:
+
+```text
+CODE -> bubble travels at most one root-to-leaf path
+executions -> h levels
+formula -> N <= 2^(h + 1) - 1
+simplify -> N + 1 <= 2^(h + 1)
+simplify -> log2(N + 1) <= h + 1
+simplify -> h >= log2(N + 1) - 1
+Big-O -> O(log N)
+```
+
+### Space
+
+```text
+extra variables during one heap operation -> a few indices and values
+formula -> constant
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+The heap itself stores N elements, so total structure space is O(N).
+
+### Final Complexity
+
+| Operation | Time | Auxiliary Space |
+|---|---|---|
+| `offer` | O(log N) | O(1) |
+| `poll` / `remove` root | O(log N) | O(1) |
+| `peek` | O(1) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"A heap is a complete binary tree, so each level roughly doubles the number of nodes. With height h, it can contain about 2 to the h nodes, so h is log base 2 of N. Insert and remove move along at most one path of that height, so they are O(log N); peek is O(1)."
+
+## Balanced Binary Search Tree
+
+### Problem
+
+Search, insert, or delete in a balanced BST such as a red-black tree.
+
+### Java Code
+
+```java
+import java.util.TreeSet;
+
+public static boolean containsValue(TreeSet<Integer> set, int target) {
+    return set.contains(target);
+}
+```
+
+### Mathematical Calculation
+
+In a balanced tree, each comparison discards about half of the remaining tree.
+
+```text
+CODE -> one comparison chooses left or right subtree
+executions -> N, N/2, N/4, ..., N/2^t
+formula -> N / 2^t <= 1
+simplify -> N <= 2^t
+simplify -> log2(N) <= t
+Big-O -> O(log N)
+```
+
+If the tree is not balanced, height can be N:
+
+```text
+CODE -> each node has only one child
+executions -> N nodes on a chain
+formula -> N
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+iterative search extra variables -> current node and target reference
+formula -> constant
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+The tree structure itself stores N nodes: O(N) total space.
+
+### Final Complexity
+
+| Structure | Search | Insert | Delete |
+|---|---:|---:|---:|
+| Balanced BST | O(log N) | O(log N) | O(log N) |
+| Skewed BST | O(N) | O(N) | O(N) |
+
+### Interview Explanation (20-30 sec)
+
+"In a balanced BST, each comparison moves to one subtree and discards the other, so the remaining candidate nodes are roughly halved. After t comparisons the remaining size is N over 2 to the t, which reaches one when t equals log base 2 of N. So balanced operations are O(log N), but a skewed tree can degrade to O(N)."
+
+## Segment Tree Height
+
+### Problem
+
+A segment tree recursively splits an array range in half for range queries and point updates.
+
+```text
+[0..7]
+  [0..3]          [4..7]
+ [0..1] [2..3]  [4..5] [6..7]
+[0][1] [2][3]  [4][5] [6][7]
+```
+
+### Java Code
+
+```java
+public static int heightForPowerOfTwoLeaves(int n) {
+    int height = 0;
+    while (n > 1) {
+        n /= 2;
+        height++;
+    }
+    return height;
+}
+```
+
+### Mathematical Calculation
+
+The leaves are the original N array positions. Moving upward halves the number of ranges per level.
+
+```text
+CODE -> each level halves the number of ranges
+executions -> N leaves, N/2 parents, N/4 grandparents, ..., 1 root
+formula -> N / 2^h = 1
+simplify -> N = 2^h
+simplify -> h = log2(N)
+Big-O height -> O(log N)
+```
+
+Point update touches one node per level:
+
+```text
+CODE -> update leaf, then recompute ancestors up to root
+executions -> height + 1
+formula -> log2(N) + 1
+simplify -> log N
+Big-O -> O(log N)
+```
+
+Range query visits a bounded number of nodes per level in the standard segment tree query:
+
+```text
+CODE -> at each level, only boundary-overlapping segments continue
+executions -> at most constant branches per level
+formula -> c * log2(N)
+simplify -> log N
+Big-O -> O(log N)
+```
+
+### Space
+
+```text
+tree array capacity -> about 4N in common Java implementations
+formula -> 4N
+simplify -> N
+Big-O total space -> O(N)
+
+recursive query stack -> tree height
+formula -> log2(N)
+simplify -> log N
+Big-O auxiliary stack space -> O(log N)
+```
+
+### Final Complexity
+
+| Operation | Time | Auxiliary Space |
+|---|---|---|
+| Build | O(N) | O(N) tree storage |
+| Point update | O(log N) | O(log N) recursive stack or O(1) iterative |
+| Range query | O(log N) | O(log N) recursive stack or O(1) iterative |
+
+### Interview Explanation (20-30 sec)
+
+"A segment tree halves the range at every level. If there are N leaves, after h levels we have N divided by 2 to the h leaves remaining at the root. Setting that equal to one gives h equals log base 2 of N. Updates touch one node per level, and queries visit only a constant number of relevant nodes per level, so both are O(log N)."
+
+## Final Complexity
+
+| Pattern | Mathematical derivation | Time |
+|---|---|---:|
+| Divide by 2 | `N / 2^t <= 1 -> t >= log2 N` | O(log N) |
+| Divide by K | `N / K^t <= 1 -> t >= logK N` | O(log N) |
+| Heap path | `N <= 2^(h + 1) - 1 -> h = O(log N)` | O(log N) |
+| Balanced BST path | roughly half discarded per comparison | O(log N) |
+| Segment tree height | `N / 2^h = 1 -> h = log2 N` | O(log N) |

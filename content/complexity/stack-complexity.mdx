@@ -1,0 +1,366 @@
+---
+slug: stack-complexity
+title: "Stack Complexity"
+description: "Complexity of stack push, pop, peek, search, array-backed stacks, linked stacks, Java ArrayDeque, Stack, and amortized resizing."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Stack, ArrayDeque]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+A stack is last-in, first-out (LIFO).
+
+```text
+push 10      push 20      pop
+
+top          top          top
+[10]         [20]         [10]
+             [10]
+```
+
+Core operations target the top, so they are usually constant time.
+
+For queue contrast, see [/complexity/queue-complexity](/complexity/queue-complexity).
+
+## Complexity Table
+
+| Operation | Array-backed stack | Linked stack | Java `ArrayDeque` | Java `Stack` |
+|---|---:|---:|---:|---:|
+| Push | amortized O(1), worst O(N) resize | O(1) | amortized O(1) | O(1) synchronized, may resize |
+| Pop | O(1) | O(1) | O(1) | O(1) |
+| Peek | O(1) | O(1) | O(1) | O(1) |
+| Search | O(N) | O(N) | O(N) manual scan | O(N) |
+| Space for N elements | O(N) | O(N) | O(N) | O(N) |
+
+Modern Java code usually prefers `ArrayDeque` over legacy `Stack`.
+
+## Array-Backed Push
+
+### Problem
+
+Push an item onto an array-backed stack.
+
+### Java Code
+
+```java
+public final class IntStack {
+    private int[] data = new int[4];
+    private int size = 0;
+
+    public void push(int value) {
+        if (size == data.length) {
+            int[] next = new int[data.length * 2];
+            for (int i = 0; i < data.length; i++) {
+                next[i] = data[i];
+            }
+            data = next;
+        }
+        data[size] = value;
+        size++;
+    }
+}
+```
+
+### Line-by-Line
+
+| Code | Work | Executions |
+|---|---|---:|
+| capacity check | constant | 1 |
+| copy old elements on resize | assignment | N only when full |
+| write new top | assignment | 1 |
+| increment size | assignment | 1 |
+
+### Mathematical Calculation
+
+Single push with spare capacity:
+
+```text
+CODE -> check capacity, write value, increment size
+executions -> 3 constant operations
+formula -> 3
+simplify -> constant
+Big-O -> O(1)
+```
+
+Single push when full:
+
+```text
+CODE -> allocate larger array, copy N elements, write value
+executions -> N copies + constants
+formula -> N + 4
+simplify -> N
+Big-O -> O(N)
+```
+
+Amortized over N pushes with doubling:
+
+```text
+CODE -> N direct writes plus resize copies at capacities 1, 2, 4, ..., N/2
+executions -> N + (1 + 2 + 4 + ... + N/2)
+formula -> N + (N - 1)
+simplify -> 2N - 1
+Big-O total -> O(N)
+amortized per push -> O(N) / N = O(1)
+```
+
+### Space
+
+```text
+stored elements -> N
+capacity may be less than 2N after doubling
+formula -> at most 2N slots
+simplify -> N
+Big-O total structure space -> O(N)
+
+temporary resize array -> about 2N slots during resize
+simplify -> N
+Big-O temporary auxiliary space during resize -> O(N)
+```
+
+### Final Complexity
+
+| Push case | Time | Auxiliary Space |
+|---|---|---|
+| Spare capacity | O(1) | O(1) |
+| Resize needed | O(N) | O(N) temporary |
+| Amortized over many pushes | O(1) | O(1) per non-resize operation |
+
+### Interview Explanation (20-30 sec)
+
+"Most pushes write to the next free slot, which is constant time. Occasionally the backing array is full, so we allocate a larger array and copy N elements, making that one push O(N). Across many pushes, the copies are 1 plus 2 plus 4 and so on, less than N extra copies, so total work is O(N) and amortized push is O(1)."
+
+## Pop and Peek
+
+### Problem
+
+Read or remove the top element.
+
+### Java Code
+
+```java
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public static int popTop(Deque<Integer> stack) {
+    return stack.pop();
+}
+
+public static int peekTop(Deque<Integer> stack) {
+    return stack.peek();
+}
+```
+
+### Line-by-Line
+
+| Operation | Work | Executions |
+|---|---|---:|
+| `peek` | read top slot/reference | 1 |
+| `pop` | read top and move size/head pointer | constant | 1 |
+
+### Mathematical Calculation
+
+```text
+CODE -> top is already known by index or head pointer
+executions -> constant read/update operations
+formula -> 2 or 3
+simplify -> constant
+Big-O -> O(1)
+```
+
+### Space
+
+```text
+extra variables -> returned value
+formula -> 1
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Operation | Time | Auxiliary Space |
+|---|---|---|
+| Peek | O(1) | O(1) |
+| Pop | O(1) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"A stack keeps direct access to the top. Peek reads that element, and pop reads it then moves the size or head reference. Neither operation depends on the number of stack elements, so both are O(1) time and O(1) auxiliary space."
+
+## Search in a Stack
+
+### Problem
+
+Find whether a value exists somewhere in the stack.
+
+### Java Code
+
+```java
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+public static boolean contains(Deque<Integer> stack, int target) {
+    for (int value : stack) {
+        if (value == target) {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> scan stack elements until found or exhausted
+executions -> worst case N comparisons
+formula -> N
+simplify -> N
+Big-O -> O(N)
+```
+
+Average case:
+
+```text
+CODE -> target equally likely at any stack position
+executions -> (1 + 2 + ... + N) / N
+formula -> (N(N + 1) / 2) / N
+simplify -> (N + 1) / 2
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+extra variables -> loop value
+formula -> 1
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Case | Time | Auxiliary Space |
+|---|---|---|
+| Best, top matches | O(1) | O(1) |
+| Average | O(N) | O(1) |
+| Worst, absent/bottom | O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"Push, pop, and peek are the stack operations designed to be constant time. Search is different because a stack has no index or hash lookup by value. In the worst case we inspect all N elements, so search is O(N) time and O(1) auxiliary space."
+
+## Linked Stack
+
+### Problem
+
+Implement a stack using a linked list head as the top.
+
+### Java Code
+
+```java
+public final class LinkedStack {
+    private Node top;
+
+    public void push(int value) {
+        Node node = new Node(value);
+        node.next = top;
+        top = node;
+    }
+
+    public int pop() {
+        int value = top.value;
+        top = top.next;
+        return value;
+    }
+
+    private static final class Node {
+        int value;
+        Node next;
+
+        Node(int value) {
+            this.value = value;
+        }
+    }
+}
+```
+
+### Mathematical Calculation
+
+Push:
+
+```text
+CODE -> allocate node, point it to old top, update top
+executions -> 3 constant operations
+formula -> 3
+simplify -> constant
+Big-O -> O(1)
+```
+
+Pop:
+
+```text
+CODE -> read top value, move top to next
+executions -> 2 constant operations
+formula -> 2
+simplify -> constant
+Big-O -> O(1)
+```
+
+### Space
+
+```text
+one node per stored value
+formula -> N nodes
+simplify -> N
+Big-O total structure space -> O(N)
+
+extra variables per operation -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Operation | Time | Auxiliary Space |
+|---|---|---|
+| Push | O(1) | O(1) per operation |
+| Pop | O(1) | O(1) |
+| Peek | O(1) | O(1) |
+| Search | O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"A linked stack uses the list head as the top, so push and pop only change that head reference and one next pointer. That is a constant amount of work. The structure uses O(N) total memory for N nodes, and each operation uses O(1) auxiliary space."
+
+## Java ArrayDeque vs Stack
+
+| API | Recommendation | Complexity note |
+|---|---|---|
+| `ArrayDeque<E>` | Preferred stack/deque implementation | push/pop/peek at ends are O(1) amortized |
+| `Stack<E>` | Legacy class extending `Vector` | top operations are O(1), but methods are synchronized |
+| `LinkedList<E>` | Works as a `Deque`, but node-heavy | O(1) at ends, O(N) search/index |
+
+```text
+CODE -> two pushes and two pops
+executions -> 4 stack operations
+formula -> 4 * O(1)
+simplify -> constant
+Big-O -> O(1)
+```
+
+## Final Complexity
+## Final Complexity
+
+| Operation | Time | Derivation |
+|---|---:|---|
+| Push with capacity | O(1) | constant write to top |
+| Push on resize | O(N) | copy N old elements |
+| Push amortized | O(1) | geometric copies total O(N) over N pushes |
+| Pop | O(1) | constant top update |
+| Peek | O(1) | constant top read |
+| Search | O(N) | up to N comparisons |
+| Store N elements | O(N) space | one slot or node per element |

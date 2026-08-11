@@ -1,0 +1,384 @@
+---
+slug: queue-complexity
+title: "Queue Complexity"
+description: "Complexity of enqueue, dequeue, peek, arrays, circular queues, LinkedList, ArrayDeque, and PriorityQueue in Java."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Queue, ArrayDeque, PriorityQueue]
+readingTime: 17 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+A queue is first-in, first-out (FIFO).
+
+```text
+enqueue -> [A] [B] [C] -> dequeue
+           head      tail
+```
+
+The key design question is whether removing from the front requires shifting elements. A circular array avoids that shift.
+
+For heap-backed priority queues, see the heap section in [/complexity/logarithmic-complexity](/complexity/logarithmic-complexity).
+
+## Complexity Table
+
+| Implementation | Enqueue | Dequeue | Peek | Search | Space |
+|---|---:|---:|---:|---:|---:|
+| Naive array, shifting on dequeue | O(1) append | O(N) | O(1) | O(N) | O(N) |
+| Circular array | amortized O(1) | O(1) | O(1) | O(N) | O(N) |
+| Linked list with head and tail | O(1) | O(1) | O(1) | O(N) | O(N) |
+| Java `ArrayDeque` | amortized O(1) | O(1) | O(1) | O(N) | O(N) |
+| Java `LinkedList` | O(1) | O(1) | O(1) | O(N) | O(N) |
+| Java `PriorityQueue` | O(log N) | O(log N) | O(1) | O(N) | O(N) |
+
+## Naive Array Dequeue
+
+### Problem
+
+A simple array queue may remove index 0 and shift every later element left.
+
+### Java Code
+
+```java
+public static int dequeueNaive(int[] queue, int size) {
+    int removed = queue[0];
+    for (int i = 1; i < size; i++) queue[i - 1] = queue[i];
+    return removed;
+}
+```
+
+### Mathematical Calculation
+
+```text
+CODE -> remove front, shift all remaining elements left
+executions -> N - 1 shifts + constants
+formula -> N - 1 + 2
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+extra variables -> removed and i
+formula -> 2
+simplify -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Operation | Time | Auxiliary Space |
+|---|---:|---:|
+| Naive dequeue | O(N) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"The naive array version is slow because it closes the front gap by shifting N minus one elements. That formula simplifies to O(N). Circular queues avoid this by moving the head index instead."
+
+## Circular Array Queue
+## Circular Array Queue
+
+### Problem
+
+Avoid shifting by moving head and tail indexes around the array.
+
+```text
+capacity = 8
+
+index:  0 1 2 3 4 5 6 7
+data:   _ _ A B C _ _ _
+          head  tail
+
+dequeue -> head moves right
+enqueue -> tail moves right, wraps by modulo capacity
+```
+
+### Java Code
+
+```java
+public final class IntCircularQueue {
+    private int[] data = new int[8];
+    private int head = 0;
+    private int tail = 0;
+    private int size = 0;
+
+    public void enqueue(int value) {
+        if (size == data.length) {
+            grow();
+        }
+        data[tail] = value;
+        tail = (tail + 1) % data.length;
+        size++;
+    }
+
+    public int dequeue() {
+        int value = data[head];
+        head = (head + 1) % data.length;
+        size--;
+        return value;
+    }
+
+    private void grow() {
+        int[] next = new int[data.length * 2];
+        for (int i = 0; i < size; i++) {
+            next[i] = data[(head + i) % data.length];
+        }
+        data = next;
+        head = 0;
+        tail = size;
+    }
+}
+```
+
+### Line-by-Line
+
+| Operation | Work | Executions |
+|---|---|---:|
+| `enqueue` with capacity | write at tail, advance tail | constant |
+| `dequeue` | read at head, advance head | constant |
+| `grow` | copy all logical elements | N when full |
+
+### Mathematical Calculation
+
+Dequeue:
+
+```text
+CODE -> read head and move head by modulo arithmetic
+executions -> read + modulo update + decrement + return
+formula -> 4
+simplify -> constant
+Big-O -> O(1)
+```
+
+Enqueue with capacity:
+
+```text
+CODE -> write at tail and move tail by modulo arithmetic
+executions -> capacity check + write + modulo update + increment
+formula -> 4
+simplify -> constant
+Big-O -> O(1)
+```
+
+Enqueue when full:
+
+```text
+CODE -> copy N elements into larger array, then write new value
+executions -> N copies + constants
+formula -> N + 4
+simplify -> N
+Big-O -> O(N)
+```
+
+Amortized enqueue with doubling:
+
+```text
+CODE -> N enqueues, resize copies at 1, 2, 4, ..., N/2
+executions -> N writes + (1 + 2 + 4 + ... + N/2) copies
+formula -> N + (N - 1)
+simplify -> 2N - 1
+Big-O total -> O(N)
+amortized per enqueue -> O(N) / N = O(1)
+```
+
+### Space
+
+```text
+stored elements -> N
+backing capacity after doubling -> less than 2N
+formula -> 2N
+simplify -> N
+Big-O total structure space -> O(N)
+
+operation variables -> head, tail, size, value
+formula -> constant
+Big-O auxiliary space without resize -> O(1)
+```
+
+### Final Complexity
+
+| Operation | Time | Auxiliary Space |
+|---|---|---|
+| Enqueue with capacity | O(1) | O(1) |
+| Enqueue amortized | O(1) | O(1) per normal operation |
+| Enqueue with resize | O(N) | O(N) temporary |
+| Dequeue | O(1) | O(1) |
+| Peek | O(1) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"A circular queue avoids shifting by moving head and tail indexes. Dequeue just reads the head and advances it modulo capacity, so the formula is a constant number of operations and O(1). Enqueue is also O(1) unless a resize occurs; with doubling, total resize copies over many enqueues form a geometric series, so enqueue is amortized O(1)."
+
+## Linked Queue
+
+### Problem
+
+Implement a queue with head and tail node references.
+
+### Java Code
+
+```java
+public final class LinkedQueue {
+    private Node head;
+    private Node tail;
+
+    public void enqueue(int value) {
+        Node node = new Node(value);
+        if (tail == null) {
+            head = node;
+            tail = node;
+        } else {
+            tail.next = node;
+            tail = node;
+        }
+    }
+
+    public int dequeue() {
+        int value = head.value;
+        head = head.next;
+        if (head == null) {
+            tail = null;
+        }
+        return value;
+    }
+
+    private static final class Node {
+        int value;
+        Node next;
+
+        Node(int value) {
+            this.value = value;
+        }
+    }
+}
+```
+
+### Mathematical Calculation
+
+Enqueue:
+
+```text
+CODE -> append node after tail and update tail
+executions -> constant pointer operations
+formula -> at most 4
+simplify -> constant
+Big-O -> O(1)
+```
+
+Dequeue:
+
+```text
+CODE -> read head and move head to next
+executions -> constant pointer operations
+formula -> at most 4
+simplify -> constant
+Big-O -> O(1)
+```
+
+If the queue did not store a tail reference:
+
+```text
+CODE -> find end before enqueue
+executions -> N pointer hops + constant append
+formula -> N + 2
+simplify -> N
+Big-O -> O(N)
+```
+
+### Space
+
+```text
+stored nodes -> one per element
+formula -> N
+simplify -> N
+Big-O total structure space -> O(N)
+
+extra operation variables -> node or value
+formula -> constant
+Big-O auxiliary space -> O(1)
+```
+
+### Final Complexity
+
+| Operation | With head and tail | Without tail |
+|---|---:|---:|
+| Enqueue | O(1) | O(N) |
+| Dequeue | O(1) | O(1) |
+| Peek | O(1) | O(1) |
+
+### Interview Explanation (20-30 sec)
+
+"A linked queue is constant time at both ends if it stores head and tail. Enqueue attaches after tail and updates tail; dequeue removes head and updates head. Each is a fixed number of pointer operations. Without a tail pointer, enqueue must traverse to the end, which makes it O(N)."
+
+## Java Queue Implementations
+
+### Java Code
+
+```java
+import java.util.ArrayDeque;
+import java.util.LinkedList;
+import java.util.PriorityQueue;
+import java.util.Queue;
+
+public static int useQueues() {
+    Queue<Integer> fifo = new ArrayDeque<>();
+    fifo.offer(10);
+    fifo.offer(20);
+    int first = fifo.poll();
+
+    Queue<Integer> linked = new LinkedList<>();
+    linked.offer(30);
+
+    PriorityQueue<Integer> minHeap = new PriorityQueue<>();
+    minHeap.offer(5);
+    minHeap.offer(1);
+    int smallest = minHeap.poll();
+
+    return first + linked.peek() + smallest;
+}
+```
+
+### Complexity
+
+| Java type | Best use | Enqueue | Dequeue | Peek |
+|---|---|---:|---:|---:|
+| `ArrayDeque<E>` | general FIFO queue/deque | amortized O(1) | O(1) | O(1) |
+| `LinkedList<E>` | deque API with node storage | O(1) | O(1) | O(1) |
+| `PriorityQueue<E>` | min/max priority by comparator | O(log N) | O(log N) | O(1) |
+
+PriorityQueue derivation:
+
+```text
+CODE -> heap insert or remove moves along heap height
+executions -> heap height h
+formula -> N <= 2^(h + 1) - 1
+simplify -> h = O(log N)
+Big-O -> O(log N)
+```
+
+Search in any of these queues by value:
+
+```text
+CODE -> no direct lookup by value
+executions -> up to N comparisons
+formula -> N
+simplify -> N
+Big-O -> O(N)
+```
+
+## Final Complexity
+
+| Operation | Normal FIFO queue | Mathematical reason |
+|---|---:|---|
+| Enqueue | amortized O(1) | constant tail write; resize amortized by geometric series |
+| Dequeue | O(1) | move head pointer/index, no shift |
+| Peek | O(1) | read head directly |
+| Search | O(N) | may inspect all elements |
+| Priority enqueue/dequeue | O(log N) | heap height is logarithmic |
+
+## Interview Explanation (20-30 sec)
+
+"A good FIFO queue stores where the front and back are. In a circular array, dequeue just advances the head index, so it does not shift N elements. Enqueue is constant unless resizing, and doubling gives amortized O(1). A linked queue is also O(1) at both ends if it keeps head and tail. PriorityQueue is different because it is heap-backed, so offer and poll are O(log N)."
