@@ -27,7 +27,7 @@ So a loop that repeatedly shifts until zero is **O(B)**, which is also **O(log N
 
 | Operation | Java expression | Time | Derivation |
 |---|---|---|---|
-| Set bit k | `x | (1 << k)` | O(1) | One shift and one OR on fixed-width int |
+| Set bit k | `x \| (1 << k)` | O(1) | One shift and one OR on fixed-width int |
 | Clear bit k | `x & ~(1 << k)` | O(1) | One shift, NOT, and AND |
 | Toggle bit k | `x ^ (1 << k)` | O(1) | One shift and XOR |
 | Check bit k | `(x & (1 << k)) != 0` | O(1) | One shift and AND |
