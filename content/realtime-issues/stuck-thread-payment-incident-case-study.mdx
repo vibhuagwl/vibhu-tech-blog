@@ -1,0 +1,444 @@
+---
+slug: stuck-thread-payment-incident-case-study
+title: "Case Study: Payment Pods Stuck Behind a Two-Hour Transaction"
+description: Realistic senior investigation and recovery walkthrough for payment latency, Kafka lag, Hikari exhaustion, PostgreSQL lock waits, and a long-running transaction.
+category: Real-Time Issues
+difficulty: Staff/Principal
+tags: [Payments, Java, Spring, PostgreSQL, Kafka, Incident Response]
+readingTime: 29 min
+publishedAt: "2026-08-11"
+---
+
+## Scenario
+
+You are Principal on-call for the payment platform.
+
+At 09:12 UTC, alerts fire:
+
+- payment capture p99 above 45 seconds
+- Kafka lag rising for `payment.capture.requested`
+- checkout timeout rate above 8%
+- Hikari pending threads elevated
+
+The deployment has 20 payment pods.
+
+CPU is normal.
+
+Memory is normal.
+
+No node is under pressure.
+
+The first instinct from the incident channel is "restart the pods."
+
+You hold that action until you know whether a restart duplicates, rolls back, or unlocks payment work.
+
+## Initial dashboard snapshot
+
+```text
+pods: 20 ready
+CPU: 22% average, 41% max
+heap: 58% average
+HTTP p99: 48s
+HTTP 5xx: 1.5%
+client timeouts: 8.7%
+Kafka lag: 740k and rising
+Hikari active: 30 of 30 per pod
+Hikari pending: 80 to 150 per pod
+PostgreSQL lock waits: 186 sessions
+oldest transaction: 2h 03m
+```
+
+Normal CPU tells you this is probably waiting, not compute.
+
+Hikari exhaustion tells you request threads are waiting for DB connections.
+
+PostgreSQL lock waits tell you at least some active connections are not merely slow; they are blocked by a lock owner.
+
+## Step 1: freeze the evidence
+
+Before any restart:
+
+```bash
+kubectl get pods -l app=payment-api -o wide
+kubectl top pods -l app=payment-api
+```
+
+Then capture three thread dumps from two representative pods:
+
+```bash
+kubectl exec payment-api-7d8f -- jcmd 1 Thread.print > /tmp/payment-7d8f-1.txt
+sleep 10
+kubectl exec payment-api-7d8f -- jcmd 1 Thread.print > /tmp/payment-7d8f-2.txt
+sleep 10
+kubectl exec payment-api-7d8f -- jcmd 1 Thread.print > /tmp/payment-7d8f-3.txt
+```
+
+You also capture DB blockers and Kafka lag by partition.
+
+The goal is to identify ownership, not collect random logs.
+
+## Step 2: classify thread states
+
+The dump summary is consistent across pods:
+
+```text
+150 http-nio-8080-exec-* threads WAITING on com.zaxxer.hikari.pool.HikariPool.getConnection
+30 payment-worker-* threads WAITING on PostgreSQL socket read
+12 kafka-listener-* threads blocked inside PaymentCaptureService.apply
+0 deadlocked JVM monitor cycles
+CPU-heavy RUNNABLE threads: none
+```
+
+The 150 waiting request threads are victims.
+
+They do not own DB connections.
+
+They are queued for connections.
+
+You need to find the active 30 connection owners.
+
+## Step 3: inspect Hikari owners
+
+Hikari metrics:
+
+```text
+hikaricp.connections.active{pool="payment-write"} 30
+hikaricp.connections.pending{pool="payment-write"} 147
+hikaricp.connections.timeout_total rising
+hikaricp.connections.usage p99 3600s
+```
+
+The usage p99 is the giveaway.
+
+Connections are not just scarce.
+
+They are being held for minutes.
+
+Application stack for active owners:
+
+```text
+payment-worker-14
+  PaymentCaptureService.apply
+  PaymentRepository.markCaptureInProgress
+  JdbcTemplate.update
+  org.postgresql.core.v3.QueryExecutorImpl.receiveCommandStatus
+```
+
+Another stack:
+
+```text
+http-nio-8080-exec-93
+  PaymentController.capture
+  PaymentService.capture
+  TransactionInterceptor.invoke
+  PgPreparedStatement.executeUpdate
+```
+
+Both point to writes around payment capture state.
+
+## Step 4: query PostgreSQL blockers
+
+You run the blocker query:
+
+```sql
+select
+  blocked.pid as blocked_pid,
+  blocked.query as blocked_query,
+  blocking.pid as blocking_pid,
+  blocking.state as blocking_state,
+  now() - blocking.xact_start as blocking_xact_age,
+  blocking.query as blocking_query
+from pg_stat_activity blocked
+join pg_locks blocked_locks on blocked_locks.pid = blocked.pid and not blocked_locks.granted
+join pg_locks blocking_locks
+  on blocking_locks.locktype = blocked_locks.locktype
+ and blocking_locks.database is not distinct from blocked_locks.database
+ and blocking_locks.relation is not distinct from blocked_locks.relation
+ and blocking_locks.page is not distinct from blocked_locks.page
+ and blocking_locks.tuple is not distinct from blocked_locks.tuple
+ and blocking_locks.transactionid is not distinct from blocked_locks.transactionid
+ and blocking_locks.classid is not distinct from blocked_locks.classid
+ and blocking_locks.objid is not distinct from blocked_locks.objid
+ and blocking_locks.objsubid is not distinct from blocked_locks.objsubid
+ and blocking_locks.pid <> blocked_locks.pid
+join pg_stat_activity blocking on blocking.pid = blocking_locks.pid
+where blocked.wait_event_type = 'Lock';
+```
+
+The result:
+
+```text
+blocking_pid: 81233
+blocking_state: idle in transaction
+blocking_xact_age: 02:03:11
+blocking_query:
+  update payment_attempt
+  set status = 'CAPTURING'
+  where payment_id = $1 and status = 'AUTHORIZED'
+```
+
+The blocker is idle in transaction.
+
+That means the application opened a transaction, executed the update, and then stopped doing database work without committing or rolling back.
+
+## Step 5: map DB blocker to pod and request
+
+Use application name and connection metadata.
+
+```sql
+select pid, application_name, client_addr, backend_start, xact_start, state
+from pg_stat_activity
+where pid = 81233;
+```
+
+Result:
+
+```text
+application_name: payment-api pod=payment-api-11c9 trace=9f4a8d
+client_addr: 10.42.18.91
+xact_start: 07:09:04 UTC
+state: idle in transaction
+```
+
+The trace ID lets you find the request.
+
+The trace shows:
+
+```text
+HTTP POST /payments/{id}/capture duration=2h03m
+  db.transaction duration=2h03m
+    db.update payment_attempt duration=18ms
+    http.client PSP /capture duration=2h03m
+```
+
+The service held a DB transaction open while calling the PSP.
+
+## Step 6: inspect code path
+
+Relevant code shape:
+
+```java
+@Transactional
+public CaptureResult capture(PaymentId id) {
+    PaymentAttempt attempt = repository.markCapturing(id);
+    CaptureResult result = pspClient.capture(attempt);
+    repository.markCaptured(id, result.pspReference());
+    outbox.writeCaptureCompleted(id);
+    return result;
+}
+```
+
+The transaction wraps the PSP call.
+
+That was acceptable in a small test.
+
+Under a two-hour PSP hang, it holds a row lock and a Hikari connection for the full time.
+
+The row lock blocks all work for the same payment.
+
+The connection exhaustion blocks unrelated payment reads and writes.
+
+Kafka listeners also block because they share the same write pool.
+
+## Step 7: decide whether to restart
+
+Restarting all 20 pods would:
+
+- drop in-flight HTTP requests
+- close DB connections
+- roll back open transactions
+- trigger Kafka consumer rebalances
+- replay uncommitted Kafka records
+- potentially duplicate PSP capture calls if idempotency failed
+
+Because this is payments, you do not restart the fleet first.
+
+You verify idempotency.
+
+Checks:
+
+```sql
+select payment_id, idempotency_key, status, psp_reference
+from payment_attempt
+where payment_id = 'pay_123';
+```
+
+PSP dashboard:
+
+```text
+idempotency_key: cap_pay_123_attempt_2
+PSP state: no capture completed
+last request: timed out, no reference
+```
+
+Internal ledger:
+
+```text
+no CAPTURED ledger entry
+no outbox capture completed event
+```
+
+Now killing the blocker transaction is safe for this payment attempt.
+
+## Step 8: stop the amplifier
+
+Before terminating the DB backend, stop new work from piling into the same path.
+
+Actions:
+
+1. disable PSP route `psp-x` in dynamic config
+2. fail readiness for capture workers only if supported
+3. pause Kafka listener containers for `payment.capture.requested`
+4. keep payment read APIs serving if they have separate capacity
+5. announce duplicate-risk checks in incident channel
+
+The point is to prevent immediate re-entry into the same stuck branch.
+
+If you kill the blocker while traffic continues at full rate, another request can become the new blocker.
+
+## Step 9: release the blocker
+
+Terminate the specific backend:
+
+```sql
+select pg_terminate_backend(81233);
+```
+
+Expected effects:
+
+- transaction rolls back
+- row lock releases
+- Hikari connection closes or errors
+- blocked SQL statements resume or fail
+- application receives exception
+- idempotency state remains not captured
+
+You watch:
+
+```text
+PostgreSQL blocked sessions: 186 -> 12 -> 0
+Hikari active: 30 -> 22 -> 11
+Hikari pending: 150 -> 40 -> 0
+HTTP p99: 48s -> 5s -> 700ms
+```
+
+You do not call the incident recovered yet because Kafka lag remains high.
+
+## Step 10: drain Kafka safely
+
+Kafka lag:
+
+```text
+topic payment.capture.requested
+partition 7 lag 220k
+partition 11 lag 180k
+total lag 740k
+```
+
+You resume listeners after the PSP route is disabled and DB lock clears.
+
+Because offsets commit after durable processing, records that failed during the incident replay.
+
+Idempotency metrics:
+
+```text
+payment.idempotency.duplicate_suppressed rising but expected
+payment.capture.completed no duplicate PSP references
+payment.capture.failed route_disabled rising
+```
+
+Some records move to retry because PSP route is disabled.
+
+That is safer than blocking the consumer group.
+
+## Step 11: restore service
+
+Recovery order:
+
+1. DB locks cleared
+2. Hikari pending cleared
+3. HTTP p99 stable
+4. Kafka lag draining
+5. PSP route health confirmed with synthetic probe
+6. route re-enabled for 5% of traffic
+7. duplicate suppression remains healthy
+8. route returns to full traffic
+
+Do not re-enable the PSP route just because the DB is healthy.
+
+The PSP hang was the trigger.
+
+The transaction boundary was the root cause.
+
+Both matter.
+
+## Step 12: permanent fix
+
+Refactor to avoid remote calls inside a DB transaction.
+
+New shape:
+
+```java
+public CaptureResult capture(PaymentId id) {
+    CaptureWork work = transactionTemplate.execute(tx ->
+        repository.reserveCapture(id)
+    );
+
+    CaptureResult result = pspClient.capture(work.idempotencyKey());
+
+    transactionTemplate.executeWithoutResult(tx -> {
+        repository.completeCapture(id, result);
+        outbox.writeCaptureCompleted(id, result);
+    });
+
+    return result;
+}
+```
+
+Add:
+
+- PSP total deadline of 2 seconds
+- one retry only when PSP idempotency key is present
+- Hikari write pool separate from read pool
+- `idle_in_transaction_session_timeout`
+- transaction timeout for capture state transitions
+- Kafka processing timeout and retry topic
+- alert on max transaction age
+- alert on Hikari usage p99
+- trace attribute for DB transaction duration
+
+## Why CPU stayed normal
+
+The system was waiting on locks and connections.
+
+No thread needed much CPU to wait.
+
+That is why CPU-based autoscaling did not help.
+
+Adding pods would have created more DB waiters and Kafka rebalances.
+
+For stuck-thread incidents, scale only after identifying the bottleneck.
+
+## Lessons for interview answers
+
+The senior answer is not "I would restart."
+
+It is:
+
+```text
+I would capture dumps, identify that request threads are Hikari waiters,
+trace active connection owners to PostgreSQL lock blockers,
+map the two-hour transaction back to a pod and trace,
+stop new capture traffic, verify idempotency and PSP state,
+terminate the exact blocker, then drain Kafka and fix the transaction boundary.
+```
+
+That answer shows judgment across application, database, Kafka, and payment correctness.
+
+## Related drills
+
+- [Spring, Kafka, and lock blocking scenarios](/realtime-issues/stuck-thread-spring-kafka-locks)
+- [CPU, GC, kill, and restart decisions](/realtime-issues/stuck-thread-cpu-gc-kill-restart)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+- [Interview answer and follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups)
+- [Stuck thread cheat sheet](/realtime-issues/stuck-thread-cheat-sheet)

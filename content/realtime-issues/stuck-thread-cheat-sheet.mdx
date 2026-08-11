@@ -1,0 +1,402 @@
+---
+slug: stuck-thread-cheat-sheet
+title: "Stuck Thread Cheat Sheet for Java, Spring, Kafka, DB, GC, and Locks"
+description: Compact symptom-to-action tables for blocked threads, waiting threads, deadlocks, DB locks, pool exhaustion, API timeouts, CPU loops, Kafka lag, GC, distributed locks, and network stalls.
+category: Real-Time Issues
+difficulty: Staff/Principal
+tags: [Cheat Sheet, Java, Spring, Kafka, PostgreSQL, Observability]
+readingTime: 24 min
+publishedAt: "2026-08-11"
+---
+
+## Use this during the incident
+
+Start with symptoms.
+
+Then identify the owner.
+
+Then choose the smallest safe mitigation.
+
+```text
+symptom -> likely cause -> evidence -> immediate action -> permanent fix
+```
+
+For payment, Kafka, and lock incidents, never treat restart as a purely technical action.
+
+Restart changes correctness semantics.
+
+## Master matrix
+
+| Symptom | Likely cause | What to check | Immediate action | Permanent fix |
+|---|---|---|---|---|
+| many `BLOCKED` servlet threads | JVM monitor held by stuck owner | monitor address and owner stack | shed route or restart owner if safe | short critical sections, hold metrics |
+| many `WAITING` on Hikari | DB pool exhausted | active connection owners | stop amplifier and release owner | split pools, timeouts, no remote call in transaction |
+| JVM deadlock reported | cyclic monitor or ownable synchronizer | deadlock section in dump | restart or disable path after evidence | fixed lock order and tests |
+| PostgreSQL lock waits | old transaction or row hot spot | blocker query and transaction age | terminate exact blocker if safe | transaction timeout, shorter transactions |
+| API threads in socket read | remote dependency hung | client timeout, span age, peer | open breaker or shed dependency route | deadlines, bulkhead, retry budget |
+| CPU at 100% | busy loop, regex, serialization | top-H TID to `nid`, JFR | disable path or restart one pod | bounded loops, regex safety, tests |
+| stable RUNNABLE stack | infinite loop or hot method | three dumps and CPU samples | stop bad traffic or restart | interrupt-aware loop and backoff |
+| executor active at max | pool starvation | queue age, active stacks | shed producers or isolate work | bounded queue and separate executors |
+| Kafka lag on one partition | poison message or hot key | partition lag, offset, key | pause or quarantine record | DLQ, key sharding, idempotency |
+| Kafka lag on all partitions | downstream or fleet saturation | processing p99 and rebalance rate | reduce intake and fix dependency | bulkheads, worker isolation |
+| GC pauses align with latency | heap pressure or leak | GC logs, JFR, heap after GC | restart if unrecoverable | allocation fix, heap sizing |
+| Redis lock held long | stuck owner with live lease | TTL, metadata, fencing | wait, fence, or release safely | fencing tokens and max hold |
+| Redisson lock never expires | watchdog renews stuck owner | renewal config and owner thread | kill owner only after correctness check | bounded work and fencing |
+| network stalls | DNS, TLS, packet loss, conn pool | connect latency and pool pending | fail over or shed route | timeouts, connection limits, retries |
+| liveness restarts pods | bad health probe | restart count and probe logs | disable bad probe or rollback | readiness for traffic, liveness for wedges |
+| request succeeds after client timeout | server budget exceeds caller | trace duration and client retries | reduce intake and verify idempotency | end-to-end deadlines |
+
+## Blocked threads
+
+| Field | Value |
+|---|---|
+| Symptom | many threads `BLOCKED` on the same monitor |
+| Likely cause | one owner holds a `synchronized` block while doing slow work |
+| What to check | monitor address, owner stack, route, lock key |
+| Immediate action | stop the route or restart the owner only if side effects are safe |
+| Permanent fix | move IO outside lock, use `tryLock`, measure hold time |
+
+Principal note:
+
+The waiters are usually victims.
+
+Find the holder.
+
+## Waiting on Hikari
+
+| Field | Value |
+|---|---|
+| Symptom | request threads waiting in `HikariPool.getConnection` |
+| Likely cause | active connections held by slow DB, lock wait, or long transaction |
+| What to check | Hikari active, pending, usage p99, DB transaction age |
+| Immediate action | stop new traffic and release the exact connection owner |
+| Permanent fix | split pools, reduce transaction scope, add transaction timeout |
+
+Do not increase pool size first.
+
+That can increase database contention.
+
+## JVM deadlock
+
+| Field | Value |
+|---|---|
+| Symptom | thread dump reports Java-level deadlock |
+| Likely cause | inconsistent lock acquisition order |
+| What to check | deadlock section, involved classes, recent deploy |
+| Immediate action | capture dump and restart affected pod if correctness allows |
+| Permanent fix | define lock order, replace nested locks, add concurrency test |
+
+JVM deadlock detection is useful but narrow.
+
+External locks require separate checks.
+
+## PostgreSQL row lock
+
+| Field | Value |
+|---|---|
+| Symptom | DB sessions waiting on `Lock` |
+| Likely cause | long transaction holding row or relation lock |
+| What to check | blocker PID, query, `xact_start`, application name |
+| Immediate action | terminate blocker after side-effect review |
+| Permanent fix | shorter transactions, statement timeout, lock timeout |
+
+If the blocker is idle in transaction, look for remote calls inside `@Transactional`.
+
+## PostgreSQL advisory lock
+
+| Field | Value |
+|---|---|
+| Symptom | app waits on advisory lock acquisition |
+| Likely cause | session-level lock left held or stuck owner |
+| What to check | lock key, session PID, transaction age, owner metadata |
+| Immediate action | close owner session only after correctness check |
+| Permanent fix | prefer transaction-scoped locks and add lock TTL policy |
+
+Session locks can outlive a failed business transaction.
+
+Know which one you use.
+
+## API timeout
+
+| Field | Value |
+|---|---|
+| Symptom | threads in `socketRead0` or HTTP client execute |
+| Likely cause | downstream slow or no read timeout |
+| What to check | connect timeout, read timeout, pool-acquire timeout, retries |
+| Immediate action | open circuit breaker or route away from dependency |
+| Permanent fix | deadline propagation and retry budget |
+
+Timeouts must be shorter than the caller's deadline.
+
+Otherwise work continues after the client has already retried.
+
+## Connection pool exhaustion
+
+| Field | Value |
+|---|---|
+| Symptom | HTTP or DB client pool pending rises |
+| Likely cause | dependency latency or leaked response body |
+| What to check | pool active, pending, leased age, route using pool |
+| Immediate action | shed route and close stuck owners if safe |
+| Permanent fix | separate pools, max lifetime, pool-acquire timeout |
+
+One shared client pool can turn one dependency into a full-service outage.
+
+## CPU hot thread
+
+| Field | Value |
+|---|---|
+| Symptom | pod CPU high and latency high |
+| Likely cause | busy loop, regex, JSON, crypto, compression |
+| What to check | `top -H`, decimal TID to hex `nid`, JFR samples |
+| Immediate action | disable feature flag, rate-limit route, or restart pod |
+| Permanent fix | bound input, add backoff, optimize hot path |
+
+RUNNABLE by itself is not proof.
+
+Map native CPU to the Java thread.
+
+## Infinite loop
+
+| Field | Value |
+|---|---|
+| Symptom | same RUNNABLE stack across dumps |
+| Likely cause | loop condition never changes or empty polling loop |
+| What to check | loop variables, interrupt checks, queue empty path |
+| Immediate action | stop producers or restart one pod if safe |
+| Permanent fix | blocking waits, backoff with jitter, cancellation tests |
+
+A loop that does no allocation may not trigger obvious GC alarms.
+
+CPU evidence matters.
+
+## Executor starvation
+
+| Field | Value |
+|---|---|
+| Symptom | executor active at max and queue age rising |
+| Likely cause | long tasks occupying all workers |
+| What to check | worker stacks, oldest task age, rejected tasks |
+| Immediate action | shed submitters or scale isolated workers |
+| Permanent fix | separate pools, bounded queues, timeouts |
+
+Be suspicious when a task waits on another task submitted to the same executor.
+
+That can deadlock the pool without a JVM monitor deadlock.
+
+## Kafka poll stuck
+
+| Field | Value |
+|---|---|
+| Symptom | consumer lag rises and last poll age is high |
+| Likely cause | listener blocked longer than poll interval |
+| What to check | listener stack, processing duration, rebalance count |
+| Immediate action | pause partition, reduce intake, or stop group safely |
+| Permanent fix | short listener work, retry topics, idempotency |
+
+Increasing `max.poll.interval.ms` only hides the problem if processing is unbounded.
+
+## Kafka poison record
+
+| Field | Value |
+|---|---|
+| Symptom | one partition lag grows while others drain |
+| Likely cause | bad record, hot key, or per-key lock |
+| What to check | topic, partition, offset, key hash, retry count |
+| Immediate action | quarantine or DLQ after business review |
+| Permanent fix | schema validation, DLQ runbook, replay tooling |
+
+Skipping is a business correctness decision.
+
+Capture offset and key before moving it.
+
+## Stop-the-world GC
+
+| Field | Value |
+|---|---|
+| Symptom | latency spikes align with GC pauses |
+| Likely cause | allocation pressure, leak, heap too small |
+| What to check | GC logs, JFR, safepoints, heap after GC |
+| Immediate action | restart if service cannot recover and state is safe |
+| Permanent fix | reduce allocation, fix leak, tune heap and collector |
+
+Thread dumps during STW may not reveal an application owner.
+
+Use GC evidence.
+
+## Distributed lock
+
+| Field | Value |
+|---|---|
+| Symptom | many pods waiting on same Redis, ZK, or DB lock |
+| Likely cause | owner stuck while lease/session remains alive |
+| What to check | owner metadata, TTL, fencing token, protected resource |
+| Immediate action | release only with fencing or business proof |
+| Permanent fix | leases, fencing, max hold, owner heartbeat |
+
+The worst recovery is creating two valid owners for one payment.
+
+Fencing prevents stale owners from writing.
+
+## Network stall
+
+| Field | Value |
+|---|---|
+| Symptom | many socket reads or connection attempts hang |
+| Likely cause | dependency network, DNS, TLS, proxy, packet loss |
+| What to check | connect latency, DNS errors, TLS handshake, pool pending |
+| Immediate action | fail over, open breaker, or shed dependency route |
+| Permanent fix | timeouts, retries with jitter, multi-AZ routing |
+
+Separate connection establishment from response wait.
+
+They need different timeouts and different owners.
+
+## Kubernetes restart
+
+| Field | Value |
+|---|---|
+| Symptom | pods restarting during latency incident |
+| Likely cause | liveness tied to dependency or thread saturation |
+| What to check | probe logs, exit reason, grace period, SIGKILL count |
+| Immediate action | rollback probe or disable unsafe health dependency |
+| Permanent fix | readiness for serving, liveness for unrecoverable wedge |
+
+Restart storms amplify Kafka rebalances and client retries.
+
+Do not let probes become the incident.
+
+## Payment-specific safety checks
+
+| Check | Why |
+|---|---|
+| idempotency key exists | duplicate requests must collapse |
+| PSP reference state known | avoid double capture |
+| ledger entry state known | internal money movement correctness |
+| outbox event state known | avoid lost completion event |
+| Kafka offset commit policy known | restart replay behavior |
+| lock fencing known | stale owner protection |
+| transaction rollback effect known | DB state after kill |
+
+If any answer is unknown, slow down the destructive action.
+
+You can still mitigate traffic while investigating correctness.
+
+## Commands to remember
+
+| Goal | Command shape |
+|---|---|
+| Java thread dump | `jcmd 1 Thread.print` |
+| CPU by thread | `top -H -p PID` |
+| decimal to hex | `printf '0x%x\n' TID` |
+| JFR snapshot | `jcmd PID JFR.start name=incident settings=profile duration=120s filename=/tmp/incident.jfr` |
+| Hikari metrics | dashboard by pool name |
+| Kafka lag | consumer group lag by topic-partition |
+| DB blockers | `pg_stat_activity` joined to `pg_locks` |
+| pod events | `kubectl describe pod` |
+| graceful stop | set readiness false, then drain |
+
+## Permanent control checklist
+
+| Control | Present |
+|---|---|
+| connect, read, write, and pool-acquire timeouts | yes or no |
+| caller deadline propagated | yes or no |
+| circuit breaker per dependency route | yes or no |
+| bulkhead per risky dependency | yes or no |
+| bounded executor queues | yes or no |
+| transaction timeout | yes or no |
+| DB statement timeout | yes or no |
+| lock wait and hold histograms | yes or no |
+| Kafka DLQ and replay tooling | yes or no |
+| idempotency at effect boundary | yes or no |
+| retry backoff with jitter | yes or no |
+| readiness based on saturation | yes or no |
+| graceful shutdown tested | yes or no |
+| OpenTelemetry spans for owner chain | yes or no |
+
+## Related drills
+
+- [Spring, Kafka, and lock blocking scenarios](/realtime-issues/stuck-thread-spring-kafka-locks)
+- [CPU, GC, kill, and restart decisions](/realtime-issues/stuck-thread-cpu-gc-kill-restart)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+- [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study)
+- [Interview answer and follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups)
+---
+slug: stuck-thread-cheat-sheet
+title: "Stuck Thread Cheat Sheet — Symptom → Cause → Action → Fix"
+description: "Interview-ready cheat sheet mapping stuck-thread symptoms to likely causes, what to check, immediate mitigation, and permanent fixes."
+category: Real-Time Issues
+difficulty: Staff
+tags: [Stuck Thread, Cheat Sheet, Incident, Java, Spring Boot, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-11"
+---
+
+## How to use this sheet
+
+In an interview or on-call: match the **symptom**, name the **likely cause**, say what you **check**, what you **do now**, and what you **fix forever**.
+
+Related deep dives:
+
+- [Incident response](/realtime-issues/stuck-thread-incident-response)
+- [Thread dumps](/realtime-issues/stuck-thread-jvm-thread-dumps)
+- [DB / API / pools](/realtime-issues/stuck-thread-db-api-pools)
+- [Payment case study](/realtime-issues/stuck-thread-payment-incident-case-study)
+
+## Master table
+
+| Symptom | Likely cause | What to check | Immediate action | Permanent fix |
+|---|---|---|---|---|
+| Thread `BLOCKED` | Monitor / lock contention or deadlock | 3 thread dumps 10s apart; owners; cycles | Fail fast on new traffic; avoid blind kill | Deterministic lock order; shrink critical section |
+| Thread `WAITING` / `TIMED_WAITING` | `wait`, `park`, `Future.get`, latch, pool borrow | Stack top frames; waiting object; duration | Bound waits; shed load | Timeouts + isolation + metrics on wait time |
+| Deadlock in dump | Circular lock wait | `jstack` deadlock section; ThreadMXBean | Restart only after capturing dumps/evidence | Lock ordering; fewer nested locks; tryLock timeouts |
+| DB lock / long txn | `FOR UPDATE` held while doing slow work | `pg_stat_activity`, `pg_locks`, Hikari active/waiting | Kill/cancel offending query if safe; scale readers carefully | Short transactions; never call external APIs in txn |
+| DB connection exhaustion | Leak or all connections blocked on locks/slow SQL | Hikari metrics; leak detection; PG sessions | Reject new requests; restart as last resort after dump | Pool sizing with timeouts; cancel queries; leak fixes |
+| External API hang | Missing read/connect timeout; retry storm | Client config; dependency latency; circuit metrics | Open circuit / disable caller path; increase isolation | Bound all timeouts; CB + bulkhead + retry budget |
+| Tomcat/async pool full | Downstream stuck → threads pile up | Active/queued/rejected; dependency health | Shed load; scale temporarily; restart carefully | Bulkheads per dependency; bounded queues; rejection policy |
+| Kafka consumer stuck | Slow process, poison msg, poll interval, DB/API inside handler | Lag, `max.poll.interval.ms`, dumps, offsets | Pause partition / move poison to DLQ; scale consumers | Timeouts in handler; DLQ; idempotency; separate pools |
+| 100% CPU one thread | Infinite loop, bad algo, catastrophic regex | `top -H` → TID → nid → dump; JFR | Restart after dump if burning CPU | Fix hot path; fuzz regex; rate limits |
+| High latency, CPU low | IO wait / blocked threads / pool wait | Dumps + dependency + pool metrics | Isolate dependency; degrade feature | Timeouts + backpressure |
+| GC / safepoint freezes | STW GC, allocation pressure, heap near full | GC logs, heap, allocation rate, JFR | Scale/restart; raise heap carefully | Reduce allocation; tune GC; memory budgets |
+| Distributed lock held hours | Lease too long / no TTL / crash without release | Redis TTL/owner; advisory lock session; ZK ephemeral | Manual unlock with audit if safe; fence writes | Short lease + fencing; don’t hold lock across IO |
+| Network / DNS stall | Connect hang without connect timeout | TCP states; DNS; client connect timeout | Failover / disable route | Connect+read timeouts; DNS caching policy |
+| “Looks stuck” but RUNNABLE | Busy loop or spinning lock | Same stack across dumps; CPU of that nid | Capture JFR; restart if confirmed burn | Fix algorithm; avoid busy-wait |
+| Problem vanishes after dump | Timing / rare race / GC pause | Correlate dump time with GC/metrics | Still RCA from dumps/logs | Add always-on sampling / continuous profiling |
+
+## 60-second triage order
+
+```text
+1. Blast radius + customer impact
+2. Protect system (shed / circuit / pause consumers)
+3. Capture evidence (dumps ×3, metrics, SQL, lag)
+4. Classify: CPU vs BLOCKED vs WAITING vs DB vs API vs pool vs Kafka vs GC
+5. Mitigate (cancel query / open circuit / restart ONE pod)
+6. RCA + permanent controls
+```
+
+## Never say in an interview
+
+```text
+❌ "I'd just restart the pod."
+❌ "I'd Thread.stop() it."
+❌ "Interrupt always kills the thread."
+❌ "A 1-hour request means the thread is deadlocked."
+```
+
+## Always say
+
+```text
+✅ Treat as incident first; capture evidence before destructive actions.
+✅ "Stuck" is a hypothesis — confirm with dumps + metrics.
+✅ Bound every remote call and DB interaction.
+✅ Restart is mitigation, not root cause.
+✅ Prevention: timeouts, bulkheads, CB, short transactions, observability.
+```
+
+## Related
+
+- [Interview answer + follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups)
+- [Distributed locking curriculum](/distributed-systems/distributed-locking-master-index)
+- [Kafka interview](/kafka-interview)
+- [Redis interview](/redis-interview)

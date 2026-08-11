@@ -1,0 +1,543 @@
+---
+slug: stuck-thread-rca-prevention-observability
+title: "Stuck Thread RCA, Prevention, and Observability Playbook"
+description: Decision tree, RCA template, prevention matrix, JVM and platform metrics, and OpenTelemetry span patterns for long-running stuck-thread incidents.
+category: Real-Time Issues
+difficulty: Staff/Principal
+tags: [RCA, Observability, OpenTelemetry, Java, Spring, Reliability]
+readingTime: 33 min
+publishedAt: "2026-08-11"
+---
+
+## Principal framing
+
+A stuck-thread incident is not closed when the pod restarts.
+
+It is closed when the team can answer:
+
+- what resource was held
+- who was waiting
+- why the owner stopped making progress
+- why controls did not bound the wait
+- how detection will be faster next time
+- how the same class of failure is prevented
+
+This guide gives a practical decision tree, RCA template, prevention matrix, and observability checklist for Java and Spring services.
+
+## Diagnosis decision tree
+
+Start with the symptom, not the theory.
+
+```text
+customer latency or Kafka lag rises
+  |
+  +-- CPU high?
+  |     |
+  |     +-- hot Java nid maps to app stack -> busy loop, regex, serialization, crypto
+  |     +-- GC threads and pauses align -> heap, allocation, leak, promotion
+  |     +-- CPU throttling high -> container limit issue
+  |
+  +-- CPU normal?
+        |
+        +-- request threads high -> blocking dependency, pool, DB lock, monitor
+        +-- Kafka lag high -> listener stuck, poison record, rebalance, downstream
+        +-- DB pool exhausted -> find connection owners
+        +-- lock wait high -> find lock holder and held resource
+        +-- event-loop blocked -> blocking call in reactive path
+```
+
+Do not skip the CPU branch.
+
+Blocked incidents often have normal CPU.
+
+Busy-loop incidents often have little WAITING evidence.
+
+## Evidence order
+
+During an active incident, capture evidence in this order:
+
+1. impact scope: route, tenant, topic, partition, region
+2. saturation: CPU, memory, threads, connection pools, queues
+3. ownership: thread dumps, DB sessions, lock owners, Kafka assignments
+4. dependency state: downstream latency, error rate, retries
+5. recent change: deploy, config, data volume, schema, broker, DB maintenance
+6. mitigation timeline: every operator action with timestamp
+
+Evidence that disappears:
+
+- thread stacks after restart
+- in-memory queue contents
+- local lock owner identity
+- JFR rolling buffers
+- pod logs after eviction
+- Kafka assignment generation
+
+Capture those before destructive recovery when the business impact allows it.
+
+## Thread-state decision table
+
+| Dominant state | Likely class | First check |
+|---|---|---|
+| `BLOCKED` | monitor contention | owner thread and monitor address |
+| `WAITING` on Hikari | DB pool exhaustion | active connection owner stacks |
+| `TIMED_WAITING` socket read | downstream wait | client timeout and span age |
+| stable `RUNNABLE` hot nid | CPU loop | top-H mapping and JFR samples |
+| many parked executor threads | queue starvation or idle | queue depth and submitted task age |
+| Reactor event loop waiting | reactive blocking bug | stack on event-loop thread |
+| GC pause events | memory pressure | allocation flame graph and heap |
+
+Thread state alone is not the root cause.
+
+It tells you which subsystem to interrogate next.
+
+## Full RCA template
+
+Use a template that separates facts from interpretation.
+
+```text
+Title:
+  Short customer-visible incident name.
+
+Impact:
+  Who was affected, how severely, and for how long.
+
+Detection:
+  Alert, customer report, dashboard, or manual observation.
+
+Timeline:
+  UTC timestamped sequence of symptoms, decisions, actions, and recovery.
+
+Technical trigger:
+  The immediate condition that started the incident.
+
+Root cause:
+  The system design or code path that allowed the trigger to become impact.
+
+Contributing factors:
+  Missing timeout, retry storm, pool sharing, poor alerting, lack of idempotency.
+
+What went well:
+  Useful dashboards, fast rollback, good ownership metadata.
+
+What went poorly:
+  Slow diagnosis, missing runbook, unsafe health check, noisy alerts.
+
+Customer/data correctness:
+  Duplicate, lost, delayed, or inconsistent operations and repair status.
+
+Mitigation:
+  What restored service.
+
+Prevention:
+  Code, config, test, dashboard, alert, and operational changes.
+
+Validation:
+  How prevention was verified.
+
+Follow-ups:
+  Owner, technical acceptance criteria, and priority.
+```
+
+Avoid RCA language that blames a person for making a plausible move under incomplete information.
+
+Name the missing guardrail.
+
+## Realistic RCA example
+
+```text
+Title:
+  Payment capture latency and Kafka lag caused by transaction-held gateway wait.
+
+Impact:
+  18% of card capture requests exceeded 30 seconds in us-east-1.
+  Payment capture Kafka lag rose to 2.4 million records.
+  No confirmed duplicate charges; 6,420 attempts were delayed.
+
+Detection:
+  API p99 latency alert fired at 14:02 UTC.
+  Kafka lag alert fired at 14:05 UTC.
+
+Timeline:
+  13:56 new gateway routing rule deployed.
+  14:01 gateway p99 rose from 400 ms to 35 seconds for one PSP route.
+  14:02 API p99 alert fired.
+  14:06 Hikari pending threads rose across payment pods.
+  14:11 thread dumps showed servlet threads waiting for Hikari.
+  14:15 DB showed one transaction age at 58 minutes holding row locks.
+  14:19 traffic for the PSP route was disabled.
+  14:23 blocker transaction was terminated after idempotency review.
+  14:31 API p99 returned to baseline.
+  14:52 Kafka lag fully drained.
+
+Technical trigger:
+  A PSP route degraded and failed to return within the expected 2-second budget.
+
+Root cause:
+  Payment capture held a database transaction and row lock while making the PSP call.
+  The HTTP client had a 60-second read timeout and two retries.
+  Under load, long transactions exhausted Hikari and blocked unrelated requests.
+
+Contributing factors:
+  Missing transaction-age alert for payment service.
+  Hikari pool shared between capture and read APIs.
+  Kafka listener processed long capture work inline.
+  No span attribute marking DB transaction age.
+
+Customer/data correctness:
+  Idempotency table prevented duplicate charges.
+  Delayed attempts were replayed from Kafka after recovery.
+
+Mitigation:
+  Disabled the degraded PSP route.
+  Terminated one blocking transaction after confirming no external capture completed.
+  Increased DLQ quarantine for repeated gateway timeout records.
+
+Prevention:
+  Move PSP call outside DB transaction.
+  Reduce PSP timeout to 2 seconds with one retry under total deadline.
+  Split read and capture Hikari pools.
+  Add transaction-age alert at 2 minutes.
+  Add Kafka listener processing-age alert by partition.
+```
+
+The example is credible because it names the resource chain, not only the slow dependency.
+
+## Prevention matrix
+
+| Control | Prevents | Implementation notes |
+|---|---|---|
+| connect timeout | socket establishment hang | set per client and verify in integration tests |
+| read timeout | remote response hang | lower than caller deadline |
+| pool-acquire timeout | hidden client pool wait | expose pool pending metrics |
+| circuit breaker | repeated calls to failing dependency | tune by route and error class |
+| bulkhead | one route consuming all workers | separate pools per dependency or use semaphores |
+| bounded queue | memory and latency explosion | reject or shed when full |
+| backoff with jitter | synchronized retry storm | use capped exponential delay |
+| idempotency key | duplicate side effects | enforce at effect boundary |
+| DLQ | poison message pinning partition | include replay policy and ownership |
+| lock timeout | infinite wait on lock | treat timeout as business outcome |
+| transaction timeout | long DB owner | configure at Spring and database levels |
+| statement timeout | slow query owner | set per workload class |
+| graceful shutdown | arbitrary kill during work | bound in-flight duration |
+| readiness gate | routes around saturated pod | fail on saturation, not every dependency blip |
+| outbox | lost event after DB commit | publish from durable table |
+| fencing token | stale distributed lock owner | enforce monotonic token at write boundary |
+
+Controls must be layered.
+
+A timeout without idempotency can create duplicate effects.
+
+Idempotency without deadlines can still create stuck workers.
+
+## Timeouts as budgets
+
+Timeouts should form a descending budget from caller to callee.
+
+Example:
+
+```text
+external client deadline: 5 seconds
+API gateway: 4.8 seconds
+payment service handler: 4.5 seconds
+DB state transition: 300 ms
+PSP call: 2 seconds
+outbox write: 200 ms
+response margin: 500 ms
+```
+
+If an inner timeout is greater than the outer timeout, the server keeps working after the caller gave up.
+
+That is how duplicate retries and stuck pools start.
+
+Every timeout should answer:
+
+- what is canceled
+- what continues in background
+- whether side effects are idempotent
+- what metric increments
+- what the caller sees
+
+## Circuit breakers
+
+Circuit breakers stop repeated calls to an unhealthy dependency.
+
+They are not a substitute for timeouts.
+
+A breaker trips after evidence.
+
+A timeout bounds the individual wait.
+
+For Principal-level operation, track:
+
+- breaker state by dependency and route
+- rejected calls
+- half-open probes
+- fallback success rate
+- customer-visible degraded mode
+
+Avoid global breakers shared across unrelated tenants or PSP routes.
+
+One bad route should not disable every payment path unless business policy requires it.
+
+## Bulkheads and isolation
+
+Bulkheads limit blast radius.
+
+Good isolation boundaries:
+
+- payment capture versus payment read APIs
+- Kafka listener workers versus HTTP request workers
+- PSP A versus PSP B clients
+- admin repair jobs versus customer traffic
+- DB read pool versus write pool
+- low-priority tenants versus premium tenants
+
+Bad isolation is a single executor named `asyncExecutor` used by everything.
+
+If a stuck downstream consumes that executor, unrelated features fail.
+
+## Queue controls
+
+Queues convert burst into delay.
+
+Unbounded queues convert failure into memory pressure and invisible latency.
+
+Metrics:
+
+```text
+executor.queue.depth
+executor.queue.age.max
+executor.active
+executor.completed
+executor.rejected
+executor.task.duration
+```
+
+Alert on oldest task age.
+
+Queue depth alone misses a low-volume stuck item at the head of a serial queue.
+
+## App metrics and alerts
+
+Essential application metrics:
+
+| Metric | Alert shape |
+|---|---|
+| request duration p95 and p99 | route and status segmented |
+| in-flight requests | sustained saturation |
+| servlet active threads | high utilization |
+| event-loop blocked duration | any sustained blocking |
+| executor queue age | oldest task over budget |
+| executor active threads | maxed with rising queue |
+| timeout counts | sudden rise by dependency |
+| retry attempts | retry storm |
+| circuit breaker open | dependency isolated |
+| idempotency duplicate suppressed | high duplicate pressure |
+
+Use burn-rate alerts for customer impact.
+
+Use saturation alerts for earlier diagnosis.
+
+## JVM metrics and alerts
+
+JVM metrics:
+
+| Metric | Why |
+|---|---|
+| thread count by state | blocked or waiting growth |
+| deadlocked threads | immediate page |
+| GC pause seconds | latency correlation |
+| allocation rate | GC trigger |
+| heap used after GC | leak or pressure |
+| CPU process usage | busy work |
+| CPU throttling | container limit |
+| safepoint time | JVM-wide stop |
+| loaded class count | dynamic class leak |
+| direct buffer memory | Netty and NIO pressure |
+
+Thread-state cardinality can be high if labeled by full thread name.
+
+Aggregate by pool prefix.
+
+## DB metrics and alerts
+
+Database signals:
+
+- active connections by application
+- waiting connections by wait event
+- transaction age max
+- idle-in-transaction age
+- row lock waits
+- advisory lock waits
+- query duration p99
+- blocked sessions count
+- blocker query fingerprint
+- deadlock count
+- statement timeout count
+
+Critical alert:
+
+```text
+payment service transaction age max over 120 seconds
+and blocked sessions over 5
+```
+
+That points to ownership.
+
+Hikari pending only tells you waiters exist.
+
+DB lock views tell you who owns the queue.
+
+## Kafka metrics and alerts
+
+Kafka signals:
+
+| Metric | Interpretation |
+|---|---|
+| records lag max | worst partition pain |
+| records consumed rate | drain capacity |
+| last poll seconds ago | listener stuck or paused |
+| commit latency | coordinator or client issue |
+| rebalance total | churn |
+| assigned partitions | ownership changes |
+| processing duration | app work budget |
+| DLQ rate | poison or schema issue |
+| retry topic age | delayed recovery |
+| duplicate suppressed | replay pressure |
+
+Alert on lag age when possible, not only lag count.
+
+One million records at high throughput may be less severe than one payment record stuck for an hour.
+
+## External dependency metrics
+
+For each dependency:
+
+- connect latency
+- TLS handshake latency
+- pool pending
+- request duration
+- timeout count
+- response code
+- retry count
+- circuit breaker state
+- concurrency in flight
+- request payload class or route
+
+Do not label with full URL if it contains IDs.
+
+Use route templates and dependency names.
+
+## OpenTelemetry span chain for a one-hour request
+
+A one-hour request should be obvious in traces.
+
+Expected chain:
+
+```text
+HTTP POST /payments/{id}/capture duration=3600s
+  PaymentController.capture duration=3600s
+    PaymentService.capture duration=3600s
+      db.transaction payment_capture duration=3600s
+        db.statement update payment_attempt duration=20ms
+        http.client PSP /capture duration=3599s
+```
+
+Critical span attributes:
+
+```text
+payment.id_hash
+tenant.tier
+idempotency.key_hash
+db.transaction.id
+db.transaction.age_ms
+http.route
+peer.service
+timeout.ms
+retry.attempt
+lock.name
+lock.key_hash
+lock.wait_ms
+lock.hold_ms
+kafka.topic
+kafka.partition
+kafka.offset
+```
+
+The trace should show where time accumulated.
+
+If it only shows the controller span, instrumentation is too shallow.
+
+## Span events for stuck work
+
+Add span events for lifecycle transitions:
+
+```text
+db_transaction_started
+remote_call_started
+remote_call_timeout
+lock_acquired
+lock_released
+kafka_record_received
+kafka_offset_committed
+cancel_requested
+shutdown_started
+```
+
+Events make one long span understandable.
+
+They also explain whether the request was still doing useful work or merely waiting.
+
+## Alert routing
+
+Route alerts to the team that owns the limiting resource.
+
+Examples:
+
+| Alert | Primary owner |
+|---|---|
+| payment API p99 high | service on-call |
+| DB blocked sessions from payment | service and DB on-call |
+| PSP circuit open | service and partner ops |
+| Kafka lag for payment-capture | service on-call |
+| node CPU pressure | platform on-call |
+| liveness restart storm | platform and service |
+
+Avoid paging only the platform team for app-level stuck transactions.
+
+They can restart pods, but they cannot decide payment correctness alone.
+
+## Post-incident validation
+
+A follow-up is not done when the PR merges.
+
+Validate with:
+
+- unit tests for cancellation paths
+- integration tests for timeout configuration
+- chaos test for slow dependency
+- load test for pool isolation
+- replay test for Kafka duplicate
+- dashboard screenshot showing new metric
+- alert test or recording
+- runbook update with commands
+
+The acceptance criterion should be operationally testable.
+
+Example:
+
+```text
+Given PSP latency exceeds 2 seconds for 5 minutes,
+payment capture must shed or fail fast,
+Hikari pending must remain below 10,
+Kafka lag age must remain below 3 minutes,
+and no duplicate charge may pass idempotency.
+```
+
+## Related drills
+
+- [Spring, Kafka, and lock blocking scenarios](/realtime-issues/stuck-thread-spring-kafka-locks)
+- [CPU, GC, kill, and restart decisions](/realtime-issues/stuck-thread-cpu-gc-kill-restart)
+- [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study)
+- [Interview answer and follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups)
+- [Stuck thread cheat sheet](/realtime-issues/stuck-thread-cheat-sheet)

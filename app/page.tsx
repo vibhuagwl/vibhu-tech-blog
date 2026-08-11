@@ -14,8 +14,9 @@ const starts=[
   ['Complexity','Master guide: derive Big-O from Java code — DS, graphs, DP, practice.','/complexity'],
   ['Kafka Interview','Staff+/Principal Kafka — 130+ failure & design questions.','/kafka-interview'],
   ['Redis Interview','Staff+/Principal Redis — internals, HA, cache failures, locks.','/redis-interview'],
+  ['Real-Time Issues','Stuck threads, dumps, DB locks, API hangs — Principal on-call playbooks.','/realtime-issues'],
 ];
-const startIcons=[BookOpen,Layers3,Server,Zap,Database,MessageSquare,MessageSquare,Layers3,BookOpen,Server,Database];
+const startIcons=[BookOpen,Layers3,Server,Zap,Database,MessageSquare,MessageSquare,Layers3,BookOpen,Server,Database,Zap];
 export default function Home(){
   const all=getAllPosts();
   const prep=all.find(p=>p.slug==='system-design-interview-preparation');

@@ -1,0 +1,679 @@
+---
+slug: stuck-thread-db-api-pools
+title: "Stuck Threads from DB, API, and Pool Failures in Spring Boot"
+description: "A Staff-level production guide for HikariCP, PostgreSQL long queries and locks, external API hangs, timeout budgets, circuit breakers, bulkheads, retry storms, Tomcat, @Async, and ExecutorService exhaustion."
+category: "Real-Time Issues"
+difficulty: Staff
+tags: [Spring Boot, HikariCP, PostgreSQL, Kafka, Timeouts, Circuit Breaker, Thread Pools]
+readingTime: 30 min
+publishedAt: "2026-08-11"
+---
+
+## The production pattern
+
+Many stuck-thread incidents are not caused by broken Java threads.
+
+The Java threads are doing exactly what the code asked:
+
+- wait for a JDBC connection
+- wait for PostgreSQL to return rows
+- wait behind a row lock
+- wait for an external API response
+- wait for a future in another executor
+- wait for Kafka handler work to finish
+- wait for a pool slot
+
+The bug is usually that the wait is unbounded, too large, or not isolated.
+
+The Principal rule is simple:
+
+> Never call an external dependency without a bounded timeout.
+
+That includes PostgreSQL.
+
+That includes Kafka-adjacent handlers.
+
+That includes internal HTTP services.
+
+That includes "reliable" partner APIs.
+
+## The stack path
+
+For a typical Spring Boot request:
+
+```text
+client
+  -> load balancer
+  -> Tomcat request thread
+  -> controller
+  -> service
+  -> repository
+  -> HikariCP
+  -> PostgreSQL JDBC driver
+  -> PostgreSQL backend process
+```
+
+For a Kafka consumer:
+
+```text
+Kafka partition
+  -> consumer poll loop
+  -> listener container
+  -> handler
+  -> service
+  -> HikariCP or external API
+  -> offset commit after success
+```
+
+If the database or API slows down, the thread does not disappear.
+
+It waits.
+
+If enough threads wait, pools saturate.
+
+If pools saturate, healthy work is blocked behind unhealthy work.
+
+That is the cascade.
+
+## The first dashboard split
+
+When stuck threads involve DB, API, or pools, check these side by side:
+
+| Layer | Metrics |
+|---|---|
+| Tomcat | busy threads, max threads, request queue, accept count |
+| Spring MVC | request latency by endpoint, error rate, active requests |
+| ExecutorService | active count, pool size, queue depth, rejection count |
+| `@Async` | executor active count, queue depth, task duration |
+| HikariCP | active, idle, pending, max, acquisition timeout, leak detection |
+| PostgreSQL | active queries, wait events, locks, blockers, transaction age |
+| External API | connect latency, TLS latency, p95, p99, timeout rate |
+| Kafka | consumer lag, handler latency, rebalance rate, commit failures |
+| JVM | thread count, CPU, GC, blocked count |
+
+Do not look at one chart in isolation.
+
+The shape across layers tells the story.
+
+## HikariCP failure modes
+
+HikariCP is a small, fast connection pool.
+
+It is not magic capacity.
+
+If every connection is busy, callers wait.
+
+### Key Hikari metrics
+
+| Metric | Meaning |
+|---|---|
+| active connections | connections currently checked out |
+| idle connections | ready connections |
+| pending threads | threads waiting for a connection |
+| max pool size | hard cap |
+| connection timeout | how long a caller waits for a connection |
+| usage time | how long callers hold connections |
+| creation time | how long new physical connections take |
+| leak detection events | connections held beyond threshold |
+
+The dangerous combination:
+
+```text
+active == max
+idle == 0
+pending > 0
+request latency rising
+PostgreSQL CPU normal or lock waits high
+```
+
+This means application threads are queued at the pool.
+
+Adding Tomcat threads will not help.
+
+It usually makes the waiting pile larger.
+
+## Long PostgreSQL query
+
+A thread dump might show:
+
+```text
+"http-nio-8080-exec-31" RUNNABLE
+  at sun.nio.ch.SocketDispatcher.read0(Native Method)
+  at org.postgresql.core.VisibleBufferedInputStream.readMore(VisibleBufferedInputStream.java:161)
+  at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2168)
+  at com.zaxxer.hikari.pool.ProxyPreparedStatement.executeQuery(ProxyPreparedStatement.java:52)
+  at com.example.OrderRepository.findOrders(OrderRepository.java:92)
+```
+
+This is often a PostgreSQL wait, even though the JVM state is RUNNABLE.
+
+Check PostgreSQL:
+
+```sql
+select
+  pid,
+  now() - query_start as query_age,
+  state,
+  wait_event_type,
+  wait_event,
+  left(query, 160) as query
+from pg_stat_activity
+where datname = current_database()
+order by query_start nulls last;
+```
+
+If a query is long-running:
+
+- inspect query plan
+- check row count and selectivity
+- check missing indexes
+- check table bloat
+- check IO pressure
+- check parameter change after deploy
+- check whether a batch job is competing
+- check whether it is waiting on lock, not executing
+
+Mitigation may be:
+
+- cancel the query
+- disable the feature path
+- reduce concurrency
+- route traffic away
+- pause Kafka consumers
+- roll back the deploy
+- add emergency index only after understanding lock risk
+
+Do not blindly increase Hikari pool size.
+
+That may add more concurrent bad queries and hurt PostgreSQL.
+
+## PostgreSQL lock waits
+
+A blocked database transaction can make many Java threads look stuck.
+
+Find blockers quickly:
+
+```sql
+select
+  pg_blocking_pids(pid) as blockers,
+  pid,
+  now() - query_start as age,
+  state,
+  wait_event_type,
+  wait_event,
+  left(query, 160) as query
+from pg_stat_activity
+where cardinality(pg_blocking_pids(pid)) > 0
+order by query_start;
+```
+
+Then inspect blockers:
+
+```sql
+select pid, now() - xact_start as xact_age, state, wait_event, left(query, 160) as query
+from pg_stat_activity
+where pid = any(:blocking_pids);
+```
+
+Questions before killing a blocker:
+
+- Is the blocker doing legitimate critical work?
+- Is it idle in transaction?
+- Is it from the latest deploy?
+- Will cancellation roll back a large transaction or break a migration?
+- Is retry and data correctness safe?
+
+If the blocker is idle in transaction and causing customer impact, terminating it may be the safest mitigation.
+
+But say the validation out loud.
+
+## Connection leaks
+
+A connection leak means code checked out a connection and did not return it.
+
+Symptoms: Hikari active rises and never falls, idle goes to zero, pending grows, the database may not be busy, and thread dumps show callers waiting for the pool.
+
+Enable Hikari leak detection carefully:
+
+```yaml
+spring:
+  datasource:
+    hikari:
+      leak-detection-threshold: 30000
+```
+
+This logs when a connection is held beyond 30 seconds.
+
+It does not close the connection; it tells you where it was borrowed.
+
+Common causes include manual JDBC without try-with-resources, streaming result sets held open, oversized transaction boundaries, external API calls inside a transaction, lazy loading during serialization, or exception paths that skip cleanup.
+
+Safer Java pattern:
+
+```java
+try (Connection connection = dataSource.getConnection();
+     PreparedStatement statement = connection.prepareStatement(SQL);
+     ResultSet rs = statement.executeQuery()) {
+    while (rs.next()) {
+        processRow(rs);
+    }
+}
+```
+
+In Spring, prefer clear transaction boundaries.
+
+Do not hold a transaction while calling a partner API.
+
+## Timeout hierarchy for database calls
+
+Timeouts should exist at multiple levels.
+
+| Timeout | Purpose |
+|---|---|
+| Hikari connection timeout | waiting for a pool connection |
+| PostgreSQL socket timeout | network read bound |
+| statement timeout | query execution bound |
+| transaction timeout | unit-of-work bound |
+| lock timeout | waiting for locks |
+| request timeout | caller-facing bound |
+
+Example Spring Boot and PostgreSQL settings:
+
+```yaml
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 2000
+      validation-timeout: 1000
+      max-lifetime: 1800000
+  transaction:
+    default-timeout: 5
+```
+
+PostgreSQL URL options:
+
+```properties
+spring.datasource.url=jdbc:postgresql://db.example.com:5432/payments?connectTimeout=2&socketTimeout=5&options=-c%20statement_timeout=5000%20-c%20lock_timeout=1000
+```
+
+Repository-level timeout:
+
+```java
+@Transactional(timeout = 5)
+public PaymentAttempt loadAttempt(UUID id) {
+    return repository.findById(id).orElseThrow();
+}
+```
+
+Use settings that match the business operation.
+
+Do not make every timeout 60 seconds because "some query might need it."
+
+Separate online requests from offline jobs.
+
+## External API hangs
+
+External API hangs are classic stuck-thread causes.
+
+Symptoms:
+
+- Tomcat busy threads rise
+- external API p99 rises
+- CPU stays low
+- thread dumps show socket read
+- Hikari may be fine
+- Kafka consumers lag if handlers call the API
+- retries increase outbound traffic
+
+The failure often starts as dependency latency and becomes local pool exhaustion.
+
+## Spring RestTemplate timeouts
+
+Example with Apache HttpClient:
+
+```java
+@Bean
+RestTemplate restTemplate(RestTemplateBuilder builder) {
+    return builder
+        .setConnectTimeout(Duration.ofSeconds(2))
+        .setReadTimeout(Duration.ofSeconds(3))
+        .build();
+}
+```
+
+For Spring Boot 3 style builders, keep the same principle:
+
+```java
+@Bean
+RestClient paymentProviderClient(RestClient.Builder builder) {
+    return builder
+        .requestFactory(new JdkClientHttpRequestFactory(
+            HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(2))
+                .build()))
+        .build();
+}
+```
+
+Verify read or response timeout support for the actual request factory.
+
+Do not assume connect timeout covers the full call.
+
+It does not.
+
+## WebClient timeouts
+
+With Reactor Netty:
+
+```java
+@Bean
+WebClient partnerWebClient(WebClient.Builder builder) {
+    HttpClient httpClient = HttpClient.create()
+        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2000)
+        .responseTimeout(Duration.ofSeconds(3))
+        .doOnConnected(conn -> conn
+            .addHandlerLast(new ReadTimeoutHandler(3))
+            .addHandlerLast(new WriteTimeoutHandler(3)));
+
+    return builder
+        .clientConnector(new ReactorClientHttpConnector(httpClient))
+        .baseUrl("https://partner.example.com")
+        .build();
+}
+```
+
+And at call site:
+
+```java
+return partnerWebClient.post()
+    .uri("/authorize")
+    .bodyValue(request)
+    .retrieve()
+    .bodyToMono(AuthorizationResponse.class)
+    .timeout(Duration.ofSeconds(4));
+```
+
+The call-site timeout should fit the end-to-end budget.
+
+Layered timeouts should not fight each other.
+
+## Circuit breaker, bulkhead, retry
+
+Timeouts bound one call.
+
+They do not by themselves protect the fleet.
+
+You also need:
+
+- circuit breaker
+- bulkhead
+- retry budget
+- rate limit
+- fallback or graceful degradation
+
+### Circuit breaker
+
+A circuit breaker stops sending calls to a dependency that is failing or too slow.
+
+It protects:
+
+- caller threads
+- the dependency
+- upstream services
+- user experience
+
+Use it for noncritical or degradable paths.
+
+For critical payment paths, opening the circuit may mean fail fast and ask the user to retry later.
+
+That is still better than holding every request thread until the service collapses.
+
+### Bulkhead
+
+A bulkhead isolates a dependency behind its own concurrency limit or pool.
+
+Without a bulkhead:
+
+```text
+slow partner API consumes all request threads
+healthy database-only endpoints cannot run
+health checks degrade
+autoscaling adds more callers
+partner API receives even more traffic
+```
+
+With a bulkhead:
+
+```text
+partner API is limited to 20 concurrent calls
+overflow fails fast or queues briefly
+other endpoints keep capacity
+```
+
+### Retry storm
+
+Retries are dangerous under latency.
+
+A bad retry policy:
+
+```text
+timeout after 10s
+retry 3 times immediately
+no jitter
+no global budget
+called from 200 request threads
+```
+
+That can turn 200 user requests into 800 dependency calls.
+
+Better:
+
+- short timeout
+- limited attempts
+- exponential backoff
+- jitter
+- retry only safe idempotent operations
+- respect server retry-after signals
+- enforce global retry budget
+- stop retrying when circuit is open
+
+Never retry a payment side effect unless idempotency is guaranteed at the effect boundary.
+
+## Tomcat request pool exhaustion
+
+Tomcat has a finite number of request threads.
+
+If they all wait on DB or API calls, the service appears stuck.
+
+Example settings:
+
+```yaml
+server:
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+    accept-count: 100
+    connection-timeout: 2s
+```
+
+Increasing `max` can help only when CPU, memory, and downstream dependencies can handle more concurrent work.
+
+If PostgreSQL is already saturated, increasing Tomcat threads usually worsens the incident.
+
+Watch:
+
+- busy threads
+- queued requests
+- rejected connections
+- request duration
+- downstream pool waits
+
+## @Async and ExecutorService exhaustion
+
+Spring `@Async` defaults can surprise teams.
+
+Always name and configure executors.
+
+```java
+@Configuration
+@EnableAsync
+class AsyncConfig {
+    @Bean(name = "partnerExecutor")
+    ThreadPoolTaskExecutor partnerExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(20);
+        executor.setMaxPoolSize(20);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("partner-api-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
+    }
+}
+```
+
+Use separate pools for separate risk classes:
+
+- partner API calls
+- email or notification sending
+- Kafka handler workers
+- report generation
+- database-heavy background work
+
+Do not put every async task into one shared executor.
+
+One slow dependency will starve unrelated work.
+
+## Same-pool deadlock
+
+A classic failure:
+
+```java
+ExecutorService pool = Executors.newFixedThreadPool(10);
+
+public OrderResult handle(Order order) throws Exception {
+    Future<Inventory> inventory = pool.submit(() -> reserveInventory(order));
+    Future<Payment> payment = pool.submit(() -> authorizePayment(order));
+
+    return combine(inventory.get(), payment.get());
+}
+```
+
+If `handle` itself is running inside that same pool, all workers can block waiting for tasks that cannot start.
+
+Symptoms:
+
+- threads waiting on `Future.get`
+- queued tasks never execute
+- CPU low
+- pool active equals max
+- queue depth grows
+
+Fixes:
+
+- do not block inside the same bounded pool
+- use separate executors
+- use `CompletableFuture` with explicit executor and timeout
+- use nonblocking composition where appropriate
+- bound queue sizes
+- add rejection behavior
+- expose pool metrics
+
+## Kafka consumer cascade
+
+Kafka makes stuck-thread incidents easy to hide until lag becomes obvious.
+
+Pattern:
+
+```text
+consumer receives messages
+handler calls PostgreSQL or external API
+dependency slows
+handler threads block
+poll loop slows or pauses
+lag grows
+rebalance risk increases
+retries create duplicate pressure
+downstream receives more load after recovery
+```
+
+Controls:
+
+- pause partitions when worker queue is full
+- commit offsets only after durable success
+- keep `max.poll.interval.ms` above worst safe processing time
+- keep handler concurrency bounded
+- isolate handler pools by dependency
+- use idempotency keys
+- send poison messages to DLQ after policy
+- do not retry forever inside the listener thread
+
+If the dependency is down, pausing consumers may be the right mitigation.
+
+It is often safer than pulling more messages into blocked workers.
+
+## Incident mitigation map
+
+| Symptom | Likely source | Fast mitigation |
+|---|---|---|
+| Hikari pending high, DB locks high | blocked transaction | identify blocker, cancel or terminate if safe |
+| Hikari active high, DB CPU high | too many heavy queries | reduce concurrency, rollback, tune query |
+| Tomcat busy high, external API p99 high | API hang | open circuit, shed, fail fast, reduce concurrency |
+| Kafka lag rising, API down | handler blocked | pause consumers, disable path, use DLQ policy |
+| Executor queue growing | pool saturation | reject, shed, split pool, reduce producers |
+| CPU high, DB normal | compute bug | rollback, profile, reduce traffic |
+| Restart clears briefly | recurring dependency or leak | find boundary, do not keep cycling pods |
+
+The best mitigation reduces current harm without creating a second outage.
+
+## RCA corrective actions
+
+After stabilization, write corrective actions that change system behavior.
+
+Weak:
+
+- "Be careful with external calls."
+- "Monitor better."
+- "Increase thread pool."
+
+Strong:
+
+- Add 2-second connect and 3-second read timeout to partner client.
+- Add circuit breaker with slow-call threshold and alert.
+- Isolate partner calls behind a 20-concurrent-call bulkhead.
+- Add Hikari pending connection alert.
+- Add PostgreSQL lock wait dashboard by blocker.
+- Add `lock_timeout` and `statement_timeout` for online requests.
+- Split Kafka handler executor from notification executor.
+- Add idempotency key before retrying payment authorization.
+- Add integration test for same-pool blocking.
+
+## Interview answer template
+
+Say:
+
+```text
+I would treat stuck threads as a boundary problem first.
+For Spring Boot I would check Tomcat busy threads, executor queues, Hikari active and pending, PostgreSQL wait events, Kafka lag, and external dependency latency.
+If Hikari is saturated, I would determine whether connections are held by long queries, lock waits, or leaks.
+If external APIs are slow, I would verify connect, read, response, and total timeouts, then protect the fleet with circuit breakers and bulkheads.
+If executors are exhausted, I would check queue depth, same-pool blocking, @Async configuration, and rejection policy.
+Mitigation might be pausing Kafka consumers, opening a circuit, shedding traffic, reducing concurrency, killing a database blocker, rolling back, or restarting a contained bad pod.
+The permanent fix is bounded waits, isolated pools, safe retries, idempotency, and observability.
+```
+
+## Final principle
+
+Every external wait needs a budget.
+
+Every bounded pool needs metrics.
+
+Every retry needs a limit.
+
+Every critical side effect needs idempotency.
+
+Every incident needs mitigation before RCA.
+
+That is how a stuck-thread conversation becomes a Principal-level production answer.

@@ -1,0 +1,483 @@
+---
+slug: stuck-thread-jvm-thread-dumps
+title: "Stuck Thread JVM Thread Dumps: Reading Evidence Under Pressure"
+description: "A production guide to jstack, jcmd, kill -3, JFR, VisualVM, JMC, repeated dumps, deadlock evidence, ReentrantLock waits, Future.get, and ThreadMXBean."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [JVM, Thread Dump, jstack, jcmd, JFR, Java, Spring Boot, Deadlock]
+readingTime: 32 min
+publishedAt: "2026-08-11"
+---
+
+## Why thread dumps matter
+
+A thread dump is a point-in-time inventory of what the JVM threads are doing.
+
+During a stuck-thread incident, it gives you evidence that dashboards cannot.
+
+It can show:
+
+- request threads waiting on JDBC
+- request threads waiting on external API sockets
+- workers parked on `Future.get`
+- Java monitor deadlocks
+- `ReentrantLock` ownership
+- executor workers idle or saturated
+- Kafka consumer threads blocked in handlers
+- pool housekeepers doing normal maintenance
+- GC, compiler, and JVM service threads that are not the incident
+
+The dump is not the whole RCA.
+
+It is evidence to correlate with CPU, HikariCP, PostgreSQL, Kafka, external dependency, and traffic metrics.
+
+## First rule: collect repeated dumps
+
+One dump is a photograph.
+
+Three dumps are a short film.
+
+The normal production pattern is:
+
+```bash
+jstack -l <pid> > /tmp/threaddump-1.txt
+sleep 10
+jstack -l <pid> > /tmp/threaddump-2.txt
+sleep 10
+jstack -l <pid> > /tmp/threaddump-3.txt
+```
+
+Why three dumps about 10 seconds apart?
+
+- A single dump can catch a healthy thread at an unlucky instant.
+- Repeated identical stacks imply no progress.
+- Different stacks may show legitimate long work.
+- You can separate idle workers from wedged request threads.
+- You can correlate changes with CPU and dependency metrics.
+- You can see lock ownership stay fixed.
+- You can prove whether a mitigation changes behavior.
+
+Ten seconds is not magic.
+
+It is long enough to observe movement and short enough to capture incident evidence before operators act.
+
+## Tooling under pressure
+
+Capture evidence only when it is safe enough.
+
+If customers are hard down, mitigation can outrank perfect diagnostics.
+
+If impact is contained, collect evidence before restart.
+
+Find the Java process:
+
+```bash
+jps -lv
+ps -ef | rg 'java|spring|app.jar'
+pgrep -a java
+kubectl exec -n payments deploy/payment-api -c app -- jps -lv
+```
+
+Use `jstack -l` for classic dumps with ownable synchronizers:
+
+```bash
+jstack -l 12345 > /tmp/payment-api-jstack-1.txt
+sleep 10
+jstack -l 12345 > /tmp/payment-api-jstack-2.txt
+sleep 10
+jstack -l 12345 > /tmp/payment-api-jstack-3.txt
+```
+
+Inside a container, PID may be `1`, but check it:
+
+```bash
+kubectl exec -n payments payment-api-7c9d8f5b7d-q2p9n -c app -- sh -c 'jstack -l 1 > /tmp/jstack-1.txt'
+kubectl cp payments/payment-api-7c9d8f5b7d-q2p9n:/tmp/jstack-1.txt ./jstack-1.txt -c app
+```
+
+Use `jcmd` on modern JDKs:
+
+```bash
+jcmd 12345 Thread.print -l > /tmp/threadprint-1.txt
+sleep 10
+jcmd 12345 Thread.print -l > /tmp/threadprint-2.txt
+jcmd 12345 VM.command_line
+jcmd 12345 GC.heap_info
+jcmd 12345 JFR.check
+```
+
+Use `kill -3` when the JDK tools are absent:
+
+```bash
+kill -3 12345
+kubectl exec -n payments payment-api-7c9d8f5b7d-q2p9n -c app -- kill -3 1
+kubectl logs -n payments payment-api-7c9d8f5b7d-q2p9n -c app --since=5m > sigquit-dump.log
+```
+
+SIGQUIT does not kill the JVM.
+
+It prints a dump to the process log, so avoid flooding centralized logs.
+
+Use JFR when thread dumps are not enough:
+
+```bash
+jcmd 12345 JFR.start name=incident settings=profile duration=120s filename=/tmp/incident.jfr
+jcmd 12345 JFR.check
+jcmd 12345 JFR.stop name=incident filename=/tmp/incident.jfr
+kubectl cp payments/payment-api-7c9d8f5b7d-q2p9n:/tmp/incident.jfr ./incident.jfr -c app
+```
+
+JFR is useful for CPU samples, allocation pressure, lock contention, socket events, thread parks, and GC pauses.
+
+Avoid long or overly detailed recordings during severe resource pressure.
+
+VisualVM and Java Mission Control are useful in controlled environments and post-incident analysis.
+
+For Principal interviews, mention them as JFR and live-thread analysis tools, but do not make a GUI your only first response.
+
+## Anatomy of a thread dump entry
+
+A typical entry:
+
+```text
+"http-nio-8080-exec-42" #214 prio=5 os_prio=0 cpu=122.30ms elapsed=3612.44s tid=0x00007f2b9800a000 nid=0x4f03 runnable  [0x00007f2b3d7f7000]
+   java.lang.Thread.State: RUNNABLE
+        at java.base@21.0.2/sun.nio.ch.SocketDispatcher.read0(Native Method)
+        at java.base@21.0.2/sun.nio.ch.SocketDispatcher.read(SocketDispatcher.java:47)
+        at java.base@21.0.2/sun.nio.ch.NioSocketImpl.tryRead(NioSocketImpl.java:256)
+        at org.postgresql.core.VisibleBufferedInputStream.readMore(VisibleBufferedInputStream.java:161)
+        at org.postgresql.core.PGStream.receiveChar(PGStream.java:474)
+        at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2168)
+        at com.zaxxer.hikari.pool.ProxyPreparedStatement.executeQuery(ProxyPreparedStatement.java:52)
+        at com.example.payment.PaymentRepository.findOpenAttempt(PaymentRepository.java:88)
+```
+
+Read it from top and bottom.
+
+Top frames show where the thread is currently blocked or running.
+
+Bottom frames show the business entry path.
+
+This example is RUNNABLE, but the stack indicates socket or PostgreSQL driver wait, not necessarily CPU burn.
+
+## Key fields
+
+| Field | Meaning |
+|---|---|
+| Thread name | Usually tells pool, endpoint, scheduler, Kafka, or executor |
+| Java thread id | JVM-level identifier after `#` |
+| `tid` | JVM internal thread pointer |
+| `nid` | native operating system thread id |
+| State | JVM state such as RUNNABLE, BLOCKED, WAITING |
+| Stack | current call chain |
+| Locked monitors | synchronized monitors held |
+| Waiting on | monitor or condition being waited for |
+| Ownable synchronizers | locks like `ReentrantLock` |
+
+## Why `nid` matters
+
+`nid` lets you map a Java thread to OS-level tools.
+
+Example dump says:
+
+```text
+nid=0x4f03
+```
+
+Convert hex to decimal:
+
+```bash
+printf "%d\n" 0x4f03
+```
+
+Then correlate with per-thread CPU:
+
+```bash
+top -H -p 12345
+ps -L -p 12345 -o pid,tid,pcpu,pmem,comm
+```
+
+If one native thread burns CPU, find its `nid` in the dump.
+
+That connects CPU evidence to Java code.
+
+## Reading states correctly
+
+### BLOCKED on monitor
+
+```text
+"http-nio-8080-exec-9" #101 nid=0x2a11 waiting for monitor entry
+   java.lang.Thread.State: BLOCKED (on object monitor)
+        at com.example.InventoryService.reserve(InventoryService.java:44)
+        - waiting to lock <0x000000070c10a9d8> (a com.example.InventoryService)
+        at com.example.CheckoutService.checkout(CheckoutService.java:72)
+```
+
+Find the owner of that monitor.
+
+Search the dump for:
+
+```text
+locked <0x000000070c10a9d8>
+```
+
+The owner stack is more important than the waiting stack.
+
+### WAITING on Future.get
+
+```text
+"http-nio-8080-exec-17" #118 nid=0x2a22 waiting on condition
+   java.lang.Thread.State: WAITING (parking)
+        at jdk.internal.misc.Unsafe.park(Native Method)
+        at java.util.concurrent.locks.LockSupport.park(LockSupport.java:221)
+        at java.util.concurrent.FutureTask.awaitDone(FutureTask.java:447)
+        at java.util.concurrent.FutureTask.get(FutureTask.java:190)
+        at com.example.OrderController.submit(OrderController.java:61)
+```
+
+Questions:
+
+- Who is supposed to complete the future?
+- Is it queued behind this same request pool?
+- Does it have a timeout?
+- Is the worker pool saturated?
+- Can the caller cancel?
+
+Unbounded `Future.get` on a request thread is a common outage pattern.
+
+### ReentrantLock and ownable synchronizers
+
+With `jstack -l`, you may see:
+
+```text
+"worker-3" #55 nid=0x4421 waiting on condition
+   java.lang.Thread.State: WAITING (parking)
+        at jdk.internal.misc.Unsafe.park(Native Method)
+        at java.util.concurrent.locks.LockSupport.park(LockSupport.java:221)
+        at java.util.concurrent.locks.AbstractQueuedSynchronizer.acquire(AbstractQueuedSynchronizer.java:754)
+        at java.util.concurrent.locks.ReentrantLock.lock(ReentrantLock.java:322)
+        at com.example.LedgerWriter.write(LedgerWriter.java:37)
+
+   Locked ownable synchronizers:
+        - None
+```
+
+Another thread may show:
+
+```text
+"worker-1" #53 nid=0x441f runnable
+   java.lang.Thread.State: RUNNABLE
+        at com.example.LedgerWriter.flushToDatabase(LedgerWriter.java:58)
+
+   Locked ownable synchronizers:
+        - <0x000000070d445120> (a java.util.concurrent.locks.ReentrantLock$NonfairSync)
+```
+
+Now you know who owns the lock.
+
+Look at the owner's stack.
+
+The waiter is often innocent.
+
+### Timed waits
+
+```text
+"hikari-pool-1 housekeeper" #41 nid=0x2312 waiting on condition
+   java.lang.Thread.State: TIMED_WAITING (parking)
+        at jdk.internal.misc.Unsafe.park(Native Method)
+        at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:269)
+        at java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1182)
+```
+
+This is usually normal.
+
+Do not escalate because a housekeeper is waiting.
+
+Focus on request, worker, Kafka, scheduler, and dependency-calling threads tied to impact.
+
+## Deadlock example
+
+Here is a simplified Java deadlock.
+
+```java
+public final class TransferService {
+    private final Object accountA = new Object();
+    private final Object accountB = new Object();
+
+    public void transferAToB() {
+        synchronized (accountA) {
+            sleep();
+            synchronized (accountB) {
+                postLedgerEntry("A", "B");
+            }
+        }
+    }
+
+    public void transferBToA() {
+        synchronized (accountB) {
+            sleep();
+            synchronized (accountA) {
+                postLedgerEntry("B", "A");
+            }
+        }
+    }
+
+    private void postLedgerEntry(String from, String to) {}
+    private void sleep() {}
+}
+```
+
+The dump may show:
+
+```text
+Found one Java-level deadlock:
+=============================
+"transfer-a-to-b":
+  waiting to lock object 0x000000070c01a718, held by "transfer-b-to-a"
+
+"transfer-b-to-a":
+  waiting to lock object 0x000000070c01a708, held by "transfer-a-to-b"
+
+"transfer-a-to-b":
+   java.lang.Thread.State: BLOCKED (on object monitor)
+        at com.example.TransferService.transferAToB(TransferService.java:8)
+        - waiting to lock <0x000000070c01a718> (a java.lang.Object)
+        - locked <0x000000070c01a708> (a java.lang.Object)
+
+"transfer-b-to-a":
+   java.lang.Thread.State: BLOCKED (on object monitor)
+        at com.example.TransferService.transferBToA(TransferService.java:17)
+        - waiting to lock <0x000000070c01a708> (a java.lang.Object)
+        - locked <0x000000070c01a718> (a java.lang.Object)
+```
+
+The deadlock is not fixed by increasing thread count.
+
+It is fixed by removing circular wait.
+
+The basic code fix is global lock ordering:
+
+```java
+public void transfer(Account from, Account to, Money amount) {
+    Account first = from.id().compareTo(to.id()) <= 0 ? from : to;
+    Account second = first == from ? to : from;
+
+    synchronized (first.lock()) {
+        synchronized (second.lock()) {
+            ledger.move(from, to, amount);
+        }
+    }
+}
+```
+
+The Principal architectural fix goes further:
+
+- make account updates transactional in PostgreSQL
+- lock rows in deterministic order
+- avoid external API calls while holding locks
+- keep critical sections small
+- use idempotency keys for transfer attempts
+- publish ledger events through an outbox after commit
+- monitor lock wait time and transaction age
+
+In a distributed service, a JVM lock does not protect data across pods.
+
+For money movement, the durable invariant belongs in the database transaction or a well-designed workflow, not in an in-memory monitor.
+
+## ThreadMXBean
+
+`ThreadMXBean` can detect monitor deadlocks programmatically.
+
+Example:
+
+```java
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
+import java.util.Arrays;
+
+public final class DeadlockProbe {
+    public static void logDeadlocks() {
+        ThreadMXBean bean = ManagementFactory.getThreadMXBean();
+
+        long[] ids = bean.findDeadlockedThreads();
+        if (ids == null || ids.length == 0) {
+            return;
+        }
+
+        ThreadInfo[] infos = bean.getThreadInfo(ids, true, true);
+        Arrays.stream(infos).forEach(info -> {
+            System.err.println("Deadlocked thread: " + info.getThreadName());
+            System.err.println(info);
+        });
+    }
+}
+```
+
+For older monitor-only detection:
+
+```java
+long[] monitorDeadlocks = bean.findMonitorDeadlockedThreads();
+```
+
+Use `findDeadlockedThreads` when possible because it can include ownable synchronizers.
+
+This is useful for:
+
+- health diagnostics
+- admin endpoints with strict access controls
+- periodic deadlock logging
+- integration tests that assert no deadlock under concurrency
+
+Do not expose raw thread dumps publicly.
+
+They can contain class names, method names, tenant identifiers, and other sensitive context.
+
+## Practical dump-reading checklist
+
+When reading three dumps, ask:
+
+1. Which thread pools are involved?
+2. Are request threads all doing the same thing?
+3. Are Kafka consumer threads blocked in handlers?
+4. Are many threads waiting for Hikari connections?
+5. Are many threads inside PostgreSQL driver calls?
+6. Are many threads in external HTTP client socket reads?
+7. Are any threads BLOCKED on the same monitor?
+8. Are `ReentrantLock` ownable synchronizers held by a slow owner?
+9. Are request threads waiting on `Future.get` without timeout?
+10. Does the same stack remain unchanged across all dumps?
+11. Does the lock owner change?
+12. Does CPU evidence match stack evidence?
+13. Are JVM service threads being mistaken for application threads?
+14. Does the dump match the customer-facing endpoint?
+
+## Interview answer template
+
+Say:
+
+```text
+I would collect three thread dumps about 10 seconds apart using jcmd Thread.print -l or jstack -l, or kill -3 if tools are unavailable.
+I would compare whether the same request or worker threads remain on the same stack.
+I would read thread names, nid, state, waiting or locked monitors, and ownable synchronizers.
+RUNNABLE would not automatically mean CPU; I would correlate with per-thread CPU and JFR if needed.
+For BLOCKED threads I would find the monitor owner, not just the waiter.
+For ReentrantLock I would use the -l output and ownable synchronizers.
+For Future.get I would inspect the producer task, executor queue, and timeout.
+Then I would correlate the dump with Hikari, PostgreSQL, Kafka, and external API metrics before choosing mitigation.
+```
+
+## Final principle
+
+Thread dumps are most valuable when they change your action.
+
+They should answer:
+
+- is this CPU or IO
+- is this one thread or systemic
+- is this lock, pool, API, Kafka, or database
+- who owns the resource
+- is there progress
+- is restart safe or just evidence destruction
+
+The Principal engineer reads the dump as part of the incident, not as an isolated artifact.

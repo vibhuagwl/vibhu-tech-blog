@@ -1,0 +1,599 @@
+---
+slug: stuck-thread-cpu-gc-kill-restart
+title: "Stuck Threads, 100% CPU, GC Pauses, and Safe Restart Decisions"
+description: On-call playbook for mapping Linux CPU threads to Java dumps, separating busy loops from stop-the-world GC, avoiding Thread.stop, and deciding when Kubernetes restarts are safe.
+category: Real-Time Issues
+difficulty: Staff/Principal
+tags: [Java, JVM, Kubernetes, GC, Thread Dumps, Incidents]
+readingTime: 30 min
+publishedAt: "2026-08-11"
+---
+
+## Incident framing
+
+Not every stuck-thread page is a blocked thread.
+
+Sometimes the service is "stuck" because a thread is consuming an entire CPU core in a loop.
+
+Sometimes the service is "stuck" because the JVM is in stop-the-world GC.
+
+Sometimes the service is "stuck" because Kubernetes killed it at the worst possible moment and duplicated work.
+
+The Principal on-call move is to separate these cases before taking action.
+
+```text
+high latency
+  -> blocked threads?
+  -> busy CPU threads?
+  -> stop-the-world GC?
+  -> kernel or container throttling?
+  -> dependency wait?
+```
+
+Each path has a different mitigation.
+
+## First five minutes
+
+Capture evidence before restart when customer impact allows it.
+
+Minimum bundle:
+
+```text
+kubectl top pod
+kubectl describe pod
+thread dump x3 spaced 10 seconds apart
+jcmd VM.native_memory summary when enabled
+jcmd GC.heap_info
+JFR snapshot when available
+GC log window
+application p99 route metrics
+Kafka lag if the pod is a consumer
+DB connection pool metrics
+```
+
+Three thread dumps are better than one.
+
+If the same stack is RUNNABLE across all three and owns CPU, suspect a busy loop.
+
+If all application threads are parked while GC threads run, suspect GC.
+
+If request threads are WAITING on pools, suspect downstream or resource starvation.
+
+## Mapping `top -H` to a Java thread
+
+When CPU is high, identify the hot Linux thread.
+
+Command flow:
+
+```bash
+PID=$(pgrep -f 'java')
+top -H -p "$PID"
+```
+
+`top -H` shows per-thread CPU usage.
+
+Find the thread id column, often `TID`.
+
+Convert decimal TID to hexadecimal:
+
+```bash
+printf '0x%x\n' 28741
+```
+
+In a Java thread dump, search for `nid=0x7045`.
+
+Example:
+
+```text
+"payment-worker-17" #88 prio=5 os_prio=0 cpu=882342.11ms elapsed=912.22s tid=0x00007f92a8039000 nid=0x7045 runnable
+   java.lang.Thread.State: RUNNABLE
+        at java.util.regex.Pattern$Loop.match(Pattern.java:4894)
+        at java.util.regex.Pattern$GroupTail.match(Pattern.java:4820)
+        at com.example.RoutingRule.matches(RoutingRule.java:71)
+```
+
+That mapping turns "the JVM is hot" into "routing rule regex is burning a core."
+
+The exact column names vary by image and `top` version.
+
+The decimal-to-hex mapping is the core technique.
+
+## RUNNABLE does not always mean using CPU
+
+Java `RUNNABLE` includes threads that are running on CPU and threads blocked in native IO.
+
+Example:
+
+```text
+RUNNABLE
+  at java.net.SocketInputStream.socketRead0(Native Method)
+```
+
+That thread is not necessarily consuming CPU.
+
+It may be waiting in the kernel for socket data.
+
+Use `top -H` or JFR execution samples to prove CPU ownership.
+
+Do not treat every RUNNABLE stack as a busy loop.
+
+## Infinite loop signatures
+
+Classic loop:
+
+```java
+while (true) {
+    refreshCache();
+}
+```
+
+Production loop:
+
+```java
+while (!done) {
+    Optional<Job> job = queue.tryTake();
+    if (job.isPresent()) {
+        process(job.get());
+    }
+}
+```
+
+The production version looks reasonable until the empty path spins.
+
+Symptoms:
+
+| Signal | Observation |
+|---|---|
+| CPU | one core pegged per spinning thread |
+| allocations | may be low |
+| thread state | RUNNABLE |
+| stack | stable across dumps |
+| latency | worsens from CPU starvation |
+
+Permanent fix:
+
+- use blocking queue operations with timeout
+- add backoff on empty polls
+- respect interrupt
+- expose loop iteration and empty-poll counters
+- add tests for no-work behavior
+
+## Catastrophic regex
+
+Regex can pin CPU without obvious loops in application code.
+
+The stack often lives in `java.util.regex.Pattern`.
+
+Bad shape:
+
+```java
+Pattern.compile("(a+)+b").matcher(input).matches();
+```
+
+With adversarial input, backtracking grows explosively.
+
+Incident actions:
+
+- identify input sample if safe
+- disable the problematic rule
+- rate-limit the route
+- switch to a bounded parser or safer regex
+- add length limits before matching
+- add a timeout around rule evaluation if the engine supports it
+
+Do not log full payment payloads while debugging.
+
+Use redacted samples and correlation IDs.
+
+## Busy wait and spin locks
+
+Busy wait code is common in homegrown locks and polling loops.
+
+Example:
+
+```java
+while (!cache.isReady()) {
+    // wait
+}
+```
+
+This is not waiting.
+
+It is burning CPU.
+
+Better:
+
+```java
+while (!cache.awaitReady(Duration.ofMillis(100))) {
+    if (Thread.currentThread().isInterrupted()) {
+        throw new InterruptedException("interrupted while waiting for cache");
+    }
+}
+```
+
+In production, watch for stable stacks in:
+
+- `LockSupport.parkNanos` with very tiny durations
+- custom retry loops
+- compare-and-set loops
+- circuit breaker half-open probes
+- Kafka poll loops with zero timeout
+
+Short spins can be legitimate in low-level code.
+
+In business services, they usually indicate missing backoff.
+
+## CPU throttling can look like stuck threads
+
+In Kubernetes, a pod can be CPU-throttled even when node CPU looks available.
+
+Signals:
+
+```text
+container_cpu_cfs_throttled_periods_total
+container_cpu_cfs_throttled_seconds_total
+container_cpu_usage_seconds_total
+```
+
+If throttling rises, Java threads may appear slow without being blocked.
+
+GC may also stretch because GC threads are throttled.
+
+Immediate action can be increasing CPU limits or reducing traffic.
+
+Permanent fix is right-sizing requests and limits based on measured peaks, not averages.
+
+## Stop-the-world GC versus thread problem
+
+Stop-the-world GC pauses all application threads.
+
+During the pause, request latency rises even though application code is not blocked on a lock.
+
+Evidence:
+
+| Evidence | Thread issue | STW GC issue |
+|---|---|---|
+| hot thread in `top -H` | app thread often hot | GC threads may be active |
+| GC log | normal | pause aligns with latency |
+| JFR | execution samples in app | GC pause events |
+| safepoint log | normal | long safepoint operation |
+| thread dumps | stable bad stack | many threads stopped or parked |
+
+GC log clue:
+
+```text
+[info][gc] GC(312) Pause Young (Normal) 8123M->6042M(8192M) 1890.123ms
+```
+
+Safepoint clue:
+
+```text
+Total time for which application threads were stopped: 12.345 seconds
+```
+
+If pauses align with user latency, restarting may temporarily clear heap pressure but not the cause.
+
+## JFR evidence
+
+Java Flight Recorder is the cleanest way to separate CPU, allocation, lock, IO, and GC.
+
+Useful event groups:
+
+- execution samples
+- allocation in new TLAB and outside TLAB
+- Java monitor blocked
+- thread park
+- socket read and socket write
+- file read and file write
+- garbage collection
+- safepoint begin and end
+- exception statistics
+
+On-call command:
+
+```bash
+jcmd "$PID" JFR.start name=incident settings=profile duration=120s filename=/tmp/incident.jfr
+```
+
+If JFR is already running continuously, preserve the window around the incident.
+
+For a CPU incident, the flame graph should show the owner.
+
+For a GC incident, allocation pressure and pause events should lead.
+
+## Why `Thread.stop` is unsafe
+
+`Thread.stop` throws an asynchronous `ThreadDeath` into the target thread.
+
+That can happen while the thread holds locks, mutates invariants, or writes partial state.
+
+The JVM releases monitors as the stack unwinds.
+
+That sounds useful, but it is exactly the danger.
+
+Other threads can observe corrupted shared state protected by those monitors.
+
+Example risk:
+
+```java
+synchronized (account) {
+    account.debit(amount);
+    threadStopHitsHere();
+    ledger.recordDebit(amount);
+}
+```
+
+After unsafe stop, the account and ledger may disagree.
+
+In payment systems, that is worse than a slow request.
+
+Do not use `Thread.stop` for production recovery.
+
+## Cooperative cancellation with interrupt
+
+`Thread.interrupt` sets an interrupt flag and wakes certain blocking operations.
+
+It does not forcibly kill arbitrary code.
+
+Good worker shape:
+
+```java
+while (!Thread.currentThread().isInterrupted()) {
+    Job job = queue.poll(1, TimeUnit.SECONDS);
+    if (job != null) {
+        process(job);
+    }
+}
+```
+
+When catching `InterruptedException`, restore the flag unless you are intentionally terminating:
+
+```java
+catch (InterruptedException e) {
+    Thread.currentThread().interrupt();
+    return;
+}
+```
+
+Interrupt works well for:
+
+- `BlockingQueue`
+- `Thread.sleep`
+- many locks with interruptible acquisition
+- some NIO waits
+- executor shutdown
+
+Interrupt does not reliably stop:
+
+- CPU loops that never check the flag
+- many native calls
+- remote APIs without timeouts
+- JDBC calls depending on driver behavior
+- synchronized monitor acquisition
+
+Cancellation must be designed into the code.
+
+## `Future.cancel` and time budgets
+
+`Future.cancel(true)` requests interruption if the task is running.
+
+It is not a guarantee.
+
+The task must honor interrupt, or the underlying dependency must time out.
+
+Safer pattern:
+
+```java
+Future<Result> future = executor.submit(task);
+try {
+    return future.get(500, TimeUnit.MILLISECONDS);
+} catch (TimeoutException e) {
+    future.cancel(true);
+    throw new DeadlineExceededException(e);
+}
+```
+
+This protects the caller's latency budget.
+
+It does not necessarily reclaim the worker immediately.
+
+Measure cancellation success:
+
+- task timed out
+- task observed interrupt
+- task finished after cancel
+- worker remained busy after cancel
+
+That metric often exposes fake timeouts.
+
+## When restarting a pod is acceptable
+
+Restarting is reasonable when:
+
+- the pod is stateless for the affected work
+- side effects are idempotent
+- in-flight requests can be retried safely
+- Kafka offsets are committed only after durable effects
+- DB transactions will roll back safely
+- distributed locks have leases and fencing
+- readiness removes the pod before termination
+- graceful shutdown is configured
+
+Restarting is often the fastest safe mitigation for:
+
+- leaked threads after a bad deploy
+- poisoned local cache state
+- runaway CPU in one pod when traffic can fail over
+- JVM stuck in repeated full GC with no room to recover
+
+Still capture at least one thread dump first when possible.
+
+Otherwise the permanent fix becomes guesswork.
+
+## When restarting is dangerous
+
+Restarting is dangerous when:
+
+- a payment operation may be mid-side-effect
+- Kafka processing is not idempotent
+- the pod holds a Redis lock without fencing
+- the pod owns a long PostgreSQL transaction
+- shutdown hooks publish business events
+- duplicate requests trigger duplicate external charges
+- batch jobs are not checkpointed
+- another pod will immediately replay the same poison message
+
+Dangerous does not mean forbidden.
+
+It means coordinate the restart with idempotency, lock, DB, and Kafka state.
+
+Sometimes the safest recovery is to stop traffic, drain, kill one owner, and replay explicitly.
+
+## Readiness and liveness
+
+Readiness answers "should this pod receive new traffic?"
+
+Liveness answers "should Kubernetes restart this pod?"
+
+Do not use liveness as a general dependency health check.
+
+If the DB is down and all pods fail liveness, Kubernetes can create a restart storm.
+
+Better:
+
+- readiness fails when the pod cannot serve
+- liveness fails only when the process is unrecoverably wedged
+- startup probe protects slow boot
+- graceful shutdown drains before SIGKILL
+
+For stuck threads, readiness should consider:
+
+- servlet worker saturation
+- event-loop blockage
+- Hikari exhaustion
+- critical executor queue depth
+- Kafka listener health when it affects serving
+
+Readiness should not flap on every transient downstream blip.
+
+## Graceful shutdown impact
+
+Kubernetes sends SIGTERM, waits `terminationGracePeriodSeconds`, then sends SIGKILL.
+
+Spring Boot can drain requests if graceful shutdown is enabled.
+
+Important settings:
+
+```properties
+server.shutdown=graceful
+spring.lifecycle.timeout-per-shutdown-phase=30s
+```
+
+For Kafka listeners, shutdown should:
+
+- stop polling
+- finish or abandon in-flight records based on policy
+- commit only completed offsets
+- release local resources
+- close DB connections
+- release distributed locks in `finally`
+
+If grace is too short, SIGKILL can interrupt business operations at arbitrary points.
+
+If grace is too long, rollouts stall and stuck owners hold resources longer.
+
+Choose grace based on bounded work, not hope.
+
+## Request impact during restart
+
+A restart affects requests differently by phase.
+
+```text
+readiness false -> load balancer stops new requests
+in-flight requests continue until done or timeout
+SIGTERM hooks run
+connections close
+SIGKILL if grace expires
+client retries may arrive at other pods
+```
+
+If clients retry without idempotency keys, restart can multiply side effects.
+
+If clients have shorter timeouts than the server, the server may finish work after the client has retried elsewhere.
+
+The fix is end-to-end deadlines and idempotency.
+
+## Kafka impact during restart
+
+Restarting a consumer causes partition revocation and reassignment.
+
+If offsets lag completed side effects, records replay.
+
+If offsets advanced before side effects, records are lost.
+
+Correct payment stance:
+
+```text
+perform durable idempotent effect
+then commit offset
+```
+
+During incidents, check:
+
+- current offset
+- committed offset
+- lag by partition
+- in-flight record keys
+- last successful commit time
+- rebalance count
+- duplicate suppression metric
+
+If a consumer is stuck on one partition, restarting the whole deployment may simply move the stuck record to another pod.
+
+Quarantine or repair the record when the evidence points to poison data.
+
+## DB and lock impact during restart
+
+When a pod dies, database connections close and transactions roll back.
+
+That usually releases row locks.
+
+But external side effects already performed before rollback do not roll back.
+
+Distributed locks depend on implementation:
+
+| Lock type | Restart effect |
+|---|---|
+| JVM `synchronized` | released with process death |
+| `ReentrantLock` | released with process death |
+| PostgreSQL transaction advisory lock | released on transaction end or session close |
+| PostgreSQL session advisory lock | released on session close |
+| Redis lease | released after TTL unless explicitly unlocked |
+| Redisson watchdog lock | renewal stops when process dies, then TTL expires |
+| ZooKeeper ephemeral lock | released after session expiration |
+
+The dangerous window is before release or expiration.
+
+The correctness question is whether a resumed or replacement owner can conflict.
+
+Fencing tokens answer that question better than human timing.
+
+## Practical decision table
+
+| Situation | Immediate action |
+|---|---|
+| one hot CPU thread, no side effects | capture dump and restart one pod if impact is high |
+| all pods hot after deploy | rollback or shed traffic before mass restart |
+| STW GC loop | capture heap and GC evidence, restart if service cannot recover |
+| Kafka poison record | pause or quarantine partition; do not blind-roll fleet |
+| Redis lock owner stuck | verify fencing before deleting lock |
+| Hikari exhausted | find connection owners before restarting waiters |
+| liveness restart storm | disable bad health dependency or rollback probe change |
+
+## Related drills
+
+- [Spring, Kafka, and lock blocking scenarios](/realtime-issues/stuck-thread-spring-kafka-locks)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+- [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study)
+- [Interview answer and follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups)
+- [Stuck thread cheat sheet](/realtime-issues/stuck-thread-cheat-sheet)

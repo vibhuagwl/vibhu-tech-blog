@@ -1,0 +1,582 @@
+---
+slug: stuck-thread-spring-kafka-locks
+title: "Stuck Thread Incidents in Spring, Kafka, and Locking Systems"
+description: Principal-level on-call guide for stuck Spring MVC, WebFlux, RestTemplate, WebClient, Feign, KafkaListener, JVM locks, and distributed lock scenarios.
+category: Real-Time Issues
+difficulty: Staff/Principal
+tags: [Java, Spring, Kafka, Locks, Incidents, On Call]
+readingTime: 31 min
+publishedAt: "2026-08-11"
+---
+
+## Incident framing
+
+A stuck thread is rarely just one bad stack trace.
+
+In a Spring production service it is often a request path, a worker pool, a Kafka consumer loop, a transaction boundary, and a lock boundary all interacting.
+
+The on-call question is not "which thread is blocked?"
+
+The on-call question is "which scarce resource is being held while progress stopped?"
+
+That scarce resource may be:
+
+- a servlet container worker
+- an event-loop thread
+- a Hikari connection
+- a Kafka partition assignment
+- a JVM monitor
+- a `ReentrantLock`
+- a Redis lock lease
+- a PostgreSQL advisory lock
+- a ZooKeeper ephemeral node
+- a payment idempotency key
+
+The Principal move is to reconstruct the ownership chain.
+
+## Fast mental model
+
+```text
+caller waits on thread
+thread waits on dependency
+dependency waits on pool, lock, broker, database, or remote API
+owner of that resource is stuck somewhere else
+```
+
+If you only kill the waiting thread, the owner may still hold the resource.
+
+If you only restart the pod, Kafka, locks, DB transactions, and in-flight idempotency states may all react.
+
+## Spring MVC request thread stuck
+
+Spring MVC runs each request on a servlet container worker, usually Tomcat, Jetty, or Undertow.
+
+When the handler blocks, the container worker is occupied until the handler returns, times out, or the process dies.
+
+Common stacks:
+
+```text
+http-nio-8080-exec-147
+  com.example.PaymentController.capture
+  com.example.PaymentService.capture
+  org.springframework.web.client.RestTemplate.exchange
+  java.net.SocketInputStream.socketRead0
+```
+
+This means a servlet worker is waiting for a remote response.
+
+It does not prove the remote system is down.
+
+It proves this request has no useful local progress.
+
+Check immediately:
+
+| Signal | Why it matters |
+|---|---|
+| active servlet threads | confirms request-worker exhaustion |
+| request duration histogram | shows whether one route owns the outage |
+| upstream client timeout config | missing timeout can create indefinite waits |
+| connection pool metrics | remote calls may be waiting for an HTTP connection, not a response |
+| trace span age | shows the last completed downstream hop |
+
+Operationally, isolate the stuck route before scaling the entire service.
+
+Scaling pods increases pressure on downstream systems if every new pod repeats the same blocked call.
+
+## RestTemplate, WebClient, and Feign blocking
+
+The bad production pattern is a synchronous request thread with no budgeted timeout.
+
+Example:
+
+```java
+PaymentResponse response = restTemplate.postForObject(url, request, PaymentResponse.class);
+```
+
+If the underlying client has no connect, read, and pool-acquire timeout, this can pin request threads long after the caller has disappeared.
+
+For Feign, verify:
+
+```text
+connectTimeout
+readTimeout
+retryer
+client implementation
+connection pool limits
+```
+
+For `WebClient`, the trap is mixing reactive APIs with blocking calls:
+
+```java
+PaymentResponse response = webClient.post()
+    .uri("/capture")
+    .bodyValue(request)
+    .retrieve()
+    .bodyToMono(PaymentResponse.class)
+    .block();
+```
+
+Calling `.block()` on a servlet worker is a synchronous design decision.
+
+Calling `.block()` on a Reactor event-loop thread is usually a production bug.
+
+Thread dump clue:
+
+```text
+reactor-http-epoll-3
+  reactor.core.publisher.BlockingSingleSubscriber.blockingGet
+```
+
+That stack means the event loop cannot service other sockets while waiting.
+
+The fix is not "use WebClient" by itself.
+
+The fix is end-to-end non-blocking flow or explicit isolation onto bounded worker pools.
+
+## WebFlux event-loop stuck
+
+In WebFlux, a small number of event-loop threads multiplex many connections.
+
+Blocking one loop creates outsized blast radius.
+
+Bad examples:
+
+- JDBC call from event loop
+- `Thread.sleep` in a reactive chain
+- synchronous Feign client inside `map`
+- file IO on event loop
+- Redis client mode that blocks the loop
+- CPU-heavy JSON transformation inside request path
+
+Look for thread names:
+
+```text
+reactor-http-nio-1
+reactor-http-epoll-2
+parallel-4
+boundedElastic-12
+```
+
+If event-loop threads show `WAITING`, `TIMED_WAITING`, socket reads, or lock waits inside application code, treat it as high severity.
+
+The immediate mitigation is often route-level shedding or temporarily reducing traffic to the offending path.
+
+The permanent fix is to move blocking work to `boundedElastic` or a custom bounded scheduler with timeouts, then remove the blocking dependency when possible.
+
+## `@Transactional` stuck while holding a DB connection
+
+`@Transactional` opens a transaction around the proxied method boundary.
+
+If that method calls a slow API, sleeps, waits for Kafka, or acquires a distributed lock, it may hold a database connection and row locks for the full wait.
+
+Bad shape:
+
+```java
+@Transactional
+public void capturePayment(Payment payment) {
+    repository.markCapturing(payment.id());
+    gateway.capture(payment);       // remote API while txn is open
+    repository.markCaptured(payment.id());
+}
+```
+
+Incident signature:
+
+| Metric | Typical observation |
+|---|---|
+| Hikari active | at max |
+| Hikari pending | increasing |
+| PostgreSQL wait events | lock or client read |
+| request threads | waiting for connection |
+| CPU | normal |
+
+The thread waiting on Hikari is not the root owner.
+
+The root owner is often another request that already has a connection and is waiting on a remote dependency.
+
+Principal rule: keep transactions around database state transitions, not around remote calls.
+
+Use state machines:
+
+```text
+NEW -> CAPTURE_REQUESTED -> CAPTURED
+NEW -> CAPTURE_REQUESTED -> CAPTURE_FAILED
+```
+
+Then make the remote call outside the DB transaction and persist the result with idempotency.
+
+## `@Async` stuck and silent
+
+`@Async` moves work to an executor.
+
+It does not make work safe, bounded, cancellable, or observable.
+
+Incident smell:
+
+```text
+taskExecutor-42 WAITING on java.util.concurrent.LinkedBlockingQueue.take
+taskExecutor-9  RUNNABLE socketRead0
+taskExecutor-10 BLOCKED on com.example.LockRegistry
+```
+
+Check:
+
+- executor core size
+- executor max size
+- queue capacity
+- rejection policy
+- task age
+- task tags
+- uncaught exception handler
+- MDC propagation
+- caller fallback behavior
+
+Unbounded queues hide stuck work until latency explodes.
+
+For on-call, look for old queued tasks and old running tasks separately.
+
+The permanent fix is a bounded executor, task timeout, cancellation path, and metrics for queue depth and task duration.
+
+## `@KafkaListener` blocking scenarios
+
+Kafka consumers are a special class of stuck thread because a blocked listener holds partition assignment.
+
+Typical listener:
+
+```java
+@KafkaListener(topics = "payments")
+public void onMessage(PaymentEvent event, Acknowledgment ack) {
+    paymentService.apply(event);
+    ack.acknowledge();
+}
+```
+
+If `paymentService.apply` blocks, the consumer may stop polling.
+
+Consequences:
+
+- consumer lag rises
+- partition cannot move until rebalance completes
+- `max.poll.interval.ms` may be exceeded
+- duplicate processing may occur after reassignment
+- poison message can pin one partition
+- downstream DB or lock can be amplified by retries
+
+Kafka symptoms:
+
+| Symptom | Interpretation |
+|---|---|
+| lag on one partition | hot key or poison message |
+| lag on all partitions | downstream or consumer fleet issue |
+| frequent rebalances | poll interval, restarts, or coordinator churn |
+| commit failures | generation changed while work was in flight |
+| old current offset | head-of-line blocking |
+
+Do not assume adding consumers fixes it.
+
+One partition is processed by one consumer in a group at a time.
+
+## Poll interval failure
+
+`max.poll.interval.ms` is the maximum allowed time between successful `poll` calls.
+
+Heartbeats may still happen while processing, depending on client version, but the poll interval still matters.
+
+If processing time exceeds the interval, the group considers the consumer unhealthy.
+
+Timeline:
+
+```text
+T0 poll returns records from partition 4
+T1 listener blocks on DB lock
+T2 max poll interval expires
+T3 consumer is removed from group
+T4 partition 4 assigned elsewhere
+T5 old listener resumes and tries to commit
+T6 commit fails or duplicates are produced
+```
+
+Immediate action:
+
+- pause the partition if the framework allows controlled handling
+- move poison records to DLQ when safe
+- increase poll interval only if the long processing is expected and bounded
+- reduce batch size to limit per-poll work
+- stop the consumer group cleanly if duplicate side effects are dangerous
+
+Permanent fix:
+
+- make processing idempotent
+- keep Kafka listener work short
+- offload long workflows to durable state machines
+- use manual acknowledgments only after durable side effects
+- monitor processing age per partition
+
+## Poison message stuck
+
+A poison message is a record that repeatedly fails or blocks processing.
+
+Examples:
+
+- malformed payload that triggers pathological validation
+- event for an account locked by a long transaction
+- payload that drives exponential regex behavior
+- downstream API returns retryable failure for one key forever
+- record references missing tenant configuration
+
+Principal approach:
+
+1. identify topic, partition, offset, key, and consumer group
+2. inspect retry topic or retry headers
+3. determine whether side effects already happened
+4. park the record in a DLQ or quarantine table
+5. resume the partition
+6. file a data repair item with the exact replay criteria
+
+Never skip a payment record casually.
+
+Skipping is a business decision, not only a Kafka operation.
+
+## Rebalance storm
+
+Stuck listener threads can cause rebalances.
+
+Rebalances can cause more duplicate work.
+
+Duplicate work can create more DB and lock contention.
+
+That loop is common in payment incidents.
+
+Watch:
+
+```text
+kafka.consumer.rebalance.total
+kafka.consumer.last-poll-seconds-ago
+kafka.consumer.assigned-partitions
+kafka.consumer.records-lag-max
+```
+
+If rebalances are active, avoid rolling restarts unless you understand idempotency and lock ownership.
+
+A restart can be correct, but it is not free.
+
+## `synchronized` contention cascade
+
+`synchronized` protects a monitor in one JVM.
+
+When a holder blocks inside the synchronized region, every waiter piles up behind it.
+
+Bad shape:
+
+```java
+synchronized (accountLock) {
+    updateLocalCache(accountId);
+    paymentGateway.capture(request);
+}
+```
+
+Thread dump:
+
+```text
+BLOCKED (on object monitor)
+  at com.example.PaymentService.capture
+  - waiting to lock <0x00000007123abcde>
+```
+
+The monitor address tells you all waiters are queued behind the same object.
+
+If the owner is in socket IO, the lock is expanding the blast radius of a remote outage.
+
+Fix:
+
+- do not call remote services while holding JVM locks
+- reduce critical sections to memory mutation only
+- use striped locks carefully
+- add hold-time metrics
+- prefer `tryLock` with bounded timeout for user-facing paths
+
+## `ReentrantLock` contention cascade
+
+`ReentrantLock` gives more operational options than `synchronized`.
+
+It can support `tryLock`, timed acquisition, fairness, and introspection.
+
+The common incident still looks the same:
+
+```java
+if (lock.tryLock(200, TimeUnit.MILLISECONDS)) {
+    try {
+        callDatabaseAndRemoteApi();
+    } finally {
+        lock.unlock();
+    }
+}
+```
+
+The lock is technically bounded on acquisition, but the hold time is unbounded.
+
+Measure both wait time and hold time.
+
+Use fairness only when starvation matters more than throughput.
+
+Fair locks can reduce tail amplification for some queues, but they do not fix a stuck holder.
+
+## Lock ordering and cascades
+
+Cascades happen when code holds one resource while waiting for another.
+
+Dangerous order examples:
+
+| Order | Risk |
+|---|---|
+| JVM lock then DB transaction | one pod-local queue waits on DB |
+| DB transaction then remote API | row locks and Hikari held during API wait |
+| Redis lock then Kafka send | lock lease tied to broker health |
+| Kafka listener then distributed lock | partition assignment held while lock waits |
+| distributed lock then DB lock | global queue waits on local transaction |
+
+Define an allowed acquisition order.
+
+For payments, a common safe shape is:
+
+```text
+idempotency check -> short DB transaction -> remote call -> short DB transaction -> outbox
+```
+
+If a distributed lock is required, the lock hold must wrap the smallest state transition possible.
+
+## Redis and Redisson locks while stuck
+
+Redis locks are leases.
+
+Redisson adds a watchdog that can extend the lease while the JVM process is alive.
+
+That can be helpful for long work.
+
+It can be dangerous when a thread is stuck but the process is alive.
+
+Incident pattern:
+
+```text
+Thread A acquires Redisson lock payment:123
+Thread A blocks on gateway read
+Redisson watchdog renews lock
+All other pods wait
+Kafka lag rises for key payment:123
+```
+
+Check:
+
+- lock key TTL
+- owner metadata
+- watchdog renewal configuration
+- waiters
+- caller idempotency key
+- whether the owner thread is still alive
+- whether the protected operation can be safely retried
+
+Do not delete a Redis lock blindly.
+
+If the original owner resumes after deletion, two owners may execute concurrently.
+
+Use fencing tokens for writes to the guarded resource.
+
+## Lease, watchdog, and fencing
+
+A lease says "ownership expires after a time."
+
+A watchdog says "keep extending ownership while the process appears alive."
+
+A fencing token says "newer owners win at the resource boundary."
+
+Fencing is the safety mechanism that survives pause, partition, and delayed owner resume.
+
+Example:
+
+```text
+owner A receives token 41
+owner A pauses for 10 minutes
+owner B receives token 42
+database accepts token 42 update
+owner A resumes
+database rejects token 41 update
+```
+
+Without fencing, restarting or deleting locks is a correctness gamble.
+
+With fencing, recovery can be operationally safe.
+
+## PostgreSQL advisory lock held while stuck
+
+PostgreSQL advisory locks can be session-level or transaction-level.
+
+Session-level locks survive transaction rollback until the session closes or unlocks.
+
+Transaction-level locks release at transaction end.
+
+Incident query direction:
+
+```sql
+select pid, wait_event_type, wait_event, state, query
+from pg_stat_activity
+where wait_event_type = 'Lock';
+```
+
+Then join blockers to blocked sessions.
+
+If the blocker is an application session with an old transaction, coordinate application and DB recovery.
+
+Killing the DB backend releases locks but rolls back in-flight work and can surface errors to the application.
+
+Restarting the pod may not release a session lock instantly if network failure leaves the server waiting for TCP detection.
+
+Prefer explicit transaction timeouts and lock timeouts before incidents.
+
+## ZooKeeper lock held while stuck
+
+ZooKeeper recipes commonly use ephemeral sequential nodes.
+
+If the client process is alive and the session is alive, the lock node remains.
+
+A stuck Java thread does not necessarily end the ZooKeeper session.
+
+The session is often maintained by another client thread.
+
+Incident check:
+
+- owner node data
+- session timeout
+- client host and pod
+- operation age
+- predecessor node
+- fencing token or sequence number
+
+If you kill the pod, the session should expire and release the ephemeral node after timeout.
+
+That delay may be the difference between a controlled drain and a cascading retry storm.
+
+## Senior recovery sequence
+
+Use this sequence during an active incident:
+
+1. identify the user-visible impact and affected route or consumer group
+2. capture thread dumps before killing anything
+3. identify blocked threads and their owners
+4. map owners to DB sessions, Kafka partitions, or lock keys
+5. stop the retry amplifier if one exists
+6. choose the narrowest safe mitigation
+7. release or fence the stuck resource only after proving side-effect safety
+8. restore traffic gradually
+9. leave behind metrics for the next incident
+
+The first thread dump is evidence.
+
+Do not lose it with a reflexive restart.
+
+## Related drills
+
+- [CPU, GC, kill, and restart decisions](/realtime-issues/stuck-thread-cpu-gc-kill-restart)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+- [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study)
+- [Interview answer and follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups)
+- [Stuck thread cheat sheet](/realtime-issues/stuck-thread-cheat-sheet)

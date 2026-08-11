@@ -1,0 +1,377 @@
+---
+slug: stuck-thread-interview-answer-and-followups
+title: "Stuck Thread Interview Answer and Principal Follow-Ups"
+description: A polished 3-5 minute spoken answer for stuck-thread incidents plus hard Principal-level follow-up questions with ideal answers.
+category: Real-Time Issues
+difficulty: Staff/Principal
+tags: [Interview, Java, Spring, Kafka, Principal Engineer, Incidents]
+readingTime: 32 min
+publishedAt: "2026-08-11"
+---
+
+## Polished 3-5 minute spoken answer
+
+"When someone says a Java service has stuck threads, I first avoid assuming the thread itself is the root cause.
+
+I treat it as a resource ownership problem.
+
+The stuck thread may be a victim waiting for a DB connection, a servlet worker blocked on a remote API, a Kafka listener holding a partition assignment, or the actual owner holding a lock or transaction.
+
+My first step is to define impact: which route, topic, tenant, region, and error budget are affected.
+
+Then I capture evidence before destructive recovery: multiple thread dumps, CPU by thread, Hikari metrics, Kafka lag by partition, recent deploys, and DB lock views.
+
+If CPU is high, I use `top -H` to find the hot native thread id, convert it to hex, and map it to `nid` in the Java thread dump.
+
+That tells me whether I am dealing with a busy loop, catastrophic regex, serialization, or GC.
+
+If CPU is normal and threads are WAITING or BLOCKED, I follow the wait chain.
+
+For example, if 150 request threads are waiting for Hikari connections, those are victims.
+
+I then find the active connection owners and map them to PostgreSQL sessions.
+
+If the database shows a two-hour transaction holding row locks, that is likely the owner.
+
+In Spring, I specifically look for `@Transactional` methods that call remote APIs, Kafka listeners doing long work inline, WebFlux event loops that call `.block()`, Feign or RestTemplate clients without timeouts, and lock critical sections that include IO.
+
+For Kafka, I check whether a consumer stopped polling, exceeded `max.poll.interval.ms`, hit a poison message, or is causing rebalances.
+
+Restarting is a mitigation option, but I do not use it blindly in payment or Kafka systems.
+
+A restart can roll back DB transactions, release JVM locks, trigger Kafka rebalances, and replay uncommitted records.
+
+That is safe only if side effects are idempotent, offsets are committed after durable processing, and distributed locks use leases plus fencing.
+
+During recovery, I stop the amplifier first: shed the bad route, pause the consumer partition, open a circuit breaker, or disable a bad dependency path.
+
+Then I release the exact owner if safe: terminate one DB backend, quarantine one Kafka record, let a lease expire, or restart one pod after capturing diagnostics.
+
+For prevention, I want bounded timeouts, circuit breakers, bulkheads, bounded queues, transaction and statement timeouts, lock hold-time metrics, idempotency keys, DLQs, retry backoff with jitter, and OpenTelemetry spans that show where the hour went.
+
+The incident is not done until the RCA explains why the wait was unbounded and why our observability did not point to the owner quickly."
+
+## What makes this Staff or Principal level
+
+The answer does not stop at "take a thread dump."
+
+It connects:
+
+- JVM thread state
+- Spring execution model
+- database ownership
+- Kafka offset semantics
+- distributed lock correctness
+- Kubernetes restart behavior
+- payment idempotency
+- prevention and observability
+
+That is the level interviewers expect for senior production roles.
+
+## Follow-up 1: Deadlock versus starvation
+
+**Question:** How do you distinguish deadlock from starvation?
+
+**Ideal answer:** Deadlock is a cycle of ownership where each participant waits for a resource held by another participant in the cycle.
+
+The JVM can often detect monitor deadlocks in a thread dump.
+
+Starvation is lack of progress without a strict cycle, often because a pool, lock, or scheduler never gives one class of work a turn.
+
+For starvation I look at queue age, unfair locks, saturated executors, priority inversion, and long-running tasks.
+
+Deadlock is fixed by breaking lock ordering.
+
+Starvation is fixed by fairness, isolation, bounded work, or capacity controls.
+
+## Follow-up 2: RUNNABLE busy loop
+
+**Question:** A thread is RUNNABLE in the dump. Is it consuming CPU?
+
+**Ideal answer:** Not necessarily.
+
+Java RUNNABLE includes native socket reads and other kernel waits.
+
+I prove CPU ownership with `top -H`, JFR execution samples, or async-profiler.
+
+If the hot Linux TID maps to the Java `nid` and the stack is stable across dumps, then I treat it as a busy loop or CPU-heavy code path.
+
+## Follow-up 3: Mapping TID to `nid`
+
+**Question:** How do you map a Linux thread from `top -H` to Java?
+
+**Ideal answer:** Find the decimal thread id from `top -H -p <pid>` and convert it to hex with `printf '0x%x\n' <tid>`.
+
+Then search the Java thread dump for `nid=0x...`.
+
+That identifies the Java thread name and stack responsible for CPU.
+
+## Follow-up 4: Why not use `Thread.stop`?
+
+**Question:** Why not kill the stuck thread with `Thread.stop`?
+
+**Ideal answer:** `Thread.stop` is unsafe because it throws asynchronously into the target thread and unwinds monitors while invariants may be half-mutated.
+
+Other threads can observe corrupted state.
+
+In a payment service, that can mean ledger and account state diverge.
+
+I prefer cooperative cancellation with interrupts, deadlines, dependency timeouts, and process restart when correctness permits.
+
+## Follow-up 5: Interrupt limits
+
+**Question:** Why might interrupt not stop the thread?
+
+**Ideal answer:** Interrupt is cooperative.
+
+It wakes some blocking calls and sets a flag, but CPU loops must check the flag, many native calls ignore it, `synchronized` monitor acquisition is not interruptible, and JDBC behavior depends on the driver.
+
+That is why we still need read timeouts, statement timeouts, bounded loops, and cancellation-aware code.
+
+## Follow-up 6: `Future.cancel(true)`
+
+**Question:** Does `Future.cancel(true)` kill a running task?
+
+**Ideal answer:** It requests cancellation and interrupts the task if it is running.
+
+It does not forcibly stop arbitrary code.
+
+The task must honor interrupt or hit a dependency timeout.
+
+I measure tasks that finish after cancel because that reveals fake timeouts.
+
+## Follow-up 7: Hikari exhausted
+
+**Question:** If 150 request threads wait for Hikari, what do you do?
+
+**Ideal answer:** I treat those request threads as victims.
+
+I inspect active connection owners, Hikari usage duration, PostgreSQL sessions, transaction age, lock waits, and query fingerprints.
+
+The root may be one old transaction or a few slow queries holding all connections.
+
+Restarting waiters does not fix the owner.
+
+## Follow-up 8: Distributed lock held by stuck thread
+
+**Question:** A pod holds a Redis lock and the thread is stuck. Can you delete the key?
+
+**Ideal answer:** Only after proving correctness.
+
+If the owner resumes after deletion, two owners may act concurrently.
+
+I check TTL, owner metadata, operation state, and whether the guarded writes enforce fencing tokens.
+
+With fencing, deleting or waiting for lease expiry is safer.
+
+Without fencing, I coordinate recovery at the business state boundary.
+
+## Follow-up 9: Redisson watchdog
+
+**Question:** Why can Redisson watchdog make a stuck-thread incident worse?
+
+**Ideal answer:** The watchdog renews the lock while the JVM process is alive.
+
+If the business thread is stuck but the process and watchdog thread are healthy, the lock can be extended indefinitely.
+
+That protects long valid operations but can also hold a global payment key during a hang.
+
+Hold-time metrics and fencing are required.
+
+## Follow-up 10: Kafka duplicate on restart
+
+**Question:** Why can restarting a Kafka consumer create duplicates?
+
+**Ideal answer:** If processing completed but the offset was not committed before the restart, Kafka redelivers the record to the group.
+
+With at-least-once processing, duplicates are expected.
+
+The consumer must make side effects idempotent and commit offsets only after durable processing.
+
+## Follow-up 11: Kafka message loss on restart
+
+**Question:** When can a restart lose Kafka work?
+
+**Ideal answer:** If the consumer commits the offset before completing the side effect, then crashes, the group resumes after that record.
+
+The record is skipped from the application's perspective.
+
+That is at-most-once behavior and is unacceptable for payment effects unless another repair path exists.
+
+## Follow-up 12: `max.poll.interval.ms`
+
+**Question:** What happens when listener processing exceeds `max.poll.interval.ms`?
+
+**Ideal answer:** The consumer is considered failed for group management and partitions are revoked and reassigned.
+
+The old processing may still finish locally but its commit can fail because the generation changed.
+
+That can produce duplicates and rebalance storms.
+
+The fix is shorter listener work, pause/resume patterns, bounded processing, or durable workflow handoff.
+
+## Follow-up 13: Poison message
+
+**Question:** How do you handle one Kafka partition stuck on a poison message?
+
+**Ideal answer:** I identify topic, partition, offset, key, error, retry count, and side-effect state.
+
+Then I quarantine or DLQ the record if business-safe, resume the partition, and create a replay or repair plan.
+
+Blindly skipping a payment message is not an engineering-only decision.
+
+## Follow-up 14: WebFlux event loop blocked
+
+**Question:** Why is `.block()` dangerous in WebFlux?
+
+**Ideal answer:** WebFlux event loops multiplex many connections.
+
+Blocking one event-loop thread can stall many requests.
+
+If `.block()` appears on a `reactor-http` thread, I treat it as a design bug and move blocking work to a bounded scheduler or remove the blocking dependency.
+
+## Follow-up 15: `@Transactional` remote call
+
+**Question:** Why is a remote API call inside `@Transactional` dangerous?
+
+**Ideal answer:** The transaction holds a DB connection and possibly row locks while waiting on a remote system.
+
+If the remote system hangs, unrelated work can pile up behind DB locks or pool exhaustion.
+
+The better design is short DB transaction to reserve state, remote call with idempotency and timeout, then short DB transaction to persist the result.
+
+## Follow-up 16: Deadlocked JVM monitors versus DB lock
+
+**Question:** Thread dump shows no Java deadlock. Can it still be a lock incident?
+
+**Ideal answer:** Yes.
+
+The lock may be in PostgreSQL, Redis, ZooKeeper, Kafka partition ownership, or an executor queue.
+
+JVM deadlock detection only covers certain Java monitor and ownable synchronizer cycles.
+
+I still inspect external lock ownership and wait chains.
+
+## Follow-up 17: Restart pod or kill DB backend
+
+**Question:** Would you restart the pod or terminate the database backend?
+
+**Ideal answer:** It depends on ownership and correctness.
+
+If one DB backend holds a two-hour transaction and idempotency confirms no external side effect completed, terminating that backend is narrower than restarting 20 pods.
+
+If the JVM is corrupt or CPU-spinning with no safer cancellation, restarting one pod may be correct.
+
+I choose the smallest action that releases the owner safely.
+
+## Follow-up 18: Liveness probe risk
+
+**Question:** Why can liveness probes worsen stuck-thread incidents?
+
+**Ideal answer:** If liveness depends on a downstream system or transient pool saturation, Kubernetes may restart all pods during a dependency outage.
+
+That creates retry storms, Kafka rebalances, and cold starts.
+
+Readiness should remove unhealthy pods from traffic.
+
+Liveness should detect unrecoverable process wedges.
+
+## Follow-up 19: Graceful shutdown and Kafka
+
+**Question:** What matters during graceful shutdown of a Kafka consumer?
+
+**Ideal answer:** Stop polling, finish or abandon in-flight records according to policy, commit only completed offsets, release locks, and close DB resources.
+
+The grace period must exceed bounded processing time.
+
+If work is unbounded, graceful shutdown is only wishful thinking.
+
+## Follow-up 20: GC versus stuck thread
+
+**Question:** How do you distinguish STW GC from stuck application threads?
+
+**Ideal answer:** I correlate latency with GC logs, JFR GC events, safepoint time, heap-after-GC, and CPU by thread.
+
+In STW GC, application threads are paused by the JVM.
+
+In a blocked-thread incident, application threads are waiting on locks, pools, sockets, or dependencies while GC may be normal.
+
+## Follow-up 21: Thread pool starvation
+
+**Question:** How does thread pool starvation happen?
+
+**Ideal answer:** A bounded pool can starve when all workers wait for tasks that require the same pool to complete.
+
+It also happens when long-running tasks occupy every worker and short tasks queue behind them.
+
+I look for active count at max, oldest queue age rising, and stacks waiting on futures submitted to the same executor.
+
+Isolation or separate executors fix it.
+
+## Follow-up 22: Starvation with unfair lock
+
+**Question:** Would you make every `ReentrantLock` fair?
+
+**Ideal answer:** No.
+
+Fair locks can reduce starvation but often reduce throughput.
+
+I use fairness when tail latency and ordering matter, but the bigger fix is to keep lock hold times short and use `tryLock` with deadlines.
+
+A fair lock still cannot save you from a stuck holder.
+
+## Follow-up 23: Network hang
+
+**Question:** A stack shows `socketRead0` for many threads. What next?
+
+**Ideal answer:** I identify the peer dependency, route, client timeout, pool state, and trace span age.
+
+Then I check whether threads are waiting for socket data or for a pooled connection.
+
+The immediate action may be opening a circuit breaker or shedding that route.
+
+Permanent fix is timeouts, retries with budgets, and bulkheads.
+
+## Follow-up 24: Advisory lock
+
+**Question:** What is the difference between PostgreSQL session and transaction advisory locks?
+
+**Ideal answer:** Transaction advisory locks release at transaction end.
+
+Session advisory locks remain until explicitly unlocked or the session closes.
+
+In incidents, a session advisory lock can survive rollback and surprise the application.
+
+I prefer transaction-scoped locks unless there is a clear reason.
+
+## Follow-up 25: One-hour OpenTelemetry trace
+
+**Question:** What should a one-hour stuck request trace show?
+
+**Ideal answer:** It should show the top-level route span and nested spans for transaction, lock wait, DB statements, HTTP client calls, Kafka send, and retries.
+
+Attributes should include timeout budget, dependency name, lock key hash, transaction age, Kafka partition and offset, and idempotency key hash.
+
+If the trace only says the controller took one hour, instrumentation is insufficient.
+
+## Follow-up 26: Permanent prevention
+
+**Question:** Give the prevention package after a stuck-thread incident.
+
+**Ideal answer:** Add deadline-based timeouts, circuit breakers, bulkheads, bounded queues, transaction and statement timeouts, lock acquisition and hold metrics, idempotency, DLQs, retry backoff with jitter, readiness based on saturation, graceful shutdown, and alerts for owner signals like transaction age and oldest queue age.
+
+Then test the failure mode with a slow dependency or poison record.
+
+## Closing line for interviews
+
+"I can restart a pod, but before I do that I want to know what resource it owns and what correctness contract depends on it.
+
+For stuck-thread incidents, the safest engineer in the room is the one who follows the wait chain to the owner."
+
+## Related drills
+
+- [Spring, Kafka, and lock blocking scenarios](/realtime-issues/stuck-thread-spring-kafka-locks)
+- [CPU, GC, kill, and restart decisions](/realtime-issues/stuck-thread-cpu-gc-kill-restart)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+- [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study)
+- [Stuck thread cheat sheet](/realtime-issues/stuck-thread-cheat-sheet)
