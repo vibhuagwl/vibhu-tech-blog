@@ -330,19 +330,12 @@ T(N) = O(log N)
 ```
 
 ### Space
-
 Iterative implementations use `O(1)` extra space plus stored metadata in each node. Recursive implementations use `O(log N)` stack space because height is logarithmic.
-
 ### Final
-
 AVL and Red-Black search, insert, and delete are `O(log N)` time. Traversal remains `O(N)`.
-
 ### Interview Explanation
-
 "Balancing changes the height term. A normal BST is `O(h)`; AVL and Red-Black enforce `h = O(log N)`, so search, insert, and delete become `O(log N)` worst case."
-
 ## Summary table
-
 | Operation | Binary tree | BST balanced | BST skewed | AVL / Red-Black |
 |---|---:|---:|---:|---:|
 | Search | `O(N)` | `O(log N)` | `O(N)` | `O(log N)` |
@@ -350,5 +343,4 @@ AVL and Red-Black search, insert, and delete are `O(log N)` time. Traversal rema
 | Delete | Position-dependent | `O(log N)` | `O(N)` | `O(log N)` |
 | DFS traversal | `O(N)` | `O(N)` | `O(N)` | `O(N)` |
 | Level-order traversal | `O(N)` | `O(N)` | `O(N)` | `O(N)` |
-
 Related: [tree traversals](/complexity/tree-traversals-complexity), [BFS](/complexity/bfs-complexity), [DFS](/complexity/dfs-complexity).

@@ -5,23 +5,13 @@ description: "Derive best, average, worst, space, stability, and in-place comple
 category: Complexity
 difficulty: Intermediate
 tags: [Complexity, Big-O, Java, Sorting, Algorithms, Interview]
-readingTime: 24 min
+readingTime: 20 min
 publishedAt: "2026-08-11"
 ---
 
 ## Problem
 
-Sorting complexity is easiest to remember after deriving it from code shape.
-
-Let `N` be the number of elements. For non-comparison sorts:
-
-```text
-K = key range for counting sort
-D = number of digits or passes for radix sort
-B = base or number of buckets
-```
-
-The sections below derive first; the summary table comes at the end.
+Derive sorting Big-O from loops, recursion trees, and input assumptions. Let `N` be item count, `K` key range, `D` digit passes, and `B` base or bucket count.
 
 ---
 
@@ -29,20 +19,17 @@ The sections below derive first; the summary table comes at the end.
 
 ### Problem
 
-Repeatedly swap adjacent inverted elements.
+Swap adjacent inverted elements until no swaps remain.
 
 ### Java Code
 
 ```java
 static void bubbleSort(int[] a) {
-    int n = a.length;
-    for (int pass = 0; pass < n - 1; pass++) {
+    for (int pass = 0; pass < a.length - 1; pass++) {
         boolean swapped = false;
-        for (int i = 0; i < n - 1 - pass; i++) {
+        for (int i = 0; i < a.length - 1 - pass; i++) {
             if (a[i] > a[i + 1]) {
-                int temp = a[i];
-                a[i] = a[i + 1];
-                a[i + 1] = temp;
+                int t = a[i]; a[i] = a[i + 1]; a[i + 1] = t;
                 swapped = true;
             }
         }
@@ -53,28 +40,16 @@ static void bubbleSort(int[] a) {
 
 ### Math
 
-Worst case comparisons:
-
 ```text
-(N - 1) + (N - 2) + ... + 1
-= N(N - 1) / 2
+worst comparisons = (N-1) + (N-2) + ... + 1
+= N(N-1)/2
 = O(N^2)
-```
-
-Best case with early exit:
-
-```text
-one pass with N - 1 comparisons and no swaps
-T_best(N) = O(N)
+best with no swaps = O(N)
 ```
 
 ### Space
 
-Only a few variables are used:
-
-```text
-S_aux = O(1)
-```
+Only temporary variables: `O(1)`.
 
 ### Final
 
@@ -82,7 +57,7 @@ Bubble sort is best `O(N)`, average/worst `O(N^2)`, stable, and in-place.
 
 ### Interview Explanation
 
-"The nested loops shrink, so I sum an arithmetic series. Early exit gives linear best case when no swaps happen."
+"The shrinking inner loop is an arithmetic series; early exit gives the linear best case."
 
 ---
 
@@ -90,56 +65,42 @@ Bubble sort is best `O(N)`, average/worst `O(N^2)`, stable, and in-place.
 
 ### Problem
 
-Select the smallest remaining element and place it at the front.
+Select the minimum remaining element and swap it into place.
 
 ### Java Code
 
 ```java
 static void selectionSort(int[] a) {
-    int n = a.length;
-    for (int i = 0; i < n - 1; i++) {
-        int minIndex = i;
-        for (int j = i + 1; j < n; j++) {
-            if (a[j] < a[minIndex]) minIndex = j;
+    for (int i = 0; i < a.length - 1; i++) {
+        int min = i;
+        for (int j = i + 1; j < a.length; j++) {
+            if (a[j] < a[min]) min = j;
         }
-        int temp = a[i];
-        a[i] = a[minIndex];
-        a[minIndex] = temp;
+        int t = a[i]; a[i] = a[min]; a[min] = t;
     }
 }
 ```
 
 ### Math
 
-Selection sort scans the unsorted suffix even if the array is already sorted:
-
 ```text
-comparisons = (N - 1) + (N - 2) + ... + 1
-= N(N - 1) / 2
+comparisons = (N-1) + (N-2) + ... + 1
 = O(N^2)
+swaps <= N-1 = O(N)
+dominant cost = O(N^2)
 ```
-
-Swaps are fewer:
-
-```text
-swaps <= N - 1 = O(N)
-```
-
-But comparisons dominate.
 
 ### Space
 
-```text
-S_aux = O(1)
-```
+Auxiliary space is `O(1)`.
 
 ### Final
 
-Selection sort is `O(N^2)` best, average, and worst; it is in-place and usually unstable.
+Selection sort is `O(N^2)` best/average/worst, in-place, and usually unstable.
 
 ### Interview Explanation
 
-"Unlike bubble sort with early exit, selection sort still looks for a minimum in every suffix. That makes even the best case quadratic."
+"Even sorted input still scans every unsorted suffix."
 
 ---
 
@@ -147,19 +108,15 @@ Selection sort is `O(N^2)` best, average, and worst; it is in-place and usually 
 
 ### Problem
 
-Maintain a sorted prefix and insert the next element into its correct position.
+Insert each item into an already sorted prefix.
 
 ### Java Code
 
 ```java
 static void insertionSort(int[] a) {
     for (int i = 1; i < a.length; i++) {
-        int key = a[i];
-        int j = i - 1;
-        while (j >= 0 && a[j] > key) {
-            a[j + 1] = a[j];
-            j--;
-        }
+        int key = a[i], j = i - 1;
+        while (j >= 0 && a[j] > key) a[j + 1] = a[j--];
         a[j + 1] = key;
     }
 }
@@ -167,35 +124,22 @@ static void insertionSort(int[] a) {
 
 ### Math
 
-Worst case, each new key shifts through the whole sorted prefix:
-
 ```text
-shifts = 1 + 2 + ... + (N - 1)
-= N(N - 1) / 2
-= O(N^2)
-```
-
-Best case, the while condition fails immediately:
-
-```text
-outer loop = N - 1
-constant check per iteration
-T_best(N) = O(N)
+worst shifts = 1 + 2 + ... + (N-1) = O(N^2)
+best sorted input = one failed while check per i = O(N)
 ```
 
 ### Space
 
-```text
-S_aux = O(1)
-```
+Auxiliary space is `O(1)`.
 
 ### Final
 
-Insertion sort is best `O(N)`, average/worst `O(N^2)`, stable, in-place, and strong on nearly sorted data.
+Insertion sort is best `O(N)`, average/worst `O(N^2)`, stable, and in-place.
 
 ### Interview Explanation
 
-"Insertion sort is adaptive. Its cost is proportional to the number of inversions; sorted input has almost none, reversed input has about `N^2 / 2`."
+"It is adaptive because work tracks inversions."
 
 ---
 
@@ -203,54 +147,40 @@ Insertion sort is best `O(N)`, average/worst `O(N^2)`, stable, in-place, and str
 
 ### Problem
 
-Split the array, sort both halves, then merge.
+Sort halves and merge the sorted halves.
 
 ### Java Code
 
 ```java
-static void mergeSort(int[] a, int left, int right, int[] buffer) {
-    if (left >= right) return;
-    int mid = left + (right - left) / 2;
-    mergeSort(a, left, mid, buffer);
-    mergeSort(a, mid + 1, right, buffer);
-    merge(a, left, mid, right, buffer);
+static void mergeSort(int[] a, int l, int r, int[] tmp) {
+    if (l >= r) return;
+    int m = l + (r - l) / 2;
+    mergeSort(a, l, m, tmp);
+    mergeSort(a, m + 1, r, tmp);
+    merge(a, l, m, r, tmp);
 }
 ```
 
 ### Math
 
-The code makes two half-size recursive calls and one linear merge:
-
 ```text
-T(N) = 2T(N / 2) + O(N)
-```
-
-Recursion tree:
-
-```text
-level 0 merge work = N
-level 1 merge work = 2 * (N / 2) = N
-level 2 merge work = 4 * (N / 4) = N
+T(N) = 2T(N/2) + O(N)
+work per level = N
 levels = log2 N
-total = N * log2 N
 T(N) = O(N log N)
 ```
 
 ### Space
 
-```text
-merge buffer = O(N)
-recursion stack = O(log N)
-S_aux = O(N)
-```
+Merge buffer `O(N)` plus stack `O(log N)`, so auxiliary space is `O(N)`.
 
 ### Final
 
-Merge sort is `O(N log N)` best, average, and worst; it is stable with standard merging and not in-place for arrays.
+Merge sort is `O(N log N)` best/average/worst, stable, and not in-place for arrays.
 
 ### Interview Explanation
 
-"Merge sort pays linear merge work at every level, and halving creates `log N` levels. That gives `N log N` regardless of input order."
+"Linear merge work repeats for each halving level."
 
 ---
 
@@ -258,65 +188,31 @@ Merge sort is `O(N log N)` best, average, and worst; it is stable with standard 
 
 ### Problem
 
-Partition around a pivot, then sort left and right partitions.
+Partition around a pivot, then sort both sides.
 
 ### Java Code
 
 ```java
-static void quickSort(int[] a, int low, int high) {
-    if (low >= high) return;
-    int pivotIndex = partition(a, low, high);
-    quickSort(a, low, pivotIndex - 1);
-    quickSort(a, pivotIndex + 1, high);
-}
-
-static int partition(int[] a, int low, int high) {
-    int pivot = a[high];
-    int i = low;
-    for (int j = low; j < high; j++) {
-        if (a[j] <= pivot) {
-            int temp = a[i];
-            a[i] = a[j];
-            a[j] = temp;
-            i++;
-        }
-    }
-    int temp = a[i];
-    a[i] = a[high];
-    a[high] = temp;
-    return i;
+static void quickSort(int[] a, int lo, int hi) {
+    if (lo >= hi) return;
+    int p = partition(a, lo, hi);
+    quickSort(a, lo, p - 1);
+    quickSort(a, p + 1, hi);
 }
 ```
 
 ### Math
 
-Balanced partitions:
-
 ```text
-T(N) = 2T(N / 2) + O(N)
-T(N) = O(N log N)
+balanced: T(N) = 2T(N/2) + O(N) = O(N log N)
+one-sided: T(N) = T(N-1) + O(N)
+= N + (N-1) + ... + 1
+= O(N^2)
 ```
-
-Worst case, the pivot is always smallest or largest:
-
-```text
-T(N) = T(N - 1) + O(N)
-T(N) = N + (N - 1) + ... + 1
-T(N) = O(N^2)
-```
-
-Average case with reasonable/random pivots is `O(N log N)`.
 
 ### Space
 
-Recursive stack:
-
-```text
-balanced depth = O(log N)
-worst depth = O(N)
-```
-
-Partitioning itself is in-place.
+Stack is `O(log N)` average and `O(N)` worst; partitioning is in-place.
 
 ### Final
 
@@ -324,7 +220,7 @@ Quick sort is average `O(N log N)`, worst `O(N^2)`, in-place, and usually unstab
 
 ### Interview Explanation
 
-"Quick sort's partition is linear. The runtime depends on how balanced the partition tree is: balanced gives `log N` levels; one-sided gives a quadratic sum."
+"Pivot balance determines whether the recursion tree is logarithmic or linear depth."
 
 ---
 
@@ -332,87 +228,58 @@ Quick sort is average `O(N log N)`, worst `O(N^2)`, in-place, and usually unstab
 
 ### Problem
 
-Build a max heap, repeatedly move the maximum to the end, and heapify down.
+Build a heap, then repeatedly extract the maximum.
 
 ### Java Code
 
 ```java
 static void heapSort(int[] a) {
-    int n = a.length;
-    for (int i = n / 2 - 1; i >= 0; i--) {
-        heapify(a, n, i);
-    }
-    for (int end = n - 1; end > 0; end--) {
-        int temp = a[0];
-        a[0] = a[end];
-        a[end] = temp;
-        heapify(a, end, 0);
+    buildMaxHeap(a);              // O(N)
+    for (int end = a.length - 1; end > 0; end--) {
+        swap(a, 0, end);
+        heapifyDown(a, 0, end);   // O(log N)
     }
 }
 ```
 
 ### Math
 
-Build heap:
-
 ```text
-heapify all internal nodes = O(N)
-```
-
-Extract phase:
-
-```text
-N - 1 extractions
-each heapify down costs O(log N)
-T_extract = O(N log N)
-```
-
-Total:
-
-```text
-T(N) = O(N) + O(N log N)
+build heap = O(N)
+N extracts * O(log N) = O(N log N)
 T(N) = O(N log N)
 ```
 
 ### Space
 
-Array heap sort uses only temporary variables:
-
-```text
-S_aux = O(1)
-```
+Array heap sort uses `O(1)` auxiliary space.
 
 ### Final
 
-Heap sort is `O(N log N)` best, average, and worst; it is in-place and unstable.
+Heap sort is `O(N log N)` best/average/worst, in-place, and unstable.
 
 ### Interview Explanation
 
-"The guaranteed bound comes from `N` removals from a heap of height `log N`. Build-heap is linear, but the extraction phase dominates."
+"The repeated extracts dominate the linear heap construction."
 
 ---
 
-## Counting sort
+## Counting, radix, and bucket sort
 
 ### Problem
 
-Sort integers when keys are in a bounded range.
+Use key ranges, digits, or distribution assumptions instead of general comparisons.
 
 ### Java Code
 
 ```java
 static int[] countingSort(int[] a, int maxKey) {
     int[] count = new int[maxKey + 1];
-    for (int value : a) {
-        count[value]++;
-    }
-
+    for (int x : a) count[x]++;
     int[] out = new int[a.length];
-    int index = 0;
-    for (int value = 0; value <= maxKey; value++) {
-        while (count[value]-- > 0) {
-            out[index++] = value;
-        }
+    int i = 0;
+    for (int key = 0; key < count.length; key++) {
+        while (count[key]-- > 0) out[i++] = key;
     }
     return out;
 }
@@ -420,159 +287,37 @@ static int[] countingSort(int[] a, int maxKey) {
 
 ### Math
 
-Let `K = maxKey + 1`.
-
 ```text
-count input = N
-scan count array = K
-write output = N
-T(N, K) = O(N + K)
+counting sort = N count + K scan + N write = O(N + K)
+radix sort = D passes * O(N + B) = O(D(N+B))
+bucket average = distribute N + small bucket sorts + collect N = O(N+B)
+bucket worst = dominated by overloaded bucket and inner sort
 ```
 
 ### Space
 
-```text
-count array = O(K)
-output array = O(N)
-S_aux = O(N + K)
-```
+Counting/radix use count and output arrays; bucket sort stores buckets: usually `O(N+B)`.
 
 ### Final
 
-Counting sort is `O(N + K)` time and `O(N + K)` space. It is stable only when implemented with prefix sums and reverse placement.
+Counting is `O(N+K)`, radix is `O(D(N+B))`, and bucket sort depends on distribution.
 
 ### Interview Explanation
 
-"Counting sort beats comparison sorting only when `K` is reasonable. The range is part of the input model."
-
----
-
-## Radix sort
-
-### Problem
-
-Sort by digits, usually using a stable counting sort per digit.
-
-### Java Code
-
-```java
-static void radixSortNonNegative(int[] a) {
-    int max = 0;
-    for (int value : a) max = Math.max(max, value);
-
-    for (int exp = 1; max / exp > 0; exp *= 10) {
-        countingByDigit(a, exp);
-    }
-}
-```
-
-### Math
-
-Let `D` be digit passes and `B` be the base.
-
-```text
-one counting pass = O(N + B)
-number of passes = D
-T(N, D, B) = O(D * (N + B))
-```
-
-For fixed-width integers and fixed base, `D` and `B` are constants, so this is often treated as `O(N)`.
-
-### Space
-
-```text
-output buffer = O(N)
-count array = O(B)
-S_aux = O(N + B)
-```
-
-### Final
-
-Radix sort is `O(D(N + B))` time, stable if the digit sort is stable, and not comparison-based.
-
-### Interview Explanation
-
-"Radix sort's cost is passes times counting-sort cost. It is linear only under fixed-width digit assumptions."
-
----
-
-## Bucket sort
-
-### Problem
-
-Distribute values into buckets, sort each bucket, then concatenate.
-
-### Java Code
-
-```java
-static void bucketSort(double[] a) {
-    int n = a.length;
-    java.util.List<java.util.List<Double>> buckets = new java.util.ArrayList<>();
-    for (int i = 0; i < n; i++) buckets.add(new java.util.ArrayList<>());
-
-    for (double value : a) {
-        int bucket = Math.min(n - 1, (int) (value * n));
-        buckets.get(bucket).add(value);
-    }
-
-    int index = 0;
-    for (java.util.List<Double> bucket : buckets) {
-        java.util.Collections.sort(bucket);
-        for (double value : bucket) a[index++] = value;
-    }
-}
-```
-
-### Math
-
-Distribution and concatenation are linear:
-
-```text
-distribute = O(N)
-concatenate = O(N)
-```
-
-If values are uniformly distributed, each bucket is small on average:
-
-```text
-sum of bucket sort costs ~= O(N)
-average T(N) = O(N)
-```
-
-Worst case, all values land in one bucket and that bucket uses comparison sort:
-
-```text
-T_worst(N) = O(N log N)
-```
-
-If insertion sort is used inside buckets, worst case can be `O(N^2)`.
-
-### Space
-
-```text
-buckets plus stored values = O(N + B)
-```
-
-### Final
-
-Bucket sort is average `O(N + B)` under uniform distribution assumptions, but worst case depends on bucket imbalance and inner sorting.
-
-### Interview Explanation
-
-"Bucket sort is distribution-sensitive. I state the assumption explicitly; without it, one overloaded bucket can dominate."
+"These bounds require assumptions, so they do not break the comparison-sort lower bound."
 
 ## Summary table
 
 | Algorithm | Best | Average | Worst | Extra space | Stable? | In-place? |
 |---|---:|---:|---:|---:|---:|---:|
-| Bubble sort | `O(N)` | `O(N^2)` | `O(N^2)` | `O(1)` | Yes | Yes |
-| Selection sort | `O(N^2)` | `O(N^2)` | `O(N^2)` | `O(1)` | No | Yes |
-| Insertion sort | `O(N)` | `O(N^2)` | `O(N^2)` | `O(1)` | Yes | Yes |
-| Merge sort | `O(N log N)` | `O(N log N)` | `O(N log N)` | `O(N)` | Yes | No for arrays |
-| Quick sort | `O(N log N)` | `O(N log N)` | `O(N^2)` | `O(log N)` avg | No | Yes |
-| Heap sort | `O(N log N)` | `O(N log N)` | `O(N log N)` | `O(1)` | No | Yes |
-| Counting sort | `O(N + K)` | `O(N + K)` | `O(N + K)` | `O(N + K)` | With prefix version | No |
-| Radix sort | `O(D(N+B))` | `O(D(N+B))` | `O(D(N+B))` | `O(N + B)` | Yes | No |
-| Bucket sort | `O(N+B)` | `O(N+B)` assumed | Depends | `O(N+B)` | Depends | No |
+| Bubble | `O(N)` | `O(N^2)` | `O(N^2)` | `O(1)` | Yes | Yes |
+| Selection | `O(N^2)` | `O(N^2)` | `O(N^2)` | `O(1)` | No | Yes |
+| Insertion | `O(N)` | `O(N^2)` | `O(N^2)` | `O(1)` | Yes | Yes |
+| Merge | `O(N log N)` | `O(N log N)` | `O(N log N)` | `O(N)` | Yes | No |
+| Quick | `O(N log N)` | `O(N log N)` | `O(N^2)` | `O(log N)` avg | No | Yes |
+| Heap | `O(N log N)` | `O(N log N)` | `O(N log N)` | `O(1)` | No | Yes |
+| Counting | `O(N+K)` | `O(N+K)` | `O(N+K)` | `O(N+K)` | If prefix-based | No |
+| Radix | `O(D(N+B))` | `O(D(N+B))` | `O(D(N+B))` | `O(N+B)` | Yes | No |
+| Bucket | `O(N+B)` | `O(N+B)` assumed | Depends | `O(N+B)` | Depends | No |
 
 Related: [binary search](/complexity/binary-search-derived), [heap and PriorityQueue](/complexity/heap-priorityqueue-complexity), [DP complexity](/complexity/dynamic-programming-complexity).

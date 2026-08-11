@@ -330,19 +330,12 @@ S(R, C) = O(RC), or O(C) with one row
 ```
 
 ### Space
-
 The stored state array or table determines memory. If a state depends only on a previous row or previous amount, memory can often be compressed.
-
 ### Final
-
 DP is not always `O(N^2)`. It is exactly `states * transitions`, such as `O(N^2)` for quadratic LIS, `O(CA)` for coin change, and `O(RC)` for grid paths.
-
 ### Interview Explanation
-
 "I name the state first, count how many states exist, then count how many candidate transitions each state tries. That gives the time formula directly."
-
 ## Summary table
-
 | Problem | States | Transition cost | Time | Space |
 |---|---:|---:|---:|---:|
 | Fibonacci | `N` | `O(1)` | `O(N)` | `O(N)` or `O(1)` |
@@ -351,5 +344,4 @@ DP is not always `O(N^2)`. It is exactly `states * transitions`, such as `O(N^2)
 | LIS quadratic | `N` | `O(N)` | `O(N^2)` | `O(N)` |
 | Coin change | `C * A` loops | `O(1)` | `O(CA)` | `O(A)` |
 | Grid paths | `R * C` | `O(1)` | `O(RC)` | `O(RC)` or `O(C)` |
-
 Related: [recursion](/complexity/recursion-complexity), [backtracking](/complexity/backtracking-complexity), [sorting derivations](/complexity/sorting-algorithms-derived).
