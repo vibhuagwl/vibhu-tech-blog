@@ -1,0 +1,283 @@
+---
+slug: tree-traversals-complexity
+title: "Tree Traversal Complexity: DFS, BFS, and Recursion Stack"
+description: "Derive preorder, inorder, postorder, and level-order traversal complexity from node visits and maximum frontier size."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Trees, DFS, BFS, Recursion]
+readingTime: 15 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Tree traversal means visiting every node in a tree in a defined order.
+
+| Traversal | Family | Visit order |
+|---|---|---|
+| Preorder | DFS | Node, left, right |
+| Inorder | DFS | Left, node, right |
+| Postorder | DFS | Left, right, node |
+| Level-order | BFS | Level by level |
+
+Let `N` be the number of nodes and `H` be the tree height.
+
+---
+
+## Preorder traversal
+
+### Problem
+
+Visit the current node before its children.
+
+### Java Code
+
+```java
+final class Node {
+    int value;
+    Node left;
+    Node right;
+}
+
+static void preorder(Node node, java.util.List<Integer> out) {
+    if (node == null) return;
+    out.add(node.value);
+    preorder(node.left, out);
+    preorder(node.right, out);
+}
+```
+
+### Math
+
+The code does constant work at each real node:
+
+```text
+visit cost per node = O(1)
+number of real nodes = N
+T(N) = N * O(1)
+T(N) = O(N)
+```
+
+Null child calls are also linear. A binary tree with `N` nodes has `N + 1` null child pointers, so real visits plus null checks are `N + (N + 1) = 2N + 1 = O(N)`.
+
+### Space
+
+The recursion stack stores one frame per node on the current root-to-leaf path:
+
+```text
+S_aux = O(H)
+balanced H = O(log N)
+skewed H = O(N)
+```
+
+The output list stores `N` values, so total space including output is `O(N)`.
+
+### Final
+
+Preorder is `O(N)` time and `O(H)` auxiliary space.
+
+### Interview Explanation
+
+"Preorder changes the order of visits, not the number of visits. Every node is processed once, so time is `O(N)`. Recursive stack depth is the tree height."
+
+---
+
+## Inorder traversal
+
+### Problem
+
+Visit left subtree, current node, then right subtree. In a BST this yields sorted order.
+
+### Java Code
+
+```java
+static void inorder(Node node, java.util.List<Integer> out) {
+    if (node == null) return;
+    inorder(node.left, out);
+    out.add(node.value);
+    inorder(node.right, out);
+}
+```
+
+### Math
+
+For a node with left subtree size `L` and right subtree size `R`:
+
+```text
+T(N) = T(L) + T(R) + O(1)
+L + R = N - 1
+T(N) = O(N)
+```
+
+### Space
+
+Auxiliary recursion stack is `O(H)`. The sorted output list, if materialized, is `O(N)`.
+
+### Final
+
+Inorder is `O(N)` time and `O(H)` auxiliary space.
+
+### Interview Explanation
+
+"Even when inorder produces sorted values from a BST, the traversal still reads every node. Sorting appears free only because the BST invariant already exists."
+
+---
+
+## Postorder traversal
+
+### Problem
+
+Visit children before the current node. This is common for deletion, expression evaluation, and computing subtree metadata.
+
+### Java Code
+
+```java
+static void postorder(Node node, java.util.List<Integer> out) {
+    if (node == null) return;
+    postorder(node.left, out);
+    postorder(node.right, out);
+    out.add(node.value);
+}
+```
+
+### Math
+
+The recurrence is still one constant operation per node:
+
+```text
+T(N) = T(L) + T(R) + O(1)
+T(N) = O(N)
+```
+
+### Space
+
+The maximum number of active calls is the height:
+
+```text
+S_aux = O(H)
+```
+
+### Final
+
+Postorder is `O(N)` time and `O(H)` auxiliary space.
+
+### Interview Explanation
+
+"Postorder can be useful when a parent depends on child results, but it does not change the complexity class. It still touches every node exactly once."
+
+---
+
+## Iterative DFS traversal
+
+### Problem
+
+Use an explicit stack instead of the language recursion stack.
+
+### Java Code
+
+```java
+static java.util.List<Integer> preorderIterative(Node root) {
+    java.util.List<Integer> out = new java.util.ArrayList<>();
+    if (root == null) return out;
+
+    java.util.ArrayDeque<Node> stack = new java.util.ArrayDeque<>();
+    stack.push(root);
+
+    while (!stack.isEmpty()) {
+        Node node = stack.pop();
+        out.add(node.value);
+        if (node.right != null) stack.push(node.right);
+        if (node.left != null) stack.push(node.left);
+    }
+    return out;
+}
+```
+
+### Math
+
+Each node is pushed once and popped once:
+
+```text
+N pushes + N pops + N visits = 3N
+T(N) = O(N)
+```
+
+### Space
+
+The stack contains nodes waiting to be processed. For a balanced tree it is often `O(H)`, and in the worst tree shape it is bounded by `O(N)`.
+
+### Final
+
+Iterative DFS is `O(N)` time and up to `O(N)` auxiliary space, with `O(H)` for many recursive-style traversals.
+
+### Interview Explanation
+
+"Iterative DFS moves stack memory from the call stack to a data structure. It avoids recursion limits but does not make the traversal asymptotically faster."
+
+---
+
+## Level-order traversal
+
+### Problem
+
+Visit nodes level by level using a queue.
+
+### Java Code
+
+```java
+static java.util.List<Integer> levelOrder(Node root) {
+    java.util.List<Integer> out = new java.util.ArrayList<>();
+    if (root == null) return out;
+
+    java.util.Queue<Node> queue = new java.util.LinkedList<>();
+    queue.offer(root);
+
+    while (!queue.isEmpty()) {
+        Node node = queue.poll();
+        out.add(node.value);
+        if (node.left != null) queue.offer(node.left);
+        if (node.right != null) queue.offer(node.right);
+    }
+    return out;
+}
+```
+
+### Math
+
+Each node enters and leaves the queue once:
+
+```text
+enqueue count = N
+dequeue count = N
+visit count = N
+T(N) = O(N)
+```
+
+### Space
+
+The queue can hold the widest level. In a perfect tree, the last level has about `N / 2` nodes:
+
+```text
+max queue size = O(N / 2)
+S_aux = O(N)
+```
+
+### Final
+
+Level-order traversal is `O(N)` time and `O(N)` auxiliary space in the worst case.
+
+### Interview Explanation
+
+"BFS space depends on width, not height. A balanced binary tree can have half its nodes on the last level, so the queue may be linear."
+
+## Summary table
+
+| Traversal | Time | Auxiliary space | Including output |
+|---|---:|---:|---:|
+| Preorder recursive | `O(N)` | `O(H)` | `O(N)` |
+| Inorder recursive | `O(N)` | `O(H)` | `O(N)` |
+| Postorder recursive | `O(N)` | `O(H)` | `O(N)` |
+| Iterative DFS | `O(N)` | `O(N)` worst case | `O(N)` |
+| Level-order BFS | `O(N)` | `O(N)` worst case | `O(N)` |
+
+Related: [trees and BSTs](/complexity/trees-bst-avl-complexity), [BFS](/complexity/bfs-complexity), [DFS](/complexity/dfs-complexity).

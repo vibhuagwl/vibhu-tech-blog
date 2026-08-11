@@ -1,0 +1,354 @@
+---
+slug: trees-bst-avl-complexity
+title: "Trees, BST, AVL, and Red-Black Tree Complexity"
+description: "Derive search, insert, delete, and traversal complexity for binary trees, BSTs, AVL trees, and Red-Black trees from height formulas."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, Trees, BST, AVL, Red-Black Tree]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Given `N` nodes, derive the time and space complexity of common binary-tree operations:
+
+| Structure | Ordered? | Height guarantee | Main risk |
+|---|---:|---:|---|
+| Binary tree | No | None | Must often scan all nodes |
+| Binary search tree (BST) | Yes | None | Can become a linked list |
+| AVL tree | Yes | `O(log N)` | Rotations maintain strict balance |
+| Red-Black tree | Yes | `O(log N)` | Looser balance than AVL |
+
+Let `h` be tree height, measured as the number of nodes on the longest root-to-leaf path.
+
+---
+
+## Height is the source of most tree complexity
+
+### Math
+
+For a perfect binary tree of height `h`:
+
+```text
+level 1 has 1 node
+level 2 has 2 nodes
+level 3 has 4 nodes
+...
+level h has 2^(h-1) nodes
+
+N = 1 + 2 + 4 + ... + 2^(h-1)
+N = 2^h - 1
+N + 1 = 2^h
+h = log2(N + 1)
+```
+
+So a balanced binary tree has height `h = O(log N)`.
+
+For a completely skewed tree:
+
+```text
+root -> child -> child -> ... -> child
+h = N
+```
+
+So an unbalanced tree can have height `h = O(N)`.
+
+### Final
+
+| Tree shape | Height | Search path length |
+|---|---:|---:|
+| Balanced | `O(log N)` | `O(log N)` |
+| Skewed | `O(N)` | `O(N)` |
+
+---
+
+## Binary tree search
+
+### Problem
+
+A normal binary tree has no ordering rule, so searching for a value may require checking every node.
+
+### Java Code
+
+```java
+final class Node {
+    int value;
+    Node left;
+    Node right;
+
+    Node(int value) {
+        this.value = value;
+    }
+}
+
+static boolean searchBinaryTree(Node root, int target) {
+    if (root == null) return false;
+    if (root.value == target) return true;
+    return searchBinaryTree(root.left, target)
+        || searchBinaryTree(root.right, target);
+}
+```
+
+### Math
+
+The code visits the current node, then may visit every node in the left and right subtrees:
+
+```text
+T(N) = T(L) + T(R) + O(1)
+L + R = N - 1
+T(N) = O(N)
+```
+
+### Space
+
+The recursion stack depth equals height:
+
+```text
+S(h) = O(h)
+balanced: O(log N)
+skewed: O(N)
+```
+
+### Final
+
+Binary-tree search is `O(N)` time and `O(h)` auxiliary space.
+
+### Interview Explanation
+
+"Because a plain binary tree has no sorted invariant, I cannot discard half the tree. In the worst case I inspect every node, so time is `O(N)`. Recursive space is the height: `O(log N)` if balanced, `O(N)` if skewed."
+
+---
+
+## BST search and insert
+
+### Problem
+
+A BST stores `left < node < right`, so each comparison chooses one child.
+
+### Java Code
+
+```java
+static boolean searchBst(Node root, int target) {
+    Node current = root;
+    while (current != null) {
+        if (target == current.value) return true;
+        if (target < current.value) {
+            current = current.left;
+        } else {
+            current = current.right;
+        }
+    }
+    return false;
+}
+
+static Node insertBst(Node root, int value) {
+    if (root == null) return new Node(value);
+    if (value < root.value) {
+        root.left = insertBst(root.left, value);
+    } else if (value > root.value) {
+        root.right = insertBst(root.right, value);
+    }
+    return root;
+}
+```
+
+### Math
+
+Each loop or recursive call moves down one level:
+
+```text
+work per level = O(1)
+levels visited = h
+T(N) = h * O(1) = O(h)
+```
+
+For a balanced BST:
+
+```text
+h = log2(N + 1)
+T(N) = O(log N)
+```
+
+For a skewed BST:
+
+```text
+h = N
+T(N) = O(N)
+```
+
+### Space
+
+Iterative search uses `O(1)` extra space. Recursive insert uses `O(h)` stack space.
+
+### Final
+
+BST search and insert are `O(h)` time: `O(log N)` when balanced, `O(N)` when skewed.
+
+### Interview Explanation
+
+"A BST does not automatically mean logarithmic time. The real bound is `O(h)`. If inserts are random or balancing is maintained, `h` is about `log N`; if sorted input creates a chain, `h` becomes `N`."
+
+---
+
+## BST delete
+
+### Problem
+
+Deleting a BST node first searches for it, then handles zero, one, or two children.
+
+### Java Code
+
+```java
+static Node deleteBst(Node root, int value) {
+    if (root == null) return null;
+
+    if (value < root.value) {
+        root.left = deleteBst(root.left, value);
+    } else if (value > root.value) {
+        root.right = deleteBst(root.right, value);
+    } else {
+        if (root.left == null) return root.right;
+        if (root.right == null) return root.left;
+
+        Node successor = min(root.right);
+        root.value = successor.value;
+        root.right = deleteBst(root.right, successor.value);
+    }
+    return root;
+}
+
+static Node min(Node node) {
+    while (node.left != null) {
+        node = node.left;
+    }
+    return node;
+}
+```
+
+### Math
+
+The delete path goes down at most `h` levels. Finding the successor also follows at most `h` left edges:
+
+```text
+T(N) = search path + successor path + constant relinks
+T(N) = O(h) + O(h) + O(1)
+T(N) = O(h)
+```
+
+### Space
+
+Recursive delete uses `O(h)` stack space. An iterative implementation can use `O(1)` extra space.
+
+### Final
+
+BST delete is `O(h)` time: `O(log N)` balanced, `O(N)` skewed.
+
+### Interview Explanation
+
+"The two-child case does not make delete linear by itself. The successor is found by walking down one subtree, so delete remains height-bound: `O(h)`."
+
+---
+
+## Traversal
+
+### Problem
+
+Inorder, preorder, postorder, and level-order traversal must output every node.
+
+### Java Code
+
+```java
+static void inorder(Node root, java.util.List<Integer> out) {
+    if (root == null) return;
+    inorder(root.left, out);
+    out.add(root.value);
+    inorder(root.right, out);
+}
+```
+
+### Math
+
+Every node contributes one constant-time visit:
+
+```text
+T(N) = N * O(1)
+T(N) = O(N)
+```
+
+### Space
+
+Recursive DFS uses `O(h)` auxiliary stack space, not counting the output list. If the output list is counted, total output space is `O(N)`.
+
+### Final
+
+All full-tree traversals are `O(N)` time. DFS auxiliary space is `O(h)`, while BFS auxiliary space can be `O(N)` for a wide level.
+
+### Interview Explanation
+
+"Traversal ignores search balance because it intentionally visits every node. Balanced trees help stack depth, but they do not reduce traversal time below `O(N)`."
+
+---
+
+## AVL and Red-Black operations
+
+### Problem
+
+AVL and Red-Black trees are self-balancing BSTs, so they preserve sorted search plus logarithmic height.
+
+### Java Code
+
+```java
+// Conceptual shape of an AVL insert.
+static Node insertAvl(Node root, int value) {
+    root = insertBst(root, value);
+    // Real AVL code updates heights and performs at most constant rotations
+    // on each ancestor while unwinding the search path.
+    return rebalance(root);
+}
+
+static Node rebalance(Node root) {
+    return root; // placeholder for rotations
+}
+```
+
+### Math
+
+Search, insert, and delete first follow one root-to-leaf path:
+
+```text
+path length = h
+work per visited ancestor = O(1) balance metadata + O(1) rotations
+T(N) = h * O(1)
+```
+
+AVL and Red-Black trees guarantee:
+
+```text
+h = O(log N)
+T(N) = O(log N)
+```
+
+### Space
+
+Iterative implementations use `O(1)` extra space plus stored metadata in each node. Recursive implementations use `O(log N)` stack space because height is logarithmic.
+
+### Final
+
+AVL and Red-Black search, insert, and delete are `O(log N)` time. Traversal remains `O(N)`.
+
+### Interview Explanation
+
+"Balancing changes the height term. A normal BST is `O(h)`; AVL and Red-Black enforce `h = O(log N)`, so search, insert, and delete become `O(log N)` worst case."
+
+## Summary table
+
+| Operation | Binary tree | BST balanced | BST skewed | AVL / Red-Black |
+|---|---:|---:|---:|---:|
+| Search | `O(N)` | `O(log N)` | `O(N)` | `O(log N)` |
+| Insert | Position-dependent | `O(log N)` | `O(N)` | `O(log N)` |
+| Delete | Position-dependent | `O(log N)` | `O(N)` | `O(log N)` |
+| DFS traversal | `O(N)` | `O(N)` | `O(N)` | `O(N)` |
+| Level-order traversal | `O(N)` | `O(N)` | `O(N)` | `O(N)` |
+
+Related: [tree traversals](/complexity/tree-traversals-complexity), [BFS](/complexity/bfs-complexity), [DFS](/complexity/dfs-complexity).

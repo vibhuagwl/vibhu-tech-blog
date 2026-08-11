@@ -1,0 +1,355 @@
+---
+slug: dynamic-programming-complexity
+title: "Dynamic Programming Complexity: States Times Transitions"
+description: "Derive memoization and tabulation complexity for common 1D and 2D dynamic programming problems using states times transitions."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Java, Dynamic Programming, Memoization, Tabulation]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Problem
+
+Dynamic programming complexity is usually:
+
+```text
+time = number of states * transition cost per state
+space = number of stored states + recursion stack if top-down
+```
+
+This works for memoization and tabulation.
+
+| Style | What it stores | Typical benefit |
+|---|---|---|
+| Memoization | Only reached states | Natural recursion |
+| Tabulation | Usually all table states | Iterative and stack-free |
+| Space optimization | Only needed previous rows/columns | Lower memory |
+
+---
+
+## Memoization vs tabulation
+
+### Problem
+
+Compute Fibonacci without recomputing subproblems.
+
+### Java Code
+
+```java
+static long fibMemo(int n, long[] memo) {
+    if (n <= 1) return n;
+    if (memo[n] != -1) return memo[n];
+    memo[n] = fibMemo(n - 1, memo) + fibMemo(n - 2, memo);
+    return memo[n];
+}
+
+static long fibTab(int n) {
+    if (n <= 1) return n;
+    long[] dp = new long[n + 1];
+    dp[1] = 1;
+    for (int i = 2; i <= n; i++) {
+        dp[i] = dp[i - 1] + dp[i - 2];
+    }
+    return dp[n];
+}
+```
+
+### Math
+
+States are `0..n`, so there are `n + 1` states. Each state computes at most two constant-time transitions:
+
+```text
+states = n + 1 = O(n)
+transition cost = O(1)
+T(n) = O(n) * O(1)
+T(n) = O(n)
+```
+
+### Space
+
+Memoization:
+
+```text
+memo array = O(n)
+recursion stack = O(n)
+S_aux = O(n)
+```
+
+Tabulation:
+
+```text
+dp array = O(n)
+stack = O(1)
+S_aux = O(n)
+```
+
+### Final
+
+Both memoized and tabulated Fibonacci are `O(n)` time and `O(n)` space.
+
+### Interview Explanation
+
+"Naive recursion is exponential because states repeat. DP stores each state once, so the formula becomes states times transition cost."
+
+---
+
+## 0/1 Knapsack
+
+### Problem
+
+Given `N` items and capacity `W`, maximize value by taking or skipping each item.
+
+### Java Code
+
+```java
+static int knapsack(int[] weights, int[] values, int capacity) {
+    int n = weights.length;
+    int[][] dp = new int[n + 1][capacity + 1];
+
+    for (int i = 1; i <= n; i++) {
+        for (int w = 0; w <= capacity; w++) {
+            dp[i][w] = dp[i - 1][w];
+            if (weights[i - 1] <= w) {
+                dp[i][w] = Math.max(
+                        dp[i][w],
+                        values[i - 1] + dp[i - 1][w - weights[i - 1]]);
+            }
+        }
+    }
+    return dp[n][capacity];
+}
+```
+
+### Math
+
+State definition:
+
+```text
+dp[i][w] = best value using first i items with capacity w
+states = (N + 1) * (W + 1)
+transition cost = O(1)
+T(N, W) = O(NW)
+```
+
+This is pseudo-polynomial because `W` is a numeric capacity, not the number of input bits.
+
+### Space
+
+The table has `(N + 1)(W + 1)` cells:
+
+```text
+S_aux = O(NW)
+```
+
+### Final
+
+0/1 knapsack tabulation is `O(NW)` time and `O(NW)` space.
+
+### Interview Explanation
+
+"I identify the two changing parameters: item index and remaining capacity. The table has `N * W` states and each state checks take versus skip in constant time."
+
+---
+
+## Knapsack space optimization
+
+### Problem
+
+The current row depends only on the previous row, so store one row.
+
+### Java Code
+
+```java
+static int knapsackOneRow(int[] weights, int[] values, int capacity) {
+    int[] dp = new int[capacity + 1];
+
+    for (int i = 0; i < weights.length; i++) {
+        for (int w = capacity; w >= weights[i]; w--) {
+            dp[w] = Math.max(dp[w], values[i] + dp[w - weights[i]]);
+        }
+    }
+    return dp[capacity];
+}
+```
+
+### Math
+
+The number of states computed remains `N * W`:
+
+```text
+outer iterations = N
+inner iterations <= W
+T(N, W) = O(NW)
+```
+
+### Space
+
+Only capacities are stored:
+
+```text
+dp length = W + 1
+S_aux = O(W)
+```
+
+More generally, a 2D `N x M` DP often drops from `O(NM)` to `O(M)` if each row depends only on the previous row.
+
+### Final
+
+One-row knapsack is `O(NW)` time and `O(W)` space.
+
+### Interview Explanation
+
+"Space optimization changes memory, not the number of transitions. Reverse iteration prevents reusing the same item multiple times."
+
+---
+
+## Longest Common Subsequence
+
+### Problem
+
+Given strings of lengths `N` and `M`, find the longest subsequence common to both.
+
+### Java Code
+
+```java
+static int lcs(String a, String b) {
+    int n = a.length();
+    int m = b.length();
+    int[][] dp = new int[n + 1][m + 1];
+
+    for (int i = 1; i <= n; i++) {
+        for (int j = 1; j <= m; j++) {
+            if (a.charAt(i - 1) == b.charAt(j - 1)) {
+                dp[i][j] = 1 + dp[i - 1][j - 1];
+            } else {
+                dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+            }
+        }
+    }
+    return dp[n][m];
+}
+```
+
+### Math
+
+State definition:
+
+```text
+dp[i][j] = LCS length for prefixes a[0..i) and b[0..j)
+states = (N + 1)(M + 1)
+transition cost = O(1)
+T(N, M) = O(NM)
+```
+
+### Space
+
+```text
+2D table = O(NM)
+optimized two rows = O(M)
+```
+
+### Final
+
+LCS is `O(NM)` time, `O(NM)` space normally, and `O(M)` space when only the length is needed.
+
+### Interview Explanation
+
+"Two strings mean two index dimensions. Each cell depends on left, top, and diagonal cells, so each transition is constant."
+
+---
+
+## LIS, coin change, and grid paths
+
+### Problem
+
+Different DP problems have different transition counts.
+
+### Java Code
+
+```java
+static int lisQuadratic(int[] nums) {
+    int n = nums.length;
+    int[] dp = new int[n];
+    java.util.Arrays.fill(dp, 1);
+    int best = 0;
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < i; j++) {
+            if (nums[j] < nums[i]) {
+                dp[i] = Math.max(dp[i], dp[j] + 1);
+            }
+        }
+        best = Math.max(best, dp[i]);
+    }
+    return best;
+}
+
+static int coinChangeWays(int[] coins, int amount) {
+    int[] dp = new int[amount + 1];
+    dp[0] = 1;
+    for (int coin : coins) {
+        for (int sum = coin; sum <= amount; sum++) {
+            dp[sum] += dp[sum - coin];
+        }
+    }
+    return dp[amount];
+}
+```
+
+### Math
+
+LIS quadratic:
+
+```text
+states = N positions
+transition for state i scans previous i positions
+total transitions = 0 + 1 + 2 + ... + (N - 1)
+total transitions = N(N - 1) / 2
+T(N) = O(N^2)
+S(N) = O(N)
+```
+
+Coin change:
+
+```text
+coins = C
+amount states = A + 1
+transition loops = C * A
+T(C, A) = O(CA)
+S(A) = O(A)
+```
+
+Grid paths on an `R x C` grid:
+
+```text
+states = R * C
+transition cost = O(1) from top and left
+T(R, C) = O(RC)
+S(R, C) = O(RC), or O(C) with one row
+```
+
+### Space
+
+The stored state array or table determines memory. If a state depends only on a previous row or previous amount, memory can often be compressed.
+
+### Final
+
+DP is not always `O(N^2)`. It is exactly `states * transitions`, such as `O(N^2)` for quadratic LIS, `O(CA)` for coin change, and `O(RC)` for grid paths.
+
+### Interview Explanation
+
+"I name the state first, count how many states exist, then count how many candidate transitions each state tries. That gives the time formula directly."
+
+## Summary table
+
+| Problem | States | Transition cost | Time | Space |
+|---|---:|---:|---:|---:|
+| Fibonacci | `N` | `O(1)` | `O(N)` | `O(N)` or `O(1)` |
+| 0/1 knapsack | `N * W` | `O(1)` | `O(NW)` | `O(NW)` or `O(W)` |
+| LCS | `N * M` | `O(1)` | `O(NM)` | `O(NM)` or `O(M)` |
+| LIS quadratic | `N` | `O(N)` | `O(N^2)` | `O(N)` |
+| Coin change | `C * A` loops | `O(1)` | `O(CA)` | `O(A)` |
+| Grid paths | `R * C` | `O(1)` | `O(RC)` | `O(RC)` or `O(C)` |
+
+Related: [recursion](/complexity/recursion-complexity), [backtracking](/complexity/backtracking-complexity), [sorting derivations](/complexity/sorting-algorithms-derived).
