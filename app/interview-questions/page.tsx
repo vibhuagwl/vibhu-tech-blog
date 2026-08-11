@@ -22,18 +22,24 @@ export default function Interview(){
       </div>
 
       {prep && (
-        <section className="mt-10 grid gap-4 md:grid-cols-2">
+        <section className="mt-10 grid gap-4 md:grid-cols-3">
           <Link href={`/system-design/${prep.slug}`} className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
             <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">{prep.category} · {prep.difficulty}</div>
-            <h2 className="mt-3 text-2xl font-black tracking-tight">{prep.title}</h2>
+            <h2 className="mt-3 text-xl font-black tracking-tight">{prep.title}</h2>
             <p className="mt-3 text-sm leading-7 text-slate-500">{prep.description}</p>
             <div className="mt-4 text-sm font-bold text-blue-600">Read the full preparation guide →</div>
           </Link>
           <Link href="/leadership-principles" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
             <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Amazon · Behavioral</div>
-            <h2 className="mt-3 text-2xl font-black tracking-tight">Leadership Principles (all 16)</h2>
+            <h2 className="mt-3 text-xl font-black tracking-tight">Leadership Principles (all 16)</h2>
             <p className="mt-3 text-sm leading-7 text-slate-500">STAR answers, Kafka follow-up case banks, metrics, and weak-vs-strong contrasts for every Amazon LP.</p>
             <div className="mt-4 text-sm font-bold text-blue-600">Open Leadership Principles →</div>
+          </Link>
+          <Link href="/kafka-interview" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
+            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Staff+ · Kafka</div>
+            <h2 className="mt-3 text-xl font-black tracking-tight">Kafka Interview (130+)</h2>
+            <p className="mt-3 text-sm leading-7 text-slate-500">Architecture, failure, DLQ, EOS/payments, multi-region and scenario drills for Principal/Architect rounds.</p>
+            <div className="mt-4 text-sm font-bold text-blue-600">Open Kafka Interview →</div>
           </Link>
         </section>
       )}

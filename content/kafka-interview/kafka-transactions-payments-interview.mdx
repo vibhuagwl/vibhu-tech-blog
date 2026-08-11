@@ -1,0 +1,86 @@
+---
+slug: kafka-transactions-payments-interview
+title: "Kafka Transactions & Payments Interview (Q82–Q95)"
+description: "Payment system design with Kafka: idempotency, EOS limits, transactional.id, read_committed, outbox vs Kafka transactions, and DB+Kafka atomicity."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 24 min
+publishedAt: "2026-08-11"
+---
+
+## 82. Design a payment processing system using Kafka
+
+```text
+API → validate + idempotency key → DB (payment intent)
+    → outbox → Kafka payments.events
+    → consumers: ledger, fraud, notify, reconcile
+```
+
+SLOs: no double capture, auditable trail, lag budgets, DLQ for poison, RF=3/minISR=2/acks=all.
+
+## 83. Guarantee payment isn’t processed twice?
+
+- Idempotency key unique constraint
+- State machine (`CREATED → CAPTURED`) with conditional updates
+- PSP idempotency keys
+- At-least-once Kafka + dedupe on `eventId`
+
+## 84. Kafka transaction vs database transaction
+
+| DB txn | Kafka txn |
+|---|---|
+| ACID on rows in one DB | Atomic writes across Kafka partitions + offset commits in EOS consume-transform-produce |
+| Doesn’t include Kafka | Doesn’t include your Postgres rows |
+
+They solve **different** atomicity domains.
+
+## 85. Explain Kafka exactly-once semantics (EOS)
+
+Within Kafka: idempotent produce + transactions so a consumer can **read → process → write output topic → commit offsets** atomically (no dup output from retries) when using the transactional API correctly.
+
+**Does not** magically EOS your JDBC updates without additional patterns.
+
+## 86–87. Transactional producer & `transactional.id`
+
+Producer configured with stable `transactional.id` for fencing zombie producers after restart. Begin/commit/abort transaction around produces (and offset commits in EOS apps).
+
+## 88. What does `read_committed` do?
+
+Consumer isolation that **skips** uncommitted / aborted transactional records — reads only committed.
+
+## 89. Can Kafka EOS guarantee correctness across Kafka + external DB?
+
+**No, not by itself.** Use outbox, inbox/idempotent consumer, or distributed txn mechanisms carefully. Most payment systems use **DB as source of truth + outbox**.
+
+## 90. DB update + Kafka publish atomicity problem?
+
+Classic dual-write: DB succeeds, publish fails (or vice versa) → inconsistency.
+
+## 91. Outbox pattern
+
+Write business row + outbox row in **same DB transaction**. Publisher/CDC streams outbox to Kafka. Achieves at-least-once publish aligned with DB commit; consumers idempotent.
+
+## 92. Outbox vs Kafka transaction
+
+| Outbox | Kafka txn |
+|---|---|
+| Best for DB+Kafka consistency | Best for Kafka multi-topic atomicity |
+| Needs publisher/CDC | Needs transactional producers/consumers |
+| Industry standard for payments | Not a substitute for DB commit |
+
+## 93. PostgreSQL + Kafka + Spring Boot payments
+
+1. API receives charge with idempotency key.
+2. Spring `@Transactional` writes payment + outbox.
+3. `Debezium`/poller publishes outbox.
+4. Consumers with `ack` after idempotent DB apply; DLQ path.
+5. Metrics on lag, duplicates suppressed, outbox backlog.
+
+## 94. Payment succeeds, Kafka publish fails?
+
+If dual-write: downstream never sees event. **Outbox prevents this** — event is in DB and will publish. Without outbox: reconciliation job required.
+
+## 95. Kafka publish succeeds, DB txn fails?
+
+Downstream may process an event for a payment that never committed (**phantom**). Prevent by publishing **only after** commit (outbox/CDC after commit). Don’t publish then roll back DB.

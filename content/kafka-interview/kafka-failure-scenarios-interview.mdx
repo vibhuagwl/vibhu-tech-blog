@@ -1,0 +1,93 @@
+---
+slug: kafka-failure-scenarios-interview
+title: "Kafka Failure Scenarios Interview (Q61–Q70) — Staff+"
+description: "Critical production failure scenarios: crash before/after commit, duplicate payments, broker/leader failure, hot partitions, lag storms, latency spikes, and disk pressure."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## 61. Processed successfully, crash before offset commit — what happens?
+
+**At-least-once redelivery.** On restart (same group), consumer resumes from last commit → message returns → **duplicate side effects** unless idempotent.
+
+**Design:** DB unique on `eventId` / payment idempotency key; state machine transitions that are safe to retry.
+
+## 62. Committed offset, crash before processing — what happens?
+
+**Message skipped** (at-most-once). Business loss unless another path repairs it.
+
+**Never** commit before durable side effects for payments.
+
+## 63. Producer timeout + retry; Kafka got both — prevent duplicate payment?
+
+1. **Idempotent producer** reduces duplicate **log appends** from retries.
+2. Even then, consumer may see one message twice across other failure modes.
+3. Payment layer: **idempotency key** (e.g. `paymentAttemptId`) unique in DB / PSP.
+4. Outbox after DB commit so business truth is DB.
+
+**Principal line:** prevent duplicates at **effect** boundary, not only Kafka transport.
+
+## 64. Broker down while producing?
+
+- If leader dies mid-produce: error to client; producer metadata refresh; retry to new leader.
+- With `acks=all` + idempotence: safe retry without dup in log (same PID/seq).
+- If minISR not met: produce fails — **choose failure over silent under-replication**.
+
+## 65. Leader fails while consumers processing — sequence
+
+1. Fetch errors / disconnects.
+2. Controller elects new leader from ISR; epoch++.
+3. Consumers refresh metadata; continue from positions (offsets unchanged).
+4. In-flight processing still runs locally; commit may fail transiently — retry commit carefully.
+5. Brief lag bump possible; no automatic rewind unless client bugs / incorrect reset.
+
+## 66. Processing an order for 30s — prevent rebalance?
+
+- Ensure `max.poll.interval.ms` > longest poll cycle.
+- Keep calling `poll` (heartbeat thread helps session, but poll interval still matters).
+- Pattern: poll → hand to worker pool → pause partition → when done resume + commit (ordering-aware).
+- Or break work into smaller steps / async workflow (Temporal/Camunda) with Kafka as trigger.
+
+## 67. One partition millions of messages, others empty — fix?
+
+Hot key / bad cardinality / bad partitioner. Short term: scale consumers won’t help that partition beyond 1 consumer in group. Long term: re-key/shard hot keys, dedicated topic for whales, backfill strategy. See partitions guide.
+
+## 68. Kafka healthy, consumer lag climbing — troubleshoot
+
+```text
+1. Lag by partition — one hot or all?
+2. Consume rate vs produce rate
+3. Processing time / DB p99 / external API
+4. Rebalance rate / frequent restarts
+5. Poison message stuck at head
+6. GC / CPU throttling on consumers
+7. Fetch config too small / too few consumers
+8. Downstream thread pool saturation
+```
+
+Kafka “green” ≠ consumer app green.
+
+## 69. Producer latency 10ms → 2s — investigate
+
+| Check | Why |
+|---|---|
+| Broker / ISR health | acks=all waiting on slow followers |
+| Network path | AZ issues |
+| `linger.ms` / batching change | Config deploy |
+| Broker disk utilization | slow appends |
+| Quotas | throttling |
+| Metadata / leader imbalance | hot brokers |
+| Client buffer full / retries | saturation |
+| Compression CPU | spikes |
+
+Trace produce request latency metrics on broker + client.
+
+## 70. Kafka disk 90% — what do you do?
+
+1. **Page / mitigate:** reduce retention, delete old segments carefully, expand disks, add brokers + reassign.
+2. Find topic retention misconfig / log storm / oversized payloads.
+3. Prevent: disk alerts at 60–70%, retention by size+time, capacity planning for peak ingest × retention × RF.
+4. Never “randomly delete data directories” without business approval in financial systems.

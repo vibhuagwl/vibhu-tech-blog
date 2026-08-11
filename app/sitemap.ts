@@ -11,6 +11,7 @@ export default function sitemap():MetadataRoute.Sitemap{
     {path:'/fintech', key:'fintech' as const},
     {path:'/behavior', key:'behavior' as const},
     {path:'/leadership-principles', key:'leadership-principles' as const},
+    {path:'/kafka-interview', key:'kafka-interview' as const},
   ];
 
   return [

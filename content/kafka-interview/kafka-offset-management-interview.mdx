@@ -1,0 +1,74 @@
+---
+slug: kafka-offset-management-interview
+title: "Kafka Offset Management Interview (Q49–Q60)"
+description: "Offsets, auto vs manual commit, commitSync vs commitAsync, delivery semantics, replay, and preventing duplicates during replay."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## 49. What is a Kafka offset?
+
+Monotonic position of a record **within a partition**. Consumers store “how far I’ve processed” as committed offsets.
+
+## 50. Where are consumer offsets stored?
+
+Typically internal topic `__consumer_offsets` (modern). Historically ZK (legacy).
+
+## 51. `enable.auto.commit=true` vs `false`
+
+| Auto | Manual |
+|---|---|
+| Commits periodically in background | App decides after processing |
+| Easy to commit **before** side effects complete | Required for precise at-least-once control |
+| Risky for payments | Prefer for money paths |
+
+## 52. When should you manually commit?
+
+When processing has **side effects** (DB writes, payments, emails) and you need commit aligned with success. Almost always for financial consumers.
+
+## 53. `commitSync()` vs `commitAsync()`
+
+| Sync | Async |
+|---|---|
+| Blocks; knows success/fail | Higher throughput; harder error handling |
+| Use at critical checkpoints / shutdown | Use in steady state with care |
+
+Common pattern: async in loop + sync on rebalance/shutdown.
+
+## 54. Crash before committing?
+
+On restart, re-read last uncommitted records → **at-least-once** → duplicates possible → need idempotent consumer.
+
+## 55. Commit before processing?
+
+Crash after commit → those messages **won’t be redelivered** → **at-most-once** → **data loss / skipped processing**. Unacceptable for payments.
+
+## 56. At-most-once, at-least-once, exactly-once
+
+| Semantic | Meaning | Typical cause |
+|---|---|---|
+| At-most-once | May lose, no dups | Commit before process / drop on error |
+| At-least-once | May dup, no loss (if durable produce) | Process then commit; retries |
+| Exactly-once | Effectively once | Kafka EOS **within Kafka** and/or **idempotent business effects** |
+
+## 57. How do you replay Kafka messages?
+
+Reset consumer group offsets to earlier position / new group id consuming from timestamp/earliest. Prefer **new group** for analytics replay to not disturb prod group.
+
+## 58. Reset offsets for a consumer group?
+
+`kafka-consumer-groups.sh --reset-offsets` (dry-run then execute), or Admin API. Stop consumers first (or understand races).
+
+## 59. Replay only yesterday?
+
+Reset to **offset for timestamp** of yesterday 00:00 UTC (per partition). Consume until now / watermark. Filter in app if needed.
+
+## 60. Prevent duplicate processing during replay?
+
+- Idempotency keys + DB unique constraints
+- Dedupe store keyed by event id
+- Replay to isolated consumers/tables first
+- Don’t double-trigger external PSP charges without state machine checks

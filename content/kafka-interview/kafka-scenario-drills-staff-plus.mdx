@@ -1,0 +1,117 @@
+---
+slug: kafka-scenario-drills-staff-plus
+title: "Kafka Scenario Drills — Staff+ / Principal Fire Questions"
+description: "Walk-through answers for the hardest Kafka interview scenarios: saga failures, EOS myths, duplicate payments, 50M lag, 1000 partitions, hot customers, DB slowdowns, ordered retries, and inherited bad clusters."
+category: Kafka Interview
+difficulty: Advanced
+tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## How to answer these
+
+Speak in this arc every time:
+
+```text
+Impact → Safety (money/data) → Mitigate → Diagnose → Fix → Prevent → Trade-off
+```
+
+---
+
+### S1. Order → Payment → Inventory; payment succeeds, inventory fails permanently. What happens to the order?
+
+**Answer:** Order cannot become `COMPLETED`. Transition to `INVENTORY_FAILED` / `ON_HOLD`. Because payment captured, run **compensation policy**: auto-refund, manual review, or delayed capture/void depending on payment model. Inventory poison → DLQ with orderId. Replay after fix with idempotent handlers. Emit `OrderCompensationStarted` events for audit.
+
+**Don’t say:** “Just retry inventory forever.”
+
+---
+
+### S2. Kafka has EOS. Is the payment system exactly once?
+
+**No.** Kafka EOS covers the Kafka processing pipeline (and transactional produce/offset commit). External DB/PSP side effects need **idempotency + outbox/inbox**. State this calmly — it’s a senior filter question.
+
+---
+
+### S3. Consumer processed payment, crashed before offset commit; message returns. What do you do?
+
+Handler checks idempotency key / payment state. If already `CAPTURED`, **no-op success** and commit offset. Never charge PSP again. Log duplicate suppression metric.
+
+---
+
+### S4. Lag 0 → 50 million. Investigation walk-through
+
+1. **Blast radius:** one group/topic or many? one partition or all?
+2. **Produce spike?** bytes in rate.
+3. **Consume rate dropped?** deploy, rebalance storm, crash loop.
+4. **Hot partition?**
+5. **Poison head-of-line?**
+6. **Downstream DB/API red?**
+7. **Mitigate:** scale consumers (if partitions allow), pause noncritical producers, enable DLQ skip for poison, roll back bad deploy.
+8. **Prevent:** lag-time alerts, load tests, backpressure, circuit breakers.
+
+Narrate like an incident commander.
+
+---
+
+### S5. 1,000 partitions, 200 consumers — optimize?
+
+- 200 consumers ⇒ each owns ~5 partitions (if balanced).
+- Increase consumers toward 1,000 if CPU-bound and partitions are the limit.
+- If processing is the bottleneck, improve batching/DB before blind scale.
+- Cooperative sticky rebalance; avoid frequent deploys that reshuffle all.
+- Consider splitting topics by domain to isolate failure.
+
+---
+
+### S6. One customer = 50% traffic; key=customerId. Hot partition?
+
+Shard key: `customerId + ":" + bucket(eventId, N)` or dedicated `customer.whale` topic. Accept **partial order** or use sequence numbers per customer for app-level ordering. Rate-limit whale; fair scheduling.
+
+---
+
+### S7. Kafka normal, DB slow — what happens to consumers?
+
+Processing time ↑ → poll interval risk → lag ↑ → possible rebalances → retries amplify DB load (death spiral). Mitigate: backoff, reduce concurrency, protect DB with pool limits, pause partitions, scale DB or shed load. Kafka won’t save a saturated DB.
+
+---
+
+### S8. Retry + DLQ without breaking ordering?
+
+In-place retry preserves order but blocks. Key-affine retry topics preserve per-key order if partitioner identical. Otherwise use sequence/state machine. **Say the trade-off out loud.**
+
+---
+
+### S9. Guarantee DB state and Kafka events never inconsistent?
+
+**Outbox/CDC after commit** + idempotent consumers. Avoid dual-write. Reconcile jobs as seatbelt.
+
+---
+
+### S10. Inherited bad Kafka cluster — inspect first?
+
+| First 30 minutes | Why |
+|---|---|
+| Under-replicated / offline partitions | Durability |
+| ISR shrink rate | Instability |
+| Disk / iowait | p99 root |
+| Partition skew | Hot keys |
+| Consumer lag top offenders | User impact |
+| RF, minISR, unclean election | Safety config |
+| Retention vs disk | Imminent outage |
+| Producer error rates | Silent loss |
+| Number of partitions / brokers ratio | Ops risk |
+| ACL + schema registry health | Prod change safety |
+
+Then capacity model and runbooks.
+
+---
+
+## One-line seniority signals
+
+| Weak | Strong |
+|---|---|
+| “Enable exactly-once” | “EOS in Kafka + idempotent effects in DB” |
+| “Add more consumers” | “Partitions, hot keys, and processing time first” |
+| “Send to DLQ” | “Taxonomy + retry budget + safe replay + audit” |
+| “Kafka is up” | “Lag age, ISR, produce p99, rebalance rate” |
