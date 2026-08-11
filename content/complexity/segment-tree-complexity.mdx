@@ -1,0 +1,222 @@
+---
+slug: segment-tree-complexity
+title: "Segment Tree Complexity From Scratch"
+description: "Build, query, point update, and lazy range update complexity for segment trees, including why the array size is often 4N."
+category: Complexity
+difficulty: Advanced
+tags: [Complexity, Big-O, Segment Tree, Range Query, Java]
+readingTime: 15 min
+publishedAt: "2026-08-11"
+---
+
+## What a segment tree stores
+
+A segment tree stores answers for ranges. For example, if the operation is sum:
+
+```text
+node range [l, r] stores sum(a[l..r])
+left child stores [l, mid]
+right child stores [mid + 1, r]
+```
+
+ASCII shape for `N = 8`:
+
+```text
+                    [0,7]
+              /               \
+           [0,3]              [4,7]
+         /      \            /      \
+      [0,1]    [2,3]      [4,5]    [6,7]
+      /  \      /  \      /  \      /  \
+   [0]  [1]  [2]  [3]  [4]  [5]  [6]  [7]
+```
+
+Height is **O(log N)** because each level halves the range length.
+
+## Summary table
+
+| Operation | Time | Extra space | Derivation |
+|---|---|---|---|
+| Build | O(N) | O(N) | One tree node is computed once |
+| Range query | O(log N) | O(log N) recursive stack | At most a constant number of nodes per level |
+| Point update | O(log N) | O(log N) recursive stack | One root-to-leaf path |
+| Lazy range update | O(log N) | O(N) lazy array | Touches at most a constant number of nodes per level |
+
+## Why the array is often 4N
+
+If `N` is a power of two, a full segment tree has:
+
+```text
+N leaves + (N - 1) internal nodes = 2N - 1 nodes
+```
+
+If `N` is not a power of two, the implicit tree has gaps when stored in `2*i` and `2*i+1` positions. A safe simple allocation is `4 * N`.
+
+```text
+nextPowerOfTwo(N) < 2N
+full tree nodes < 2 * nextPowerOfTwo(N) < 4N
+```
+
+So `4N` is not the exact number of nodes. It is a convenient upper bound that avoids repeated size math.
+
+## Build derivation
+
+The build visits every segment-tree node once.
+
+```text
+leaf nodes: N
+internal nodes: less than N
+total nodes: less than 2N for a padded complete tree
+```
+
+Therefore build time is **O(N)**, not O(N log N).
+
+## Java 17 segment tree
+
+This implementation supports range sum, point update, and lazy range add.
+
+```java
+final class SegmentTree {
+    private final int n;
+    private final long[] tree;
+    private final long[] lazy;
+
+    SegmentTree(int[] a) {
+        this.n = a.length;                 // O(1)
+        this.tree = new long[4 * n];       // O(N) space
+        this.lazy = new long[4 * n];       // O(N) space
+        build(a, 1, 0, n - 1);             // O(N)
+    }
+
+    private void build(int[] a, int node, int l, int r) {
+        if (l == r) {                      // Leaf reached once per element
+            tree[node] = a[l];             // O(1)
+            return;
+        }
+        int mid = l + (r - l) / 2;         // O(1)
+        build(a, node * 2, l, mid);        // Builds left half
+        build(a, node * 2 + 1, mid + 1, r);// Builds right half
+        tree[node] = tree[node * 2] + tree[node * 2 + 1]; // O(1)
+    }
+```
+
+Line-by-line build complexity:
+
+| Line/action | Cost | Why |
+|---|---|---|
+| Allocate `tree` and `lazy` | O(N) | Arrays have length `4N` |
+| `build` leaf assignment | O(1) each | Happens for N leaves |
+| Compute `mid` | O(1) each | Happens for internal nodes |
+| Combine children | O(1) each | Happens for internal nodes |
+| Total | O(N) | Leaves + internal nodes are O(N) |
+
+## Range query
+
+```java
+    long query(int ql, int qr) {
+        return query(1, 0, n - 1, ql, qr); // O(log N)
+    }
+
+    private long query(int node, int l, int r, int ql, int qr) {
+        if (qr < l || r < ql) return 0;    // No overlap: O(1)
+        if (ql <= l && r <= qr) return tree[node]; // Full overlap: O(1)
+
+        push(node, l, r);                  // O(1)
+        int mid = l + (r - l) / 2;         // O(1)
+        long left = query(node * 2, l, mid, ql, qr);
+        long right = query(node * 2 + 1, mid + 1, r, ql, qr);
+        return left + right;               // O(1)
+    }
+```
+
+Why **O(log N)**? A range query can split at boundaries, but it does not visit every node. At each tree level, only a small constant number of boundary nodes need deeper recursion; fully covered middle ranges return immediately.
+
+```text
+levels: O(log N)
+work per level: O(1) to O(constant)
+total: O(log N)
+```
+
+## Point update
+
+```java
+    void update(int index, int value) {
+        update(1, 0, n - 1, index, value); // O(log N)
+    }
+
+    private void update(int node, int l, int r, int index, int value) {
+        if (l == r) {                      // Leaf for index
+            tree[node] = value;            // O(1)
+            lazy[node] = 0;                // O(1)
+            return;
+        }
+        push(node, l, r);                  // O(1)
+        int mid = l + (r - l) / 2;         // O(1)
+        if (index <= mid) {
+            update(node * 2, l, mid, index, value);
+        } else {
+            update(node * 2 + 1, mid + 1, r, index, value);
+        }
+        tree[node] = tree[node * 2] + tree[node * 2 + 1]; // O(1)
+    }
+```
+
+Only one child is followed at each level, so point update is:
+
+```text
+height * O(1) = O(log N)
+```
+
+## Lazy range add
+
+Lazy propagation stores pending updates on large covered segments and pushes them only when needed.
+
+```java
+    void add(int ql, int qr, long delta) {
+        add(1, 0, n - 1, ql, qr, delta);   // O(log N)
+    }
+
+    private void add(int node, int l, int r, int ql, int qr, long delta) {
+        if (qr < l || r < ql) return;      // No overlap: O(1)
+        if (ql <= l && r <= qr) {          // Full overlap
+            apply(node, l, r, delta);      // O(1)
+            return;
+        }
+        push(node, l, r);                  // O(1)
+        int mid = l + (r - l) / 2;         // O(1)
+        add(node * 2, l, mid, ql, qr, delta);
+        add(node * 2 + 1, mid + 1, r, ql, qr, delta);
+        tree[node] = tree[node * 2] + tree[node * 2 + 1]; // O(1)
+    }
+
+    private void apply(int node, int l, int r, long delta) {
+        tree[node] += delta * (r - l + 1); // O(1)
+        lazy[node] += delta;               // O(1)
+    }
+
+    private void push(int node, int l, int r) {
+        if (lazy[node] == 0 || l == r) return; // O(1)
+        int mid = l + (r - l) / 2;             // O(1)
+        apply(node * 2, l, mid, lazy[node]);   // O(1)
+        apply(node * 2 + 1, mid + 1, r, lazy[node]); // O(1)
+        lazy[node] = 0;                        // O(1)
+    }
+}
+```
+
+Without lazy propagation, updating every element in a range can cost O(N). With lazy propagation, full-cover segments are marked in O(1), so the range update follows the same segment decomposition as query: **O(log N)**.
+
+## Interview checkpoints
+
+| Question | Answer |
+|---|---|
+| Is build O(N log N)? | No. Each tree node is built once, so O(N). |
+| Why query O(log N)? | It visits only boundary paths plus fully covered nodes. |
+| Why 4N space? | It safely covers the implicit array layout for non-power-of-two N. |
+| What is recursive stack space? | O(log N) for balanced segment tree height. |
+| When use Fenwick instead? | When the operation is prefix-friendly and implementation simplicity matters. |
+
+## Related links
+
+- [Fenwick Tree Complexity](/complexity/fenwick-tree-complexity)
+- [How Big-O Is Calculated](/complexity/how-big-o-is-calculated)

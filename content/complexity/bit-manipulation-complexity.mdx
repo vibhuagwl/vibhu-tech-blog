@@ -1,0 +1,234 @@
+---
+slug: bit-manipulation-complexity
+title: "Bit Manipulation Complexity"
+description: "Complexity of common bit operations in Java, including set, clear, toggle, check, count bits, power of two, and XOR tricks."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Bit Manipulation, Java, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-11"
+---
+
+## Machine word assumption
+
+In Java, `int` has 32 bits and `long` has 64 bits. Operations such as `&`, `|`, `^`, `~`, `<<`, and `>>` on one primitive value are treated as **O(1)**.
+
+For arbitrary-length integers or loops over all bits of a large number, complexity depends on the number of bits.
+
+| Symbol | Meaning |
+|---|---|
+| `B` | Number of bits in the value |
+| `N` | Numeric value |
+| `B = floor(log2 N) + 1` | Bits needed to represent positive N |
+
+So a loop that repeatedly shifts until zero is **O(B)**, which is also **O(log N)** for numeric value `N`.
+
+## Summary table
+
+| Operation | Java expression | Time | Derivation |
+|---|---|---|---|
+| Set bit k | `x | (1 << k)` | O(1) | One shift and one OR on fixed-width int |
+| Clear bit k | `x & ~(1 << k)` | O(1) | One shift, NOT, and AND |
+| Toggle bit k | `x ^ (1 << k)` | O(1) | One shift and XOR |
+| Check bit k | `(x & (1 << k)) != 0` | O(1) | One shift and AND |
+| Count bits fixed int | `Integer.bitCount(x)` | O(1) | JVM intrinsic/fixed 32-bit width |
+| Count bits by loop | Shift or `x &= x - 1` | O(B) | Iterates over bits or set bits |
+| Power of two | `x > 0 && (x & (x - 1)) == 0` | O(1) | Constant primitive operations |
+| XOR single missing | Accumulate XOR | O(N) | One XOR per array element |
+
+## Set, clear, toggle, check
+
+Bit positions are zero-based from the right.
+
+```text
+x = 00101000
+k = 3
+mask = 00001000
+```
+
+Java:
+
+```java
+static int setBit(int x, int k) {
+    return x | (1 << k);                  // O(1)
+}
+
+static int clearBit(int x, int k) {
+    return x & ~(1 << k);                 // O(1)
+}
+
+static int toggleBit(int x, int k) {
+    return x ^ (1 << k);                  // O(1)
+}
+
+static boolean isBitSet(int x, int k) {
+    return (x & (1 << k)) != 0;           // O(1)
+}
+```
+
+Derivation:
+
+```text
+fixed-width shift: O(1)
+fixed-width bitwise operation: O(1)
+constant number of operations: O(1)
+```
+
+For `long`, use `1L << k` so the shift is performed on 64 bits.
+
+## Power of two
+
+A positive power of two has exactly one set bit.
+
+```text
+8      = 1000
+8 - 1  = 0111
+8 & 7  = 0000
+```
+
+Java:
+
+```java
+static boolean isPowerOfTwo(int x) {
+    return x > 0 && (x & (x - 1)) == 0;   // O(1)
+}
+```
+
+Derivation:
+
+```text
+comparison: O(1)
+subtraction: O(1)
+AND: O(1)
+equality check: O(1)
+total: O(1)
+```
+
+The `x > 0` guard matters because zero also satisfies `(0 & -1) == 0`, but zero is not a power of two.
+
+## Counting bits
+
+### Fixed primitive count
+
+```java
+static int countBitsFast(int x) {
+    return Integer.bitCount(x);           // O(1) for 32-bit int
+}
+```
+
+Because `int` width is fixed, the operation is treated as **O(1)**.
+
+### Shift loop
+
+```java
+static int countBitsByShift(int x) {
+    int count = 0;
+    while (x != 0) {                      // O(B)
+        count += x & 1;                   // O(1)
+        x >>>= 1;                         // O(1)
+    }
+    return count;
+}
+```
+
+Derivation:
+
+```text
+one iteration per bit position until zero
+B bit positions
+time = O(B) = O(log N) for positive numeric N
+space = O(1)
+```
+
+### Brian Kernighan loop
+
+```java
+static int countSetBits(int x) {
+    int count = 0;
+    while (x != 0) {                      // Runs once per set bit
+        x &= x - 1;                       // Clears lowest set bit
+        count++;
+    }
+    return count;
+}
+```
+
+If `S` is the number of set bits, time is **O(S)**. Since `S <= B`, this is also **O(B)** and **O(log N)** for variable-size values.
+
+## XOR properties
+
+XOR is useful because:
+
+```text
+a ^ a = 0
+a ^ 0 = a
+a ^ b = b ^ a
+```
+
+Example: one number appears once and every other number appears twice.
+
+```java
+static int singleNumber(int[] nums) {
+    int ans = 0;                          // O(1)
+    for (int x : nums) {                  // O(N)
+        ans ^= x;                         // O(1)
+    }
+    return ans;                           // O(1)
+}
+```
+
+Derivation:
+
+```text
+N array elements
+one O(1) XOR per element
+time = O(N)
+space = O(1)
+```
+
+## Bit masks for subsets
+
+For `n` items, there are `2^n` subsets.
+
+```java
+static List<List<Integer>> subsets(int[] a) {
+    int n = a.length;
+    List<List<Integer>> out = new ArrayList<>();
+
+    for (int mask = 0; mask < (1 << n); mask++) {   // 2^N masks
+        List<Integer> subset = new ArrayList<>();
+        for (int i = 0; i < n; i++) {               // N bit checks per mask
+            if ((mask & (1 << i)) != 0) {
+                subset.add(a[i]);
+            }
+        }
+        out.add(subset);
+    }
+    return out;
+}
+```
+
+Derivation:
+
+```text
+number of masks: 2^N
+work per mask: N checks
+time: O(N * 2^N)
+output space: O(N * 2^N) in the worst case
+```
+
+## O(1) vs O(log N)
+
+| Situation | Complexity | Why |
+|---|---|---|
+| One operation on `int` or `long` | O(1) | Width is fixed at 32 or 64 bits |
+| Loop over all bits of primitive | O(1) formally for fixed width, often described as O(B) conceptually | B is capped at 32 or 64 |
+| Loop over bits of arbitrary-size integer | O(B) | Number of machine words grows |
+| Numeric analysis in terms of value N | O(log N) | Positive N needs about log2 N bits |
+
+In interviews, be explicit about the model. For Java primitive `int`, bit operations are **O(1)**. For an algorithm that loops through the binary representation of an input value, derive **O(number of bits) = O(log N)**.
+
+## Related links
+
+- [Fenwick Tree Complexity](/complexity/fenwick-tree-complexity)
+- [How Big-O Is Calculated](/complexity/how-big-o-is-calculated)

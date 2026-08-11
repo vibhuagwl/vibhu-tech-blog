@@ -1,0 +1,254 @@
+---
+slug: graph-algorithms-complexity
+title: "Graph Algorithms Complexity"
+description: "Time and space complexity for core graph algorithms, with derivations for V, E, heaps, and traversal costs."
+category: Complexity
+difficulty: Advanced
+tags: [Complexity, Big-O, Graphs, BFS, DFS, Dijkstra, Java]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## Variables
+
+Use graph-specific input sizes instead of forcing everything into `N`.
+
+| Symbol | Meaning |
+|---|---|
+| `V` | Number of vertices |
+| `E` | Number of edges |
+| `deg(v)` | Number of outgoing neighbors of vertex `v` |
+| `log V` | Height of a binary heap that can hold up to `V` vertices |
+
+For adjacency lists, scanning all neighbor lists costs:
+
+```text
+deg(0) + deg(1) + ... + deg(V - 1) = E
+```
+
+For undirected graphs, every edge appears twice in adjacency lists, so the scan is `2E`, which still simplifies to **O(E)**.
+
+## Summary table
+
+| Algorithm | Input assumption | Time | Extra space | Derivation |
+|---|---|---|---|---|
+| BFS | Unweighted graph, adjacency list | O(V + E) | O(V) | Enqueue each vertex once, scan each adjacency entry once |
+| DFS | Adjacency list | O(V + E) | O(V) | Visit each vertex once, scan each adjacency entry once |
+| Dijkstra, binary heap | Non-negative weights | O((V + E) log V) | O(V + E) | Heap operations cost O(log V); up to V pops and E relax pushes |
+| Dijkstra, Fibonacci heap | Non-negative weights | O(E + V log V) amortized | O(V + E) | Decrease-key is O(1) amortized; extract-min is O(log V) |
+| Bellman-Ford | Negative edges allowed, no negative cycle for shortest path | O(VE) | O(V) | Relax all E edges for V - 1 rounds |
+| Floyd-Warshall | All-pairs shortest path | O(V^3) | O(V^2) | Three nested loops over vertices |
+| Topological sort, Kahn | Directed acyclic graph | O(V + E) | O(V) | Process each vertex once and decrement each edge once |
+| Kruskal MST | Undirected weighted graph | O(E log E) | O(V + E) | Sort edges, then near-constant DSU operations |
+| Prim MST, binary heap | Undirected weighted graph | O((V + E) log V) | O(V + E) | Similar heap accounting to Dijkstra |
+
+## BFS complexity
+
+BFS expands the graph in layers.
+
+```text
+source
+  |
+distance 1
+  |
+distance 2
+```
+
+With an adjacency list:
+
+1. Each vertex becomes visited at most once.
+2. Each visited vertex enters the queue once.
+3. Each adjacency list is scanned once.
+
+That gives:
+
+```text
+vertex work + edge scan = V + E
+```
+
+So BFS is **O(V + E)** time and **O(V)** extra space for `visited`, `dist`, and the queue.
+
+```java
+static int[] bfs(List<List<Integer>> graph, int source) {
+    int n = graph.size();                 // O(1)
+    int[] dist = new int[n];              // O(V) space, O(V) init
+    Arrays.fill(dist, -1);                // O(V)
+    ArrayDeque<Integer> q = new ArrayDeque<>();
+    dist[source] = 0;                     // O(1)
+    q.add(source);                        // O(1)
+
+    while (!q.isEmpty()) {                // Runs once per reached vertex: O(V)
+        int u = q.remove();               // O(1)
+        for (int v : graph.get(u)) {      // Total over all loops: O(E)
+            if (dist[v] == -1) {          // O(1)
+                dist[v] = dist[u] + 1;    // O(1)
+                q.add(v);                 // O(1)
+            }
+        }
+    }
+    return dist;
+}
+```
+
+Total: `O(V)` initialization + `O(V)` queue removals + `O(E)` neighbor checks = **O(V + E)**.
+
+## DFS complexity
+
+DFS has the same asymptotic bound as BFS for adjacency lists.
+
+```java
+static void dfs(int u, List<List<Integer>> graph, boolean[] seen) {
+    seen[u] = true;                       // O(1)
+    for (int v : graph.get(u)) {          // Total over all calls: O(E)
+        if (!seen[v]) {                   // O(1)
+            dfs(v, graph, seen);          // One first-time call per vertex
+        }
+    }
+}
+```
+
+Each vertex is entered once and every adjacency entry is inspected once. Time is **O(V + E)**. Recursive space is **O(V)** in the worst case because the call stack can become a chain of all vertices.
+
+## Dijkstra with a binary heap
+
+Dijkstra repeatedly chooses the unsettled vertex with smallest known distance.
+
+```text
+priority queue height with V items ~= log2(V)
+insert / poll / decrease-like push ~= O(log V)
+```
+
+Java's `PriorityQueue` does not have an efficient decrease-key operation, so common interview code inserts a new pair when a better distance is found and skips stale entries.
+
+```java
+record Edge(int to, int weight) {}
+record State(int node, long dist) {}
+
+static long[] dijkstra(List<List<Edge>> graph, int source) {
+    int n = graph.size();
+    long[] dist = new long[n];                            // O(V)
+    Arrays.fill(dist, Long.MAX_VALUE / 4);                // O(V)
+    PriorityQueue<State> pq = new PriorityQueue<>(
+        Comparator.comparingLong(State::dist)
+    );
+
+    dist[source] = 0;
+    pq.add(new State(source, 0));                         // O(log V)
+
+    while (!pq.isEmpty()) {                               // Up to O(E) states
+        State cur = pq.poll();                            // O(log V)
+        if (cur.dist() != dist[cur.node()]) continue;     // O(1)
+
+        for (Edge e : graph.get(cur.node())) {            // Total O(E)
+            long nd = cur.dist() + e.weight();            // O(1)
+            if (nd < dist[e.to()]) {                      // O(1)
+                dist[e.to()] = nd;                        // O(1)
+                pq.add(new State(e.to(), nd));            // O(log V)
+            }
+        }
+    }
+    return dist;
+}
+```
+
+Derivation:
+
+```text
+V useful polls * log V
++ up to E successful relax pushes * log V
++ E edge inspections
+= O((V + E) log V)
+```
+
+The `log V` comes from binary heap height. A heap with up to about `V` active vertices has levels `1, 2, 4, 8, ...`, so after `k` levels it holds about `2^k` items and `k = log2(V)`.
+
+Fibonacci heaps improve the theoretical bound to **O(E + V log V)** because decrease-key becomes O(1) amortized, but they are rarely used in Java interviews or production code due to implementation complexity and constants.
+
+## Bellman-Ford
+
+Bellman-Ford relaxes every edge repeatedly.
+
+```text
+repeat V - 1 times:
+  for every edge (u, v, w):
+    relax u -> v
+```
+
+After one round, all shortest paths using at most one edge are correct. After two rounds, paths using at most two edges are correct. A simple shortest path has at most `V - 1` edges, so `V - 1` rounds are enough.
+
+Time:
+
+```text
+(V - 1) rounds * E edges per round = O(VE)
+```
+
+Extra space is **O(V)** for distances, or **O(V + E)** if you count the stored edge list.
+
+## Floyd-Warshall
+
+Floyd-Warshall computes all-pairs shortest paths.
+
+```java
+for (int k = 0; k < n; k++) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            dist[i][j] = Math.min(dist[i][j], dist[i][k] + dist[k][j]);
+        }
+    }
+}
+```
+
+The three loops each run `V` times:
+
+```text
+V * V * V = V^3
+```
+
+Time is **O(V^3)** and the distance matrix is **O(V^2)** space.
+
+## Topological sort with Kahn's algorithm
+
+Kahn's algorithm stores indegrees, starts from zero-indegree vertices, and removes outgoing edges.
+
+Derivation:
+
+```text
+compute indegree: scan E edges -> O(E)
+queue each vertex at most once -> O(V)
+decrement each edge once -> O(E)
+total -> O(V + E)
+```
+
+Space is **O(V)** for indegree and queue, plus the graph representation.
+
+## Minimum spanning tree
+
+### Kruskal
+
+Kruskal sorts edges and uses union-find.
+
+```text
+sort E edges: O(E log E)
+for each edge: union/find near O(1), formally O(alpha(V))
+total: O(E log E)
+```
+
+Since `E <= V^2`, `log E <= 2 log V`, so you may also see **O(E log V)**.
+
+### Prim
+
+Prim grows one tree from a start vertex. With an adjacency list and binary heap:
+
+```text
+each edge can cause a heap push: E * log V
+each vertex is accepted once: V * log V
+total: O((V + E) log V)
+```
+
+Space is **O(V + E)** for graph storage plus heap and visited arrays.
+
+## Interview links
+
+- [Union-Find Complexity](/complexity/union-find-complexity)
+- [Data Structures Time and Space Complexity](/complexity/data-structures-time-space-complexity)
+- [How Big-O Is Calculated](/complexity/how-big-o-is-calculated)

@@ -1,0 +1,219 @@
+---
+slug: monotonic-stack-complexity
+title: "Monotonic Stack Complexity"
+description: "Next greater, next smaller, previous greater, previous smaller, and histogram complexity with the push-once pop-once proof."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Monotonic Stack, Arrays, Stack, Java]
+readingTime: 13 min
+publishedAt: "2026-08-11"
+---
+
+## What a monotonic stack keeps
+
+A monotonic stack stores candidates in sorted order by value.
+
+```text
+decreasing stack values:
+bottom [9, 7, 5, 3] top
+```
+
+When a new value breaks the order, old candidates are popped because the new value answers their question or makes them useless.
+
+## Summary table
+
+| Problem | Stack order | Time | Space | Derivation |
+|---|---|---|---|---|
+| Next Greater Element (NGE) | Decreasing | O(N) | O(N) | Each index pushed once and popped once |
+| Next Smaller Element (NSE) | Increasing | O(N) | O(N) | Each index pushed once and popped once |
+| Previous Greater Element (PGE) | Decreasing after cleanup | O(N) | O(N) | Pop smaller/equal candidates, top is previous greater |
+| Previous Smaller Element (PSE) | Increasing after cleanup | O(N) | O(N) | Pop larger/equal candidates, top is previous smaller |
+| Largest rectangle in histogram | Increasing heights | O(N) | O(N) | Each bar pushed once and popped once |
+
+## The key proof
+
+The code often has a `while` loop inside a `for` loop:
+
+```text
+for each element:
+  while stack not valid:
+    pop
+  push current
+```
+
+This is still **O(N)** because a value cannot be popped unless it was previously pushed.
+
+```text
+push count <= N
+pop count <= N
+total stack operations <= 2N
+2N -> O(N)
+```
+
+The inner loop may pop many items in one iteration, but those items disappear forever.
+
+## Next Greater Element
+
+For each index, find the first value to its right that is greater.
+
+Example:
+
+```text
+array:  [2, 1, 2, 4, 3]
+NGE:    [4, 2, 4, -1, -1]
+```
+
+Java:
+
+```java
+static int[] nextGreater(int[] a) {
+    int n = a.length;
+    int[] ans = new int[n];               // O(N) space
+    Arrays.fill(ans, -1);                 // O(N)
+    ArrayDeque<Integer> stack = new ArrayDeque<>(); // Stores indices
+
+    for (int i = 0; i < n; i++) {         // O(N) iterations
+        while (!stack.isEmpty() && a[i] > a[stack.peek()]) {
+            int idx = stack.pop();        // Each index popped once total
+            ans[idx] = a[i];              // O(1)
+        }
+        stack.push(i);                    // Each index pushed once
+    }
+    return ans;
+}
+```
+
+Derivation:
+
+```text
+for loop iterations: N
+total pushes: N
+total pops: <= N
+all other work: O(1) per push/pop
+time: O(N)
+space: O(N)
+```
+
+## Next Smaller Element
+
+Change the comparison direction.
+
+```java
+static int[] nextSmaller(int[] a) {
+    int n = a.length;
+    int[] ans = new int[n];
+    Arrays.fill(ans, -1);
+    ArrayDeque<Integer> stack = new ArrayDeque<>();
+
+    for (int i = 0; i < n; i++) {
+        while (!stack.isEmpty() && a[i] < a[stack.peek()]) {
+            ans[stack.pop()] = a[i];
+        }
+        stack.push(i);
+    }
+    return ans;
+}
+```
+
+Same proof:
+
+```text
+N pushes + at most N pops = O(N)
+```
+
+## Previous greater and previous smaller
+
+For previous greater, process left to right. Before answering, remove values that cannot be previous greater.
+
+```java
+static int[] previousGreater(int[] a) {
+    int n = a.length;
+    int[] ans = new int[n];
+    Arrays.fill(ans, -1);
+    ArrayDeque<Integer> stack = new ArrayDeque<>();
+
+    for (int i = 0; i < n; i++) {
+        while (!stack.isEmpty() && a[stack.peek()] <= a[i]) {
+            stack.pop();                  // Popped once total
+        }
+        if (!stack.isEmpty()) {
+            ans[i] = a[stack.peek()];     // Top is nearest greater on left
+        }
+        stack.push(i);                    // Pushed once
+    }
+    return ans;
+}
+```
+
+Previous smaller is symmetrical: pop while `a[stack.peek()] >= a[i]`.
+
+## Largest rectangle in histogram
+
+Histogram uses a monotonic increasing stack of bar indices.
+
+When a shorter bar arrives, it finalizes rectangles whose height is taller than the current bar.
+
+```text
+heights: [2, 1, 5, 6, 2, 3]
+stack keeps increasing heights by index
+```
+
+Complexity derivation:
+
+```text
+each bar index is pushed once
+each bar index is popped once when its right boundary is known
+sentinel zero height flushes remaining bars
+total = O(N)
+space = O(N)
+```
+
+Java:
+
+```java
+static int largestRectangleArea(int[] heights) {
+    ArrayDeque<Integer> stack = new ArrayDeque<>();
+    int best = 0;
+
+    for (int i = 0; i <= heights.length; i++) {      // N + 1 with sentinel
+        int h = i == heights.length ? 0 : heights[i];
+        while (!stack.isEmpty() && h < heights[stack.peek()]) {
+            int height = heights[stack.pop()];       // Each bar popped once
+            int leftLess = stack.isEmpty() ? -1 : stack.peek();
+            int width = i - leftLess - 1;
+            best = Math.max(best, height * width);
+        }
+        stack.push(i);                               // Each index pushed once
+    }
+    return best;
+}
+```
+
+The sentinel index is one extra item, so `N + 1` still simplifies to **O(N)**.
+
+## Equal values matter
+
+Use strict or non-strict comparisons based on the problem.
+
+| Goal | Common pop condition |
+|---|---|
+| Next strictly greater | `a[i] > a[stack.peek()]` |
+| Next greater or equal | `a[i] >= a[stack.peek()]` |
+| Previous strictly greater | `a[stack.peek()] <= a[i]` |
+| Previous smaller | `a[stack.peek()] >= a[i]` |
+
+This affects correctness, not the asymptotic proof. Push once and pop once still gives **O(N)**.
+
+## Interview checkpoints
+
+| Question | Answer |
+|---|---|
+| Why not O(N^2)? | Total pops across all inner loops are at most N |
+| Space complexity? | O(N) worst case when the stack is fully monotonic |
+| What is stored? | Usually indices, not values, so distances and answers are easy |
+| Histogram time? | O(N) using the same push-once pop-once proof |
+
+## Related links
+
+- [Sliding Window Complexity](/complexity/sliding-window-complexity)
+- [Two Pointers Complexity](/complexity/two-pointers-complexity)

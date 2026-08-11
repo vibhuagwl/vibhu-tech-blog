@@ -1,0 +1,187 @@
+---
+slug: fenwick-tree-complexity
+title: "Fenwick Tree Complexity"
+description: "Fenwick tree update, prefix query, and range query complexity explained through the lowbit operation."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Fenwick Tree, Binary Indexed Tree, Java]
+readingTime: 13 min
+publishedAt: "2026-08-11"
+---
+
+## What a Fenwick tree solves
+
+A Fenwick tree, also called a Binary Indexed Tree, maintains prefix aggregates with:
+
+| Operation | Time | Space |
+|---|---|---|
+| Point update | O(log N) | O(N) |
+| Prefix query | O(log N) | O(N) |
+| Range query `[l, r]` | O(log N) | O(N) |
+| Build by N updates | O(N log N) | O(N) |
+| Linear build | O(N) | O(N) |
+
+The most common interview version is for sums.
+
+## The key operation: lowbit
+
+Fenwick trees use one-based indices.
+
+```text
+lowbit(i) = i & -i
+```
+
+`lowbit(i)` extracts the value of the least significant set bit.
+
+| i | binary | i & -i | Covered length |
+|---|---|---|---|
+| 1 | 0001 | 1 | 1 |
+| 2 | 0010 | 2 | 2 |
+| 3 | 0011 | 1 | 1 |
+| 4 | 0100 | 4 | 4 |
+| 6 | 0110 | 2 | 2 |
+| 8 | 1000 | 8 | 8 |
+
+Tree entry `bit[i]` stores a range ending at `i`:
+
+```text
+bit[i] covers [i - lowbit(i) + 1, i]
+```
+
+Example:
+
+```text
+bit[8] covers [1,8]
+bit[6] covers [5,6]
+bit[5] covers [5,5]
+```
+
+## Why update is O(log N)
+
+Point update at index `i` adds `delta` to all Fenwick buckets that include `i`.
+
+```text
+while i <= N:
+  bit[i] += delta
+  i += i & -i
+```
+
+The index jumps to the next responsible bucket. Each jump changes at least one binary bit toward the left side of the number. There are only **O(log N)** bit positions in numbers up to `N`, so there are **O(log N)** jumps.
+
+## Why prefix query is O(log N)
+
+Prefix query consumes disjoint buckets that exactly cover `[1, i]`.
+
+```text
+while i > 0:
+  sum += bit[i]
+  i -= i & -i
+```
+
+Each subtraction removes the last set bit of `i`. A number up to `N` has at most `floor(log2 N) + 1` bits, so the loop runs **O(log N)** times.
+
+## Java 17 Binary Indexed Tree
+
+```java
+final class FenwickTree {
+    private final int n;
+    private final long[] bit;
+
+    FenwickTree(int n) {
+        this.n = n;                       // O(1)
+        this.bit = new long[n + 1];       // O(N) space
+    }
+
+    FenwickTree(int[] values) {
+        this(values.length);              // O(N) allocation
+        for (int i = 0; i < values.length; i++) {
+            add(i, values[i]);            // O(log N) each
+        }
+    }
+
+    void add(int zeroBasedIndex, long delta) {
+        int i = zeroBasedIndex + 1;       // O(1), convert to one-based
+        while (i <= n) {                  // O(log N) iterations
+            bit[i] += delta;              // O(1)
+            i += i & -i;                  // O(1), jump to parent bucket
+        }
+    }
+
+    long prefixSum(int zeroBasedIndex) {
+        long sum = 0;                     // O(1)
+        int i = zeroBasedIndex + 1;       // O(1)
+        while (i > 0) {                   // O(log N) iterations
+            sum += bit[i];                // O(1)
+            i -= i & -i;                  // O(1), remove last set bit
+        }
+        return sum;                       // O(1)
+    }
+
+    long rangeSum(int left, int right) {
+        if (left > right) return 0;       // O(1)
+        long before = left == 0 ? 0 : prefixSum(left - 1);
+        return prefixSum(right) - before; // Two prefix queries: O(log N)
+    }
+}
+```
+
+Derivation:
+
+```text
+add: at most number of bit positions -> O(log N)
+prefixSum: at most number of set-bit removals -> O(log N)
+rangeSum: prefix(right) - prefix(left - 1) -> 2 * O(log N) -> O(log N)
+space: bit[1..N] -> O(N)
+```
+
+## Linear build
+
+If all values are known up front, Fenwick can be built in **O(N)**:
+
+```java
+static FenwickTree buildLinear(int[] values) {
+    FenwickTree ft = new FenwickTree(values.length);
+    for (int i = 1; i <= values.length; i++) {
+        ft.bit[i] += values[i - 1];       // O(1)
+        int parent = i + (i & -i);        // O(1)
+        if (parent <= values.length) {
+            ft.bit[parent] += ft.bit[i];  // O(1)
+        }
+    }
+    return ft;
+}
+```
+
+Every index pushes its accumulated value to one parent at most once:
+
+```text
+N iterations * O(1) work = O(N)
+```
+
+## Fenwick vs segment tree
+
+| Need | Fenwick tree | Segment tree |
+|---|---|---|
+| Point update + prefix/range sum | Excellent, O(log N) | Also O(log N) |
+| Range min with arbitrary updates | Not natural | Common |
+| Range add + range query | Possible with two BITs | Direct with lazy propagation |
+| Code size | Short | Larger |
+| Space | O(N) | O(N), often 4N array |
+| Operation requirement | Needs invertible prefix operation for range query | More general associative operations |
+
+Fenwick is usually the first choice for sums and frequency counts. Segment trees are better when the operation or update type is more complex.
+
+## Common mistakes
+
+| Mistake | Fix |
+|---|---|
+| Using zero-based index inside `i & -i` loop | Convert to one-based first |
+| Saying update is O(1) because one array cell changes | Update touches several ancestor buckets |
+| Saying range sum is O(2 log N) | Simplify constants: O(log N) |
+| Forgetting space | The `bit` array has N + 1 entries, so O(N) |
+
+## Related links
+
+- [Segment Tree Complexity](/complexity/segment-tree-complexity)
+- [Bit Manipulation Complexity](/complexity/bit-manipulation-complexity)
+- [How Big-O Is Calculated](/complexity/how-big-o-is-calculated)

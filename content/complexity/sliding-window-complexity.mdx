@@ -1,0 +1,227 @@
+---
+slug: sliding-window-complexity
+title: "Sliding Window Complexity"
+description: "Fixed and variable sliding window complexity, including why nested-looking loops are often O(N)."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Sliding Window, Arrays, Strings, Java]
+readingTime: 14 min
+publishedAt: "2026-08-11"
+---
+
+## What sliding window means
+
+A sliding window keeps a contiguous range:
+
+```text
+array:  [a b c d e f]
+         L     R
+window: [b c d]
+```
+
+Instead of recomputing the answer for every subarray from scratch, the algorithm updates state when the right edge enters a value and the left edge removes a value.
+
+## Summary table
+
+| Pattern | Time | Space | Derivation |
+|---|---|---|---|
+| Fixed size window | O(N) | O(1) or O(K) | Add one item and remove one item per shift |
+| Variable size window | O(N) | O(1) or O(alphabet/distinct) | `right` moves N times, `left` moves at most N times |
+| Brute force subarrays | O(N^2) or O(N^3) | Depends | Try many starts and ends, often recompute |
+
+## Fixed-size window
+
+Example: maximum sum of any subarray of length `k`.
+
+Naive:
+
+```text
+for each start:
+  sum k elements
+
+(N - K + 1) starts * K work = O(NK)
+```
+
+Sliding:
+
+```text
+sum first K elements
+for each next position:
+  add entering element
+  remove leaving element
+```
+
+Java:
+
+```java
+static long maxSumFixedWindow(int[] a, int k) {
+    if (k <= 0 || k > a.length) {
+        throw new IllegalArgumentException();
+    }
+
+    long sum = 0;                         // O(1)
+    for (int i = 0; i < k; i++) {         // O(K)
+        sum += a[i];                      // O(1)
+    }
+
+    long best = sum;                      // O(1)
+    for (int right = k; right < a.length; right++) { // O(N - K)
+        sum += a[right];                  // O(1), enter right
+        sum -= a[right - k];              // O(1), leave left
+        best = Math.max(best, sum);       // O(1)
+    }
+    return best;                          // O(1)
+}
+```
+
+Derivation:
+
+```text
+first window: O(K)
+remaining shifts: O(N - K)
+total: O(K + N - K) = O(N)
+space: O(1)
+```
+
+## Variable-size window
+
+Example: longest substring with at most `k` distinct characters.
+
+```text
+expand right while possible
+shrink left while invalid
+update answer when valid
+```
+
+Java:
+
+```java
+static int longestAtMostKDistinct(String s, int k) {
+    if (k == 0) return 0;                 // O(1)
+
+    Map<Character, Integer> freq = new HashMap<>(); // O(distinct) space
+    int left = 0;                         // O(1)
+    int best = 0;                         // O(1)
+
+    for (int right = 0; right < s.length(); right++) { // right moves N times
+        char in = s.charAt(right);        // O(1)
+        freq.merge(in, 1, Integer::sum);  // O(1) average
+
+        while (freq.size() > k) {         // left moves at most N times total
+            char out = s.charAt(left++);  // O(1)
+            int next = freq.get(out) - 1; // O(1) average
+            if (next == 0) {
+                freq.remove(out);         // O(1) average
+            } else {
+                freq.put(out, next);      // O(1) average
+            }
+        }
+
+        best = Math.max(best, right - left + 1); // O(1)
+    }
+    return best;                          // O(1)
+}
+```
+
+## Why the nested-looking loops are O(N)
+
+This is the critical interview point.
+
+The inner `while` is inside the outer `for`, but it does not restart from zero. The `left` pointer only moves forward.
+
+```text
+right: 0 -> 1 -> 2 -> ... -> N - 1   at most N increments
+left:  0 -> 1 -> 2 -> ... -> N       at most N increments
+```
+
+Total pointer moves:
+
+```text
+right moves <= N
+left moves <= N
+combined moves <= 2N
+2N simplifies to O(N)
+```
+
+So the variable-size sliding window is **O(N)** when:
+
+1. Both pointers only move forward.
+2. Each add/remove operation is O(1) or O(1) average.
+3. The inner loop advances `left`, not an independent pointer that restarts.
+
+## Counterexample: not every nested loop is sliding window
+
+This is not O(N):
+
+```java
+for (int right = 0; right < n; right++) {
+    for (int left = 0; left <= right; left++) {
+        work();
+    }
+}
+```
+
+Derivation:
+
+```text
+1 + 2 + ... + N = N(N + 1) / 2 = O(N^2)
+```
+
+The difference is that `left` restarts for every `right`.
+
+## Common fixed-window problems
+
+| Problem | Window state | Complexity |
+|---|---|---|
+| Max sum length K | Running sum | O(N) time, O(1) space |
+| Average length K | Running sum | O(N) time, O(1) space |
+| Anagram count | Frequency array of 26 or 128 | O(N) time, O(1) fixed alphabet |
+| Max vowels length K | Running count | O(N) time, O(1) space |
+
+## Common variable-window problems
+
+| Problem | Window condition | Complexity |
+|---|---|---|
+| Longest substring without repeats | Character count <= 1 | O(N) |
+| At most K distinct | Distinct count <= K | O(N) average with hash map |
+| Minimum size subarray sum | Sum >= target then shrink | O(N) for positive numbers |
+| Longest ones after K flips | Zero count <= K | O(N) |
+
+## Minimum window style
+
+Some sliding-window problems ask for the shortest valid window.
+
+```java
+static int minLengthAtLeastTarget(int[] a, int target) {
+    int left = 0;
+    int sum = 0;
+    int best = Integer.MAX_VALUE;
+
+    for (int right = 0; right < a.length; right++) { // O(N)
+        sum += a[right];                             // O(1)
+        while (sum >= target) {                      // left total O(N)
+            best = Math.min(best, right - left + 1); // O(1)
+            sum -= a[left++];                        // O(1)
+        }
+    }
+    return best == Integer.MAX_VALUE ? 0 : best;
+}
+```
+
+This derivation assumes all numbers are positive. With negative numbers, shrinking is not monotonic, so this exact window proof does not apply.
+
+## Interview checklist
+
+| Say this | Because |
+|---|---|
+| Define the window invariant | It explains when you expand and shrink |
+| Count pointer moves | It proves O(N) despite nested loops |
+| Mention map cost | HashMap gives O(1) average, not guaranteed worst case |
+| State space | Frequency arrays/maps are often O(alphabet) or O(K) |
+| Mention monotonicity | Some variable windows require positive numbers or monotonic validity |
+
+## Related links
+
+- [Two Pointers Complexity](/complexity/two-pointers-complexity)
+- [Monotonic Stack Complexity](/complexity/monotonic-stack-complexity)
+- [String Algorithms Complexity](/complexity/string-algorithms-complexity)

@@ -1,0 +1,197 @@
+---
+slug: trie-complexity
+title: "Trie Complexity"
+description: "Trie insert, search, startsWith, and delete complexity explained by word length rather than number of stored words."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Trie, Strings, Java]
+readingTime: 13 min
+publishedAt: "2026-08-11"
+---
+
+## What a trie optimizes
+
+A trie stores strings by sharing prefixes.
+
+```text
+words: car, card, care, cat
+
+root
+ |
+ c
+ |
+ a
+ |\
+ r t
+ |\
+ d e
+```
+
+The key complexity variable is:
+
+| Symbol | Meaning |
+|---|---|
+| `L` | Length of the input word or prefix |
+| `W` | Number of stored words |
+| `A` | Alphabet size, such as 26 lowercase letters |
+| `T` | Total characters across all stored words |
+
+For lookup-style operations, trie time is based on **L**, not directly on **W**.
+
+## Summary table
+
+| Operation | Time | Extra space per operation | Derivation |
+|---|---|---|---|
+| Insert word | O(L) | O(L) new nodes worst case | Walk/create one node per character |
+| Search word | O(L) | O(1) iterative | Walk one edge per character |
+| `startsWith(prefix)` | O(L) | O(1) iterative | Same as search but no terminal check |
+| Delete word | O(L) | O(L) recursive stack or O(1) iterative with parent list | Visit characters and prune upward |
+| Store all words | O(T * childCost) | O(T * childStorage) | At most one node per distinct prefix |
+
+If children are stored in a fixed array of length `A`, `childCost` is O(1) and each node costs O(A). If children are stored in a hash map, average child lookup is O(1), but memory is proportional to actual outgoing edges.
+
+## Why word length, not number of words
+
+Searching for `"care"` follows exactly four characters:
+
+```text
+c -> a -> r -> e
+```
+
+It does not scan every stored word. Whether the trie stores 10 words or 10 million words, the direct path for a length-4 word has at most 4 edge traversals.
+
+Therefore:
+
+```text
+search work = one child lookup per character = L lookups = O(L)
+```
+
+The number of words affects memory and possibly cache behavior, but it is not the loop count for a normal trie search.
+
+## Java 17 trie with lowercase letters
+
+This version assumes words contain `'a'` through `'z'`.
+
+```java
+final class Trie {
+    private static final int ALPHABET = 26;
+
+    private static final class Node {
+        Node[] next = new Node[ALPHABET];  // O(26) per node -> O(1) for fixed alphabet
+        boolean word;                      // O(1)
+    }
+
+    private final Node root = new Node();  // O(1)
+
+    void insert(String s) {
+        Node cur = root;                   // O(1)
+        for (int i = 0; i < s.length(); i++) { // L iterations
+            int idx = s.charAt(i) - 'a';   // O(1)
+            if (cur.next[idx] == null) {   // O(1)
+                cur.next[idx] = new Node();// O(1), up to L times
+            }
+            cur = cur.next[idx];           // O(1)
+        }
+        cur.word = true;                   // O(1)
+    }
+
+    boolean search(String s) {
+        Node node = findNode(s);           // O(L)
+        return node != null && node.word;  // O(1)
+    }
+
+    boolean startsWith(String prefix) {
+        return findNode(prefix) != null;   // O(L)
+    }
+
+    private Node findNode(String s) {
+        Node cur = root;                   // O(1)
+        for (int i = 0; i < s.length(); i++) { // L iterations
+            int idx = s.charAt(i) - 'a';   // O(1)
+            cur = cur.next[idx];           // O(1)
+            if (cur == null) return null;  // O(1)
+        }
+        return cur;                        // O(1)
+    }
+```
+
+Derivation:
+
+```text
+insert: L loop iterations * O(1) child access = O(L)
+search: L loop iterations * O(1) child access = O(L)
+startsWith: same path walk = O(L)
+space for inserting one word: up to L new nodes = O(L)
+```
+
+## Delete complexity
+
+Delete must remove the terminal marker and optionally prune nodes that no longer belong to another word.
+
+```java
+    boolean delete(String s) {
+        return delete(root, s, 0);         // O(L)
+    }
+
+    private boolean delete(Node node, String s, int depth) {
+        if (node == null) return false;    // O(1)
+
+        if (depth == s.length()) {         // One terminal level
+            if (!node.word) return false;  // O(1)
+            node.word = false;             // O(1)
+            return hasNoChildren(node);    // O(A), O(1) when A=26
+        }
+
+        int idx = s.charAt(depth) - 'a';   // O(1)
+        Node child = node.next[idx];       // O(1)
+        boolean pruneChild = delete(child, s, depth + 1);
+        if (!pruneChild) return false;     // O(1)
+
+        node.next[idx] = null;             // O(1)
+        return !node.word && hasNoChildren(node); // O(A)
+    }
+
+    private boolean hasNoChildren(Node node) {
+        for (Node child : node.next) {     // O(A), fixed 26 -> O(1)
+            if (child != null) return false;
+        }
+        return true;
+    }
+}
+```
+
+For a fixed alphabet, `hasNoChildren` is O(1), so delete is **O(L)**. If the alphabet is not fixed and each node has many possible children, include `A` in the cost of checking children.
+
+## Space complexity discussion
+
+Trie space depends on prefix sharing.
+
+| Case | Space intuition |
+|---|---|
+| Many shared prefixes | Much less than storing every word separately |
+| No shared prefixes | Up to total characters across all words |
+| Fixed `Node[26]` children | Fast lookup but O(26) references per node |
+| `Map<Character, Node>` children | Saves sparse memory but adds hash overhead |
+
+Formal bound:
+
+```text
+number of trie nodes <= 1 + total characters inserted
+array-child space = O(nodes * A)
+for fixed A=26, this simplifies to O(T)
+```
+
+## Interview checkpoints
+
+| Question | Answer |
+|---|---|
+| Search time? | O(L), where L is the query length |
+| Why not O(W)? | Search follows one path, not all words |
+| Insert extra space? | O(L) worst case for new nodes |
+| Delete time? | O(L) for fixed alphabet |
+| Main drawback? | Memory overhead from child pointers |
+
+## Related links
+
+- [String Algorithms Complexity](/complexity/string-algorithms-complexity)
+- [Data Structures Time and Space Complexity](/complexity/data-structures-time-space-complexity)

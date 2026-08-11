@@ -1,0 +1,256 @@
+---
+slug: string-algorithms-complexity
+title: "String Algorithms Complexity"
+description: "Naive matching, KMP, Rabin-Karp, and Z algorithm complexity with derivations for text length N and pattern length M."
+category: Complexity
+difficulty: Advanced
+tags: [Complexity, Big-O, Strings, KMP, Rabin-Karp, Z Algorithm, Java]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## Variables
+
+String matching usually has two input sizes.
+
+| Symbol | Meaning |
+|---|---|
+| `N` | Text length |
+| `M` | Pattern length |
+| `S` | Combined string length, often `M + 1 + N` |
+
+Always state both `N` and `M`. Saying only O(N) can hide the cost of preprocessing the pattern.
+
+## Summary table
+
+| Algorithm | Preprocess | Search time | Space | Derivation |
+|---|---|---|---|---|
+| Naive matching | O(1) | O(NM) worst case | O(1) | Try up to N starts, compare up to M chars |
+| KMP | O(M) | O(N) | O(M) | LPS prevents backing up text pointer |
+| Rabin-Karp | O(M) | O(N) average, O(NM) worst | O(1) or O(matches) | Rolling hash O(1) per window; collisions may verify M chars |
+| Z algorithm | O(N + M) on combined string | O(N + M) | O(N + M) | Each pointer advances monotonically |
+
+## Naive string matching
+
+For each possible start in the text, compare the pattern.
+
+```text
+text:    a a a a a b
+pattern: a a a b
+start 0: compare 4
+start 1: compare 4
+start 2: compare 4
+```
+
+Worst case:
+
+```text
+number of starts: N - M + 1
+chars per start: up to M
+total: (N - M + 1) * M = O(NM)
+```
+
+Java:
+
+```java
+static int naiveIndexOf(String text, String pattern) {
+    int n = text.length();
+    int m = pattern.length();
+    if (m == 0) return 0;
+
+    for (int start = 0; start <= n - m; start++) {   // O(N) starts
+        int j = 0;                                   // O(1)
+        while (j < m && text.charAt(start + j) == pattern.charAt(j)) {
+            j++;                                     // Up to M per start
+        }
+        if (j == m) return start;                    // O(1)
+    }
+    return -1;
+}
+```
+
+Time is **O(NM)** worst case. Extra space is **O(1)**.
+
+## KMP intuition
+
+KMP avoids rechecking text characters by using the pattern's own prefix structure.
+
+The LPS array stores:
+
+```text
+lps[i] = length of longest proper prefix of pattern[0..i]
+         that is also a suffix of pattern[0..i]
+```
+
+For `ababaca`:
+
+```text
+pattern: a b a b a c a
+lps:     0 0 1 2 3 0 1
+```
+
+When a mismatch happens after matching `j` pattern characters, KMP moves `j` to `lps[j - 1]` instead of moving the text index backward.
+
+## LPS preprocessing is O(M)
+
+```java
+static int[] buildLps(String p) {
+    int m = p.length();
+    int[] lps = new int[m];                         // O(M) space
+    int len = 0;                                    // O(1)
+
+    for (int i = 1; i < m; ) {                      // i increases to M
+        if (p.charAt(i) == p.charAt(len)) {         // O(1)
+            lps[i++] = ++len;                       // O(1)
+        } else if (len > 0) {                       // O(1)
+            len = lps[len - 1];                     // len decreases
+        } else {
+            lps[i++] = 0;                           // O(1)
+        }
+    }
+    return lps;
+}
+```
+
+Why **O(M)**? Pointer `i` only moves forward from `1` to `M - 1`. Pointer `len` can move backward, but it moves backward only after earlier forward growth. The total number of increments and fallback steps is linear.
+
+```text
+i advances at most M times
+len fallback count is bounded by prior len increments
+total work = O(M)
+```
+
+## KMP search is O(N)
+
+```java
+static int kmpIndexOf(String text, String pattern) {
+    int n = text.length();
+    int m = pattern.length();
+    if (m == 0) return 0;
+
+    int[] lps = buildLps(pattern);                  // O(M)
+    int i = 0;                                      // Text pointer
+    int j = 0;                                      // Pattern pointer
+
+    while (i < n) {                                 // i never decreases
+        if (text.charAt(i) == pattern.charAt(j)) {  // O(1)
+            i++;                                    // O(1)
+            j++;                                    // O(1)
+            if (j == m) return i - m;               // O(1)
+        } else if (j > 0) {
+            j = lps[j - 1];                         // Pattern fallback only
+        } else {
+            i++;                                    // O(1)
+        }
+    }
+    return -1;
+}
+```
+
+Derivation:
+
+```text
+build LPS: O(M)
+scan text: i advances at most N times
+j fallbacks are bounded by previous j advances
+search: O(N)
+total: O(N + M)
+space: O(M)
+```
+
+## Rabin-Karp
+
+Rabin-Karp compares rolling hashes of pattern-length windows.
+
+```text
+hash(text[i..i+M-1]) -> hash(text[i+1..i+M])
+```
+
+With a rolling hash, moving one window costs O(1):
+
+```text
+remove left char, multiply by base, add right char
+```
+
+Derivation:
+
+```text
+pattern hash: O(M)
+first window hash: O(M)
+roll across N - M windows: O(N)
+average total: O(N + M)
+```
+
+However, equal hashes may require verifying characters:
+
+```text
+many collisions * M verification cost = O(NM) worst case
+```
+
+In interviews, say: **average O(N + M), worst O(NM) with collisions**, unless the problem assumes a collision-free hash or uses a deterministic double-check model.
+
+## Z algorithm
+
+The Z array for string `s` stores:
+
+```text
+z[i] = longest substring starting at i that matches prefix of s
+```
+
+To find pattern in text:
+
+```text
+combined = pattern + "#" + text
+match where z[i] == M
+```
+
+Java:
+
+```java
+static int[] zArray(String s) {
+    int n = s.length();
+    int[] z = new int[n];                           // O(n) space
+    int left = 0;
+    int right = 0;
+
+    for (int i = 1; i < n; i++) {                   // O(n)
+        if (i <= right) {
+            z[i] = Math.min(right - i + 1, z[i - left]);
+        }
+        while (i + z[i] < n && s.charAt(z[i]) == s.charAt(i + z[i])) {
+            z[i]++;                                 // right advances overall
+        }
+        if (i + z[i] - 1 > right) {
+            left = i;
+            right = i + z[i] - 1;
+        }
+    }
+    return z;
+}
+```
+
+Why **O(S)**? The `right` boundary only moves from left to right across the string. Although there is a `while` inside a `for`, successful character extensions advance `right`, and `right` can advance at most `S` times.
+
+For pattern search:
+
+```text
+S = M + 1 + N
+Z build = O(S) = O(N + M)
+space = O(S)
+```
+
+## Choosing in interviews
+
+| Scenario | Good answer |
+|---|---|
+| Need simple implementation | Naive, explain O(NM) |
+| Need guaranteed linear single-pattern search | KMP |
+| Need multiple pattern-like hash checks | Rabin-Karp, mention collisions |
+| Need prefix-match array or pattern occurrences | Z algorithm |
+| Need prefix dictionary | Trie, O(L) per word operation |
+
+## Related links
+
+- [Trie Complexity](/complexity/trie-complexity)
+- [Sliding Window Complexity](/complexity/sliding-window-complexity)
+- [How Big-O Is Calculated](/complexity/how-big-o-is-calculated)
