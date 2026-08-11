@@ -1,0 +1,116 @@
+---
+slug: sorting-and-searching-complexity
+title: "Sorting & Searching — Time & Space Complexity Tables"
+description: "Best, average, and worst time plus space for common sorting and searching algorithms, with stability, adaptivity, and how the bounds are derived."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Sorting, Searching, Big-O, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Searching
+
+| Algorithm | Best | Average | Worst | Extra space | Prerequisite |
+|---|---|---|---|---|---|
+| Linear search | O(1) | O(n) | O(n) | O(1) | None |
+| Binary search | O(1) | O(log n) | O(log n) | O(1) iter / O(log n) recur | Sorted array |
+| Ternary search (unimodal) | O(1) | O(log₃ n) | O(log₃ n) | O(1) | Unimodal function / sorted |
+| Hash lookup | O(1) | O(1) | O(n) | O(n) table | Hashable keys |
+| BST search | O(1) | O(log n) | O(n) / O(log n) balanced | O(h) stack | Tree ordered |
+
+**How binary search gets O(log n):** each comparison discards half → n · (1/2)^k ≈ 1 ⇒ k ≈ log₂ n.
+
+---
+
+## Comparison sorts
+
+| Algorithm | Best | Average | Worst | Extra space | Stable? | Notes |
+|---|---|---|---|---|---|---|
+| Bubble sort | O(n) | O(n²) | O(n²) | O(1) | Yes | Best if already sorted + early exit |
+| Insertion sort | O(n) | O(n²) | O(n²) | O(1) | Yes | Excellent for nearly sorted / small n |
+| Selection sort | O(n²) | O(n²) | O(n²) | O(1) | No* | *standard version unstable |
+| Merge sort | O(n log n) | O(n log n) | O(n log n) | O(n) | Yes | Predictable; great external sort |
+| Quick sort | O(n log n) | O(n log n) | O(n²) | O(log n) avg stack | No* | *usual Lomuto/Hoare unstable |
+| Heap sort | O(n log n) | O(n log n) | O(n log n) | O(1) | No | Guaranteed bound; more cache-unfriendly |
+| Tim sort (Java/Python) | O(n) | O(n log n) | O(n log n) | O(n) | Yes | Merge + insertion; adaptive |
+| Tree sort (BST insert all) | O(n log n) | O(n log n) | O(n²) | O(n) | Depends | Worst if skewed BST |
+
+\*Stable variants of quicksort exist but are not the default interview answer.
+
+### Why these bounds
+
+| Algorithm | Derivation sketch |
+|---|---|
+| Bubble / insertion / selection | Nested loops ~ n² comparisons/swaps |
+| Merge sort | T(n)=2T(n/2)+O(n) → O(n log n); needs O(n) buffer |
+| Quick sort avg | Balanced partitions → O(n log n); sorted + bad pivot → O(n²) |
+| Heap sort | Build O(n) + n·extract O(log n) → O(n log n) |
+| Comparison lower bound | Decision tree ⇒ **Ω(n log n)** worst case for comparison sorts |
+
+---
+
+## Non-comparison sorts (integer / digit assumptions)
+
+Let `n` = items, `k` = range (counting), `d` = digits, `b` = base/radix.
+
+| Algorithm | Time | Extra space | When valid |
+|---|---|---|---|
+| Counting sort | O(n + k) | O(n + k) | Keys in small integer range k |
+| Radix sort (LSD) | O(d·(n + b)) | O(n + b) | Fixed-length digits / integers |
+| Bucket sort | O(n + k) avg | O(n + k) | Uniform distribution into buckets |
+
+**Interview caution:** these beat O(n log n) only under **key constraints**. They do not break the comparison-sort lower bound in the general comparable-object model.
+
+---
+
+## Stability & memory (interview table)
+
+| Need | Prefer | Why |
+|---|---|---|
+| Stable + guaranteed O(n log n) | Merge sort / TimSort | Stable by design |
+| In-place + guaranteed O(n log n) | Heap sort | O(1) extra (usually) |
+| Fast average in practice | Well-tuned quicksort | Cache + constants |
+| Nearly sorted data | Insertion / TimSort | Adaptive O(n) best |
+| Integers in tiny range | Counting sort | O(n+k) |
+
+---
+
+## Common interview Q&A
+
+### Q: Why is merge sort O(n log n) space sometimes said O(n)?
+
+**A:** Extra array of size n for merging dominates. Stack depth is O(log n) and is smaller than the buffer.
+
+### Q: How do you avoid quicksort’s O(n²) worst case?
+
+**A:** Random pivot, median-of-three, or introsort (quick + heap fallback). Mention **average O(n log n), worst O(n²)** unless introsort → worst O(n log n).
+
+### Q: Is heapify O(n) or O(n log n)?
+
+**A:** **Building** a heap bottom-up is **O(n)**. Inserting n times with sift-up is O(n log n). Extracting n times after build is O(n log n) for full heap sort.
+
+### Q: Binary search best case O(1)?
+
+**A:** Yes if the mid element is the target on the first probe. Worst/average probes still Θ(log n) class for unsuccessful or adversarial successful searches.
+
+---
+
+## One-page revision grid
+
+| Algo | Best | Avg | Worst | Space | Stable |
+|---|---|---|---|---|---|
+| Linear search | O(1) | O(n) | O(n) | O(1) | — |
+| Binary search | O(1) | O(log n) | O(log n) | O(1) | — |
+| Insertion | O(n) | O(n²) | O(n²) | O(1) | Yes |
+| Merge | O(n log n) | O(n log n) | O(n log n) | O(n) | Yes |
+| Quick | O(n log n) | O(n log n) | O(n²) | O(log n) | No |
+| Heap | O(n log n) | O(n log n) | O(n log n) | O(1) | No |
+| Counting | O(n+k) | O(n+k) | O(n+k) | O(n+k) | Yes |
+
+---
+
+## Next
+
+- [Data Structures — Time & Space (Best → Worst)](/complexity/data-structures-time-space-complexity)
+- [How Big-O Is Calculated](/complexity/how-big-o-is-calculated)

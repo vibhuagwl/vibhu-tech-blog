@@ -1,0 +1,182 @@
+---
+slug: how-big-o-is-calculated
+title: "How Big-O Time & Space Complexity Is Calculated"
+description: "Step-by-step method to derive Big-O from code: loops, recursion, master theorem intuition, best vs average vs worst, and space analysis with clear tables."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Big-O, Time Complexity, Space Complexity, Interview]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## Why Big-O exists
+
+Big-O describes how runtime or memory **grows as input size grows**. Interviews care about growth class, not exact milliseconds.
+
+| Notation | Meaning | Example |
+|---|---|---|
+| **O** (Big-O) | Upper bound (worst-case class, usually) | Bubble sort is O(n²) |
+| **Θ** (Theta) | Tight bound | Binary search is Θ(log n) comparisons in worst case on sorted array |
+| **Ω** (Omega) | Lower bound | Any comparison sort is Ω(n log n) in worst case |
+
+In interviews, saying “O(n log n)” usually means the tight practical class unless you are asked for formal proofs.
+
+## Step-by-step method
+
+```text
+1. Define n (and other variables: k, V, E, W for word length…)
+2. Count dominant operations as a function of n
+3. Drop constants and lower-order terms
+4. State best / average / worst if the algorithm branches
+5. Separately compute auxiliary (extra) space
+```
+
+### Dropping rules (tabular)
+
+| Expression | Simplified Big-O | Why |
+|---|---|---|
+| 3n + 10 | O(n) | Constants ignored |
+| n² + 100n | O(n²) | Lower-order term dropped |
+| 5·n·log n + n | O(n log n) | Dominant term wins |
+| 2ⁿ + n¹⁰ | O(2ⁿ) | Exponential dominates polynomial |
+| n/2 | O(n) | Constant factors ignored |
+
+## Time: reading loops
+
+| Code shape | Count | Big-O |
+|---|---|---|
+| Single statement | 1 | O(1) |
+| Loop `i = 1..n` | n | O(n) |
+| Nested loops both `1..n` | n × n | O(n²) |
+| Loop `n`, inside loop `k` (k independent) | n·k | O(nk) |
+| Loop halves each time (`n → n/2 → … → 1`) | ~log₂ n | O(log n) |
+| Outer `n`, inner halves | n·log n | O(n log n) |
+| Loop `i = 1..n`, inner `1..i` | 1+2+…+n = n(n+1)/2 | O(n²) |
+
+### Worked example — nested loop
+
+```text
+for i in 1..n:        // n times
+  for j in 1..n:      // n times
+    work()            // O(1)
+```
+
+Total ≈ n·n·O(1) → **O(n²)** time, **O(1)** extra space.
+
+### Worked example — binary search style
+
+```text
+lo, hi = 0, n-1
+while lo <= hi:
+  mid = (lo+hi)/2
+  // discard half
+```
+
+Each step cuts search space by ~2 → about log₂ n steps → **O(log n)** time, **O(1)** space (iterative).
+
+## Time: recursion
+
+| Pattern | Recurrence (intuition) | Complexity |
+|---|---|---|
+| One recursive call on n−1 + O(1) | T(n)=T(n−1)+O(1) | O(n) |
+| One recursive call on n/2 + O(1) | T(n)=T(n/2)+O(1) | O(log n) |
+| Two recursive calls on n/2 + O(n) | merge sort | O(n log n) |
+| Two recursive calls on n−1 + O(1) | naive fibonacci | O(2ⁿ) |
+| k branches, depth d | ~kᵈ leaves | depends on branching |
+
+### Master Theorem (interview form)
+
+For `T(n) = a T(n/b) + O(nᵈ)` (roughly):
+
+| Case | Condition | Result |
+|---|---|---|
+| Work shrinks at leaves | log_b a > d | O(n^(log_b a)) |
+| Balanced | log_b a = d | O(nᵈ log n) |
+| Root dominates | log_b a < d | O(nᵈ) |
+
+| Algorithm | a, b, d | Result |
+|---|---|---|
+| Merge sort | a=2, b=2, d=1 | O(n log n) |
+| Binary search | a=1, b=2, d=0 | O(log n) |
+| Naive recursive fib | not divide-and-conquer form | O(φⁿ) ≈ O(2ⁿ) |
+
+## Best vs average vs worst
+
+| Case | Question it answers | When to mention |
+|---|---|---|
+| **Best** | Fastest input class | Sorted array for insertion sort → O(n) |
+| **Average** | Typical random input | Hash map lookup → O(1) average |
+| **Worst** | Adversarial / degenerate | Hash all collide → O(n); skewed BST → O(n) |
+
+**Interview rule:** Always give **worst case** unless you explicitly say average and state assumptions (uniform hashing, balanced tree, random pivot).
+
+## Space complexity
+
+| Kind | Counts? | Example |
+|---|---|---|
+| Input storage | Usually **no** (say “extra/auxiliary”) | Array already given |
+| Output storage | Ask interviewer | Building a new result list |
+| Call stack | **Yes** for recursion | DFS depth |
+| Hash maps / arrays you allocate | **Yes** | Frequency map O(n) |
+
+| Pattern | Extra space |
+|---|---|
+| Few variables | O(1) |
+| Array/map of size n | O(n) |
+| Recursion depth d | O(d) stack |
+| Recursion tree storing all paths poorly | can be O(n) or worse |
+
+### Worked example — space
+
+```text
+function sum(a[1..n]):
+  s = 0
+  for x in a: s += x
+  return s
+```
+
+Time O(n), **extra space O(1)**.
+
+```text
+function copy(a[1..n]):
+  b = new array[n]
+  ...
+```
+
+Time O(n), **extra space O(n)**.
+
+## Amortized analysis (short)
+
+Some operations are occasionally expensive but cheap on average over a sequence.
+
+| Structure | Single op worst | Amortized | Why |
+|---|---|---|---|
+| Dynamic array append | O(n) resize | O(1) | Resize rare; doubles capacity |
+| Hash map insert | O(n) rehash | O(1) avg | Rehash rare under load factor |
+
+Say **“amortized O(1)”** for dynamic array push_back — not the same as every call is O(1).
+
+## Common interview traps
+
+| Trap | Correct thinking |
+|---|---|
+| “Two loops → always O(n²)” | Sequential loops are O(n+n)=O(n); nested is O(n²) |
+| “Recursion is always exponential” | Depends on branching and overlap |
+| “Hash map is always O(1)” | Average O(1); worst O(n) with collisions |
+| “BST is always O(log n)” | Only if balanced; skewed is O(n) |
+| Ignoring space of recursion | Depth matters for stack overflow and Big-O space |
+
+## Practice: classify these
+
+| Snippet idea | Time | Extra space |
+|---|---|---|
+| Print all pairs (i,j) | O(n²) | O(1) |
+| Binary search | O(log n) | O(1) iterative / O(log n) recursive |
+| Merge sort | O(n log n) | O(n) |
+| Heapify build | O(n) | O(1) iterative build |
+| DFS on graph adj list | O(V+E) | O(V) visited (+ stack) |
+
+## Next
+
+- [Data Structures — Time & Space (Best → Worst)](/complexity/data-structures-time-space-complexity)
+- [Sorting & Searching Complexity](/complexity/sorting-and-searching-complexity)

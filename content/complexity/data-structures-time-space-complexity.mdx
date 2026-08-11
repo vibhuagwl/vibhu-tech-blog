@@ -1,0 +1,281 @@
+---
+slug: data-structures-time-space-complexity
+title: "Data Structures — Time & Space Complexity (Best to Worst)"
+description: "Complete tabular time and space complexity for arrays, lists, stacks, queues, hash tables, trees, heaps, tries, and graphs — best, average, and worst case with why."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Data Structures, Big-O, Cheatsheet, Interview]
+readingTime: 28 min
+publishedAt: "2026-08-11"
+---
+
+## How to read these tables
+
+| Column | Meaning |
+|---|---|
+| **Best** | Most favorable input / layout |
+| **Average** | Typical random workload (stated assumptions) |
+| **Worst** | Degenerate / adversarial case |
+| **Space** | Extra/auxiliary memory for the structure of n elements (storing the data itself is usually Θ(n) unless noted) |
+
+Unless noted: comparison model, single operation costs, hash assumes good hash + load factor, trees note balanced vs skewed.
+
+---
+
+## 1. Array (static) & Dynamic Array (ArrayList / Vector)
+
+### Static array
+
+| Operation | Best | Average | Worst | Notes |
+|---|---|---|---|---|
+| Access by index | O(1) | O(1) | O(1) | Direct address |
+| Search (unsorted) | O(1) | O(n) | O(n) | Best = found first |
+| Search (sorted, binary) | O(1) | O(log n) | O(log n) | |
+| Insert at end (fixed size) | — | — | — | Not allowed / O(n) copy to larger |
+| Insert at middle | O(n) | O(n) | O(n) | Shift elements |
+| Delete at middle | O(n) | O(n) | O(n) | Shift elements |
+| Space | Θ(n) | Θ(n) | Θ(n) | Contiguous block |
+
+### Dynamic array (resizable)
+
+| Operation | Best | Average | Worst | Amortized / notes |
+|---|---|---|---|---|
+| Access by index | O(1) | O(1) | O(1) | |
+| Append | O(1) | O(1) | O(n) | **Amortized O(1)** with doubling |
+| Insert / delete middle | O(n) | O(n) | O(n) | Shift |
+| Search unsorted | O(1) | O(n) | O(n) | |
+| Space | Θ(n) | Θ(n) | Θ(n) | Often capacity ≥ n (≤ ~2n) |
+
+**Why append amortized O(1):** occasional O(n) copy when capacity doubles; copies form geometric series → average O(1) per append over many ops.
+
+---
+
+## 2. Singly & Doubly Linked List
+
+| Operation | Best | Average | Worst | Notes |
+|---|---|---|---|---|
+| Access by index | O(n) | O(n) | O(n) | Walk nodes |
+| Search by value | O(1) | O(n) | O(n) | |
+| Insert / delete at **head** | O(1) | O(1) | O(1) | Pointer update |
+| Insert / delete at **tail** | O(1)* | O(1)* | O(1)* / O(n) | *O(1) if tail pointer; singly without tail is O(n) to find end |
+| Insert / delete in middle (given node) | O(1) | O(1) | O(1) | Doubly easier for delete |
+| Insert / delete in middle (by index) | O(n) | O(n) | O(n) | Find + splice |
+| Space | Θ(n) | Θ(n) | Θ(n) | + pointer overhead per node |
+
+**Why no O(1) random access:** nodes are not contiguous; index k needs k hops.
+
+---
+
+## 3. Stack
+
+Implemented as array or linked list. Costs below assume array-backed or head-linked list.
+
+| Operation | Best | Average | Worst | Notes |
+|---|---|---|---|---|
+| Push | O(1) | O(1) | O(1)* | *O(n) rare resize if dynamic array; amortized O(1) |
+| Pop | O(1) | O(1) | O(1) | |
+| Peek / top | O(1) | O(1) | O(1) | |
+| Search | O(n) | O(n) | O(n) | Not primary API |
+| Space | Θ(n) | Θ(n) | Θ(n) | |
+
+---
+
+## 4. Queue
+
+| Operation | Best | Average | Worst | Notes |
+|---|---|---|---|---|
+| Enqueue | O(1) | O(1) | O(1)* | *amortized if dynamic circular buffer |
+| Dequeue | O(1) | O(1) | O(1) | Need front pointer / circular buffer |
+| Peek front | O(1) | O(1) | O(1) | |
+| Search | O(n) | O(n) | O(n) | |
+| Space | Θ(n) | Θ(n) | Θ(n) | |
+
+### Deque (double-ended queue)
+
+| Operation | Best | Avg | Worst |
+|---|---|---|---|
+| Insert/delete front or back | O(1) | O(1) | O(1)* amortized with circular buffer |
+| Access middle | O(n) | O(n) | O(n) |
+
+---
+
+## 5. Hash Table (HashMap / HashSet)
+
+Assumes good hash, chaining or open addressing, load factor bounded (e.g. α < 0.75).
+
+| Operation | Best | Average | Worst | Notes |
+|---|---|---|---|---|
+| Search / get | O(1) | O(1) | O(n) | Worst = all keys collide |
+| Insert | O(1) | O(1) | O(n) | Worst collision chain / rehash O(n) |
+| Delete | O(1) | O(1) | O(n) | |
+| Space | Θ(n) | Θ(n) | Θ(n) | Table capacity ≈ c·n |
+
+**Why average O(1):** expected chain length ≈ load factor α (constant).  
+**Why worst O(n):** everything hashes to one bucket → walk a list of n.
+
+| Variant note | Effect |
+|---|---|
+| Java 8+ treeify long chains | Worst per-bucket can improve toward O(log n) |
+| Perfect hashing (static sets) | Worst O(1) possible with special construction |
+| Rehashing | Occasional O(n); amortized O(1) inserts if resized rarely |
+
+---
+
+## 6. Binary Search Tree (unbalanced BST)
+
+| Operation | Best | Average* | Worst | Notes |
+|---|---|---|---|---|
+| Search | O(1) | O(log n) | O(n) | Worst = skewed like a list |
+| Insert | O(log n) | O(log n) | O(n) | |
+| Delete | O(log n) | O(log n) | O(n) | |
+| Find min/max | O(log n) | O(log n) | O(n) | Or O(1) with extra pointers |
+| In-order traversal | Θ(n) | Θ(n) | Θ(n) | |
+| Space | Θ(n) | Θ(n) | Θ(n) | + O(h) stack for recursion, h∈[log n, n] |
+
+\*Average for random insertion order ≈ O(log n).
+
+---
+
+## 7. Balanced BST (AVL / Red-Black Tree)
+
+| Operation | Best | Average | Worst | Notes |
+|---|---|---|---|---|
+| Search | O(1) | O(log n) | O(log n) | Height bounded O(log n) |
+| Insert | O(log n) | O(log n) | O(log n) | Rotations O(1) or O(log n) |
+| Delete | O(log n) | O(log n) | O(log n) | |
+| Space | Θ(n) | Θ(n) | Θ(n) | Color/balance bits small overhead |
+
+**Why worst O(log n):** balance invariant ⇒ height ≤ c·log n.
+
+---
+
+## 8. Binary Heap (Priority Queue)
+
+Binary min/max heap in array.
+
+| Operation | Best | Average | Worst | Notes |
+|---|---|---|---|---|
+| Find min (min-heap) | O(1) | O(1) | O(1) | Root |
+| Insert | O(1) | O(log n) | O(log n) | Best if no swim needed |
+| Extract min/max | O(log n) | O(log n) | O(log n) | Sink |
+| Decrease-key / increase-key | O(log n) | O(log n) | O(log n) | Need handle/index |
+| Search arbitrary value | O(n) | O(n) | O(n) | Not ordered for search |
+| Build heap from n items | Θ(n) | Θ(n) | Θ(n) | Bottom-up heapify **O(n)**, not O(n log n) |
+| Space | Θ(n) | Θ(n) | Θ(n) | |
+
+**Why build is O(n):** most nodes near leaves swim short distances; sum of heights is O(n).
+
+---
+
+## 9. Trie (Prefix Tree)
+
+Let `W` = word length / key length, `k` = alphabet size, `n` = number of keys stored.
+
+| Operation | Best | Average | Worst | Notes |
+|---|---|---|---|---|
+| Insert word | O(W) | O(W) | O(W) | Independent of #words (for walk) |
+| Search exact | O(W) | O(W) | O(W) | |
+| Starts-with / prefix | O(W) | O(W) | O(W) | |
+| Space | — | O(N·k) worst structure | O(total characters × k) | High; can compress (radix tree) |
+
+**Why not O(log n):** cost tracks key length, not how many keys exist (unlike BST of strings which can be O(W log n)).
+
+---
+
+## 10. Graph — Adjacency List vs Matrix
+
+`V` = vertices, `E` = edges.
+
+### Storage
+
+| Representation | Space | Best for |
+|---|---|---|
+| Adjacency list | Θ(V + E) | Sparse graphs |
+| Adjacency matrix | Θ(V²) | Dense graphs, O(1) edge check |
+
+### Core operations
+
+| Operation | Adj List | Adj Matrix | Notes |
+|---|---|---|---|
+| Add vertex | O(1) | O(V²)* | *matrix resize |
+| Add edge | O(1) | O(1) | |
+| Check edge u→v | O(degree(u)) | O(1) | |
+| Iterate neighbors of u | O(degree(u)) | O(V) | |
+| DFS / BFS | **O(V + E)** | O(V²) | Visit each vertex/edge once (list) |
+
+| Algorithm (on adj list) | Time | Extra space |
+|---|---|---|
+| BFS / DFS | O(V + E) | O(V) |
+| Dijkstra (bin heap) | O((V + E) log V) | O(V) |
+| Dijkstra (Fib heap, theory) | O(E + V log V) | O(V) |
+| Bellman-Ford | O(V·E) | O(V) |
+| Floyd-Warshall | O(V³) | O(V²) |
+| Kruskal (sort + DSU) | O(E log E) | O(V) |
+| Prim (bin heap) | O((V + E) log V) | O(V) |
+| Topological sort (DAG) | O(V + E) | O(V) |
+
+---
+
+## 11. Disjoint Set (Union-Find / DSU)
+
+With path compression + union by rank:
+
+| Operation | Best | Average | Worst (amortized) | Notes |
+|---|---|---|---|---|
+| Find | O(1) | ≈ O(α(n)) | O(α(n)) | α = inverse Ackermann ≈ constant |
+| Union | O(1) | ≈ O(α(n)) | O(α(n)) | |
+| Space | Θ(n) | Θ(n) | Θ(n) | parent + rank arrays |
+
+---
+
+## 12. Master comparison (operations you’ll be asked)
+
+### Access / search / insert / delete (typical interview summary)
+
+| Data structure | Access | Search | Insert | Delete | Space |
+|---|---|---|---|---|---|
+| Array (static) | O(1) | O(n) | O(n) | O(n) | O(n) |
+| Dynamic array | O(1) | O(n) | O(1)* amort. append / O(n) middle | O(n) | O(n) |
+| Singly linked list | O(n) | O(n) | O(1) at head | O(1) at head† | O(n) |
+| Doubly linked list | O(n) | O(n) | O(1) at ends | O(1) given node | O(n) |
+| Stack | O(n) | O(n) | O(1) push | O(1) pop | O(n) |
+| Queue | O(n) | O(n) | O(1) | O(1) | O(n) |
+| Hash table | N/A | O(1) avg / O(n) worst | O(1) avg / O(n) worst | O(1) avg / O(n) worst | O(n) |
+| BST (unbalanced) | O(log n) avg / O(n) worst | same | same | same | O(n) |
+| Balanced BST | O(log n) | O(log n) | O(log n) | O(log n) | O(n) |
+| Binary heap | N/A | O(n) | O(log n) | O(log n) extract | O(n) |
+| Trie | O(W) | O(W) | O(W) | O(W) | high |
+
+\*append amortized O(1). †delete by value still O(n) to find.
+
+### Best → Worst search snapshot
+
+| Structure | Best search | Worst search |
+|---|---|---|
+| Sorted array + binary search | O(1) | O(log n) |
+| Hash table | O(1) | O(n) |
+| Balanced BST | O(1) | O(log n) |
+| Unbalanced BST / linked list | O(1) | O(n) |
+| Unsorted array | O(1) | O(n) |
+
+---
+
+## Choosing a structure (complexity-driven)
+
+| Need | Prefer | Complexity reason |
+|---|---|---|
+| Index access | Array | O(1) access |
+| Frequent insert/delete at ends | Deque / LL / ArrayDeque | O(1) ends |
+| Fast key lookup | HashMap | O(1) average |
+| Ordered keys + range queries | TreeMap / balanced BST | O(log n) + in-order |
+| Priority / top-k | Heap | O(1) peek, O(log n) push/pop |
+| Prefix search | Trie | O(W) |
+| Sparse graph walk | Adj list | O(V+E) DFS/BFS |
+
+---
+
+## Next
+
+- [How Big-O Is Calculated](/complexity/how-big-o-is-calculated)
+- [Sorting & Searching Complexity](/complexity/sorting-and-searching-complexity)
+- [Complexity Master Index](/complexity/complexity-master-index)
