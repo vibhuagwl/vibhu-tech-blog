@@ -100,7 +100,7 @@ If the hot Linux TID maps to the Java `nid` and the stack is stable across dumps
 
 **Question:** How do you map a Linux thread from `top -H` to Java?
 
-**Ideal answer:** Find the decimal thread id from `top -H -p <pid>` and convert it to hex with `printf '0x%x\n' <tid>`.
+**Ideal answer:** Find the decimal thread id from `top -H -p PID` and convert it to hex with `printf '0x%x\n' TID`.
 
 Then search the Java thread dump for `nid=0x...`.
 

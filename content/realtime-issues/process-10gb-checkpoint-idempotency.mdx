@@ -1,0 +1,541 @@
+---
+slug: process-10gb-checkpoint-idempotency
+title: "Processing a 10GB File: Checkpoints, Idempotency, and Crash Recovery"
+description: "A Principal-level guide to recovering a 10GB file processor after a crash at 70 percent, including checkpoint schema, commit ordering, idempotency, dedupe tables, retry classes, and DLQs."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, Java, Batch Processing, Idempotency, Checkpoints, DLQ, Principal Interview]
+readingTime: 28 min
+publishedAt: "2026-08-11"
+---
+
+## Scenario
+
+You are processing a 10GB file in a Java 17 or Java 21 service.
+
+The job crashes after roughly 70 percent of the file has been read.
+
+The interviewer asks:
+
+How do you restart without reprocessing the whole file, without skipping records, and without corrupting downstream state?
+
+The Principal answer is not "store the last line number."
+
+The Principal answer is a correctness design.
+
+You need a checkpoint that is durable enough to resume.
+
+You need idempotency so replay is safe.
+
+You need database constraints so duplicate side effects are rejected.
+
+You need error handling for records that will never succeed.
+
+You need to state clearly which delivery semantics you provide.
+
+## Related guides
+
+- [Formats, cloud files, and distributed processing](/realtime-issues/process-10gb-formats-cloud-distributed)
+- [Backpressure, observability, and tuning](/realtime-issues/process-10gb-backpressure-observability)
+- [Interview answer and follow-ups](/realtime-issues/process-10gb-interview-answer-and-followups)
+
+## The checkpoint record
+
+A useful checkpoint is not only an offset.
+
+It is an auditable recovery contract.
+
+```text
+checkpoint {
+  jobId
+  fileId
+  chunkId
+  byteOffset
+  recordNumber
+  checksum
+  status
+  timestamp
+}
+```
+
+| Field | Meaning | Why it matters |
+|---|---|---|
+| `jobId` | processing attempt or logical job | separates retries, audits, and operator actions |
+| `fileId` | immutable identity of the input file | prevents resuming against the wrong file |
+| `chunkId` | partition or segment being processed | supports parallel workers and restart by chunk |
+| `byteOffset` | last safe file position | lets streaming readers seek or skip to a known boundary |
+| `recordNumber` | logical record count | helps operators reconcile progress |
+| `checksum` | checksum of file or chunk | detects file replacement or partial upload |
+| `status` | running, completed, failed, quarantined | drives orchestration decisions |
+| `timestamp` | last durable progress time | detects stalled jobs and stale leases |
+
+For flat records, `byteOffset` can be the byte position after the last fully processed record.
+
+For CSV, the checkpoint should refer to a record boundary, not an arbitrary newline.
+
+For JSON arrays, offset recovery is harder because the parser state matters.
+
+For NDJSON, offset recovery is usually simpler because each line is a record.
+
+For compressed files, byte offsets are only useful if the compression format supports splittable reads.
+
+Gzip usually does not.
+
+Bzip2, indexed gzip, BGZF, Parquet, ORC, and other block formats may be more restart friendly.
+
+## File identity must be stable
+
+The processor should not trust a path alone.
+
+`s3://bucket/input/today.csv` can point to different objects over time.
+
+Use a stable file identity.
+
+Good candidates:
+
+- S3 bucket, key, version id, size, and ETag
+- GCS bucket, object generation, metageneration, size, and CRC32C
+- Azure blob URL, version id, content length, and content MD5
+- local inode plus size and hash when appropriate
+
+If the checkpoint says the file checksum is `abc` and the current file checksum is `xyz`, do not resume silently.
+
+Fail the job and require an operator decision.
+
+Silent resume against a changed file is worse than a visible failure.
+
+## Crash at 70 percent
+
+Assume the processor has read seven gigabytes.
+
+That does not mean seven gigabytes are safely committed.
+
+The only safe resume point is the last point where all side effects before that point are durable and deduplicated.
+
+The restart flow should be:
+
+1. Load the latest durable checkpoint for `jobId`, `fileId`, and `chunkId`.
+2. Verify file identity and checksum metadata.
+3. Seek to `byteOffset` if the format supports it.
+4. Reconstruct parser state if needed.
+5. Resume at the next record boundary.
+6. Reapply idempotency on every downstream write.
+7. Update the checkpoint only after the selected commit ordering is satisfied.
+
+The processor should be able to replay some records.
+
+It should not require replay to be impossible.
+
+Replay is normal.
+
+Replay must be safe.
+
+## Commit order option 1: process, DB commit, checkpoint
+
+The common safer order is:
+
+```text
+read record
+validate record
+process business side effects
+commit database transaction
+write checkpoint after commit
+```
+
+If the process crashes after the DB commit but before the checkpoint, the checkpoint is behind.
+
+On restart, the job replays some records.
+
+That replay must be absorbed by idempotency keys, unique constraints, UPSERT logic, or a dedupe table.
+
+This gives at-least-once processing at the file reader level.
+
+With strong idempotent writes, the business result can be effectively-once.
+
+Do not call this magically exactly-once.
+
+It is replay plus deterministic duplicate suppression.
+
+### Advantages
+
+- avoids marking data complete before side effects are durable
+- makes checkpoint lag safe when idempotency is correct
+- handles process crash after commit
+- works with normal relational transactions
+
+### Failure mode
+
+If idempotency is missing or weak, replay creates duplicate charges, duplicate emails, duplicate Kafka events, or duplicate ledger rows.
+
+This is why the checkpoint alone is not the correctness boundary.
+
+The database is.
+
+## Commit order option 2: checkpoint, then process
+
+The reverse order is:
+
+```text
+write checkpoint
+process business side effects
+commit database transaction
+```
+
+This can skip records.
+
+If the process crashes after checkpointing but before committing side effects, restart begins after records whose side effects never happened.
+
+That is usually unacceptable for financial processing.
+
+It can be acceptable only when the file processor is a best-effort scanner or when a later reconciliation pass is the real source of truth.
+
+For money, entitlement, inventory, billing, and compliance data, avoid this order.
+
+## Commit order option 3: transactionally bind result and progress
+
+The strongest local design is to commit business results and checkpoint progress in the same database transaction.
+
+```text
+begin transaction
+insert or upsert business row
+insert dedupe marker
+update checkpoint
+commit transaction
+```
+
+If the database is the only side-effect system, this is excellent.
+
+The checkpoint and result cannot diverge.
+
+The tradeoff is that the checkpoint database becomes part of the hot path.
+
+It must be sized, indexed, backed up, and monitored like production data.
+
+If the processor writes to both a database and Kafka, a single relational transaction may not cover both.
+
+Then you need an outbox, idempotent consumers, or a workflow engine.
+
+## Idempotency key design
+
+An idempotency key must represent the logical business operation.
+
+It should not represent the processing attempt.
+
+Good examples:
+
+| Use case | Idempotency key |
+|---|---|
+| payment ledger import | `sourceSystem + fileId + recordNumber + eventId` |
+| account balance adjustment | `sourceSystem + externalTransactionId` |
+| customer profile upsert | `customerId + sourceVersion` |
+| inventory movement | `warehouseId + sku + movementId` |
+| Kafka event emission | `eventType + aggregateId + sourceEventId` |
+
+Bad examples:
+
+- random UUID generated during processing
+- current timestamp
+- worker id plus sequence number
+- retry attempt id
+- mutable file path without version identity
+
+A random UUID makes every retry look new.
+
+That defeats deduplication.
+
+## Unique constraints
+
+The database should enforce the invariant.
+
+Application code can check first, but the database must still reject duplicates.
+
+Example shape:
+
+```sql
+create table imported_payment (
+  idempotency_key varchar(200) primary key,
+  file_id varchar(200) not null,
+  record_number bigint not null,
+  account_id varchar(100) not null,
+  amount_cents bigint not null,
+  created_at timestamp not null
+);
+```
+
+If two workers race, the primary key decides.
+
+Do not rely on `select then insert` without a constraint.
+
+That pattern has a race unless protected by locking or serializable isolation.
+
+## UPSERT
+
+For idempotent imports, an UPSERT can make replay harmless.
+
+```sql
+insert into imported_payment (...)
+values (...)
+on conflict (idempotency_key) do nothing;
+```
+
+Or:
+
+```sql
+insert into customer_snapshot (...)
+values (...)
+on conflict (customer_id) do update
+set name = excluded.name,
+    source_version = excluded.source_version;
+```
+
+Use `do nothing` when the first write is authoritative.
+
+Use `do update` only when the operation is naturally convergent.
+
+Do not hide conflicting data.
+
+If the same idempotency key arrives with a different amount, that is not a harmless duplicate.
+
+It is a data integrity incident.
+
+Store enough fields to detect mismatch.
+
+## Dedupe table
+
+When the target table cannot own the idempotency key, create a separate dedupe table.
+
+```sql
+create table processed_record_dedupe (
+  idempotency_key varchar(200) primary key,
+  file_id varchar(200) not null,
+  record_number bigint not null,
+  record_checksum varchar(128) not null,
+  processed_at timestamp not null
+);
+```
+
+The transaction should insert into the dedupe table and write the business side effect together.
+
+```text
+begin transaction
+insert dedupe marker
+write business side effect
+update checkpoint
+commit
+```
+
+If inserting the dedupe marker conflicts, read the existing marker.
+
+If the checksum matches, treat it as duplicate replay.
+
+If the checksum differs, fail hard and quarantine the file or record.
+
+## Java 17/21 processing shape
+
+Use streaming IO.
+
+Do not load 10GB into memory.
+
+Use `BufferedInputStream`, `BufferedReader`, `FileChannel`, or a streaming parser depending on format.
+
+Keep batches moderate.
+
+Commit every fixed number of records or bytes.
+
+Example policy:
+
+```text
+batch size: 1,000 records
+checkpoint interval: after each committed batch
+transaction scope: one batch
+retry scope: one record or one batch depending on side effects
+```
+
+Java 21 virtual threads can simplify blocking IO worker code.
+
+They do not remove downstream capacity limits.
+
+If the database can handle 32 concurrent writers, 2,000 virtual threads still need a semaphore or bounded executor.
+
+Virtual threads reduce thread overhead.
+
+They do not make side effects infinitely scalable.
+
+## Delivery semantics
+
+Use precise language.
+
+| Claim | Meaning | Is it realistic here |
+|---|---|---|
+| at-most-once | a record is attempted zero or one time | possible, but may lose data after crash |
+| at-least-once | a record may be retried until success | common for restartable processors |
+| effectively-once | retries happen, but idempotency makes final state equivalent to one success | realistic with strong keys and constraints |
+| exactly-once | every side effect happens once with no duplicates or loss across all systems | rarely true without a shared transaction boundary |
+
+For a database-only processor, business effects plus checkpoint can be atomic if stored in one transaction.
+
+For database plus Kafka plus external API, exactly-once across all side effects is usually a marketing phrase.
+
+Say what is atomic.
+
+Say what is idempotent.
+
+Say what is reconciled.
+
+## Poison and malformed records
+
+Not all failures should be retried.
+
+Retrying a malformed record one thousand times just creates load.
+
+Classify failures.
+
+| Failure | Retry? | Action |
+|---|---|---|
+| transient DB timeout | yes | retry with backoff and jitter |
+| deadlock loser | yes | retry transaction |
+| network reset | yes | retry within budget |
+| invalid UTF-8 | no | quarantine record or file |
+| schema mismatch | no until schema fixed | send to DLQ with reason |
+| missing required field | no | reject and audit |
+| invalid business rule | no | reject or route to exception workflow |
+| duplicate with same checksum | no need | treat as already processed |
+| duplicate with different checksum | no | fail integrity check |
+
+## DLQ design
+
+A DLQ is not a trash can.
+
+It is an operational workflow.
+
+Each DLQ item should include:
+
+- `jobId`
+- `fileId`
+- `chunkId`
+- `recordNumber`
+- `byteOffset`
+- record checksum
+- parse or validation error
+- sanitized record excerpt
+- timestamp
+- processor version
+- retry count
+- decision state
+
+Do not store raw PII unless the DLQ is encrypted and access controlled.
+
+Do not let a poison record block the whole file forever unless the business requirement demands strict all-or-nothing ingestion.
+
+For financial imports, a common approach is to fail the file on structural corruption but quarantine individual business-rule rejects with reconciliation.
+
+## Retryable versus not retryable
+
+Retryable means the same input may succeed later without changing the input.
+
+Not retryable means the input or code contract is invalid.
+
+### Retryable
+
+- connection pool timeout caused by temporary saturation
+- database failover
+- transaction deadlock
+- HTTP 503 from an internal enrichment service
+- object store throttling
+- temporary DNS issue
+
+### Not retryable
+
+- invalid UTF-8 byte sequence
+- CSV row with missing mandatory columns
+- JSON value with wrong type for the schema
+- checksum mismatch
+- negative payment amount when the domain forbids it
+- duplicate idempotency key with conflicting payload
+
+Use retry budgets.
+
+An infinite retry loop can turn one bad dependency into an outage.
+
+## Batch checkpointing tradeoff
+
+Checkpoint every record and overhead increases.
+
+Checkpoint every million records and replay after crash becomes large.
+
+Choose the interval from measured throughput and replay cost.
+
+Example:
+
+| Interval | Pros | Cons |
+|---|---|---|
+| every record | minimal replay | high write overhead |
+| every 1,000 records | balanced for many imports | replays up to one batch |
+| every 100MB | aligns with byte processing | awkward for variable record costs |
+| end of file only | simple | crash restarts too much work |
+
+The best checkpoint interval is a business decision as much as a performance decision.
+
+If replay sends customer emails, the interval must be small and idempotency must suppress duplicates.
+
+If replay only recalculates deterministic aggregates, a larger interval may be fine.
+
+## Checkpoint status transitions
+
+Use explicit states.
+
+```text
+created
+running
+checkpointed
+completed
+failed_retryable
+failed_permanent
+quarantined
+cancelled
+```
+
+Operators should be able to tell whether a job is still making progress.
+
+A stale `running` checkpoint with no heartbeat may indicate a dead worker.
+
+Use a lease or heartbeat timestamp for distributed processing.
+
+Do not let two workers own the same chunk unless the write path is designed for concurrent replay.
+
+## Handling partial batch failure
+
+If one record in a batch fails with a permanent validation error, decide whether the batch is atomic.
+
+Options:
+
+1. fail the entire file
+2. fail the batch and require operator repair
+3. commit valid records and DLQ invalid records
+4. split the batch and isolate the bad record
+
+For payments and ledgers, all-or-nothing by file may be required.
+
+For analytics imports, partial success plus DLQ may be acceptable.
+
+State the policy before implementation.
+
+The policy affects checkpointing.
+
+If valid records are committed and one record is quarantined, the checkpoint can advance only if the quarantine record itself is durably recorded.
+
+## Interview answer summary
+
+Say this:
+
+"I would resume from the last durable checkpoint, but I would not rely on the checkpoint for correctness.
+
+The safe design is process and commit side effects, then checkpoint, or commit the side effects and checkpoint in the same DB transaction.
+
+That means a crash can replay a small window.
+
+Replay is safe because each business operation has a stable idempotency key enforced by unique constraints or a dedupe table.
+
+Malformed records, invalid UTF-8, schema errors, and poison rows go to a DLQ or exception workflow instead of being retried forever.
+
+I would describe the system as at-least-once at the reader level and effectively-once for database state when idempotency and constraints are correct."

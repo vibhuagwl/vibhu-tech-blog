@@ -1,0 +1,549 @@
+---
+slug: process-10gb-streaming-nio-mmap
+title: "Process a 10 GB File with Streaming, NIO, and MappedByteBuffer"
+description: "Production Java 17/21 approaches for reading a 10 GB file with bounded memory: BufferedReader, InputStream, FileChannel, direct ByteBuffer, and MappedByteBuffer."
+category: "Real-Time Issues"
+difficulty: Staff
+tags: [Real-Time Issues, Java, NIO, MappedByteBuffer, UTF-8, File Processing]
+readingTime: 28 min
+publishedAt: "2026-08-11"
+---
+
+## The Staff-level baseline
+
+The baseline answer is streaming.
+
+For most 10 GB text files, the best first implementation is not exotic.
+
+It is:
+
+```text
+open stream -> decode UTF-8 -> read record -> validate -> batch -> persist -> discard
+```
+
+The important property is not the class name.
+
+The important property is bounded memory.
+
+```text
+Time: O(N)
+Heap: O(buffer + current record + output batch)
+```
+
+If the file doubles in size, memory should remain almost flat.
+
+Elapsed time and IO volume grow.
+
+Heap should not.
+
+## When this guide applies
+
+This guide focuses on local file processing in Java 17 or Java 21.
+
+The same design also applies after streaming an S3 object to a local temp file or pipe.
+
+For direct S3 processing, use the same bounded record model with the AWS SDK stream.
+
+The IO source changes.
+
+The memory invariant does not.
+
+## Solution 1: BufferedReader over InputStream
+
+Use this for line-oriented text:
+
+- CSV without quoted newlines
+- TSV
+- fixed-width text
+- newline-delimited JSON
+- application logs
+- exported records with one record per line
+
+The production concerns are:
+
+- explicit UTF-8
+- explicit buffer size
+- line length limit
+- malformed line handling
+- rejected-record sink
+- resource management
+- batch flushing
+- metrics
+- checkpoints after committed batches
+
+## Production streaming service
+
+This is intentionally not a toy example.
+
+It separates parsing, validation, writing, and checkpointing.
+
+```java
+package com.example.importer;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+import java.nio.charset.CharsetDecoder;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class CustomerEventImportService {
+    private static final Logger log = LoggerFactory.getLogger(CustomerEventImportService.class);
+    private static final int INPUT_BUFFER_BYTES = 1024 * 1024;
+    private static final int MAX_LINE_CHARS = 512 * 1024;
+    private static final int BATCH_SIZE = 1_000;
+
+    private final CustomerEventParser parser;
+    private final CustomerEventValidator validator;
+    private final CustomerEventWriter writer;
+    private final ImportCheckpointRepository checkpointRepository;
+    private final RejectedRecordRepository rejectedRecordRepository;
+    private final TransactionTemplate transactionTemplate;
+
+    public CustomerEventImportService(
+            CustomerEventParser parser,
+            CustomerEventValidator validator,
+            CustomerEventWriter writer,
+            ImportCheckpointRepository checkpointRepository,
+            RejectedRecordRepository rejectedRecordRepository,
+            TransactionTemplate transactionTemplate) {
+        this.parser = parser;
+        this.validator = validator;
+        this.writer = writer;
+        this.checkpointRepository = checkpointRepository;
+        this.rejectedRecordRepository = rejectedRecordRepository;
+        this.transactionTemplate = transactionTemplate;
+    }
+
+    public ImportSummary importLocalFile(UUID jobId, Path path) throws IOException {
+        ImportCheckpoint checkpoint = checkpointRepository.load(jobId);
+        ImportCounters counters = new ImportCounters(checkpoint.nextLineNumber());
+        List<CustomerEvent> batch = new ArrayList<>(BATCH_SIZE);
+
+        CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+
+        try (InputStream input = Files.newInputStream(path);
+             BufferedReader reader = new BufferedReader(
+                     new InputStreamReader(input, decoder),
+                     INPUT_BUFFER_BYTES)) {
+
+            skipAlreadyCommittedLines(reader, checkpoint.nextLineNumber());
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                long lineNumber = counters.currentLineNumber();
+                if (line.length() > MAX_LINE_CHARS) {
+                    reject(jobId, lineNumber, "LINE_TOO_LARGE", safePreview(line));
+                    counters.recordRejected();
+                    counters.advanceLine();
+                    continue;
+                }
+
+                try {
+                    CustomerEvent event = parser.parse(lineNumber, line);
+                    validator.validate(event);
+                    batch.add(event);
+                    counters.recordAccepted();
+                } catch (MalformedRecordException ex) {
+                    reject(jobId, lineNumber, ex.reasonCode(), safePreview(line));
+                    counters.recordRejected();
+                }
+
+                if (batch.size() >= BATCH_SIZE) {
+                    flushBatch(jobId, counters.currentLineNumber(), batch);
+                }
+
+                counters.advanceLine();
+            }
+
+            if (!batch.isEmpty()) {
+                flushBatch(jobId, counters.currentLineNumber(), batch);
+            }
+        }
+
+        log.info("import completed jobId={} accepted={} rejected={} lines={}",
+                jobId, counters.accepted(), counters.rejected(), counters.linesSeen());
+        return counters.toSummary();
+    }
+
+    private void flushBatch(UUID jobId, long lastLineNumberInBatch, List<CustomerEvent> batch) {
+        List<CustomerEvent> immutableBatch = List.copyOf(batch);
+        transactionTemplate.executeWithoutResult(status -> {
+            writer.writeBatch(immutableBatch);
+            checkpointRepository.markCommitted(jobId, lastLineNumberInBatch + 1, Instant.now());
+        });
+        batch.clear();
+    }
+
+    private void reject(UUID jobId, long lineNumber, String reason, String preview) {
+        rejectedRecordRepository.save(jobId, lineNumber, reason, preview);
+    }
+
+    private static void skipAlreadyCommittedLines(BufferedReader reader, long nextLineNumber) throws IOException {
+        for (long i = 1; i < nextLineNumber; i++) {
+            if (reader.readLine() == null) {
+                return;
+            }
+        }
+    }
+
+    private static String safePreview(String line) {
+        String sanitized = line.replaceAll("[\\r\\n\\t]", " ");
+        return sanitized.length() <= 512 ? sanitized : sanitized.substring(0, 512);
+    }
+}
+```
+
+## Notes on that code
+
+The code uses `InputStreamReader` with a `CharsetDecoder`.
+
+That is deliberate.
+
+The default platform charset is not acceptable in a production import.
+
+The decoder reports malformed UTF-8 instead of silently replacing bytes.
+
+Whether you reject the whole file or a single record is a business decision.
+
+The example rejects malformed records when they are represented as text lines.
+
+For decoder-level malformed bytes, the reader may throw.
+
+In regulated imports, failing the job may be safer than guessing.
+
+## Buffer size
+
+A one-megabyte reader buffer is a reasonable starting point.
+
+It reduces syscall overhead without pretending memory is free.
+
+Good production defaults are usually:
+
+- 64 KB for small services
+- 256 KB for general batch jobs
+- 1 MB for large sequential imports
+- larger only after measuring
+
+The buffer is not the batch.
+
+The buffer is how much raw text the reader keeps nearby.
+
+The batch is how many validated records you hold before writing.
+
+Tuning one does not replace tuning the other.
+
+## Malformed lines
+
+Malformed input must not become an incident.
+
+Handle at least these cases:
+
+- line too large
+- missing required fields
+- invalid UTF-8
+- invalid timestamp
+- invalid numeric range
+- unexpected column count
+- duplicate business key
+- PII in rejected payload
+
+The rejected-record path should be bounded too.
+
+Do not accumulate all errors in memory.
+
+Persist sanitized errors to PostgreSQL or write them to a controlled S3 prefix.
+
+## Resource management
+
+Always use try-with-resources.
+
+Close readers and streams even when the parser fails.
+
+For S3 streams, closing the stream also releases HTTP resources.
+
+For local files, closing is still important because long-running batch workers may process many files in one JVM.
+
+Leaked descriptors become production incidents.
+
+## Complexity
+
+For line streaming:
+
+```text
+N = input bytes
+R = record count
+B = batch size
+L = maximum accepted line size
+
+Time: O(N + R * validation_cost + R * write_cost)
+Heap: O(input_buffer + L + B * row_size)
+```
+
+That is the answer an interviewer wants.
+
+It separates file size from heap size.
+
+## S3 streaming variant
+
+The same service can accept an `InputStream`.
+
+For S3, preserve object identity in the job metadata:
+
+```java
+public ImportSummary importS3Object(UUID jobId, S3Client s3, String bucket, String key, String versionId) throws IOException {
+    GetObjectRequest request = GetObjectRequest.builder()
+            .bucket(bucket)
+            .key(key)
+            .versionId(versionId)
+            .build();
+
+    try (ResponseInputStream<GetObjectResponse> stream = s3.getObject(request)) {
+        return importStream(jobId, stream);
+    }
+}
+```
+
+In real code, also configure:
+
+- retry policy
+- socket timeout
+- request timeout
+- checksum validation if available
+- IAM role with minimum access
+- metrics for bytes read and retry attempts
+
+## Solution 2: FileChannel and ByteBuffer
+
+`FileChannel` gives lower-level control.
+
+It can be faster when:
+
+- you need byte-range reads
+- you process binary records
+- you control decoding manually
+- you want direct buffers
+- you want scatter/gather IO
+- you need predictable chunk boundaries
+
+It is not automatically faster for line-based text.
+
+`BufferedReader` already performs buffering and decoding.
+
+If you use `FileChannel` for text, you now own boundary handling and UTF-8 decoding.
+
+That is easy to get subtly wrong.
+
+## FileChannel skeleton
+
+This is the shape for a chunk reader.
+
+```java
+public final class FileChannelChunkReader {
+    private static final int BUFFER_BYTES = 4 * 1024 * 1024;
+
+    public void readRange(Path path, long startInclusive, long endExclusive, ChunkConsumer consumer) throws IOException {
+        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            ByteBuffer buffer = ByteBuffer.allocateDirect(BUFFER_BYTES);
+            long position = startInclusive;
+            channel.position(position);
+
+            while (position < endExclusive) {
+                buffer.clear();
+                int maxRead = (int) Math.min(buffer.capacity(), endExclusive - position);
+                buffer.limit(maxRead);
+
+                int read = channel.read(buffer);
+                if (read == -1) {
+                    break;
+                }
+
+                buffer.flip();
+                consumer.accept(position, buffer.slice());
+                position += read;
+            }
+        }
+    }
+}
+```
+
+This code is intentionally incomplete for text.
+
+It reads bytes.
+
+It does not yet produce records.
+
+The missing hard parts are:
+
+- carrying partial records across buffer boundaries
+- not splitting a multi-byte UTF-8 character
+- detecting line endings across buffers
+- respecting CSV quote state
+- bounding a record that spans many buffers
+
+Those are exactly why `BufferedReader` is the baseline.
+
+## Direct buffers
+
+`ByteBuffer.allocateDirect` allocates off-heap native memory.
+
+It may reduce one copy in some IO paths.
+
+It can also make memory harder to reason about because direct memory is outside the Java heap but still inside the container memory limit.
+
+A pod can be OOMKilled because of direct memory.
+
+Monitor:
+
+- process resident set size
+- direct buffer pool metrics
+- allocation rate
+- GC cleaner pressure
+- cgroup memory
+
+For Java 17/21, direct buffers are useful, but they are not free.
+
+## When FileChannel is not worth it
+
+Do not choose `FileChannel` just to sound senior.
+
+It may be worse when:
+
+- records are line-oriented text
+- parser cost dominates IO
+- PostgreSQL writes dominate the job
+- S3 network throughput dominates
+- the team is more likely to maintain reader code than tune syscalls
+
+A Principal answer says:
+
+```text
+I would benchmark BufferedReader first because it is simpler and usually good enough.
+I would move to FileChannel only if profiling shows reader overhead matters.
+```
+
+## Solution 3: MappedByteBuffer
+
+`MappedByteBuffer` maps file regions into virtual memory.
+
+The OS page cache loads pages on demand.
+
+The JVM object is small.
+
+The mapped pages are not Java heap.
+
+That sounds attractive.
+
+It also creates operational traps.
+
+## When memory mapping can help
+
+Memory mapping can be useful when:
+
+- you scan a local file repeatedly
+- you need random access
+- you build an index of offsets
+- the file is immutable during processing
+- you can map manageable windows
+- you understand page-cache behavior
+
+For a one-pass sequential import, it is often not better than streaming.
+
+The OS already performs read-ahead for sequential file reads.
+
+The bottleneck is usually parsing or writing, not copying bytes from kernel to user space.
+
+## Mapping in windows
+
+Do not map a huge file casually.
+
+Map windows:
+
+```java
+public void scanMapped(Path path, long fileSize, MappedWindowConsumer consumer) throws IOException {
+    long windowSize = 256L * 1024L * 1024L;
+    try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+        for (long offset = 0; offset < fileSize; offset += windowSize) {
+            long size = Math.min(windowSize, fileSize - offset);
+            MappedByteBuffer mapped = channel.map(FileChannel.MapMode.READ_ONLY, offset, size);
+            consumer.accept(offset, mapped);
+        }
+    }
+}
+```
+
+Windowing reduces address-space pressure and makes failure easier to isolate.
+
+It still does not solve record boundaries.
+
+## Unmap issues
+
+Java historically did not expose a simple public unmap API for `MappedByteBuffer`.
+
+The mapping is released when the buffer becomes unreachable and the cleaner runs.
+
+That timing is not deterministic.
+
+On Linux this is often tolerable for read-only batch jobs.
+
+On Windows it can keep files locked longer than expected.
+
+For production, that means:
+
+- do not map files you need to delete immediately
+- do not map unbounded numbers of windows
+- keep mapped buffers scoped tightly
+- watch resident memory
+- test on the deployment OS
+
+## When memory mapping is bad
+
+Avoid `MappedByteBuffer` when:
+
+- the file is on S3
+- the file is compressed with a non-splittable codec
+- the job reads once and writes to a slower database
+- the host has tight memory pressure
+- the team needs deterministic resource release
+- malformed records can span large windows
+- the process runs beside latency-sensitive services
+
+Page faults under memory pressure can look like mysterious latency.
+
+Mapped IO is still IO.
+
+It just moves some behavior into the OS.
+
+## Comparison table
+
+| Approach | Best for | Strength | Risk | Memory model |
+|---|---|---|---|---|
+| `BufferedReader` / `InputStream` | line-oriented text and simple imports | simplest correct bounded-memory baseline | limited random access and manual skip cost on resume | O(buffer + line + batch) |
+| `FileChannel` / `ByteBuffer` | byte ranges, binary records, custom chunking | explicit offsets and direct buffer control | you own decoding and boundary correctness | O(buffer + boundary carry + batch) |
+| `MappedByteBuffer` | local immutable files with random access or repeated scans | OS page cache and low heap pressure | nondeterministic unmap, page faults, OS-specific behavior | O(mapped window metadata + current record + batch), plus page cache outside heap |
+
+## Interview summary
+
+```text
+I would stream the file with explicit UTF-8, bounded buffers, bounded batches,
+and checkpoint after durable writes. That gives O(N) time and O(buffer + record + batch)
+memory. I would only move to FileChannel or memory mapping after profiling shows
+the reader is the bottleneck and after I understand record boundaries.
+```
+

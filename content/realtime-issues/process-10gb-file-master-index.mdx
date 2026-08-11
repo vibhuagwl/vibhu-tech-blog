@@ -1,0 +1,549 @@
+---
+slug: process-10gb-file-master-index
+title: "Process a 10 GB File: Staff and Principal Master Index"
+description: "A Principal-level interview hub for processing a 10 GB file with Java, Spring Boot, PostgreSQL, and S3 without pretending the heap must hold the file."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, Java, Spring Boot, PostgreSQL, S3, File Processing, Principal Interview]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## The real interview question
+
+"How would you process a 10 GB file?" is not a file API question.
+
+At Staff and Principal level, it is a production ownership question.
+
+The interviewer is listening for whether you ask about correctness, restartability, memory, downstream capacity, and operational failure before you start coding.
+
+The answer should not begin with `Files.readAllBytes`.
+
+It should begin with:
+
+```text
+10 GB file does not imply 10 GB heap.
+Memory should be O(buffer + current record + batch), not O(file).
+```
+
+That sentence is the center of the design.
+
+Everything else is a consequence of it.
+
+## Full 10 GB file curriculum
+
+Use these guides together.
+
+| # | Guide | Difficulty | Focus |
+|---:|---|---|---|
+| 01 | [Process a 10 GB file master index](/realtime-issues/process-10gb-file-master-index) | Principal | Requirements, failure semantics, memory model, and interview framing |
+| 02 | [Streaming, NIO, and memory mapped files](/realtime-issues/process-10gb-streaming-nio-mmap) | Staff | Buffered streams, `FileChannel`, direct buffers, `MappedByteBuffer`, and complexity |
+| 03 | [Parallel chunk processing](/realtime-issues/process-10gb-parallel-chunks) | Principal | Byte ranges, record boundaries, bounded queues, backpressure, checkpoints, and batch sizing |
+| 04 | [Database and Spring Batch](/realtime-issues/process-10gb-database-spring-batch) | Principal | JDBC batch inserts, transactions, restartability, skip/retry, and job repository semantics |
+
+## Principal-level opening answer
+
+In an interview, I would say this first:
+
+```text
+I would not load the file into memory.
+I would stream it, parse one record at a time, validate and transform it,
+write bounded batches to PostgreSQL or S3, and checkpoint progress.
+Before choosing the API, I would clarify format, ordering, failure semantics,
+downstream limits, and whether the file is local, S3-hosted, compressed, or splittable.
+```
+
+That is a stronger answer than naming a Java class.
+
+It shows you know the hardest part is not reading bytes.
+
+The hard parts are:
+
+- preserving correctness when a job dies at 70 percent
+- preventing the database from becoming the bottleneck
+- avoiding heap amplification during parsing
+- keeping failure evidence
+- deciding what exactly-once means for business effects
+- making restart safe
+- communicating ETA under uncertainty
+
+## Core principle
+
+The invariant is:
+
+```text
+Heap = buffer + current decoded record + parser scratch + output batch + small metadata
+```
+
+Not:
+
+```text
+Heap = 10 GB file + object graph + JSON tree + batch + indexes
+```
+
+For a line-oriented file, the program should hold:
+
+- one input buffer
+- one decoded line or record
+- one domain object
+- one bounded batch of rows
+- one checkpoint record
+- small metrics and counters
+
+If the file is 10 GB or 100 GB, that model does not fundamentally change.
+
+The elapsed time changes.
+
+The memory class should not.
+
+## Why `Files.readAllBytes` is wrong
+
+This is the anti-pattern:
+
+```java
+byte[] bytes = Files.readAllBytes(path);
+String body = new String(bytes, StandardCharsets.UTF_8);
+List<CustomerEvent> events = objectMapper.readValue(body, new TypeReference<>() {});
+```
+
+It looks short.
+
+It is not production code for a 10 GB input.
+
+The failure mode is often not a clean Java exception.
+
+The failure mode is:
+
+- the JVM allocates a huge byte array
+- decoding creates another large character representation
+- JSON or CSV parsing creates an object graph
+- temporary parser buffers amplify memory again
+- GC spends most of the job moving or scanning data
+- Kubernetes OOMKills the pod
+- the job restarts from the beginning
+- the database may receive duplicate partial writes
+
+In a container, the Linux OOM killer does not care that the Java code looked elegant.
+
+If the cgroup limit is exceeded, the process disappears.
+
+You may not get a graceful `OutOfMemoryError`.
+
+You may get a killed pod and a half-written import.
+
+## Why whole-tree `ObjectMapper` is wrong
+
+This is also wrong for a large JSON array:
+
+```java
+List<CustomerEvent> events = objectMapper.readValue(inputStream, new TypeReference<>() {});
+```
+
+Even though it uses an `InputStream`, the target type tells Jackson to build the whole list.
+
+The stream only changes where bytes come from.
+
+It does not change the memory shape of the result.
+
+For huge JSON, use a streaming parser.
+
+For newline-delimited JSON, read one JSON object per line.
+
+For a top-level JSON array, walk tokens and deserialize one element at a time.
+
+The memory invariant still matters:
+
+```text
+deserialize one element -> process one element -> discard one element
+```
+
+## Clarify requirement: format
+
+Ask what format the file uses.
+
+The design changes depending on whether the input is:
+
+- plain text
+- CSV
+- TSV
+- newline-delimited JSON
+- one huge JSON array
+- Avro
+- Parquet
+- gzipped CSV
+- zip archive
+- fixed-width records
+- binary protocol records
+
+CSV is not just "split on comma".
+
+Quoted commas, escaped quotes, embedded newlines, and malformed rows change the parser and the chunking strategy.
+
+JSON is not one thing either.
+
+Newline-delimited JSON is naturally streamable.
+
+A single huge JSON array requires token-level streaming.
+
+Parquet is columnar and splittable at row-group boundaries.
+
+Gzip is usually not splittable unless it is blocked or indexed.
+
+## Clarify requirement: ordering
+
+Ask whether output order matters.
+
+If ordering does not matter, you can process chunks in parallel and commit independent batches.
+
+If global ordering matters, parallelism becomes more constrained.
+
+You may need:
+
+- sequence numbers
+- ordered merge
+- per-key ordering
+- partition-level ordering
+- a final reconciliation phase
+
+Principal answer:
+
+```text
+I do not assume ordering is free.
+I ask whether the business needs global order, per-customer order, or only eventual completeness.
+```
+
+Global order is expensive.
+
+Per-key order can often be preserved with partitioning.
+
+No ordering requirement opens the door to simpler parallel ingestion.
+
+## Clarify requirement: ETA
+
+Ask what ETA means.
+
+The interviewer may care about wall-clock completion time.
+
+Operations may care about progress visibility.
+
+Downstream teams may care about rate limits.
+
+Leadership may care about when customer impact ends.
+
+For a production import, report:
+
+- bytes read
+- records parsed
+- records accepted
+- records rejected
+- batches committed
+- current throughput
+- estimated remaining time
+- retry counts
+- downstream saturation
+
+ETA should be based on observed throughput, not hope.
+
+If the database slows down after indexes or WAL pressure increase, the ETA must adjust.
+
+## Clarify requirement: S3 vs local
+
+Ask where the file lives.
+
+A local disk file and an S3 object have different operational properties.
+
+Local disk gives:
+
+- normal `Path`
+- `FileChannel`
+- memory mapping if appropriate
+- OS page cache
+- cheap seeking
+
+S3 gives:
+
+- object streams
+- range requests
+- eventual operational concerns around retries
+- network throughput limits
+- request cost
+- credentials and audit requirements
+
+With S3, a Principal design usually avoids downloading the whole object just to recreate the same problem locally.
+
+It may stream with `GetObject`.
+
+It may use range reads for parallel chunks.
+
+It may checkpoint byte offsets and object version IDs.
+
+It should record the bucket, key, ETag or version ID, and import attempt ID.
+
+## Clarify requirement: fail at 70 percent
+
+Ask what happens if the job fails after processing 70 percent.
+
+This is one of the most important questions.
+
+If the answer is "rerun the job", then the design needs idempotency.
+
+If the answer is "resume", then the design needs checkpoints.
+
+If the answer is "manual cleanup", that is usually not acceptable for Staff-plus production systems.
+
+Checkpointing choices include:
+
+- byte offset
+- line number
+- chunk ID
+- source object version
+- last committed business key
+- batch sequence
+- checksum of the chunk
+- job execution ID
+
+Do not checkpoint before durable side effects.
+
+The safe pattern is:
+
+```text
+parse batch -> validate batch -> write transaction -> commit transaction -> checkpoint committed position
+```
+
+If the checkpoint advances before the database commit, data can be skipped.
+
+If the database commit succeeds but the checkpoint fails, data can be retried.
+
+That retry must be idempotent.
+
+## Clarify requirement: exactly-once
+
+Ask what exactly-once means.
+
+Exactly-once file processing is not a magic property of Java IO.
+
+It is a property of the whole workflow:
+
+- source identity
+- record identity
+- idempotent writes
+- transaction boundaries
+- checkpoint movement
+- retry behavior
+- downstream side effects
+
+For PostgreSQL, a common production answer is:
+
+```sql
+INSERT INTO imported_event (...)
+VALUES (...)
+ON CONFLICT (source_file_id, record_number) DO UPDATE
+SET last_seen_at = now();
+```
+
+or:
+
+```sql
+INSERT INTO imported_event (...)
+VALUES (...)
+ON CONFLICT (business_event_id) DO NOTHING;
+```
+
+The correct unique key depends on the business semantics.
+
+"Exactly once" often becomes:
+
+```text
+at-least-once processing + idempotent persistence + observable reconciliation
+```
+
+That is an honest Principal answer.
+
+## Clarify requirement: record size
+
+Ask about maximum record size.
+
+Average line length is not enough.
+
+One pathological 200 MB line can break a line-based reader even when the file is only 10 GB.
+
+You need limits:
+
+- maximum line bytes
+- maximum parsed field length
+- maximum JSON object size
+- maximum number of columns
+- maximum validation error payload
+
+Bound the damage from malformed input.
+
+Reject or quarantine records that exceed limits.
+
+Do not let one bad record become a heap incident.
+
+## Clarify requirement: CPU vs IO
+
+Ask whether the job is IO-bound or CPU-bound.
+
+Reading 10 GB sequentially from NVMe is not the same as parsing compressed JSON from S3 and hashing every row.
+
+Measure:
+
+- disk throughput
+- S3 throughput
+- CPU utilization
+- allocation rate
+- GC pause time
+- parser time
+- database write time
+- queue depth
+
+If CPU is low and DB is saturated, more parsing threads hurt.
+
+If CPU is high and disk is idle, parsing is the bottleneck.
+
+If network is saturated, range reads may not help.
+
+## Clarify requirement: downstream limits
+
+Ask what consumes the output.
+
+The downstream may be:
+
+- PostgreSQL
+- S3
+- Kafka
+- another HTTP service
+- a data lake table
+- a partner batch API
+
+For this curriculum, assume Java 17 or 21, Spring Boot, PostgreSQL, and S3.
+
+PostgreSQL introduces:
+
+- connection pool limits
+- WAL volume
+- index maintenance
+- row and page locks
+- transaction duration
+- vacuum pressure
+- replication lag
+
+S3 introduces:
+
+- object size and multipart behavior
+- request throttling
+- retryable network errors
+- object versioning
+- lifecycle and retention rules
+
+The fastest parser is irrelevant if it overwhelms the sink.
+
+## Clarify requirement: splitability
+
+Ask whether the file can be split safely.
+
+A file is not parallel just because it is large.
+
+Safe splitting depends on record boundaries.
+
+Line-delimited text can often be split by byte range plus boundary scan.
+
+CSV with quoted newlines cannot be split by newline without parser state.
+
+Gzip usually cannot be randomly split.
+
+Parquet can be split by row groups.
+
+JSON arrays need token-aware partitioning or a preprocessing step.
+
+The answer should explicitly say:
+
+```text
+I only parallelize after I know how to preserve record boundaries.
+```
+
+## Clarify requirement: compliance
+
+Ask about compliance and data sensitivity.
+
+Large files often contain customer or financial data.
+
+Production design must account for:
+
+- encryption at rest
+- TLS in transit
+- S3 bucket policy
+- IAM role scope
+- audit logging
+- PII redaction in error files
+- retention period
+- right-to-delete workflows
+- regional residency
+- checksum verification
+
+Do not dump malformed records with full PII into application logs.
+
+Write rejected records to a controlled S3 location with retention and access policy.
+
+## Recommended architecture
+
+A safe baseline looks like this:
+
+```text
+S3 or local file
+  -> bounded streaming reader
+  -> parser with record-size limits
+  -> validator
+  -> transformer
+  -> bounded batch writer
+  -> PostgreSQL transaction
+  -> checkpoint table
+  -> metrics and rejected-record sink
+```
+
+The architecture is intentionally boring.
+
+Boring is good here.
+
+The risk is not that Java cannot read 10 GB.
+
+The risk is that the job silently corrupts, duplicates, skips, or overloads something.
+
+## Interview traps
+
+Avoid these answers:
+
+- "Increase heap to 16 GB."
+- "Use `parallelStream()`."
+- "Read all bytes and parse."
+- "Use Mongo because it is faster."
+- "Use Kafka because Kafka handles big data."
+- "Use S3 Select without discussing format and limits."
+- "Batch everything and commit at the end."
+- "Commit every row."
+- "If it fails, restart the pod."
+
+None of those answers proves production ownership.
+
+## The strongest closing statement
+
+Close with a trade-off statement:
+
+```text
+My default is a streaming, restartable, idempotent pipeline.
+I choose BufferedReader or InputStream first for simplicity.
+I use FileChannel or range reads when measurement shows IO overhead matters.
+I parallelize only when record boundaries and downstream capacity are understood.
+I use Spring Batch when restartability, skip/retry, and operational visibility matter more than custom control.
+```
+
+That answer is senior because it resists the fake binary:
+
+```text
+simple code vs scalable code
+```
+
+For 10 GB files, the scalable design is often the simpler one:
+
+stream, bound, batch, checkpoint, observe, and retry safely.

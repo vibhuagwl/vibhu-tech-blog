@@ -1,0 +1,549 @@
+---
+slug: process-10gb-parallel-chunks
+title: "Process a 10 GB File with Parallel Chunks, Backpressure, and Checkpoints"
+description: "A Principal-level design for byte-range partitioning, record boundary detection, bounded queues, and database-aware batch sizing for large file imports."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, Java, Spring Boot, PostgreSQL, S3, Parallel Processing, Backpressure]
+readingTime: 30 min
+publishedAt: "2026-08-11"
+---
+
+## The Principal framing
+
+Parallel processing is not the first answer.
+
+Correct processing is the first answer.
+
+A 10 GB file can often be processed faster by splitting it into chunks.
+
+But chunking is safe only if every worker sees complete records and downstream systems can absorb the write rate.
+
+The Principal answer is:
+
+```text
+I parallelize only after I understand record boundaries, ordering requirements,
+restart semantics, and the capacity of PostgreSQL or the downstream sink.
+```
+
+Otherwise, parallelism becomes an incident multiplier.
+
+## Architecture overview
+
+A production chunked pipeline looks like this:
+
+```text
+Plan chunks
+  -> align to record boundaries
+  -> read chunk
+  -> parse records
+  -> validate records
+  -> transform records
+  -> enqueue bounded batches
+  -> persist batches
+  -> checkpoint chunk progress
+```
+
+The pipeline is:
+
+```text
+Read -> Parse -> Validate -> Transform -> Batch -> Persist -> Checkpoint
+```
+
+Each arrow is a potential backpressure point.
+
+Each stage must be bounded.
+
+## Byte-range partitioning
+
+For a local file, start with byte ranges.
+
+For example, a 10 GB file can be divided into 128 MB or 256 MB raw ranges.
+
+The raw ranges are not final chunks.
+
+They are candidate ranges.
+
+Each candidate must be adjusted to record boundaries.
+
+```text
+raw range:      [134217728, 268435456)
+aligned range:  [134219011, 268436982)
+```
+
+The first chunk starts at byte zero.
+
+Every later chunk scans forward to the next record boundary.
+
+The previous chunk reads until the same boundary.
+
+That avoids missing or duplicating records.
+
+## Boundary detection for line records
+
+For newline-delimited records, the boundary is usually `\n`.
+
+A worker assigned a range that starts in the middle of a line must discard bytes until the first newline.
+
+The prior worker owns that partial line.
+
+Pseudo-rule:
+
+```text
+if chunkStart == 0:
+    begin at 0
+else:
+    seek chunkStart
+    scan forward through the next newline
+    begin after that newline
+```
+
+For the end boundary:
+
+```text
+read until plannedEnd
+continue through the next newline
+stop after emitting that full record
+```
+
+That makes each emitted line owned by exactly one chunk.
+
+## CSV quoted-newline problem
+
+CSV complicates this.
+
+RFC-style CSV can contain newlines inside quoted fields.
+
+This is one logical record:
+
+```csv
+customer_id,comment,created_at
+42,"first line
+second line",2026-08-11T10:15:30Z
+```
+
+Splitting on newline corrupts it.
+
+For CSV with quoted newlines, options include:
+
+- use a parser that can resume from known safe boundaries
+- pre-scan the file to build record offsets with quote-state tracking
+- split only at boundaries from an upstream manifest
+- disable chunk parallelism and parallelize validation or writes instead
+- convert to a splittable format before ingestion
+
+The Principal signal is admitting that naive newline scanning is unsafe.
+
+## JSON boundaries
+
+JSON also depends on shape.
+
+Newline-delimited JSON is naturally chunkable by line if each line is one object.
+
+A top-level JSON array is not naturally chunkable by byte range.
+
+This is hard to split safely:
+
+```json
+[
+  {"id": 1},
+  {"id": 2}
+]
+```
+
+A range can begin in the middle of a string, escape sequence, or nested object.
+
+Options include:
+
+- use Jackson streaming in one reader thread
+- build an offset index with a token scanner
+- require NDJSON from the producer
+- use S3 inventory or producer manifests
+- convert upstream to Parquet or another splittable format
+
+The format requirement often decides the architecture.
+
+## S3 range reads
+
+S3 supports range requests.
+
+That enables workers to read byte windows without downloading the whole object.
+
+Production requirements:
+
+- record object bucket and key
+- record version ID or ETag
+- use the same object version for every range
+- configure request timeouts
+- bound concurrent range requests
+- retry idempotently
+- validate checksums where possible
+
+Do not let 64 workers hammer S3 and then hammer PostgreSQL.
+
+The source and the sink both need budgets.
+
+## Chunk plan data model
+
+Persist the plan.
+
+Do not keep it only in memory.
+
+```sql
+CREATE TABLE import_chunk (
+    job_id uuid NOT NULL,
+    chunk_id integer NOT NULL,
+    source_start bigint NOT NULL,
+    source_end bigint NOT NULL,
+    aligned_start bigint,
+    aligned_end bigint,
+    status text NOT NULL,
+    attempt_count integer NOT NULL DEFAULT 0,
+    records_committed bigint NOT NULL DEFAULT 0,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (job_id, chunk_id)
+);
+```
+
+Persisting chunks supports restart, partial retry, and operational visibility.
+
+It also lets you cap active chunks with database leasing.
+
+## Production chunk planner
+
+This planner creates candidate ranges.
+
+Boundary alignment can happen in a later stage that knows the file format.
+
+```java
+package com.example.importer.chunk;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+public final class ChunkPlanner {
+    private final long targetChunkBytes;
+
+    public ChunkPlanner(long targetChunkBytes) {
+        if (targetChunkBytes < 16L * 1024L * 1024L) {
+            throw new IllegalArgumentException("chunk size too small for production imports");
+        }
+        this.targetChunkBytes = targetChunkBytes;
+    }
+
+    public List<ImportChunk> plan(UUID jobId, long fileSizeBytes) {
+        List<ImportChunk> chunks = new ArrayList<>();
+        int chunkId = 0;
+        for (long start = 0; start < fileSizeBytes; start += targetChunkBytes) {
+            long end = Math.min(fileSizeBytes, start + targetChunkBytes);
+            chunks.add(new ImportChunk(jobId, chunkId++, start, end, ChunkStatus.PLANNED));
+        }
+        return chunks;
+    }
+}
+```
+
+The chunk size is not arbitrary.
+
+Smaller chunks improve retry granularity and load balancing.
+
+Larger chunks reduce metadata and boundary overhead.
+
+For 10 GB, 64 MB to 512 MB candidate chunks are common starting points.
+
+Measure in your environment.
+
+## Worker leasing
+
+Workers should lease chunks.
+
+Do not assign all chunks once and hope every pod lives.
+
+Use PostgreSQL row locking:
+
+```sql
+WITH next_chunk AS (
+    SELECT job_id, chunk_id
+    FROM import_chunk
+    WHERE job_id = ?
+      AND status IN ('PLANNED', 'RETRYABLE')
+    ORDER BY chunk_id
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1
+)
+UPDATE import_chunk c
+SET status = 'RUNNING',
+    attempt_count = attempt_count + 1,
+    updated_at = now()
+FROM next_chunk n
+WHERE c.job_id = n.job_id
+  AND c.chunk_id = n.chunk_id
+RETURNING c.*;
+```
+
+This supports multiple workers without a separate coordinator.
+
+It also prevents two workers from owning the same chunk.
+
+For long chunks, add lease heartbeat columns and stale lease recovery.
+
+## Bounded queues
+
+A fast reader can outpace validation.
+
+A fast validator can outpace PostgreSQL.
+
+Unbounded queues hide the problem until the JVM dies.
+
+Use bounded queues:
+
+```java
+BlockingQueue<RecordBatch> persistQueue = new ArrayBlockingQueue<>(64);
+```
+
+When the queue fills, producers block.
+
+That is backpressure.
+
+Backpressure is not failure.
+
+It is the system protecting itself.
+
+## Pipeline executor
+
+Use explicit executors.
+
+Do not submit everything to the common pool.
+
+```java
+@Configuration
+public class ImportExecutorConfig {
+    @Bean(destroyMethod = "shutdown")
+    ExecutorService chunkReadExecutor() {
+        return Executors.newFixedThreadPool(4, named("chunk-reader-"));
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    ExecutorService transformExecutor() {
+        return Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), named("import-transform-"));
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    ExecutorService persistExecutor() {
+        return Executors.newFixedThreadPool(3, named("import-writer-"));
+    }
+
+    private static ThreadFactory named(String prefix) {
+        AtomicInteger sequence = new AtomicInteger();
+        return task -> {
+            Thread thread = new Thread(task, prefix + sequence.incrementAndGet());
+            thread.setDaemon(false);
+            return thread;
+        };
+    }
+}
+```
+
+Separate executors let you tune each stage.
+
+They also make thread dumps readable during incidents.
+
+## Why not `parallelStream()`
+
+`parallelStream()` is usually the wrong answer here.
+
+It uses the common `ForkJoinPool` unless configured carefully.
+
+It hides scheduling.
+
+It does not model downstream backpressure.
+
+It does not naturally expose chunk checkpoints.
+
+It can starve unrelated application code.
+
+It makes incident debugging harder.
+
+This is weak:
+
+```java
+Files.lines(path).parallel().forEach(line -> process(line));
+```
+
+It has problems:
+
+- file handles are easy to leak
+- line ordering becomes unclear
+- exceptions are awkward
+- PostgreSQL can be flooded
+- checkpointing is absent
+- rejected records lack stable ownership
+- the common pool becomes part of the import blast radius
+
+Use explicit pools and bounded handoff instead.
+
+## Batch ownership
+
+Each batch should carry metadata.
+
+```java
+public record RecordBatch(
+        UUID jobId,
+        int chunkId,
+        long firstRecordNumber,
+        long lastRecordNumber,
+        List<CustomerEvent> records) {
+}
+```
+
+That metadata supports:
+
+- idempotent inserts
+- checkpointing
+- metrics
+- error attribution
+- reprocessing one chunk
+- explaining progress to operations
+
+Without ownership metadata, a parallel import becomes hard to audit.
+
+## Persist then checkpoint
+
+The rule is:
+
+```text
+write data transactionally -> commit -> mark checkpoint
+```
+
+If checkpoint and writes share the same PostgreSQL transaction, that is often best.
+
+For example:
+
+```java
+transactionTemplate.executeWithoutResult(status -> {
+    customerEventWriter.writeBatch(batch.records());
+    chunkRepository.markCommitted(
+            batch.jobId(),
+            batch.chunkId(),
+            batch.lastRecordNumber(),
+            batch.records().size());
+});
+```
+
+If the transaction rolls back, the checkpoint does not advance.
+
+If the process dies after commit returns but before the caller logs success, retry must be idempotent.
+
+## Idempotency keys
+
+Parallel workers require stable uniqueness.
+
+Good keys include:
+
+- source file ID plus record number
+- source file ID plus chunk ID plus record number
+- business event ID from the payload
+- checksum plus source identity when no key exists
+
+For PostgreSQL:
+
+```sql
+CREATE UNIQUE INDEX imported_event_source_record_uq
+ON imported_event(source_file_id, record_number);
+```
+
+Then use `ON CONFLICT`.
+
+Retries become safe.
+
+Duplicate workers become less dangerous.
+
+## Batch size trade-offs
+
+Batch size is not just a performance knob.
+
+It affects database behavior.
+
+Small batches:
+
+- commit frequently
+- reduce lock duration
+- reduce rollback size
+- improve checkpoint granularity
+- increase round trips
+- increase transaction overhead
+
+Large batches:
+
+- reduce round trips
+- improve driver efficiency
+- may increase throughput
+- hold locks longer
+- generate larger WAL bursts
+- increase memory
+- make retries more expensive
+- can monopolize the connection pool
+
+Start with 500 to 2,000 rows for normal OLTP-shaped rows.
+
+Measure WAL, lock waits, connection pool saturation, and replication lag.
+
+For wide rows or heavy indexes, smaller may be safer.
+
+For narrow staging tables, larger may be fine.
+
+## PostgreSQL pool limits
+
+If Hikari has 10 connections, do not create 32 writer threads.
+
+The pool will become the hidden queue.
+
+Then request threads may starve if the import shares the application pool.
+
+Better design:
+
+- separate import datasource when needed
+- cap writer threads below available connections
+- use short transactions
+- write to a staging table
+- merge into target tables in controlled steps
+- monitor lock waits and WAL rate
+
+The database is part of the system, not an infinite sink.
+
+## Observability
+
+Expose metrics:
+
+- chunk state counts
+- active workers
+- queue depth by stage
+- bytes read per second
+- records parsed per second
+- records written per second
+- rejected records
+- writer latency
+- PostgreSQL batch time
+- retry count
+- checkpoint age
+- estimated remaining bytes
+
+When a Principal engineer gets paged, these dimensions turn chaos into a bounded investigation.
+
+## Interview answer
+
+Say:
+
+```text
+I would split by byte ranges only if the format has safe record boundaries.
+For line-delimited data, each worker aligns to newline boundaries and emits complete records.
+For CSV with quoted newlines or a JSON array, I would avoid naive chunking and use a parser-aware strategy.
+The pipeline would use explicit executors, bounded queues, idempotent PostgreSQL writes,
+and checkpoints after committed batches. I would size batch and writer concurrency from database capacity,
+not from the number of CPU cores.
+```
+
+That answer is Principal-level because it treats parallelism as a correctness and capacity problem.
+
+Not just a thread-count problem.
