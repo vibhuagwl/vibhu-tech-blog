@@ -1,0 +1,71 @@
+---
+slug: lp-earn-trust
+title: "Earn Trust — Amazon LP Interview Answers"
+description: "Earn Trust LP: candid stakeholder communication on Deloitte tax UAT, cross-team Kafka contracts, and blameless incident leadership."
+category: Leadership Principles
+difficulty: Advanced
+tags: [Amazon, Leadership Principles, Behavioral, STAR, Kafka, Interview]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## Principle
+
+Leaders listen attentively, speak candidly, and treat others respectfully. They are vocally self-critical, even when doing so is awkward or embarrassing. Leaders do not believe their or their team’s body odor smells of perfume. They benchmark themselves and their teams against the best.
+
+## Primary STAR — Deloitte tax integration trust
+
+**Situation:** Multi-party delivery (engineering, tax partner responses, equity admins, UAT). Missed expectations would burn trust quickly.
+
+**Task:** Lead communication and technical delivery so stakeholders trusted status and quality.
+
+**Action:**
+1. Candid risk logs (latency of tax responses, error handling gaps) early.
+2. Shared demos of async SQS path and failure cases — not only happy path.
+3. Invited critique in architecture forums; documented decisions.
+4. Owned misses in test data assumptions without blaming QA/partner.
+5. Built Playwright regression to make trust evidence-based at release time.
+
+**Result:** Production deployment with regulatory compliance needs met; admins gained tax visibility they could rely on.
+
+## Backup — Incident candor
+
+During Kafka DLQ issues, published clear impact/ETA, admitted recovery tooling gap, then delivered the Replay Tool — trust from honesty + follow-through.
+
+## Common questions
+
+### Q1. Tell me about receiving hard feedback.
+
+**A:** Feedback that reviews were too design-pure and slowed delivery. I kept the bar on money paths but added lighter templates for low-risk endpoints — earned trust from both quality and speed camps.
+
+### Q2. How do you earn trust with a partner team?
+
+**A:** Explicit event contracts, versioning, sample payloads, joint failure drills on Kafka consumers, and no surprise production publishes.
+
+### Q3. When were you vocally self-critical?
+
+**A:** I underestimated poison-message operational load. I said so in the postmortem and funded DLQ tooling — credibility rose more than if I had spun it.
+
+
+## Kafka case bank (reuse across follow-ups)
+
+Use these concrete cases when the interviewer digs into Kafka after your story.
+
+| Case | What happened | What you owned | Result |
+|---|---|---|---|
+| Consumer lag spike | Downstream HSBC/SWIFT validation slowed; lag grew on payment topic | Tuned concurrency, partitioned hot keys, added lag alerts + backpressure | Restored SLA without data loss |
+| Poison message / DLQ | Bad SWIFT payload blocked partition processing | Built DLQ + bulk replay tool with account/SWIFT validation | Incident recovery time **−50%** |
+| Duplicate events | Retries after broker blip caused duplicate tax/payment side effects | Idempotency keys + dedupe store; exactly-once *effect* design | Zero double-posting in replay drills |
+| Schema / contract break | Producer shipped incompatible event | Compatibility checks in CI, consumer defensive parsing, canary topic | Caught before broad blast radius |
+| Rebalance storm | Rolling deploy caused frequent rebalances | `max.poll.interval`, sticky assignor, drain-before-shutdown | Stable throughput during deploys |
+| Out-of-order cash events | Same account events across partitions | Key by account/cash-line; ordering within key | Correct reconciliation order |
+| Analytics pipeline | Merchant reports took hours from batch DB pulls | Real-time Kafka logging → parallel consumers | Report generation **−90%** time (PayPal) |
+| Observability gap | Hard to prove “message landed then failed downstream” | Correlation IDs, lag/DLQ dashboards (Splunk/CloudWatch) | Faster RCA, fewer finger-pointing loops |
+
+
+## Weak vs strong
+
+| Weak | Strong |
+|---|---|
+| Politics and spin | Candor + fix + invite scrutiny |
+| Trust = being nice | Trust = predictable delivery and honest risk |

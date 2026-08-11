@@ -1,0 +1,171 @@
+---
+slug: lp-kafka-story-bank-all-cases
+title: "Kafka Story Bank — All Cases for Amazon LP Interviews"
+description: "Master Kafka behavioral follow-ups for Amazon interviews: lag, DLQ, duplicates, ordering, rebalance, schema break, replay, and which Leadership Principles each case proves."
+category: Leadership Principles
+difficulty: Advanced
+tags: [Amazon, Leadership Principles, Behavioral, STAR, Kafka, Interview]
+readingTime: 22 min
+publishedAt: "2026-08-11"
+---
+
+## Why this page exists
+
+If your Amazon LP answer mentions **Kafka**, interviewers will drill cases until they hear ownership, judgment, and customer impact. Prepare this bank once; reuse it under any LP.
+
+Stories below are framed for **Vibhu Agarwal** (JPMorgan Chase SDE III; ex-PayPal): payment/SWIFT events, tax async paths, merchant analytics, DLQ Replay Tool (**−50%** recovery), real-time reporting (**−90%** time), **99.9%** availability.
+
+## Map cases → Leadership Principles
+
+| Kafka case | Primary LPs | Secondary LPs |
+|---|---|---|
+| Lag spike / SLA risk | Dive Deep, Deliver Results | Ownership, Bias for Action |
+| Poison message / DLQ | Ownership, Highest Standards | Invent & Simplify, Customer Obsession |
+| Validated bulk replay tool | Invent & Simplify, Ownership | Earn Trust, Earth's Best Employer |
+| Duplicates / idempotency | Are Right A Lot, Highest Standards | Dive Deep |
+| Hot key / ordering | Are Right A Lot, Dive Deep | Disagree & Commit |
+| Rebalance during deploy | Dive Deep, Deliver Results | Insist on Highest Standards |
+| Schema / contract break | Disagree & Commit, Earn Trust | Think Big |
+| Analytics / reporting pipeline | Think Big, Customer Obsession | Deliver Results |
+| Cost of retention/logging | Frugality, Broad Responsibility | Dive Deep |
+| Mentoring consumers/reviews | Hire & Develop, Learn & Be Curious | Earn Trust |
+
+## Case 1 — Consumer lag spike
+
+**Prompt:** Tell me about a time a system was missing SLA.
+
+**STAR**
+- **S:** Payment/SWIFT consumer lag grew; reconciliation risked missing windows.
+- **T:** Restore SLA without losing messages or corrupting cash state.
+- **A:** Split broker health vs consumer lag vs downstream validation latency; found slow SWIFT/account validation + hot accounts; tuned concurrency after idempotency; added lag alerts.
+- **R:** Lag recovered; later prevented recurrence with SLOs and the replay path for failures.
+
+**Follow-ups**
+- *How measured?* `records-lag`, consume vs produce rate, downstream p99.
+- *Why not only add partitions?* Hot key / per-account ordering would not improve.
+- *Customer?* Ops + participants waiting on cash/reconciliation correctness.
+
+## Case 2 — Poison message blocked a partition
+
+**Prompt:** Tell me about a production defect that kept failing.
+
+**STAR**
+- **S:** Bad SWIFT payload threw repeatedly; partition progress stalled.
+- **T:** Unblock processing and stop silent data loss.
+- **A:** Classified poison vs transient; routed to DLQ with headers/reason; kept good messages flowing; forbade infinite retry storms.
+- **R:** Throughput restored; clear quarantine for bad data.
+
+**Follow-ups**
+- *At-least-once implications?* Yes — design idempotent side effects.
+- *Who fixes payload?* Upstream producer + ops validation; not “drop forever” without audit.
+
+## Case 3 — DLQ Replay Tool (flagship story)
+
+**Prompt:** Ownership / Invent and Simplify / Bias for Action.
+
+**STAR**
+- **S:** Recovery was manual, slow, error-prone.
+- **T:** Safe bulk replay with account + SWIFT validation.
+- **A:** Built Replay Tool, runbooks, metrics (DLQ depth, replay success/fail); trained ops and team of 4.
+- **R:** Incident recovery time **−50%**; integrity strengthened.
+
+**Follow-ups**
+- *Two-way door?* Guarded manual replay during incident; tool became the standard.
+- *Security?* Validation gates; least privilege for replay publish.
+- *How do you know it worked?* Replay success metrics + reconciliation checks.
+
+## Case 4 — Duplicate events / exactly-once *effects*
+
+**Prompt:** Are Right A Lot / Highest Standards.
+
+**STAR**
+- **S:** Broker blip + retries risked duplicate tax/payment side effects.
+- **T:** Prevent double-posting while keeping at-least-once delivery.
+- **A:** Idempotency keys, dedupe store / unique constraints, consumer design for safe retries; rejected “just enable EOS and relax app checks” as insufficient across DB + external calls.
+- **R:** Zero double-posting in replay drills; confidence under retries.
+
+**Follow-ups**
+- *EOS transactions?* Discuss when applicable; still need business idempotency for external systems.
+- *What unique key?* Business natural key (payment id / event id), not only Kafka offset.
+
+## Case 5 — Ordering & hot keys
+
+**Prompt:** Dive Deep / Disagree and Commit.
+
+**STAR**
+- **S:** Out-of-order cash events broke reconciliation assumptions.
+- **T:** Preserve per-account order without killing throughput.
+- **A:** Key by account/cash-line; accepted partition hotspot trade-off; optimized slow validation path instead of random keys.
+- **R:** Correct order; lag addressed at the real bottleneck.
+
+**Follow-ups**
+- *Trade-off?* Ordering vs max parallelism — chose correctness for money.
+- *Could you shard accounts?* Yes for extreme hot keys; explain sticky routing carefully.
+
+## Case 6 — Rebalance storm on deploy
+
+**Prompt:** Deliver Results / Dive Deep.
+
+**STAR**
+- **S:** Rolling deploys caused frequent rebalances; throughput dipped.
+- **T:** Keep processing stable through releases.
+- **A:** Tuned `max.poll.interval`, cooperative/sticky assignor, drain-before-shutdown; verified in lower env with deploy drill.
+- **R:** Stable throughput during deploys; fewer false lag pages.
+
+## Case 7 — Schema / contract break
+
+**Prompt:** Earn Trust / Disagree and Commit / Think Big.
+
+**STAR**
+- **S:** Producer nearly shipped incompatible event to shared topic.
+- **T:** Protect all consumers without freezing delivery forever.
+- **A:** Challenged loose “publish now” plan; proposed versioned contracts + CI compatibility + canary; committed fully once agreed; shared examples with partner teams.
+- **R:** Break caught before broad blast radius; trust in event bus improved.
+
+## Case 8 — Real-time reporting pipeline (PayPal)
+
+**Prompt:** Customer Obsession / Think Big / Deliver Results.
+
+**STAR**
+- **S:** Merchants waited on slow batch reports.
+- **T:** Near-real-time reporting with integrity.
+- **A:** Kafka pipelines for transaction logging → analytics consumers; parallel processing; idempotent writes.
+- **R:** Report generation **−90%** time; platform work held **99.9%** availability.
+
+## Case 9 — Observability & RCA
+
+**Prompt:** Dive Deep / Earn Trust / Frugality.
+
+**STAR**
+- **S:** Hard to prove “event landed then failed downstream.”
+- **T:** Make RCA factual across teams.
+- **A:** Correlation IDs, lag/DLQ dashboards (Splunk/CloudWatch), later cost-aware analytics migration (**$1M+/yr** savings) without deleting audit trails needed for money.
+- **R:** Faster RCA; less finger-pointing; responsible cost.
+
+## Case 10 — Mentoring Kafka competence
+
+**Prompt:** Hire and Develop / Learn and Be Curious / Earth's Best Employer.
+
+**STAR**
+- **S:** Team of 4 needed consistent consumer patterns.
+- **T:** Raise the bar so Kafka is not tribal knowledge.
+- **A:** Design reviews on keys/retries/DLQ; paired RCAs; delegated framework ownership; runbooks so on-call is humane.
+- **R:** Consistent delivery; less heroics; people grew into owners.
+
+## Universal follow-up checklist (memorize)
+
+1. What was the **customer** impact in plain language?
+2. What **metric** moved (lag, DLQ depth, p99, recovery time)?
+3. What were **2–3 options** and why you rejected the others?
+4. How did you ensure **no double money movement**?
+5. What **prevention** did you leave behind (alert, test, tool, contract)?
+6. What would you **do differently** next time?
+7. Which **2 LPs** does this demonstrate? Say them explicitly at the end.
+
+## 90-second “Kafka ownership” opener (reusable)
+
+> “At JPMorgan I owned Kafka failure recovery for payment and SWIFT events. Poison messages and slow validation created lag and risky manual replays. I built a DLQ Replay Tool with bulk account and SWIFT validation, plus lag/DLQ metrics and runbooks. Recovery time dropped about 50%, and we stopped treating Kafka failures as one-off heroics. That story shows Ownership, Dive Deep, and Insist on the Highest Standards.”
+
+## Practice drill
+
+Pick any LP interview question. Force-fit **one** Kafka case from this page. Answer in 4 minutes. Then answer every row in the universal checklist without looking.

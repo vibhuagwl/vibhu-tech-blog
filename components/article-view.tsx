@@ -2,6 +2,7 @@ import {notFound} from 'next/navigation';
 import Link from 'next/link';
 import {compileMDX} from 'next-mdx-remote/rsc';
 import {getAllPosts,getPost,getPostsByCategories,SECTION_CATEGORIES} from '@/lib/posts';
+import {hrefForPost} from '@/lib/href';
 import {mdxComponents} from '@/components/mdx';
 
 type Section=keyof typeof SECTION_CATEGORIES;
@@ -65,7 +66,7 @@ export default async function ArticleView({
             {fallbackRelated.map((r)=>(
               <Link
                 key={r.slug}
-                href={allowed.has(r.category) ? `${basePath}/${r.slug}` : `/system-design/${r.slug}`}
+                href={allowed.has(r.category) ? `${basePath}/${r.slug}` : hrefForPost(r.category,r.slug)}
                 className="card p-5"
               >
                 <div className="text-[10px] font-black uppercase text-blue-600">{r.category}</div>

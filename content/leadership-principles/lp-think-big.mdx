@@ -1,0 +1,70 @@
+---
+slug: lp-think-big
+title: "Think Big — Amazon LP Interview Answers"
+description: "Think Big LP answers: event-driven modernization at PayPal, platform-level Kafka analytics, and multi-year architecture bets."
+category: Leadership Principles
+difficulty: Advanced
+tags: [Amazon, Leadership Principles, Behavioral, STAR, Kafka, Interview]
+readingTime: 16 min
+publishedAt: "2026-08-11"
+---
+
+## Principle
+
+Thinking small is a self-fulfilling prophecy. Leaders create and communicate a bold direction that inspires results. They think differently and look around corners for ways to serve customers.
+
+## Primary STAR — Legacy monolith → cloud-native event platform (PayPal)
+
+**Situation:** Monolith slowed releases and scaled poorly for millions of financial transactions.
+
+**Task:** Lead modernization toward Java/Spring microservices on GCP with Kafka event-driven architecture.
+
+**Action:**
+1. Painted the end-state: independently deployable services, async boundaries, clearer ownership.
+2. Sequenced migration by strangling high-value flows first.
+3. Built real-time Kafka pipelines for logging/reporting/analytics — not only CRUD split.
+4. Tied the vision to customer outcomes (faster reports, reliable payments) and eng outcomes (release speed).
+
+**Result:** Faster release cycles, improved scalability, reduced operational complexity; reporting **−90%** time; **99.9%** availability on delivered paths; API program later hit **−60%** latency / **+70%** throughput.
+
+## Backup — Think big on recovery at JPMC
+
+Not “a script for last night’s incident,” but a **recovery product** (DLQ Replay Tool) for the platform’s future incident load.
+
+## Common questions
+
+### Q1. How do you keep Think Big from becoming fantasy?
+
+**A:** Bold end-state + thin vertical slices that ship value every sprint. Kafka reporting pipeline was a slice that proved the event vision.
+
+### Q2. Tell me about looking around corners.
+
+**A:** Anticipated poison-message operational load as event volume grew — invested in DLQ tooling before it became existential.
+
+### Q3. How did you inspire others?
+
+**A:** Architecture forums with crisp diagrams, migration checkpoints, and metrics dashboards showing lag/latency wins — people follow evidence plus narrative.
+
+
+## Kafka case bank (reuse across follow-ups)
+
+Use these concrete cases when the interviewer digs into Kafka after your story.
+
+| Case | What happened | What you owned | Result |
+|---|---|---|---|
+| Consumer lag spike | Downstream HSBC/SWIFT validation slowed; lag grew on payment topic | Tuned concurrency, partitioned hot keys, added lag alerts + backpressure | Restored SLA without data loss |
+| Poison message / DLQ | Bad SWIFT payload blocked partition processing | Built DLQ + bulk replay tool with account/SWIFT validation | Incident recovery time **−50%** |
+| Duplicate events | Retries after broker blip caused duplicate tax/payment side effects | Idempotency keys + dedupe store; exactly-once *effect* design | Zero double-posting in replay drills |
+| Schema / contract break | Producer shipped incompatible event | Compatibility checks in CI, consumer defensive parsing, canary topic | Caught before broad blast radius |
+| Rebalance storm | Rolling deploy caused frequent rebalances | `max.poll.interval`, sticky assignor, drain-before-shutdown | Stable throughput during deploys |
+| Out-of-order cash events | Same account events across partitions | Key by account/cash-line; ordering within key | Correct reconciliation order |
+| Analytics pipeline | Merchant reports took hours from batch DB pulls | Real-time Kafka logging → parallel consumers | Report generation **−90%** time (PayPal) |
+| Observability gap | Hard to prove “message landed then failed downstream” | Correlation IDs, lag/DLQ dashboards (Splunk/CloudWatch) | Faster RCA, fewer finger-pointing loops |
+
+
+## Weak vs strong
+
+| Weak | Strong |
+|---|---|
+| Buzzword vision | Vision + shipped slices + metrics |
+| Big bang rewrite only | Strangler + events + measurable customer wins |

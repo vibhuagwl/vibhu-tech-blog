@@ -1,0 +1,110 @@
+---
+slug: lp-customer-obsession
+title: "Customer Obsession — Amazon LP Interview Answers"
+description: "Amazon Customer Obsession prep with STAR stories from participant onboarding, tax visibility, merchant reporting, and Kafka customer-impact cases."
+category: Leadership Principles
+difficulty: Advanced
+tags: [Amazon, Leadership Principles, Behavioral, STAR, Kafka, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Principle (what Amazon means)
+
+Leaders start with the customer and work backwards. They work vigorously to earn and keep customer trust. Although leaders pay attention to competitors, they obsess over customers.
+
+**In an SDE interview:** customers can be end-users, internal operators, partner banks, merchants, or downstream services. Show you felt their pain in metrics and UX, not slogans.
+
+## What interviewers listen for
+
+- You named a **specific customer** and their job-to-be-done
+- You measured pain before/after (time, errors, trust)
+- You said no to elegant tech that did not help the customer
+- You followed through after launch (support, defects, ops)
+
+## Primary STAR — Participant onboarding & cash APIs (JPMorgan)
+
+**Q: Tell me about a time you were customer-obsessed.**
+
+**Situation:** Investment banking participants and equity admins were slowed by fragmented onboarding, cash-line imports, and reconciliation. Partner bank integrations (HSBC/SWIFT) made errors expensive and opaque.
+
+**Task:** I owned secure REST APIs for onboarding, operational bank accounts, cash-line imports, payment batches, reconciliation, and SWIFT validation — with the customer outcome of faster, safer onboarding.
+
+**Action:**
+1. Started from operator workflows (where they got stuck), not from service boundaries.
+2. Designed APIs around onboarding steps and validation feedback they could act on.
+3. Added SWIFT/account validation early so failures were caught before cash movement.
+4. Partnered with UAT stakeholders so acceptance criteria matched real participant journeys.
+5. Used Kafka paths for async payment/tax side effects so the UI was not blocked on slow downstreams.
+
+**Result:** Participant onboarding accelerated by **~35%**. Operators spent less time in manual rework; downstream integrity improved.
+
+**LP close:** Customer Obsession + Deliver Results + Ownership.
+
+## Backup STAR — Merchant reporting via Kafka (PayPal)
+
+**Situation:** Merchants waited on slow batch reports; support load and trust suffered.
+
+**Task:** Deliver near-real-time reporting without breaking payment correctness.
+
+**Action:** Built Kafka pipelines for transaction logging → analytics/reporting consumers; parallelized processing; preserved data integrity with idempotent consumers.
+
+**Result:** Report generation time **−90%**; availability held at **99.9%** on the broader platform work.
+
+## Common questions & model answers
+
+### Q1. Give an example where you sacrificed a preferred design for the customer.
+
+**A:** I preferred a pure async Kafka-only onboarding status model, but operators needed immediate validation errors during cash-line import. I kept synchronous validation for user-facing checks and async Kafka for heavy downstream (tax/payment batch). Customers got fast feedback; systems stayed scalable.
+
+### Q2. How do you gather customer input as a backend engineer?
+
+**A:** Shadow support/UAT tickets, sit in reconciliation war rooms, read failed SWIFT payloads with ops, instrument drop-off in onboarding APIs, and define SLIs that match customer language (time-to-onboard, time-to-reconcile), not only CPU.
+
+### Q3. Tell me about a time a customer was unhappy.
+
+**A:** After a lag incident, ops could not replay failed SWIFT messages safely. I treated ops as the customer: shipped a DLQ Replay Tool with bulk validation so they recovered without engineering heroics. Recovery time **−50%**.
+
+### Q4. How do you balance customer requests vs platform health?
+
+**A:** I separate “customer promise” (correct money movement, clear errors) from “implementation wish.” If a request risks double-posting, I push back with a safer API/event contract and a timeline. Trust > speed that breaks money.
+
+## Follow-up ladder (if your answer involves Kafka)
+
+
+## Kafka case bank (reuse across follow-ups)
+
+Use these concrete cases when the interviewer digs into Kafka after your story.
+
+| Case | What happened | What you owned | Result |
+|---|---|---|---|
+| Consumer lag spike | Downstream HSBC/SWIFT validation slowed; lag grew on payment topic | Tuned concurrency, partitioned hot keys, added lag alerts + backpressure | Restored SLA without data loss |
+| Poison message / DLQ | Bad SWIFT payload blocked partition processing | Built DLQ + bulk replay tool with account/SWIFT validation | Incident recovery time **−50%** |
+| Duplicate events | Retries after broker blip caused duplicate tax/payment side effects | Idempotency keys + dedupe store; exactly-once *effect* design | Zero double-posting in replay drills |
+| Schema / contract break | Producer shipped incompatible event | Compatibility checks in CI, consumer defensive parsing, canary topic | Caught before broad blast radius |
+| Rebalance storm | Rolling deploy caused frequent rebalances | `max.poll.interval`, sticky assignor, drain-before-shutdown | Stable throughput during deploys |
+| Out-of-order cash events | Same account events across partitions | Key by account/cash-line; ordering within key | Correct reconciliation order |
+| Analytics pipeline | Merchant reports took hours from batch DB pulls | Real-time Kafka logging → parallel consumers | Report generation **−90%** time (PayPal) |
+| Observability gap | Hard to prove “message landed then failed downstream” | Correlation IDs, lag/DLQ dashboards (Splunk/CloudWatch) | Faster RCA, fewer finger-pointing loops |
+
+
+### Extra probes & crisp answers
+
+| Probe | Answer |
+|---|---|
+| Who was the customer? | Participants, equity admins, merchant ops — name one persona |
+| What did you measure? | Onboarding time, report latency, recovery time, error rate |
+| Did you talk to them directly? | UAT sessions, ops replay drills, support escalations |
+| What did you stop doing? | Blocking UI on slow tax responses; opaque batch failures |
+| What would you do differently? | Earlier customer journey mapping before service split |
+
+## Weak vs strong
+
+| Weak | Strong |
+|---|---|
+| “We always put customers first.” | “Onboarding time dropped 35% because validation errors became actionable.” |
+| “I built a Kafka pipeline.” | “Merchants got reports 90% faster; support tickets for ‘where is my report’ fell.” |
+
+## 90-second version
+
+> “At JPMorgan I owned onboarding and cash APIs for investment-banking participants. Operators were blocked by unclear SWIFT/account failures. I redesigned APIs around their workflow, pushed validation earlier, and kept heavy tax/payment work async on Kafka. Onboarding sped up about 35%, and ops trusted the path enough to reduce manual rework.”

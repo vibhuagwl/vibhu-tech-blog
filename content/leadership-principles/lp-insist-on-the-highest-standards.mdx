@@ -1,0 +1,70 @@
+---
+slug: lp-insist-on-the-highest-standards
+title: "Insist on the Highest Standards — Amazon LP Interview Answers"
+description: "Highest Standards LP: SWIFT validation, PCI/OAuth security, 99.9% availability, and refusing to silently replay bad Kafka messages."
+category: Leadership Principles
+difficulty: Advanced
+tags: [Amazon, Leadership Principles, Behavioral, STAR, Kafka, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## Principle
+
+Leaders have relentlessly high standards — many people may think these standards are unreasonably high. Leaders are continually raising the bar and drive their teams to deliver high-quality products, services, and processes. Leaders ensure that defects do not get sent down the line and that problems are fixed so they stay fixed.
+
+## Primary STAR — Validation gates on money movement (JPMorgan)
+
+**Situation:** Payment batches and SWIFT data could fail in subtle ways; a “ship and patch” culture would create reconciliation debt.
+
+**Task:** Keep API and event paths correct under regulatory and banking constraints.
+
+**Action:**
+1. SWIFT and account validation in APIs and in DLQ replay (no blind re-injection).
+2. Architecture standards via forums/reviews for the team of 4.
+3. Expanded automated regression (Playwright UI+API) so defects do not escape.
+4. Explicit error handling on Deloitte tax SQS responses.
+
+**Result:** Stronger data integrity; recovery **−50%** when issues still occurred; onboarding quality improved with speed (**+35%**).
+
+## Backup — Security & availability (PayPal)
+
+OAuth2-based security for enterprise compliance; Kafka microservices at **99.9%** availability; performance bar raised with measurable latency/throughput targets.
+
+## Common questions
+
+### Q1. Tell me about a time you refused to lower the bar.
+
+**A:** Push to “just republish DLQ to clear the pager.” I refused without validation — wrong SWIFT data would corrupt cash state. We built validated bulk replay instead.
+
+### Q2. How do you keep standards from becoming bureaucracy?
+
+**A:** Encode standards in templates, CI checks, and example PRs. Fast path for low-risk changes; heavy review for money/event contracts.
+
+### Q3. Describe fixing a class of defects.
+
+**A:** Idempotent consumers + dedupe for duplicate Kafka deliveries — fixed an entire failure class, not one ticket.
+
+
+## Kafka case bank (reuse across follow-ups)
+
+Use these concrete cases when the interviewer digs into Kafka after your story.
+
+| Case | What happened | What you owned | Result |
+|---|---|---|---|
+| Consumer lag spike | Downstream HSBC/SWIFT validation slowed; lag grew on payment topic | Tuned concurrency, partitioned hot keys, added lag alerts + backpressure | Restored SLA without data loss |
+| Poison message / DLQ | Bad SWIFT payload blocked partition processing | Built DLQ + bulk replay tool with account/SWIFT validation | Incident recovery time **−50%** |
+| Duplicate events | Retries after broker blip caused duplicate tax/payment side effects | Idempotency keys + dedupe store; exactly-once *effect* design | Zero double-posting in replay drills |
+| Schema / contract break | Producer shipped incompatible event | Compatibility checks in CI, consumer defensive parsing, canary topic | Caught before broad blast radius |
+| Rebalance storm | Rolling deploy caused frequent rebalances | `max.poll.interval`, sticky assignor, drain-before-shutdown | Stable throughput during deploys |
+| Out-of-order cash events | Same account events across partitions | Key by account/cash-line; ordering within key | Correct reconciliation order |
+| Analytics pipeline | Merchant reports took hours from batch DB pulls | Real-time Kafka logging → parallel consumers | Report generation **−90%** time (PayPal) |
+| Observability gap | Hard to prove “message landed then failed downstream” | Correlation IDs, lag/DLQ dashboards (Splunk/CloudWatch) | Faster RCA, fewer finger-pointing loops |
+
+
+## Weak vs strong
+
+| Weak | Strong |
+|---|---|
+| Perfection paralysis | High bar on money paths; pragmatic elsewhere |
+| Style-only reviews | Standards tied to integrity, security, SLIs |

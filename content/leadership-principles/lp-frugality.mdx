@@ -1,0 +1,75 @@
+---
+slug: lp-frugality
+title: "Frugality — Amazon LP Interview Answers"
+description: "Frugality LP story: $1M+ savings migrating off Splunk, plus cost-aware Kafka/AWS designs without starving reliability."
+category: Leadership Principles
+difficulty: Advanced
+tags: [Amazon, Leadership Principles, Behavioral, STAR, Kafka, Interview]
+readingTime: 15 min
+publishedAt: "2026-08-11"
+---
+
+## Principle
+
+Accomplish more with less. Constraints breed resourcefulness, self-sufficiency, and invention. There are no extra points for growing headcount, budget size, or fixed expense.
+
+## Primary STAR — Splunk → custom analytics ($1M+/yr) (PayPal)
+
+**Q: Tell me about a time you did more with less.**
+
+**Situation:** Observability spend on Splunk was a major ongoing cost; engineering still lacked some product analytics flexibility.
+
+**Task:** Drive migration to a custom analytics platform that preserved signal and cut cost.
+
+**Action:**
+1. Catalogued high-value logs/metrics vs noise.
+2. Designed pipelines (including event/Kafka-friendly paths where appropriate) into the new platform.
+3. Migrated dashboards/alerts teams actually used; killed unused ingest.
+4. Implemented OAuth2 security to meet compliance while modernizing.
+5. Partnered across teams so savings did not create shadow IT chaos.
+
+**Result:** **$1M+ annual** infrastructure savings; stronger observability ownership.
+
+## Backup — Frugal performance wins
+
+**−60%** latency and **+70%** throughput via query/API/cache redesign — capacity avoided vs buying larger footprints first.
+
+## Kafka cost angles
+
+- Right-size retention and fanout; avoid duplicate topics/consumers without owners
+- Fix hot keys / lag with design before defaulting to huge clusters
+- DLQ tooling reduces human on-call cost (people-frugality)
+
+
+## Kafka case bank (reuse across follow-ups)
+
+Use these concrete cases when the interviewer digs into Kafka after your story.
+
+| Case | What happened | What you owned | Result |
+|---|---|---|---|
+| Consumer lag spike | Downstream HSBC/SWIFT validation slowed; lag grew on payment topic | Tuned concurrency, partitioned hot keys, added lag alerts + backpressure | Restored SLA without data loss |
+| Poison message / DLQ | Bad SWIFT payload blocked partition processing | Built DLQ + bulk replay tool with account/SWIFT validation | Incident recovery time **−50%** |
+| Duplicate events | Retries after broker blip caused duplicate tax/payment side effects | Idempotency keys + dedupe store; exactly-once *effect* design | Zero double-posting in replay drills |
+| Schema / contract break | Producer shipped incompatible event | Compatibility checks in CI, consumer defensive parsing, canary topic | Caught before broad blast radius |
+| Rebalance storm | Rolling deploy caused frequent rebalances | `max.poll.interval`, sticky assignor, drain-before-shutdown | Stable throughput during deploys |
+| Out-of-order cash events | Same account events across partitions | Key by account/cash-line; ordering within key | Correct reconciliation order |
+| Analytics pipeline | Merchant reports took hours from batch DB pulls | Real-time Kafka logging → parallel consumers | Report generation **−90%** time (PayPal) |
+| Observability gap | Hard to prove “message landed then failed downstream” | Correlation IDs, lag/DLQ dashboards (Splunk/CloudWatch) | Faster RCA, fewer finger-pointing loops |
+
+
+## Common questions
+
+### Q1. Did frugality ever hurt quality?
+
+**A:** I refuse frugality that removes audit trails on financial events. We cut redundant ingest and unused retention, not integrity logs.
+
+### Q2. How do you decide what to cut?
+
+**A:** Cost per decision supported. If a log never answers an incident question, it is a candidate. If it proves money movement, it stays.
+
+## Weak vs strong
+
+| Weak | Strong |
+|---|---|
+| Cheap everywhere | Cut waste; protect compliance and RCA |
+| No numbers | **$1M+/yr** with migration narrative |
