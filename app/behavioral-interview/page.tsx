@@ -5,12 +5,23 @@ export const metadata={title:'Behavioral Interview — Staff+ / Principal'};
 
 const ORDER=[
   'behavioral-staff-principal-interview-index',
+  'behavioral-story-bank-and-top-15',
   'behavioral-intro-and-leadership',
   'behavioral-decisions-and-conflict',
   'behavioral-failure-and-accountability',
   'behavioral-people-mentoring-influence',
   'behavioral-delivery-performance-cost',
   'behavioral-philosophy-and-closing',
+  'behavioral-leadership-ownership-bank',
+  'behavioral-strategic-thinking-bank',
+  'behavioral-architecture-leadership-bank',
+  'behavioral-business-impact-and-cost-bank',
+  'behavioral-conflict-and-executive-bank',
+  'behavioral-failure-crisis-bank',
+  'behavioral-mentoring-hiring-bank',
+  'behavioral-innovation-ai-security-bank',
+  'behavioral-delivery-global-customer-bank',
+  'behavioral-decision-personal-career-bank',
 ];
 
 export default function BehavioralInterview(){
@@ -27,8 +38,8 @@ export default function BehavioralInterview(){
         <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Staff+ · Principal · Architect</div>
         <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Behavioral answers that sound like a leader.</h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-          30 STAR answers for 25+ YOE interviews — strategy, ownership, conflict, mentoring, cost, executive communication,
-          and business impact — not IC task narration.
+          260+ competency-mapped prompts for 25+ YOE interviews — plus a reusable STAR story bank and Top 15 drills.
+          Leadership voice, not IC task narration.
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} guides</span>

@@ -1,0 +1,53 @@
+---
+slug: behavioral-innovation-ai-security-bank
+title: "Innovation, AI & Security Bank (Q156–Q187)"
+description: "Innovation and AI adoption answers plus security/risk behavioral frameworks for 2026 Principal interviews."
+category: Behavioral Interview
+difficulty: Advanced
+tags: [Behavioral, STAR, Leadership, Principal, Architect, Interview]
+readingTime: 20 min
+publishedAt: "2026-08-11"
+---
+
+## Innovation (Q156–Q165)
+
+| Prompt | Angle |
+|---|---|
+| Innovative introduction | **R1** DLQ Replay as product; Playwright UI+API framework |
+| Challenge process | Costly observability status quo (**C1**) |
+| Early tech | Kafka event pipelines for reporting; IaC practices |
+| Automate “manual” | Validated bulk replay vs tribal CLI |
+| Simplify process | Templates/CI for event contracts |
+| Innovation without chaos | Time-boxed spikes; productionize only after metrics |
+| Evaluate emerging tech | Problem fit, ops cost, security, exit strategy |
+| Failed experiment | Heavier workflow engine where SQS+replay won |
+| Experiment → prod | Redis+SQS tax path |
+| Safe experimentation | Feature flags, non-prod money-path bans, canaries |
+
+## AI & modern tech (Q166–Q177)
+
+**How AI changes engineering:** accelerates boilerplate and exploration; raises bar on review, architecture, threat modeling, and verification.
+
+**Your use:** Copilot/Cursor/Claude for coding assistance; never unverified AI into payment ledgers.
+
+**Enterprise AI safely:** private models/endpoints where needed; DLP; allowlists; human review for prod; audit prompts/outputs on sensitive systems.
+
+**Risks:** secret leakage, hallucinated security, license issues, over-trust.
+
+**Public tools:** policy by data classification — forbid customer/PCI in public LLMs.
+
+**Productivity:** cycle time, PR size/quality, escaped defects — not LOC.
+
+**Adopt AI for business:** RAG/assistant for ops runbooks with citations; measure deflection + accuracy.
+
+**Build vs buy AI:** differentiate vs commodity; data gravity; compliance.
+
+**Skills that matter more:** problem framing, verification, systems design, communication.
+
+**Stay relevant:** use AI as leverage; deepen architecture/judgment.
+
+**Org redesign:** AI-assisted SDLC with stronger review gates and eval harnesses.
+
+## Security & risk (Q178–Q187)
+
+Identify risks early (OAuth2/PCI paths). Architecture decisions: least privilege, encryption, audit. Speed vs security: don’t ship money paths without controls — phase features. Sensitive data: classification + retention. Vulnerabilities: patch SLAs, blast radius. Productivity: secure defaults/templates. Third parties: vendor review. Compliance: make requirements concrete in CI. Reject designs that dual-write secrets or skip validation on replay.
