@@ -1,0 +1,508 @@
+---
+slug: aurora-postgresql-incident-case-study
+title: "Aurora PostgreSQL Incident Case Study: Payment API Latency from 200ms to 5-8s"
+description: "Principal-level case study for a Java Spring payment API where Aurora PostgreSQL query latency regressed after data growth: API latency, Hikari wait, Performance Insights, top SQL, EXPLAIN, index scan to sequential scan, selectivity, statistics, partial index, and benchmark-before-deploy discipline."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Aurora PostgreSQL, Spring Boot, Payment API, Performance Insights, EXPLAIN, Incident Case Study]
+readingTime: 27 min
+publishedAt: "2026-08-12"
+---
+
+## Incident summary
+
+A payment API normally responds in about 200ms.
+
+At 10:15 UTC, p95 latency jumps to 5-8 seconds.
+
+The endpoint still returns mostly 200 responses, but users see checkout spinners, duplicate clicks, and mobile client timeouts.
+
+The service is Java 17, Spring Boot, HikariCP, and Aurora PostgreSQL.
+
+The final finding:
+
+> A query that used to run as an index scan became a sequential scan after table growth and statistics drift.
+
+The permanent fix was not "add any index."
+
+The fix was to prove predicate selectivity, update statistics, create a targeted partial index, and benchmark the production query shape before deploy.
+
+## The endpoint
+
+The slow route:
+
+```text
+GET /api/v1/payments?merchantId=...&status=PENDING
+```
+
+The route powers a merchant dashboard widget that shows recent pending payments.
+
+It is called often.
+
+It reads from Aurora PostgreSQL through a Spring repository.
+
+It should return the most recent 50 rows.
+
+## The query
+
+The ORM-generated query is equivalent to:
+
+```sql
+select id, merchant_id, status, amount_cents, created_at
+from payment
+where merchant_id = $1
+  and status = 'PENDING'
+order by created_at desc
+limit 50;
+```
+
+The table has grown from 40 million rows to 420 million rows.
+
+Most old payments are no longer pending.
+
+Only a small active slice matters for the dashboard.
+
+## What changed
+
+Three things changed together:
+
+1. Payment table size grew sharply after a successful merchant migration.
+2. The status distribution became skewed.
+3. PostgreSQL chose a sequential scan for some merchants.
+
+The code did not change on the incident morning.
+
+The plan did.
+
+## The 14-step walkthrough
+
+The following sequence is how a Principal engineer should walk the incident from symptom to safe fix.
+
+## Step 1: State the impact precisely
+
+Do not start with "Aurora is slow."
+
+Start with the user-visible blast radius:
+
+- merchant dashboard pending payments route
+- p95 from 200ms to 5-8s
+- p99 above gateway timeout for some requests
+- checkout creation API not directly affected
+- elevated retries from web and mobile clients
+- no confirmed duplicate charges
+
+The impact statement prevents the team from restarting unrelated services.
+
+## Step 2: Freeze risky changes
+
+Pause nonessential deploys, migrations, and batch jobs for the payment domain.
+
+This includes:
+
+- dashboard feature deployments
+- table backfills
+- ad hoc analyst queries on the writer
+- index experiments
+- reader scaling experiments without owner approval
+
+Incident time is not the time for uncontrolled changes.
+
+## Step 3: Check API latency by route
+
+Look at `http.server.requests`.
+
+The slow path is isolated:
+
+| Route | p95 before | p95 during |
+|---|---:|---:|
+| `POST /payments` | 180ms | 230ms |
+| `GET /payments/{id}` | 90ms | 120ms |
+| `GET /payments` | 200ms | 5-8s |
+| health check | 8ms | 8ms |
+
+This points away from whole-pod CPU or load balancer failure.
+
+It points toward one data access path.
+
+## Step 4: Check Tomcat and Hikari
+
+Tomcat busy threads are elevated but not exhausted.
+
+Hikari tells a clearer story:
+
+| Metric | Normal | During |
+|---|---:|---:|
+| active connections | 8 | 30 |
+| max pool size | 30 | 30 |
+| pending threads | 0 | 80 |
+| connection acquisition p95 | 5ms | 2.5s |
+| connection usage p95 | 40ms | 6s |
+
+Requests are waiting for database connections because existing connections are busy for seconds.
+
+Hikari is a victim and amplifier.
+
+## Step 5: Confirm Aurora sessions
+
+Query `pg_stat_activity`.
+
+```sql
+select
+  pid,
+  application_name,
+  state,
+  wait_event_type,
+  wait_event,
+  now() - query_start as query_age,
+  left(query, 120) as query_sample
+from pg_stat_activity
+where application_name = 'payment-api-reader'
+  and state != 'idle'
+order by query_start;
+```
+
+Many active sessions show the pending payments query.
+
+The sessions are on the reader endpoint.
+
+The writer is not the first bottleneck.
+
+## Step 6: Split writer and reader evidence
+
+CloudWatch shows:
+
+| Metric | Writer | Reader |
+|---|---:|---:|
+| CPU | 35 percent | 92 percent |
+| connections | normal | high |
+| ReadIOPS | normal | high |
+| WriteIOPS | normal | normal |
+| replica lag | 40ms | 900ms |
+
+The read replica is hot.
+
+The application is correctly routing historical dashboard reads to a reader, but the reader is overloaded by one query shape.
+
+## Step 7: Open Performance Insights
+
+Performance Insights shows DB load spiking on the reader.
+
+Dominant wait:
+
+```text
+CPU
+```
+
+Secondary wait:
+
+```text
+IO:DataFileRead
+```
+
+Top SQL is the pending payments query.
+
+The conclusion is not yet "add CPU."
+
+The query plan must be inspected.
+
+## Step 8: Capture the top SQL and bind shape
+
+Normalize the SQL, but preserve the meaningful bind characteristics:
+
+- merchant id
+- status value
+- limit
+- sort direction
+- typical result count
+- hot merchant versus small merchant
+
+The query is fast for many merchants and very slow for a few large merchants.
+
+That points toward selectivity and statistics, not a universal database outage.
+
+## Step 9: Run EXPLAIN with realistic values
+
+Use a safe production-like environment or a tightly controlled read-only production check.
+
+```sql
+explain (analyze, buffers)
+select id, merchant_id, status, amount_cents, created_at
+from payment
+where merchant_id = '11111111-1111-1111-1111-111111111111'
+  and status = 'PENDING'
+order by created_at desc
+limit 50;
+```
+
+The new plan:
+
+```text
+Limit
+  -> Sort
+       Sort Key: created_at DESC
+       Sort Method: top-N heapsort
+       -> Seq Scan on payment
+            Filter: merchant_id = ... and status = 'PENDING'
+            Rows Removed by Filter: 418900000
+            Buffers: shared hit=210000 read=980000
+Execution Time: 6812 ms
+```
+
+That explains the 5-8s latency.
+
+## Step 10: Compare with the old plan
+
+Before growth, the plan looked like:
+
+```text
+Limit
+  -> Index Scan using idx_payment_merchant_created on payment
+       Index Cond: merchant_id = ...
+       Filter: status = 'PENDING'
+       Buffers: shared hit=300 read=40
+Execution Time: 180 ms
+```
+
+That index was good enough when each merchant had fewer rows.
+
+After growth, scanning many rows for a large merchant and filtering status became too expensive.
+
+PostgreSQL decided a sequential scan was cheaper for some bind values.
+
+## Step 11: Investigate selectivity
+
+Check distribution:
+
+```sql
+select status, count(*)
+from payment
+where merchant_id = '11111111-1111-1111-1111-111111111111'
+group by status
+order by count(*) desc;
+```
+
+Example result:
+
+| Status | Rows |
+|---|---:|
+| CAPTURED | 108000000 |
+| FAILED | 12000000 |
+| CANCELLED | 3000000 |
+| PENDING | 28000 |
+
+Pending is rare for the merchant, but the old index starts with merchant and created time.
+
+It does not isolate pending rows.
+
+## Step 12: Investigate statistics and plan change
+
+Check whether statistics understand the skew:
+
+```sql
+select
+  attname,
+  n_distinct,
+  most_common_vals,
+  most_common_freqs
+from pg_stats
+where tablename = 'payment'
+  and attname in ('merchant_id', 'status');
+```
+
+If the planner does not understand correlation between merchant and status, estimates can be wrong.
+
+Options include:
+
+- run `analyze payment`
+- increase statistics target for important columns
+- use extended statistics for correlated predicates
+- add an index matching the actual query shape
+
+Statistics help the planner choose.
+
+Indexes give the planner a better path.
+
+## Step 13: Design the partial index
+
+The query always asks for pending rows ordered by newest first.
+
+A targeted partial index is smaller and more useful than another broad index.
+
+```sql
+create index concurrently idx_payment_pending_merchant_created
+on payment (merchant_id, created_at desc)
+where status = 'PENDING';
+```
+
+Why partial:
+
+- pending rows are a small slice
+- dashboard query only needs pending
+- index is smaller than indexing all statuses
+- build and cache footprint are lower
+- writes to non-pending rows avoid this index after status changes out of pending
+
+Do not create this index until you verify it matches the production predicate exactly.
+
+## Step 14: Benchmark before deploy and release safely
+
+Benchmark with:
+
+- hot merchant
+- average merchant
+- small merchant
+- realistic bind values
+- realistic row counts
+- cold-ish cache scenario
+- concurrent traffic
+- before and after plans
+- index build impact
+
+Expected after plan:
+
+```text
+Limit
+  -> Index Scan using idx_payment_pending_merchant_created on payment
+       Index Cond: merchant_id = ...
+       Buffers: shared hit=80 read=10
+Execution Time: 22 ms
+```
+
+Release sequence:
+
+1. Create index concurrently during a safe window.
+2. Monitor CPU, IOPS, replica lag, and invalid index status.
+3. Run `ANALYZE` if needed.
+4. Confirm plan with production-like binds.
+5. Deploy any query or repository cleanup.
+6. Keep dashboard alerting on the query.
+7. Remove unused old index only after proof.
+
+## Why the index scan became a sequential scan
+
+PostgreSQL chooses plans using cost estimates.
+
+The old index was:
+
+```sql
+create index idx_payment_merchant_created
+on payment (merchant_id, created_at desc);
+```
+
+For a large merchant, that index can still require scanning many recent rows and filtering for pending status.
+
+If pending rows are rare and scattered, the planner may estimate that reading the table sequentially and filtering is cheaper.
+
+When the table was smaller, the wrong path was not very expensive.
+
+After growth, the wrong path became user-visible.
+
+## Why a broad composite index may not be best
+
+A broad index could be:
+
+```sql
+create index concurrently idx_payment_merchant_status_created
+on payment (merchant_id, status, created_at desc);
+```
+
+That may work.
+
+But it indexes every status for every merchant.
+
+If the urgent query only needs pending rows, a partial index is smaller.
+
+The right answer depends on the workload:
+
+| Workload | Better candidate |
+|---|---|
+| many statuses queried equally | broad composite index |
+| one hot rare status queried often | partial index |
+| range by time only | time-oriented index |
+| append-only huge historical table | partitioning or BRIN may help |
+
+## Reader routing lesson
+
+The service used a reader for the dashboard query.
+
+That was reasonable because the dashboard was not a strict read-after-write path.
+
+But reader routing does not make a bad query cheap.
+
+It moves the pressure away from the writer.
+
+If the reader melts, the user still sees latency.
+
+The fix is query shape, capacity, and routing policy together.
+
+## Hikari lesson
+
+Hikari pending threads were not the root cause.
+
+They were the symptom of slow connection usage.
+
+The root cause was:
+
+```text
+slow SQL plan
+  -> long connection usage
+  -> active pool saturated
+  -> pending Hikari threads
+  -> API p95 and p99 spike
+```
+
+If the team had only increased Hikari pool size, it would likely have added more concurrent sequential scans and made the reader worse.
+
+## What not to do
+
+Avoid these moves:
+
+- restart every pod without evidence
+- scale Hikari pool size first
+- blame Aurora before seeing top SQL
+- create a random index during peak traffic
+- run a full-table backfill during the incident
+- route all reads to the writer
+- ignore replica lag
+- skip benchmark because the index looks obvious
+
+Mitigation is allowed.
+
+Guessing is not.
+
+## Regression prevention
+
+Add a performance guardrail:
+
+- capture top production query shapes
+- keep representative data volume in performance tests
+- run `EXPLAIN` for critical repository queries
+- track plan changes after migrations
+- alert on Performance Insights top SQL changes
+- set route-level p99 alerts
+- review new indexes against actual predicates
+- test large-merchant and skewed-tenant cases
+
+Multi-tenant systems fail at the skewed tenant first.
+
+Average tenant benchmarks are not enough.
+
+## Interview answer
+
+"In this case I would not start by tuning Aurora globally.
+
+I would walk the evidence path from API p99 to Hikari, then to Aurora sessions, CloudWatch, Performance Insights, top SQL, and finally `EXPLAIN`.
+
+The key finding was that the pending payments query changed from an index scan to a sequential scan after table growth and status skew.
+
+I would investigate selectivity, statistics, correlation between merchant and status, and whether the index matches the real predicate.
+
+For the hot query, a partial index on pending payments by merchant and created time is a strong candidate, but I would benchmark it with large merchants and realistic binds before deploying.
+
+During rollout I would use `CREATE INDEX CONCURRENTLY`, monitor reader CPU, IOPS, replica lag, and invalid index state, then verify the actual plan before declaring the incident fixed."
+
+## Related guides
+
+- [Aurora writer and reader observability](/realtime-issues/aurora-postgresql-cloudwatch-writer-reader)
+- [Aurora transactions and migrations](/realtime-issues/aurora-postgresql-transactions-migrations)
+- [Aurora interview answer and follow-ups](/realtime-issues/aurora-postgresql-interview-answer-and-followups)

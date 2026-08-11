@@ -1,0 +1,546 @@
+---
+slug: aurora-postgresql-sql-and-architecture
+title: "Aurora PostgreSQL SQL and Architecture for Java Spring Boot Systems"
+description: "Principal-level guide to Aurora PostgreSQL schema design, keys, transactions, isolation, joins, CTEs, windows, indexing, plans, pools, locks, vacuum, stats, and read-write routing."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: ["Real-Time Issues", "Aurora PostgreSQL", "SQL", "Spring Boot", "Transactions", "Indexes", "RDS Proxy"]
+readingTime: 30 min
+publishedAt: "2026-08-12"
+---
+
+## Interview framing
+
+Aurora PostgreSQL architecture questions are rarely about one feature.
+
+They are about whether you can hold application design, SQL design, and production behavior in the same frame.
+
+For a Java and Spring Boot service, the database contract starts before SQL is executed.
+
+It starts at the API invariant.
+
+It passes through service boundaries, transaction boundaries, HikariCP, the JDBC driver, RDS Proxy, and the Aurora writer or reader.
+
+The best answer sounds like a production owner, not like a catalog of SQL syntax.
+
+## The system path
+
+Use this path as the base diagram:
+
+```text
+client
+  -> API gateway or load balancer
+  -> Spring Boot controller
+  -> service layer
+  -> transaction boundary
+  -> repository or DAO
+  -> HikariCP
+  -> PostgreSQL JDBC driver
+  -> RDS Proxy
+  -> Aurora cluster endpoint
+  -> writer instance or reader instance
+  -> Aurora storage layer
+```
+
+Every layer has a contract.
+
+The controller owns request validation and idempotency keys.
+
+The service owns business invariants and transaction scope.
+
+The repository owns query shape.
+
+HikariCP owns bounded connection concurrency.
+
+RDS Proxy owns connection management behavior.
+
+Aurora owns PostgreSQL execution and storage durability.
+
+## Aurora writer and reader diagram
+
+```text
+                                      write traffic
+Spring Boot service
+  -> write datasource
+  -> HikariCP write pool
+  -> RDS Proxy writer target
+  -> Aurora writer instance
+  -> Aurora distributed storage
+
+                                      read traffic that tolerates replica lag
+Spring Boot service
+  -> read datasource
+  -> HikariCP read pool
+  -> RDS Proxy read target or reader endpoint
+  -> Aurora reader instance
+  -> Aurora distributed storage
+```
+
+The writer accepts writes and strongly current reads.
+
+Readers serve scalable read traffic, but the application must decide whether stale reads are acceptable.
+
+Aurora reduces much operational burden, but it does not remove PostgreSQL semantics.
+
+Transactions, locks, indexes, statistics, and query plans still matter.
+
+## Schema design starts with invariants
+
+Do not start with tables.
+
+Start with the business invariant.
+
+For a payment service, examples include:
+
+- one capture per authorization
+- ledger entries are append-only
+- idempotency key maps to one result
+- account balance cannot be negative
+- refund amount cannot exceed captured amount
+- tenant data must not cross tenant boundaries
+
+Then choose constraints that make invalid states hard to write.
+
+The database should not be a passive document store for critical invariants.
+
+It should enforce unique keys, foreign keys, check constraints, and transactionally consistent state transitions.
+
+## Example schema
+
+```sql
+CREATE TABLE payment (
+    id uuid PRIMARY KEY,
+    tenant_id uuid NOT NULL,
+    idempotency_key text NOT NULL,
+    customer_id uuid NOT NULL,
+    status text NOT NULL,
+    amount_cents bigint NOT NULL CHECK (amount_cents > 0),
+    currency char(3) NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, idempotency_key)
+);
+
+CREATE TABLE payment_event (
+    id bigserial PRIMARY KEY,
+    payment_id uuid NOT NULL REFERENCES payment(id),
+    event_type text NOT NULL,
+    payload jsonb NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+The `UNIQUE (tenant_id, idempotency_key)` constraint is not a performance detail.
+
+It is a correctness detail.
+
+Under retries, duplicate requests, and Kafka replays, the constraint protects the business invariant.
+
+## Primary keys
+
+Primary keys identify rows and support joins.
+
+For high-throughput systems, the key choice also affects locality, index size, and insert pattern.
+
+Common choices:
+
+| Key | Strength | Risk |
+|---|---|---|
+| `bigserial` or identity | compact, locality-friendly | can expose sequencing and needs coordination across imported data |
+| random UUID | easy distributed generation | larger index, less locality |
+| time-ordered UUID | distributed and more locality-friendly | requires disciplined generation |
+| natural key | meaningful uniqueness | can change when business rules change |
+
+At Principal level, explain the tradeoff, not only the type.
+
+For external APIs, a surrogate key plus a unique business key is often clean.
+
+## Foreign keys
+
+Foreign keys are not only documentation.
+
+They protect relationships during concurrent writes and deletes.
+
+In a financial or workflow system, dropping foreign keys to "improve performance" usually moves correctness into application code and makes incidents harder to reason about.
+
+The mature answer is:
+
+- keep foreign keys for core invariants
+- index foreign-key columns used in joins and deletes
+- avoid unbounded cascade behavior on hot paths
+- understand lock behavior during parent-child operations
+
+## Transaction boundaries
+
+Spring `@Transactional` should wrap the smallest unit that must be atomic.
+
+It should not wrap a large orchestration by habit.
+
+Bad shape:
+
+```text
+begin transaction
+  read payment
+  call external fraud API
+  call partner payment API
+  update payment
+commit
+```
+
+This holds a connection while waiting on remote systems.
+
+It may also hold row locks while doing network I/O.
+
+Better shape:
+
+```text
+validate request
+reserve or load local state in a short transaction
+commit
+call external dependency with bounded timeout
+write result in another short transaction
+publish outbox event
+```
+
+The exact pattern depends on the invariant, but the principle is stable:
+
+keep database transactions short, explicit, and observable.
+
+## Isolation levels
+
+PostgreSQL defaults to `READ COMMITTED`.
+
+That is often correct for OLTP services when state transitions use row locks, unique constraints, and conditional updates.
+
+`REPEATABLE READ` gives a stable snapshot inside the transaction.
+
+`SERIALIZABLE` detects serialization anomalies and may abort transactions that must be retried.
+
+Do not answer "use serializable everywhere".
+
+It can reduce anomalies, but it increases abort handling and may lower throughput.
+
+At Principal level, say which invariant requires which isolation behavior.
+
+## Conditional updates
+
+Many workflows should update by current state.
+
+```sql
+UPDATE payment
+SET status = 'CAPTURED',
+    updated_at = now()
+WHERE id = $1
+  AND status = 'AUTHORIZED';
+```
+
+Then check affected rows.
+
+If zero rows changed, the state was already different or the id was wrong.
+
+This pattern is simple, fast, and concurrency-friendly.
+
+It is often better than reading, branching in Java, and writing without a state predicate.
+
+## Pessimistic reads for state transitions
+
+When the service must inspect a row and then perform a dependent write, use an explicit lock.
+
+```sql
+BEGIN;
+
+SELECT id, status, amount_cents
+FROM payment
+WHERE id = $1
+FOR UPDATE;
+
+UPDATE payment
+SET status = 'CAPTURED',
+    updated_at = now()
+WHERE id = $1;
+
+COMMIT;
+```
+
+The lock lasts until transaction end.
+
+That sentence matters.
+
+The Java method call returning from the repository does not release the row lock.
+
+The transaction boundary does.
+
+## Joins
+
+Joins are not bad.
+
+Bad joins are bad.
+
+A clean relational design expects joins across bounded, indexed relationships.
+
+For example:
+
+```sql
+SELECT p.id, p.status, e.event_type, e.created_at
+FROM payment p
+JOIN payment_event e ON e.payment_id = p.id
+WHERE p.tenant_id = $1
+  AND p.created_at >= $2
+ORDER BY e.created_at DESC
+LIMIT 100;
+```
+
+The plan depends on predicate selectivity, join cardinality, indexes, and statistics.
+
+Do not denormalize just because joins exist.
+
+Denormalize when the read model, consistency model, and write amplification are understood.
+
+## CTEs
+
+Common table expressions are useful for readability and for structuring multi-step logic.
+
+```sql
+WITH recent_payment AS (
+    SELECT id
+    FROM payment
+    WHERE tenant_id = $1
+      AND created_at >= now() - interval '1 day'
+)
+SELECT count(*)
+FROM recent_payment;
+```
+
+Modern PostgreSQL can inline many CTEs.
+
+Still, do not assume a CTE is free.
+
+Check the plan.
+
+Use CTEs to make intent clear, not to hide a query that should be decomposed or indexed.
+
+## Window functions
+
+Window functions are excellent for analytics, ranking, de-duplication, and state inspection.
+
+```sql
+SELECT tenant_id,
+       id,
+       status,
+       row_number() OVER (
+           PARTITION BY tenant_id
+           ORDER BY created_at DESC
+       ) AS newest_rank
+FROM payment
+WHERE created_at >= now() - interval '7 days';
+```
+
+They can require sorting.
+
+Sorting can require memory.
+
+Large window queries belong on carefully governed paths, not casually inside a hot OLTP endpoint.
+
+## Indexing overview
+
+Indexes support predicates, joins, uniqueness, and ordering.
+
+They also cost memory, storage, and write time.
+
+Common index types:
+
+| Type | Good for |
+|---|---|
+| B-tree | equality, range, ordering, most OLTP predicates |
+| GIN | arrays, full-text search, jsonb containment |
+| GiST | geometric, range, exclusion-style use cases |
+| BRIN | very large tables where physical order correlates with values |
+| partial index | hot subset such as pending jobs or open payments |
+
+An index is part of the workload contract.
+
+It should map to a query pattern, not to a column name alone.
+
+## Composite indexes
+
+Composite indexes depend on column order.
+
+For a query like:
+
+```sql
+SELECT id, status
+FROM payment
+WHERE tenant_id = $1
+  AND status = 'PENDING'
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+A useful index might be:
+
+```sql
+CREATE INDEX idx_payment_tenant_status_created
+ON payment (tenant_id, status, created_at DESC);
+```
+
+The equality predicates come first.
+
+The ordering column follows.
+
+The right order depends on actual selectivity and query patterns.
+
+## Plans
+
+When someone says "the database is slow", ask for the plan.
+
+Use:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, status
+FROM payment
+WHERE tenant_id = $1
+  AND status = 'PENDING'
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+`ANALYZE` runs the query and gives actual timing and row counts.
+
+`BUFFERS` shows shared-buffer hits and reads.
+
+The plan tells you whether the problem is scan type, join order, row estimates, sorting, memory, or blocking elsewhere.
+
+## Connection pools
+
+HikariCP is a concurrency limiter.
+
+It is not only a cache of connections.
+
+If the pool has 40 connections, the service can run 40 database operations concurrently from that pool.
+
+Raising the pool size allows more concurrent database work.
+
+It does not make Aurora execute each query faster.
+
+In many incidents, a larger pool increases active sessions, lock contention, CPU, memory, and tail latency.
+
+## RDS Proxy
+
+RDS Proxy can help manage database connections and reduce connection storm pain.
+
+It can help applications survive certain failover and connection churn patterns more gracefully.
+
+It is useful in fleets with many application instances.
+
+It does not fix:
+
+- slow SQL
+- missing indexes
+- row locks
+- long transactions
+- unbounded Hikari concurrency
+- GET after POST consistency mistakes
+
+Use it as infrastructure support, not as a substitute for application discipline.
+
+## Locks
+
+PostgreSQL locks are normal.
+
+Every update takes locks.
+
+The incident begins when locks last too long or form a blocking chain.
+
+Inspect:
+
+- wait events in `pg_stat_activity`
+- blocking relationships
+- transaction age
+- idle-in-transaction sessions
+- statements waiting on row or relation locks
+
+Do not restart the application as the first move.
+
+Find the blocker.
+
+Then decide whether to cancel a query, terminate a session, disable a worker, reduce intake, or roll back a deploy.
+
+## Vacuum and statistics
+
+PostgreSQL uses MVCC.
+
+Updates and deletes leave old row versions behind until vacuum can clean them.
+
+Autovacuum is not housekeeping trivia.
+
+It protects table health, index health, and plan quality.
+
+Statistics guide the planner.
+
+If stats are stale, PostgreSQL may estimate 100 rows and actually read millions.
+
+That can choose a bad join strategy or scan.
+
+Watch `pg_stat_user_tables`, dead tuples, last vacuum time, last analyze time, and table growth.
+
+## Read and write separation
+
+Read and write separation is an architectural decision, not a checkbox.
+
+Route these to the writer:
+
+- writes
+- read-after-write flows
+- state transitions
+- payment confirmation after mutation
+- commands that must observe the just-committed state
+- administrative correctness checks
+
+Route these to readers only when the stale-read contract is acceptable:
+
+- independent browse pages
+- cached reference data
+- dashboards with freshness tolerance
+- reporting queries isolated from OLTP writes
+- search-like reads where eventual consistency is acceptable
+
+## GET after POST caveat
+
+The classic trap:
+
+```text
+POST /payments
+  -> writes payment on Aurora writer
+  -> returns 201 Created
+
+GET /payments/{id}
+  -> routing layer sends read to Aurora reader
+  -> reader has not caught up yet
+  -> client sees 404 or old status
+```
+
+That is not a random bug.
+
+It is a consistency contract violation.
+
+Fixes include:
+
+- route immediate follow-up reads to the writer
+- use a session consistency token or freshness rule
+- return enough representation from the POST response
+- delay reader routing until lag is acceptable
+- document eventual consistency when the product accepts it
+
+For payment, identity, inventory, and workflow systems, be conservative.
+
+## How to connect this to other guides
+
+Use [Aurora PostgreSQL query tuning and indexes](/realtime-issues/aurora-postgresql-query-tuning-indexes) when the symptom is slow SQL.
+
+Use [Aurora PostgreSQL vacuum, locks, and pools](/realtime-issues/aurora-postgresql-vacuum-locks-pools) when the symptom is blocking, bloat, Hikari timeout, or stuck threads.
+
+Use [Aurora PostgreSQL master index](/realtime-issues/aurora-postgresql-master-index) when you need the spoken interview narrative.
+
+For deeper incident context, connect this guide to [stuck threads from DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools), [Java 30 YOE Kafka, database, and batch Q&A](/realtime-issues/java-30yoe-kafka-database-qa), and [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive).
+
