@@ -17,6 +17,7 @@ export default function Learn(){
   const complexity=posts.filter((p)=>p.category==='Complexity');
   const kafkaInterview=posts.filter((p)=>p.category==='Kafka Interview');
   const redisInterview=posts.filter((p)=>p.category==='Redis Interview');
+  const realtimeIssues=posts.filter((p)=>p.category==='Real-Time Issues');
   const plans=fundamentals.filter((p)=>p.tags.includes('Plan') || p.slug.includes('plan') || p.slug.includes('revision') || p.slug.includes('master-index'));
 
   return (
@@ -38,6 +39,7 @@ export default function Learn(){
           <Link href="/complexity" className="rounded-lg border px-4 py-2 text-sm font-bold">Complexity</Link>
           <Link href="/kafka-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Kafka Interview</Link>
           <Link href="/redis-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Redis Interview</Link>
+          <Link href="/realtime-issues" className="rounded-lg border px-4 py-2 text-sm font-bold">Real-Time Issues</Link>
         </div>
       </div>
 
@@ -199,7 +201,20 @@ export default function Learn(){
         </section>
 
         <section>
-          <h2 className="text-2xl font-black">12 — Cheat sheets</h2>
+          <h2 className="text-2xl font-black">12 — Real-Time Issues (Staff+ / Principal)</h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {realtimeIssues.map((p)=>(
+              <Link key={p.slug} href={`/realtime-issues/${p.slug}`} className="card p-5">
+                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <h3 className="mt-2 font-bold">{p.title}</h3>
+                <p className="mt-2 text-sm text-slate-500">{p.description}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-black">13 — Cheat sheets</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {sheets.map((p)=>(
               <Link key={p.slug} href={`/system-design/${p.slug}`} className="card p-5">

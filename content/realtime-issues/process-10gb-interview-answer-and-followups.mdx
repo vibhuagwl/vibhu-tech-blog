@@ -1,0 +1,493 @@
+---
+slug: process-10gb-interview-answer-and-followups
+title: "Processing a 10GB File: Interview Answer and Principal Follow-Ups"
+description: "Natural 30-second, 2-minute, and 5-minute spoken answers for processing a 10GB file, plus architecture, common mistakes, interviewer signals, and 25 hard Staff and Principal follow-ups."
+category: "Real-Time Issues"
+difficulty: Staff/Principal
+tags: [Real-Time Issues, Interview, Java, Batch Processing, Distributed Systems, Principal Engineer]
+readingTime: 34 min
+publishedAt: "2026-08-11"
+---
+
+## How to use this guide
+
+This is the interview version of the 10GB file-processing problem.
+
+The interviewer is rarely testing whether you know `BufferedReader`.
+
+They are testing whether you can protect correctness under scale, crash, retries, bad data, and slow dependencies.
+
+Use the short answer when the question is broad.
+
+Use the longer answer when the interviewer asks for architecture.
+
+Use the follow-ups to rehearse the hard turns.
+
+## Related guides
+
+- [Checkpoints, idempotency, and crash recovery](/realtime-issues/process-10gb-checkpoint-idempotency)
+- [Formats, cloud files, and distributed processing](/realtime-issues/process-10gb-formats-cloud-distributed)
+- [Backpressure, observability, and tuning](/realtime-issues/process-10gb-backpressure-observability)
+
+## 30-second spoken answer
+
+"I would not load the 10GB file into memory.
+
+I would stream it with a parser appropriate to the format, process records in bounded batches, and checkpoint only after durable side effects are committed.
+
+The key correctness point is that a crash may replay the last batch, so every business write needs an idempotency key enforced by a unique constraint, UPSERT, or dedupe table.
+
+For malformed records I would use validation plus a DLQ or exception workflow instead of retrying forever.
+
+If one machine is not enough, I would split only on safe record boundaries and use workers with leases, checkpoints, backpressure, and metrics."
+
+## 2-minute spoken answer
+
+"I start by identifying the file format because that determines whether it can be split safely.
+
+For line-oriented formats like NDJSON or safe CSV, I can stream records and potentially partition by byte ranges aligned to record boundaries.
+
+For a JSON array or XML document, I use a streaming parser such as Jackson `JsonParser`, SAX, or StAX, but I am careful because arbitrary byte-range splitting is usually unsafe.
+
+In Java 17 or 21, the core loop is read, parse, validate, transform, write a bounded batch, commit, then checkpoint.
+
+I avoid `readAllLines`, `readTree`, DOM, or collecting all records because the object overhead can exceed the raw 10GB by a large factor.
+
+For crash recovery, my checkpoint includes job id, file id, chunk id, byte offset, record number, checksum, status, and timestamp.
+
+I prefer process, commit, then checkpoint, or commit the business data and checkpoint in one database transaction.
+
+If the process crashes after the DB commit but before checkpointing, restart replays a small window.
+
+That is safe only because the write path is idempotent.
+
+I use stable idempotency keys, unique constraints, UPSERT, or a dedupe table, and I detect conflicting duplicates with record checksums.
+
+For backpressure, I use bounded queues and size CPU work near core count while limiting IO work by database, Kafka, or object-store capacity.
+
+Metrics include records read, processed, failed, bytes, rate, queue depth, DB latency, checkpoint offset, checkpoint age, DLQ count, and ETA.
+
+If there are 100 files of 10GB each, I introduce an orchestrator that creates work items, assigns leases to workers, and retries expired work.
+
+Leases prevent intentional duplicate ownership, but idempotency still protects correctness when a worker dies or resumes late."
+
+## 5-minute spoken answer
+
+"I would design this as a restartable ingestion pipeline rather than a big file read.
+
+The first question I ask is what the format is.
+
+If it is NDJSON or fixed-width records, streaming and partitioning are straightforward because record boundaries are clear.
+
+If it is CSV, I check whether quoted newlines exist because naive newline splitting can corrupt records.
+
+If it is a JSON array, I avoid Jackson `readTree` and use `JsonParser` token streaming.
+
+If it is XML, I avoid DOM and use SAX or StAX.
+
+For object storage like S3, GCS, or Azure Blob Storage, I store version identity, size, checksum, and use range reads only when the format supports safe boundaries.
+
+For a single file, a Java 17 or 21 service can be enough.
+
+It reads with bounded buffers, parses one record or batch at a time, validates schema and business rules, writes a batch to the database or an outbox, commits, and then updates a checkpoint.
+
+The checkpoint includes job id, file id, chunk id, byte offset, record number, checksum, status, and timestamp.
+
+I do not checkpoint ahead of side effects because a crash after checkpointing but before commit can skip records.
+
+The safer order is process, DB commit, then checkpoint, or commit result and checkpoint in the same database transaction.
+
+That means replay can happen after a crash.
+
+Replay is expected.
+
+Replay must be harmless.
+
+I enforce that with stable idempotency keys, database unique constraints, UPSERT where appropriate, and a dedupe table when the target table cannot own the key.
+
+If the same idempotency key appears with a different checksum, I treat it as an integrity problem, not a duplicate.
+
+For malformed data, invalid UTF-8, schema mismatch, or business-rule rejects, I do not retry forever.
+
+I classify failures as retryable or permanent.
+
+Retryable failures get bounded exponential backoff with jitter.
+
+Permanent failures go to an encrypted DLQ or exception workflow with file id, record number, byte offset, checksum, sanitized payload excerpt, and error reason.
+
+For throughput, I use bounded queues between reader, parser, validator, and writer stages.
+
+If the database slows down, the write queue fills, validators slow down, parsing slows down, and object reads slow down.
+
+That is healthy backpressure.
+
+An unbounded queue hides overload until the JVM dies with OOM.
+
+Thread counts come from the workload.
+
+CPU-heavy validation should stay near core count.
+
+Blocking IO can use more concurrency, especially with Java 21 virtual threads, but still needs semaphores and downstream limits.
+
+Little's Law helps sanity-check it: concurrency equals throughput times latency.
+
+If I need 2,000 database writes per second and p50 latency is 50 milliseconds, I need about 100 in-flight writes, and the database must actually support that.
+
+For 100 files of 10GB each, I move to an orchestrator and workers.
+
+The orchestrator discovers files, validates metadata, creates file or chunk work items, assigns leases, tracks checkpoints, and retries expired leases.
+
+Workers process chunks, renew leases, commit idempotently, checkpoint, and emit audit events.
+
+I choose the execution technology based on the problem: `ExecutorService` or virtual threads for one JVM, Spring Batch for restartable jobs, Kafka after parsing when I want durable record distribution, Spark for distributed batch sort and joins, Flink for continuous stateful streams, Glue for managed AWS ETL, and Kubernetes Jobs when I need containerized workers with custom orchestration.
+
+I would call the semantics at-least-once at the processing layer and effectively-once for business state when idempotency and constraints are correct.
+
+I would avoid claiming magical exactly-once across file storage, DB, Kafka, and external APIs unless I can name the shared transaction boundary.
+
+Finally, I would instrument records read, processed, failed, bytes, rates, queue depth, DB latency, checkpoint offset, checkpoint age, retry count, DLQ count, worker lease age, and ETA, then benchmark read, parse, validate, write, and recovery separately before tuning."
+
+## Architecture diagram
+
+```text
++----------------------+
+| versioned input file |
+| S3, GCS, Azure, disk |
++----------+-----------+
+           |
+           v
++----------------------+
+| metadata validation  |
+| size, version, hash  |
++----------+-----------+
+           |
+           v
++----------------------+
+| partition planner    |
+| file, range, key     |
++----------+-----------+
+           |
+           v
++----------------------+
+| orchestrator         |
+| work items, leases   |
++----------+-----------+
+           |
+           v
++----------------------+        +----------------------+
+| workers              | -----> | encrypted DLQ        |
+| stream, parse,       |        | malformed records    |
+| validate, transform  |        +----------------------+
++----------+-----------+
+           |
+           v
++----------------------+        +----------------------+
+| idempotent sink      | -----> | Kafka or outbox      |
+| DB constraints       |        | optional events      |
++----------+-----------+        +----------------------+
+           |
+           v
++----------------------+
+| checkpoint store     |
+| offset, record, hash |
++----------+-----------+
+           |
+           v
++----------------------+
+| audit and reconcile  |
++----------------------+
+```
+
+## Common candidate mistakes
+
+| Mistake | Why it is weak |
+|---|---|
+| "Use `readAllLines`" | loads the file and object overhead into heap |
+| "Just increase heap" | avoids the streaming design problem |
+| "Use more threads" | ignores bottlenecks and backpressure |
+| "Checkpoint line number only" | fails for CSV, JSON, XML, and changed files |
+| "Checkpoint before commit" | can skip records after crash |
+| "Exactly-once" with no explanation | hides the real transaction and idempotency boundaries |
+| "Use Spark" immediately | may be overkill or wrong for transactional side effects |
+| no DLQ | poison records can block or crash the job forever |
+| no checksum | changed files and conflicting duplicates go undetected |
+| no metrics | operators cannot tell progress from stuckness |
+| unbounded queue | slow DB becomes OOM |
+| no lease model | distributed workers can duplicate ownership |
+
+## What the interviewer evaluates
+
+The interviewer is looking for:
+
+- streaming over bulk loading
+- format-aware parsing
+- safe splitting boundaries
+- restartable checkpoints
+- idempotent side effects
+- honest delivery semantics
+- bounded memory
+- backpressure
+- failure classification
+- DLQ and audit design
+- thread sizing judgment
+- database and Kafka correctness
+- cloud object-store awareness
+- operational metrics
+- security and PII handling
+- ability to choose the simplest sufficient tool
+
+The best signal is calm precision.
+
+Do not rush to a framework.
+
+Name the invariant first.
+
+Then choose the tool.
+
+## Follow-up 1: Why not `readAllLines`?
+
+**Question:** Why is `Files.readAllLines` a bad answer for a 10GB file?
+
+**Ideal answer:** It loads all lines and strings into memory, and the object overhead can be several times the raw file size.
+
+It also delays validation and backpressure because nothing is processed until the read completes.
+
+I would stream with a buffered reader or format parser and process bounded batches.
+
+## Follow-up 2: BufferedReader
+
+**Question:** Is `BufferedReader` enough?
+
+**Ideal answer:** It is enough only for simple line-oriented text where newline equals record boundary.
+
+It is not enough for CSV with quoted newlines, JSON arrays, XML, binary formats, or compressed formats with special splitting constraints.
+
+The parser must match the format.
+
+## Follow-up 3: How do you parallelize one file?
+
+**Question:** How would you parallelize a single 10GB file?
+
+**Ideal answer:** Only split it if the format supports safe boundaries.
+
+For NDJSON, workers can use byte ranges and align to newline boundaries.
+
+For Parquet or ORC, use row groups.
+
+For JSON arrays, XML, and unsafe CSV, I may need one streaming parser or upstream pre-splitting.
+
+## Follow-up 4: CSV newline in quotes
+
+**Question:** What if a CSV field contains a newline inside quotes?
+
+**Ideal answer:** Naive line splitting breaks records.
+
+I need a real CSV parser that understands quoting and escaping.
+
+For parallel range reads, I need a boundary strategy that can prove record starts, otherwise I avoid splitting that file.
+
+## Follow-up 5: Crash at 7GB
+
+**Question:** The process crashes after 7GB. What happens on restart?
+
+**Ideal answer:** I resume from the last durable checkpoint, not from the last byte seen in memory.
+
+If the checkpoint lags behind committed work, replay is safe because writes are idempotent.
+
+I verify file identity and checksum before resuming.
+
+## Follow-up 6: Idempotency
+
+**Question:** What makes the processing idempotent?
+
+**Ideal answer:** A stable business idempotency key enforced by a unique constraint, UPSERT, or dedupe table.
+
+The key must come from the logical source event, not from a random retry attempt.
+
+Conflicting duplicates should be detected with payload or record checksums.
+
+## Follow-up 7: Database is slower than parsing
+
+**Question:** What if parsing is fast but the DB is slow?
+
+**Ideal answer:** The DB controls throughput.
+
+I use bounded queues so parsing slows down when DB writers are saturated.
+
+I tune batch size, indexes, transaction scope, connection pool size, and possibly introduce Kafka or an outbox if durable buffering is needed.
+
+## Follow-up 8: Database down for 30 minutes
+
+**Question:** The DB is down for 30 minutes during the job. What should happen?
+
+**Ideal answer:** Stop consuming beyond bounded buffers, retry with backoff within a budget, keep the checkpoint at the last committed point, and surface an alert.
+
+If the outage exceeds policy, mark the job retryable failed.
+
+On restart, replay from the checkpoint with idempotency.
+
+## Follow-up 9: OOM
+
+**Question:** The processor runs out of memory. What do you inspect?
+
+**Ideal answer:** I inspect heap usage, queue depth, batch sizes, parser accumulation, object retention, GC logs, and whether someone used bulk loading like `readTree` or unbounded task submission.
+
+The fix is usually bounded streaming, smaller batches, and backpressure, not only larger heap.
+
+## Follow-up 10: 100 files
+
+**Question:** How does the design change for 100 files of 10GB each?
+
+**Ideal answer:** I add an orchestrator that creates work items per file or chunk, assigns leases, tracks status, and retries expired work.
+
+Workers stay stateless except for bounded in-flight batches.
+
+The sink remains idempotent because leases do not eliminate duplicate replay.
+
+## Follow-up 11: S3
+
+**Question:** What changes when the file is in S3?
+
+**Ideal answer:** I treat path as insufficient identity.
+
+I store bucket, key, version id if available, size, checksum metadata, and use range reads only for splittable formats.
+
+I also account for bandwidth, throttling, retries, and request cost.
+
+## Follow-up 12: Duplicate records
+
+**Question:** What if the file itself contains duplicate records?
+
+**Ideal answer:** First decide whether duplicates are valid business events.
+
+If they are invalid, the idempotency key or validation should catch them and route to exception handling.
+
+If they are valid, the key must include the source event identity that distinguishes them.
+
+## Follow-up 13: Ordering
+
+**Question:** What if records must be processed in order?
+
+**Ideal answer:** I identify the ordering scope.
+
+Global ordering limits parallelism severely.
+
+Key-level ordering can be preserved by partitioning on the key and processing each key serially while different keys run in parallel.
+
+## Follow-up 14: Malformed record
+
+**Question:** What happens to a malformed record in the middle of the file?
+
+**Ideal answer:** If it is structural corruption, I may fail the file.
+
+If it is a record-level validation failure, I write an encrypted DLQ entry with file id, offset, record number, checksum, sanitized excerpt, and reason.
+
+The checkpoint advances only after that DLQ decision is durable.
+
+## Follow-up 15: Monitoring
+
+**Question:** What metrics do you expose?
+
+**Ideal answer:** Records read, processed, failed, bytes read, throughput, queue depth, DB latency, checkpoint offset, checkpoint age, retry count, DLQ count, worker heartbeat age, lease age, and ETA.
+
+I tag by job and failure class without leaking PII or high-cardinality values.
+
+## Follow-up 16: Kafka versus direct DB writes
+
+**Question:** When would you put Kafka in the middle?
+
+**Ideal answer:** Kafka helps when I want durable buffering, independent consumer scaling, replay, and partition-level ordering after parsing.
+
+It is not a substitute for parsing the original file safely.
+
+Offsets should be committed after durable processing, and consumers still need idempotency.
+
+## Follow-up 17: Spark versus Java service
+
+**Question:** When would you use Spark?
+
+**Ideal answer:** Spark is strong for distributed batch, external sort, joins, aggregations, and columnar data on object storage.
+
+I avoid Spark when the work is mostly per-record synchronous writes to an operational database.
+
+A simpler Java service may be safer for transactional side effects.
+
+## Follow-up 18: Spring Batch
+
+**Question:** When is Spring Batch the right answer?
+
+**Ideal answer:** It fits restartable batch jobs with readers, processors, writers, chunk commits, skip policies, retry policies, and a job repository.
+
+It is especially natural in a Spring organization.
+
+But its checkpoint metadata does not replace business idempotency and database constraints.
+
+## Follow-up 19: Exactly-once
+
+**Question:** Can you guarantee exactly-once?
+
+**Ideal answer:** I avoid the blanket claim.
+
+I can get atomic result plus checkpoint if both are in one database transaction.
+
+Across file storage, DB, Kafka, and external APIs, I usually provide at-least-once processing with effectively-once business state through idempotency and reconciliation.
+
+## Follow-up 20: Checkpoint design
+
+**Question:** What belongs in the checkpoint?
+
+**Ideal answer:** Job id, file id, chunk id, byte offset, record number, checksum, status, timestamp, attempt, and lease owner when distributed.
+
+The checkpoint must prove which immutable input and boundary it refers to.
+
+It should be updated only after the corresponding durable outcome exists.
+
+## Follow-up 21: Worker failure
+
+**Question:** A worker dies while holding a chunk. What happens?
+
+**Ideal answer:** Its lease expires.
+
+Another worker acquires the chunk and resumes from the last durable checkpoint.
+
+Any replayed records are absorbed by idempotency, and stale workers are fenced by lease tokens where needed.
+
+## Follow-up 22: Autoscale
+
+**Question:** How would you autoscale workers?
+
+**Ideal answer:** Scale on backlog, queue depth, checkpoint lag, and downstream saturation, not only CPU.
+
+Add workers only while the database, object store, and Kafka have headroom.
+
+Scale down gracefully by stopping lease acquisition and finishing or checkpointing current work.
+
+## Follow-up 23: Skewed partitions
+
+**Question:** What if one partition is much slower?
+
+**Ideal answer:** First identify the skew reason: large records, hot key, slow validation, or downstream lock contention.
+
+If ordering permits, split the partition further.
+
+If key ordering is required, isolate the hot key, expose ETA, and avoid letting it block unrelated partitions.
+
+## Follow-up 24: Retry storms
+
+**Question:** What prevents a retry storm during dependency failure?
+
+**Ideal answer:** Bounded retries, exponential backoff with jitter, circuit breakers, bulkheads, and queue limits.
+
+The checkpoint should not advance past uncommitted work.
+
+The system should fail retryable and alert rather than amplify a dead dependency forever.
+
+## Follow-up 25: Financial-services final design
+
+**Question:** Give me the final financial-services architecture.
+
+**Ideal answer:** Versioned S3 input goes through metadata and checksum validation, then a partition planner creates leased work.
+
+Workers stream parse, validate schema and business rules, write idempotently to the database or transactional outbox, update checkpoints after commit, send bad records to encrypted DLQ, and emit immutable audit and reconciliation reports.
+
+I would describe it as at-least-once processing with effectively-once business state, backed by constraints, dedupe, checksums, DLQ, and audit.

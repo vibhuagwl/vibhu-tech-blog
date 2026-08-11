@@ -1,0 +1,499 @@
+---
+slug: stuck-thread-incident-response
+title: "Stuck Thread Incident Response: Principal On-Call Playbook"
+description: "How to classify stuck-thread symptoms, protect the blast radius, decide on restarts, communicate during the incident, and separate mitigation from RCA."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Stuck Threads, Incident Response, Java, Spring Boot, PostgreSQL, Kafka, On Call]
+readingTime: 28 min
+publishedAt: "2026-08-11"
+---
+
+## The interview setup
+
+The interviewer says:
+
+> A Java thread in production has been running for one hour. What do you do?
+
+The junior answer is:
+
+> Restart it.
+
+The senior answer is:
+
+> It depends.
+
+The Principal answer is:
+
+> One hour alone does not prove the thread is stuck. I would classify the thread state, look for progress, measure blast radius, protect the service from cascade, capture evidence if safe, mitigate customer impact, and only then drive RCA.
+
+That is the voice this guide is training.
+
+## First principle: time alone is not diagnosis
+
+A long-running thread can be normal.
+
+Examples:
+
+- monthly reconciliation
+- large data export
+- Kafka replay after downtime
+- batch enrichment
+- report generation
+- legitimate PostgreSQL query
+- file transfer
+- checksum or compaction task
+- migration helper
+- slow but bounded dependency call
+
+A long-running thread can also be pathological.
+
+Examples:
+
+- infinite CPU loop
+- Java monitor deadlock
+- `ReentrantLock` deadlock
+- lock convoy
+- starvation behind a fixed-size pool
+- socket read without timeout
+- stuck `Future.get`
+- PostgreSQL row lock wait
+- HikariCP connection pool exhaustion
+- Kafka consumer handler blocked on an API
+
+Duration is a trigger for investigation.
+
+Duration is not proof.
+
+## What "stuck" means operationally
+
+In production, call a thread stuck only when the evidence shows no useful forward progress for longer than the expected bound of the work.
+
+The evidence can be:
+
+- same stack across multiple thread dumps
+- no progress log markers
+- no emitted metrics
+- no bytes read or written
+- no rows processed
+- no Kafka offsets committed
+- no database state transition
+- no lock owner change
+- no deadline or timeout configured
+- same dependency wait across repeated observations
+
+The phrase "expected bound" matters.
+
+A payment authorization should not run for an hour.
+
+A one-time backfill might.
+
+## JVM thread states
+
+Do not overread thread states.
+
+They are necessary context, not full diagnosis.
+
+| State | Practical meaning | Common stuck-thread interpretation |
+|---|---|---|
+| RUNNABLE | Eligible to run or currently executing native or Java code | Could be CPU loop, socket read, database driver wait, or normal work |
+| BLOCKED | Waiting to enter a synchronized monitor | Could be lock contention or deadlock |
+| WAITING | Waiting indefinitely for another thread or signal | Could be parked, joining, waiting on queue, `Future.get`, or idle worker |
+| TIMED_WAITING | Waiting with a timeout | Could be sleep, timed poll, timed park, socket wait with timeout, or scheduled idle |
+| NEW | Created but not started | Usually not incident evidence |
+| TERMINATED | Finished | Not a stuck thread |
+
+### RUNNABLE is not always burning CPU
+
+This is a common interview trap.
+
+A Java thread in RUNNABLE can be:
+
+- actively using CPU in Java code
+- inside a native socket read
+- waiting inside the JDBC driver
+- blocked in kernel IO
+- doing TLS work
+- executing a long query call
+
+So the next question is CPU.
+
+If CPU is high and stack samples stay in application code, suspect loop or expensive compute.
+
+If CPU is low and many RUNNABLE threads sit in socket, JDBC, or Kafka client calls, suspect IO wait or downstream latency.
+
+### BLOCKED means monitor entry, not all lock waits
+
+`BLOCKED` specifically means waiting to enter a Java monitor, usually `synchronized`.
+
+It does not cover every lock.
+
+`ReentrantLock`, `Semaphore`, `CountDownLatch`, `Future.get`, and many pool waits often appear as WAITING or TIMED_WAITING because they use `LockSupport.park`.
+
+So do not say:
+
+> It is not BLOCKED, so it is not a lock issue.
+
+That is wrong.
+
+### WAITING may be healthy
+
+Many healthy service threads spend most of their life waiting.
+
+Examples:
+
+- Kafka consumer waiting for records
+- executor worker waiting for tasks
+- scheduler waiting for next run
+- pool housekeeper waiting
+- request thread waiting on async result
+
+The question is whether the specific thread is expected to be idle.
+
+An idle worker is not stuck.
+
+A request thread waiting forever on an unbounded future might be.
+
+### TIMED_WAITING may be safer than WAITING
+
+Timed waiting often means a deadline exists.
+
+That is usually better than an infinite wait.
+
+But a timeout that is too high can still create an outage.
+
+If every request thread waits 60 seconds on a partner API while traffic continues at 500 requests per second, the service can saturate long before the first timeout fires.
+
+## Deadlock, livelock, starvation
+
+Use these terms carefully.
+
+| Failure mode | What it means | Production signature |
+|---|---|---|
+| Deadlock | Threads wait on each other in a cycle | JVM deadlock detector may report it; stacks show circular ownership |
+| Livelock | Threads are active but make no progress | CPU or activity present, state keeps changing, business state does not advance |
+| Starvation | A thread never gets needed resource because others keep winning | Queue age grows; pool unfairness; hot key; priority inversion |
+| Pool exhaustion | All units in a bounded pool are busy or leaked | Pending requests grow; timeout errors; work queues fill |
+| Lock convoy | Many threads line up behind one slow owner | One slow lock holder creates fleet-wide latency |
+
+In interviews, do not call every wait a deadlock.
+
+Deadlock is specific.
+
+Most production "stuck thread" incidents are not deadlocks.
+
+They are dependency waits, pool exhaustion, or unbounded blocking.
+
+## CPU stuck vs IO stuck
+
+Separate CPU-bound and IO-bound cases early.
+
+### CPU-bound symptoms
+
+- high process CPU
+- high container CPU throttling
+- hot Java method in profiler or JFR
+- RUNNABLE threads in application code
+- GC may or may not be involved
+- throughput drops because compute is saturated
+- latency rises without obvious downstream wait
+
+Typical causes:
+
+- infinite loop
+- accidental quadratic algorithm
+- unbounded regex backtracking
+- JSON serialization explosion
+- retry loop without sleep
+- compression or crypto hotspot
+- Kafka deserializer bug
+
+### IO-bound symptoms
+
+- low or moderate CPU
+- high request concurrency
+- many threads waiting in network or JDBC stacks
+- Hikari pending connections
+- PostgreSQL lock waits
+- external dependency p99 spike
+- Kafka handler latency spike
+- timeouts rising
+
+Typical causes:
+
+- external API hang
+- missing read timeout
+- slow PostgreSQL query
+- blocked database transaction
+- exhausted connection pool
+- downstream saturation
+- Kafka consumer blocked on database or API
+
+### Why this distinction matters
+
+The mitigation differs.
+
+For CPU-bound:
+
+- remove traffic
+- roll back bad code
+- scale compute if safe
+- capture JFR or CPU profile
+- kill only if wedged and evidence is enough
+
+For IO-bound:
+
+- enforce timeouts
+- open circuit
+- shed traffic
+- reduce concurrency
+- pause Kafka consumers
+- rollback dependency-calling change
+- fix database blockers
+
+Scaling an IO-bound service can make the dependency failure worse.
+
+## Common wait sources in Java services
+
+| Wait source | What the thread may show | What to check |
+|---|---|---|
+| PostgreSQL long query | RUNNABLE in JDBC socket read | `pg_stat_activity`, query age, plan, IO, locks |
+| PostgreSQL lock | RUNNABLE or WAITING in JDBC path | blocking PID, wait event, transaction age |
+| HikariCP pool | WAITING or TIMED_WAITING on pool classes | active, idle, pending, timeout rate |
+| External API | RUNNABLE in socket read or TLS | connect and read timeout, dependency latency |
+| Kafka consumer | Handler thread blocked on DB or API | lag, processing time, poll interval, commits |
+| Java monitor | BLOCKED | lock owner, stack of owner thread |
+| `ReentrantLock` | WAITING parked | ownable synchronizers in dump |
+| Executor queue | WAITING or queued tasks | pool size, active count, queue depth |
+| `Future.get` | WAITING | producer task, same-pool deadlock, timeout |
+
+This table is enough to guide the first investigation.
+
+## Incident first response
+
+The first response is not root cause analysis.
+
+It is controlled stabilization.
+
+Use this sequence.
+
+```text
+1. Confirm alert and customer impact.
+2. Identify blast radius.
+3. Determine whether impact is growing.
+4. Check saturation of finite resources.
+5. Protect dependencies from cascade.
+6. Capture minimum safe evidence.
+7. Choose mitigation.
+8. Communicate status and next checkpoint.
+9. Continue evidence collection after impact is reduced.
+10. Run RCA after stabilization.
+```
+
+## 1-6. Confirm, scope, protect, and capture
+
+A Principal does not debug in a vacuum.
+
+Start with impact:
+
+- affected endpoint, job, consumer, tenant, shard, or region
+- errors, latency, stale data, or missing side effects
+- SLO burn and data correctness risk
+- money movement, inventory, notification, or compliance exposure
+
+Then classify blast radius:
+
+| Scope | What it suggests |
+|---|---|
+| One thread | bad request, unusual input, or isolated worker |
+| One instance | local leak, pod issue, hot request, or node pressure |
+| One endpoint | code path, feature flag, or traffic shape |
+| One tenant or shard | hot key, bad data, or database locality |
+| One Kafka partition | hot key, poison message, or slow handler |
+| Whole fleet | dependency, bad deploy, global saturation, or capacity |
+
+Before diving into dumps, scan dashboards:
+
+- request rate, error rate, p95 and p99 latency
+- Tomcat busy threads and active requests
+- executor active count and queue depth
+- Hikari active, idle, pending, and timeout count
+- PostgreSQL wait events, locks, blockers, query age
+- Kafka consumer lag, handler latency, rebalance count
+- external API p95, p99, timeout, and error rate
+- CPU, throttling, heap, GC pause, and recent deploys
+
+Decide whether this is one thread or systemic.
+
+One-thread evidence: one request age outlier, normal pools, normal dependencies, no SLO impact, no growing queues.
+
+Systemic evidence: many identical stacks, request pool near full, executor queue growing, Hikari pending growing, Kafka lag rising, dependency latency rising, or autoscaling not helping.
+
+Protect the system before perfect RCA:
+
+- shed expensive traffic
+- disable noncritical feature flags
+- reduce dependency concurrency
+- open a circuit
+- pause Kafka consumers
+- stop scheduled jobs
+- rate limit a hot tenant
+- roll back a risky deploy
+- isolate or reject work at bulkhead boundaries
+- kill a blocking database transaction only after validation
+
+The cascade to break is:
+
+```text
+dependency slows
+service waits longer
+threads fill
+retries multiply
+dependency receives more work
+fleet collapses
+```
+
+If safe, capture minimum evidence before destructive action:
+
+- three thread dumps about 10 seconds apart
+- process CPU and memory
+- Hikari, PostgreSQL, Kafka, external API, and executor metrics
+- top slow endpoints
+- recent deploy hash
+- relevant logs by correlation ID
+
+Do not delay mitigation for perfect evidence if customers are down.
+
+If restart is not urgent, collect the dumps first.
+
+## 7. Restart judgment
+
+Restart is a tool.
+
+It is not a diagnosis.
+
+### Restart can be right when
+
+- one instance is wedged
+- the load balancer has removed it or can remove it
+- customer impact is caused by that instance
+- the fleet has enough capacity
+- evidence has been captured or impact is too severe to wait
+- the issue is a known transient leak
+- rolling restart is safer than continuing degraded service
+
+### Restart can be wrong when
+
+- all instances are waiting on the same database lock
+- all instances are blocked on an external dependency
+- restart causes connection storms
+- restart causes Kafka rebalance storms
+- pods all replay the same backlog at once
+- startup runs expensive migrations
+- evidence is needed and impact is currently contained
+- the underlying bad deploy will recreate the failure
+
+### Restart question to say out loud
+
+Ask:
+
+> Will restart reduce customer impact, preserve enough evidence, and avoid amplifying the downstream problem?
+
+If yes, restart deliberately.
+
+If no, mitigate differently.
+
+## 8. Communication during the incident
+
+Principal communication is short, factual, and time-boxed.
+
+Good update:
+
+```text
+We are seeing elevated latency and timeout errors on checkout in us-east.
+Blast radius appears limited to payment authorization calls.
+Current hypothesis is request-thread saturation caused by downstream API latency.
+We have opened the circuit for noncritical enrichment and are reducing consumer concurrency.
+Next update in 10 minutes with Hikari, Tomcat, and provider latency confirmation.
+```
+
+Say what is known.
+
+Say what is not known.
+
+Say what action is underway.
+
+Say when the next update arrives.
+
+## Mitigation vs RCA
+
+Keep these separate.
+
+| Dimension | Mitigation | RCA |
+|---|---|---|
+| Goal | Reduce current impact | Explain cause and prevention |
+| Time pressure | Immediate | After stabilization |
+| Evidence | Enough to act safely | Complete enough to learn |
+| Output | Traffic shift, rollback, circuit, restart, pause | causal chain and corrective actions |
+| Risk | Action may worsen outage | Analysis may become blameful or shallow |
+
+Do not do RCA while users are still failing unless RCA is required to choose mitigation.
+
+Do not stop after mitigation and call it root cause.
+
+## Infinite loop vs long legitimate work
+
+Use evidence.
+
+| Check | Infinite loop suspicion | Legitimate long work suspicion |
+|---|---|---|
+| CPU | High on one or more cores | Moderate or low |
+| Stack samples | Same hot code repeatedly | Changes through work phases |
+| Progress metric | No progress | Rows, bytes, offsets, or steps advance |
+| Logs | Repeating same line or none | Periodic milestones |
+| Cancellation | No deadline | Bounded job or cancel path |
+| Input | Bad edge case can trigger loop | Large but expected input |
+
+If legitimate work is too long for the request path, the fix may still be architectural.
+
+Move it to async workflow.
+
+Persist job state.
+
+Expose progress.
+
+Make it cancellable.
+
+Do not keep a customer request thread hostage for an hour.
+
+## Interview answer template
+
+Use this structure:
+
+```text
+I would not conclude stuck from one hour alone.
+First I classify the thread state and whether there is progress.
+Then I check impact and blast radius: one thread, one pod, one endpoint, one Kafka partition, one database shard, or whole fleet.
+I separate CPU from IO by looking at process CPU, stack stability, JFR if needed, and dependency metrics.
+I check Tomcat, executor, Hikari, PostgreSQL, Kafka, and external API dashboards.
+If safe, I take three thread dumps 10 seconds apart and correlate them with metrics.
+Then I mitigate: rollback, circuit break, shed traffic, pause consumers, kill a blocker, or restart a pod depending on evidence.
+After impact is reduced, I drive RCA and corrective actions.
+```
+
+## Final on-call principle
+
+A stuck thread is rarely just a thread problem.
+
+It is usually an ownership problem at a boundary:
+
+- no timeout
+- no bulkhead
+- no backpressure
+- no cancellation
+- no query bound
+- no lock visibility
+- no pool isolation
+- no runbook
+
+The Principal answer finds the boundary and makes it safer.

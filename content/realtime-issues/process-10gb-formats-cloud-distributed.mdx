@@ -1,0 +1,542 @@
+---
+slug: process-10gb-formats-cloud-distributed
+title: "Processing a 10GB File: Formats, Cloud Storage, and Distributed Execution"
+description: "A Principal-level guide to external sort, streaming JSON and XML parsing, object-store range reads, cloud checksums, and scaling from one 10GB file to 100 files with Java workers, Spring Batch, Kafka, Spark, Flink, Glue, and Kubernetes Jobs."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, Java, Cloud Storage, Distributed Processing, Spark, Kafka, Spring Batch, Principal Interview]
+readingTime: 31 min
+publishedAt: "2026-08-11"
+---
+
+## Scenario
+
+The interviewer starts with a single 10GB file.
+
+Then they change the question.
+
+What if the file is JSON?
+
+What if it is XML?
+
+What if it is stored in S3, GCS, or Azure Blob Storage?
+
+What if there are 100 files, each 10GB?
+
+What if the records must be sorted before loading?
+
+At Staff level, you mention streaming.
+
+At Principal level, you explain how the file format, storage system, partitioning model, and failure semantics shape the architecture.
+
+## Related guides
+
+- [Checkpoints, idempotency, and crash recovery](/realtime-issues/process-10gb-checkpoint-idempotency)
+- [Backpressure, observability, and tuning](/realtime-issues/process-10gb-backpressure-observability)
+- [Interview answer and follow-ups](/realtime-issues/process-10gb-interview-answer-and-followups)
+
+## First decision: can the file be split safely?
+
+Not every 10GB file can be parallelized by cutting byte ranges.
+
+| Format | Split friendly | Notes |
+|---|---:|---|
+| fixed-width records | yes | workers can align to record size |
+| NDJSON | usually yes | workers can seek to newline boundaries |
+| CSV | sometimes | quoted newlines make naive splitting unsafe |
+| JSON array | usually no | parser state crosses arbitrary byte ranges |
+| XML document | usually no | tree structure crosses byte ranges |
+| Parquet or ORC | yes | designed around row groups and metadata |
+| gzip CSV | usually no | standard gzip is not splittable |
+| zip archive | usually awkward | central directory and member boundaries matter |
+
+This is why the format choice is an architecture choice.
+
+A 10GB NDJSON file can be processed with bounded memory and simple checkpointing.
+
+A 10GB JSON array may require a streaming parser but is harder to split across workers.
+
+A 10GB gzip file may force one worker unless you pre-split upstream or use an indexed format.
+
+## External sort
+
+If the file must be sorted and it does not fit in memory, use external sort.
+
+The pattern is:
+
+```text
+read bounded chunk
+parse records
+sort chunk in memory
+write sorted run to temporary storage
+repeat until input consumed
+k-way merge sorted runs
+write final output or feed downstream batches
+```
+
+This is not a Java collection problem.
+
+It is an IO and temporary-storage problem.
+
+## Chunk sort
+
+Choose a chunk size that fits comfortably under the heap budget.
+
+If the JVM has 4GB heap, do not allocate a 3.5GB sort buffer.
+
+Objects, strings, parser buffers, executor queues, and GC overhead also need space.
+
+For Java 17 or 21, a safer first pass might use chunks such as 128MB to 512MB of raw input, then benchmark.
+
+The exact value depends on record width and object allocation.
+
+Sort each chunk by the required key.
+
+Write the sorted run to disk or object storage.
+
+Record metadata:
+
+- run id
+- record count
+- byte count
+- min key
+- max key
+- checksum
+- temporary object path
+
+## K-way merge
+
+The merge opens one cursor per sorted run and uses a priority queue keyed by the sort key.
+
+Memory is proportional to the number of runs, not the full file.
+
+If there are too many runs, merge in stages.
+
+```text
+1000 sorted runs
+merge groups of 50 into 20 larger runs
+merge 20 larger runs into final sorted stream
+```
+
+A Principal answer mentions file descriptor limits, disk bandwidth, object-store request costs, and merge fan-in.
+
+The bottleneck is often IO rather than comparison CPU.
+
+## External sort failure recovery
+
+External sort needs checkpoints too.
+
+You should be able to resume after:
+
+- a crash during chunk sort
+- a crash after writing a temporary run
+- a crash during staged merge
+- a crash after final output but before metadata update
+
+Temporary runs should be named deterministically from `jobId`, `fileId`, `chunkId`, and phase.
+
+Do not create random temp files that become impossible to reconcile.
+
+Cleanup should delete only temp objects owned by the job and phase.
+
+## Huge JSON
+
+The main danger is reading the full JSON document into memory.
+
+Jackson `ObjectMapper.readTree` builds an in-memory tree.
+
+For a 10GB file, that is usually a failure.
+
+The heap cost can be many times the input size because of objects, strings, maps, and arrays.
+
+Prefer `JsonParser` streaming.
+
+With streaming, the processor reads tokens and emits records without materializing the whole document.
+
+For Java 17 or 21, the shape is:
+
+```text
+open InputStream
+create JsonParser
+advance token by token
+when one record object is complete, validate and process it
+discard record object
+checkpoint after durable batch commit
+```
+
+## NDJSON versus JSON array
+
+NDJSON means one JSON object per line.
+
+It is usually better for large ingestion.
+
+```text
+{"id":"1","amount":100}
+{"id":"2","amount":250}
+{"id":"3","amount":175}
+```
+
+Advantages:
+
+- natural record boundaries
+- easy line-oriented streaming
+- easier byte-offset checkpointing
+- easier partitioning by byte range with newline alignment
+- easier DLQ by record
+
+A JSON array is harder:
+
+```text
+[
+  {"id":"1","amount":100},
+  {"id":"2","amount":250}
+]
+```
+
+It can still be streamed with `JsonParser`.
+
+But arbitrary range reads cannot begin in the middle of an object without reconstructing parser state.
+
+For new large-file designs, prefer NDJSON or a columnar format unless a consumer requires JSON arrays.
+
+## Huge XML
+
+The XML equivalent of `readTree` danger is DOM.
+
+DOM builds the entire document tree in memory.
+
+A 10GB XML DOM is not a viable production design for normal service heaps.
+
+Use SAX or StAX.
+
+| Parser | Model | Fit for 10GB |
+|---|---|---|
+| DOM | build whole tree | poor |
+| SAX | push events to handler | good but handler state can become complex |
+| StAX | pull events from stream | good and often easier to control |
+
+StAX is often a strong Java choice because the processing loop controls backpressure.
+
+The worker can read events, assemble one business record, validate it, process it, and discard it.
+
+The danger is accidental state accumulation.
+
+If the code keeps every seen element in a map, streaming no longer helps.
+
+## CSV complications
+
+CSV looks simple until it is not.
+
+Problems include:
+
+- quoted delimiters
+- quoted newlines
+- escaped quotes
+- missing trailing columns
+- inconsistent encodings
+- large fields
+- schema drift
+
+Do not split CSV by newline unless the parser and format guarantee that newlines inside quoted fields cannot occur.
+
+Use a real CSV parser.
+
+Checkpoint by parser-confirmed record boundary.
+
+For high-risk financial input, store the raw record checksum with the parsed business key.
+
+## Cloud object storage
+
+For S3, GCS, and Azure Blob Storage, the file is not a local disk file.
+
+The processor must account for network bandwidth, throttling, object consistency semantics, request cost, and checksums.
+
+Important capabilities:
+
+| Capability | S3 | GCS | Azure Blob |
+|---|---|---|---|
+| range reads | yes | yes | yes |
+| version identity | version id if enabled | generation | version id or snapshot |
+| checksum metadata | ETag and checksum fields | CRC32C and MD5 options | MD5 and CRC64 options |
+| multipart upload | yes | compose and resumable upload | block blob upload |
+
+Do not rely on object path alone.
+
+Store version identity and size in the checkpoint.
+
+If versioning is disabled, at least store size, ETag or checksum, and last modified metadata.
+
+## Range reads
+
+Range reads allow a worker to request a byte range.
+
+```text
+read bytes 0 to 134217727
+read bytes 134217728 to 268435455
+read bytes 268435456 to 402653183
+```
+
+For line-based formats, each worker should align to the next valid record boundary.
+
+The worker that starts in the middle of a line discards the partial first line.
+
+The worker that owns the previous range completes that line.
+
+This is safe only when record boundaries are known.
+
+For CSV with quoted newlines, this may not be safe.
+
+For JSON arrays and XML documents, it is usually not safe.
+
+## Bandwidth and worker count
+
+More workers do not always mean faster processing.
+
+Object store throughput, NAT gateways, database capacity, and CPU can all become bottlenecks.
+
+Measure:
+
+- bytes per second per worker
+- object-store throttling
+- retry rate
+- database latency
+- CPU utilization
+- GC pause time
+- downstream queue depth
+
+If each worker reads 100MB per second but the database can commit only 20MB per second of transformed records, adding readers increases memory pressure.
+
+The slowest durable dependency sets the safe throughput.
+
+## Checksums
+
+Checksums protect against partial uploads, accidental replacement, and corrupted temporary files.
+
+Use checksums at multiple levels:
+
+- whole-file checksum when available
+- chunk checksum for range workers
+- record checksum for dedupe and DLQ
+- temporary-run checksum for external sort
+- output checksum for audit
+
+For object stores, understand what ETag means.
+
+In S3, ETag is not always a simple MD5 for multipart uploads.
+
+Use explicit checksum fields where available.
+
+## Single-machine Java worker
+
+A single-machine implementation can be appropriate when:
+
+- one 10GB file arrives occasionally
+- completion time is acceptable
+- the transformation is simple
+- one database can handle the write rate
+- operations prefer simple recovery
+
+Use bounded memory, batch commits, checkpoints, and idempotency.
+
+This is often the best first production design.
+
+It is also a good interview baseline.
+
+Do not jump to Spark before proving the single-machine constraints are insufficient.
+
+## 100 files of 10GB each
+
+Now the total input is 1TB.
+
+One process may be too slow or too risky.
+
+Use an orchestrator plus workers.
+
+```text
+orchestrator
+  discovers files
+  validates object metadata
+  creates file and chunk work items
+  assigns leases
+  monitors progress
+  handles retry and quarantine
+
+workers
+  acquire a lease
+  process one chunk or file
+  commit idempotent side effects
+  checkpoint progress
+  renew lease while healthy
+  release or complete work item
+```
+
+The orchestrator is not a big thread pool.
+
+It owns correctness state.
+
+Workers own bounded execution.
+
+## Leases
+
+A lease prevents two workers from intentionally processing the same chunk.
+
+The lease should include:
+
+- work item id
+- owner id
+- lease token
+- acquired timestamp
+- expires timestamp
+- heartbeat timestamp
+- attempt number
+
+If a worker dies, the lease expires and another worker can retry.
+
+All writes still need idempotency because a slow worker may resume after its lease expired.
+
+Leases reduce duplicate work.
+
+They do not replace idempotency.
+
+## Partitioning
+
+Partition by file when each file is independent and roughly equal.
+
+Partition by byte range when one file is huge and splittable.
+
+Partition by business key when ordering or uniqueness is key-scoped.
+
+Partition by object-store prefix when request distribution matters.
+
+Beware skew.
+
+One file may have one giant customer or one hot account.
+
+A Principal design includes a plan for detecting and splitting skewed partitions.
+
+## Tooling comparison
+
+| Approach | Use when | Avoid when |
+|---|---|---|
+| `ExecutorService` | one JVM, simple bounded parallelism, local or streamed file | you need durable orchestration across machines |
+| Java virtual threads | many blocking IO tasks with clear downstream limits | you mistake cheap threads for unlimited capacity |
+| Spring Batch | restartable chunk processing, job repository, readers and writers | format or orchestration needs are far outside its model |
+| Kafka | you want durable record distribution after splitting input | original file parsing itself is the hard part |
+| Spark | large parallel batch, joins, sort, aggregations, columnar data | low-latency per-record side effects dominate |
+| Flink | stateful streaming, event time, continuous ingestion | one-off file import is simple batch |
+| AWS Glue | managed Spark-style ETL on AWS | custom transaction and idempotency semantics are complex |
+| Kubernetes Jobs | containerized workers, simple batch scaling | you need rich checkpoint and dependency semantics without building them |
+
+## ExecutorService
+
+`ExecutorService` is good for a controlled single-process design.
+
+Use a fixed-size pool.
+
+Use bounded queues.
+
+Limit DB writes with a connection pool and possibly a semaphore.
+
+Do not submit millions of tasks into an unbounded queue.
+
+The process should expose metrics and checkpoint regularly.
+
+## Spring Batch
+
+Spring Batch is a natural fit for restartable chunk processing.
+
+It gives job repository concepts, steps, readers, processors, writers, skip policies, retry policies, and execution metadata.
+
+Use it when the work resembles a batch job and the team already runs Spring.
+
+Customize carefully for cloud object storage and complex idempotency.
+
+The Spring Batch checkpoint does not remove the need for database constraints.
+
+## Kafka
+
+Kafka is useful after parsing.
+
+For example:
+
+```text
+file parser -> validated records topic -> consumer workers -> database
+```
+
+Kafka gives durable buffering, consumer groups, partition-level ordering, and backpressure via lag.
+
+It does not parse a 10GB JSON array for you.
+
+It also moves the checkpoint problem from file offsets to Kafka offsets plus producer idempotency.
+
+Commit Kafka offsets after durable processing.
+
+Use DLQs for poison records.
+
+## Spark
+
+Spark is strong for parallel batch transformations.
+
+It is especially useful for external sort, joins, aggregations, Parquet, ORC, and distributed reads from object storage.
+
+Use Spark when the transformation is data-parallel and the output can be written in bulk.
+
+Avoid per-record synchronous API calls inside Spark tasks.
+
+That turns a data engine into a distributed dependency amplifier.
+
+## Flink
+
+Flink is strong for continuous streams, stateful processing, watermarks, and event-time correctness.
+
+Use it when the file feed is really a stream or when the same logic must run continuously.
+
+For one nightly 10GB import, Flink can be operationally heavy.
+
+## Glue
+
+Glue is managed ETL.
+
+It can be a good AWS choice for cataloged data, Spark transforms, crawlers, and object-store pipelines.
+
+It is less attractive when the core problem is transactional side effects into an operational database.
+
+You still need idempotency and audit.
+
+## Kubernetes Jobs
+
+Kubernetes Jobs are a deployment primitive, not a full batch framework.
+
+They are good for running containerized workers with retries and resource limits.
+
+You must still implement:
+
+- work discovery
+- leases
+- checkpoints
+- idempotency
+- DLQ
+- audit
+- metrics
+
+Use K8s Jobs when you want operational isolation and horizontal workers but your processing model is custom.
+
+## Principal interview framing
+
+Start with the format.
+
+Then decide whether the input can be split.
+
+Then choose the execution model.
+
+Then define checkpoint and idempotency semantics.
+
+Then size workers against the slowest dependency.
+
+Then explain observability and failure handling.
+
+The strong answer is not "use Spark" or "use threads."
+
+The strong answer is:
+
+"I choose the smallest architecture that preserves correctness, and I scale only the part that is actually parallelizable."

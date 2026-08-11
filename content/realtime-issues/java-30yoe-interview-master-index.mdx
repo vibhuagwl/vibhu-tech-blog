@@ -1,0 +1,375 @@
+---
+slug: java-30yoe-interview-master-index
+title: "Java 30-YOE Interview Master Index: Principal Production Readiness Q1-Q100"
+description: "A Principal and Distinguished Engineer hub for Java production incident, concurrency, JVM, distributed-system, Kafka, Redis, and operational leadership interview questions."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java, Principal Engineer, Distinguished Engineer, Production Incidents, JVM, Concurrency, Real-Time Issues]
+readingTime: 42 min
+publishedAt: "2026-08-11"
+---
+
+## What this master index is for
+
+This is the hub for Java Q1 through Q100 at the 25 to 30 YOE Principal and Distinguished Engineer level.
+
+The interview is not a trivia round.
+
+The interviewer is trying to learn whether you can hold production state in your head while the system is moving.
+
+They want to hear how you diagnose, mitigate, communicate, and prevent recurrence without making the incident worse.
+
+At this level, a correct API name is table stakes.
+
+The signal is judgment.
+
+## What interviewers evaluate at 30 YOE
+
+Interviewers evaluate whether you establish state before action.
+
+They listen for whether you ask:
+
+- Is customer impact active or historical?
+- Is the symptom fleet-wide, instance-local, tenant-specific, region-specific, or dependency-specific?
+- Are we seeing CPU burn, blocking, queueing, GC, IO wait, or downstream saturation?
+- What evidence can we capture safely before a destructive mitigation?
+- What side effects can a kill, restart, scale-out, failover, or rollback create?
+- Which control prevents the same failure from recurring?
+
+A 30-YOE answer should sound like an operator and an architect at the same time.
+
+You should be able to say what you would do in the first five minutes, what data proves or disproves each hypothesis, and what permanent design change should follow.
+
+## What makes a 30-YOE answer different
+
+The junior answer starts with a tool.
+
+The senior answer starts with a likely cause.
+
+The Principal answer starts with state.
+
+It separates:
+
+- symptom from cause
+- mitigation from root-cause analysis
+- local recovery from fleet safety
+- successful restart from durable fix
+- throughput improvement from correctness preservation
+- a single metric spike from a correlated incident narrative
+
+For example, if a Java service is at 100 percent CPU, the weak answer is "take a thread dump and restart."
+
+The Principal answer is:
+
+> I would first establish blast radius and whether the CPU is user CPU, kernel CPU, GC CPU, or a small number of hot Java threads. I would correlate `top -H`, JVM thread dumps, JFR or async-profiler, GC logs, request latency, queue depth, dependency latency, and recent config changes. If I need to restart, I would think through side effects: in-flight payments, Kafka rebalance, cache stampede, connection surge, and whether all pods will repeat the same hot path after restart.
+
+That is the style expected throughout this curriculum.
+
+## Core answer shape
+
+Use this shape for most Q1 through Q100 answers:
+
+```text
+1. Establish current state and blast radius.
+2. Protect customers and dependencies from cascade.
+3. Capture the cheapest safe evidence.
+4. Correlate dumps, metrics, traces, logs, and recent changes.
+5. Pick the smallest mitigation that changes the bad state.
+6. Explain side effects of kill, restart, scale, rollback, or failover.
+7. Verify recovery with leading and lagging indicators.
+8. Convert the incident into prevention controls.
+```
+
+The order matters.
+
+Taking perfect dumps while the retry storm destroys the database is not good incident command.
+
+Restarting all pods without preserving evidence may hide the leak and create the next incident.
+
+Scaling consumers without understanding downstream saturation may convert lag into database failure.
+
+## Top 15 priority questions
+
+These are the highest-yield questions because they expose whether the candidate can reason under pressure.
+
+| Priority | Question | Guide |
+|---:|---|---|
+| 1 | Q1. Java service at 100 percent CPU in production | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q1-java-service-at-100-percent-cpu) |
+| 2 | Q2. One thread stuck for two hours | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q2-thread-stuck-for-two-hours) |
+| 3 | Q3. Production OOM | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q3-production-outofmemoryerror) |
+| 4 | Q4. Full GC storm | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q4-full-gc-storm) |
+| 5 | Q5. Latency spike without deployment | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q5-latency-spike-without-deployment) |
+| 6 | Q6. Kafka consumers are up but stopped processing | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q6-kafka-consumers-up-but-not-processing) |
+| 7 | Q7. Connection pool exhausted | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q7-connection-pool-exhausted) |
+| 8 | Q8. API p99 is 30 seconds | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q8-api-p99-is-30-seconds) |
+| 9 | Q9. Deadlock in production | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q9-deadlock-in-production) |
+| 10 | Q10. QA cannot reproduce prod intermittent failure | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa#q10-qa-versus-prod-intermittent-failure) |
+| 11 | Q11. ExecutorService in a real production scenario | [Concurrency Q&A](/realtime-issues/java-30yoe-concurrency-qa#q11-executorservice-real-scenario) |
+| 12 | Q13. One thousand expensive downstream calls | [Concurrency Q&A](/realtime-issues/java-30yoe-concurrency-qa#q13-one-thousand-expensive-downstream-calls) |
+| 13 | Q19. Java heap space OOM | [JVM and GC Q&A](/realtime-issues/java-30yoe-jvm-gc-performance-qa#q19-oom-java-heap-space) |
+| 14 | Q24. Heap dump findings | [JVM and GC Q&A](/realtime-issues/java-30yoe-jvm-gc-performance-qa#q24-heap-dump-findings) |
+| 15 | Q31. Profiling tools under incident pressure | [JVM and GC Q&A](/realtime-issues/java-30yoe-jvm-gc-performance-qa#q31-profiling-tools) |
+
+## Curriculum map
+
+Use these section guides as the first layer of the Q1 through Q100 curriculum.
+
+| Range | Topic | Primary guide |
+|---|---|---|
+| Q1-Q10 | Production incidents and operational diagnosis | [Java 30-YOE production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa) |
+| Q11-Q18 | Java concurrency and thread-pool design | [Java 30-YOE concurrency Q&A](/realtime-issues/java-30yoe-concurrency-qa) |
+| Q19-Q32 | JVM, GC, profiling, and performance | [Java 30-YOE JVM, GC, and performance Q&A](/realtime-issues/java-30yoe-jvm-gc-performance-qa) |
+| Q33-Q42 | Spring Boot, HTTP, data access, and resilience | This hub's application-runtime section |
+| Q43-Q54 | Kafka, event processing, idempotency, and lag | [Kafka interview section](/kafka-interview) |
+| Q55-Q64 | Redis, caching, locks, and failure modes | [Redis interview section](/redis-interview) |
+| Q65-Q76 | Distributed systems, consistency, locking, and sagas | [Distributed systems guides](/distributed-systems/distributed-locking-master-index) |
+| Q77-Q86 | Data processing, batch, file, and backpressure incidents | [10GB file processing index](/realtime-issues/process-10gb-file-master-index) |
+| Q87-Q94 | Observability, SLOs, incident command, and RCA | [Real-Time Issues master index](/realtime-issues/realtime-issues-master-index) |
+| Q95-Q100 | Principal engineering judgment and organizational prevention | This hub's executive-readiness section |
+
+The missing future guides do not reduce the value of the current set.
+
+The first 32 questions already cover the core incident muscles: JVM evidence, concurrency failure, pool starvation, GC, Kafka behavior, latency localization, and prevention.
+
+## Related Real-Time Issues guides
+
+These existing guides are useful cross-references when an interviewer turns a broad Java question into a live incident.
+
+| Incident angle | Existing guide |
+|---|---|
+| Stuck thread first response | [Stuck thread incident response](/realtime-issues/stuck-thread-incident-response) |
+| Thread dump mechanics | [Stuck thread JVM thread dumps](/realtime-issues/stuck-thread-jvm-thread-dumps) |
+| DB, API, and pool waits | [Stuck thread DB, API, and pools](/realtime-issues/stuck-thread-db-api-pools) |
+| CPU, GC, kill, restart | [Stuck thread CPU, GC, kill, restart](/realtime-issues/stuck-thread-cpu-gc-kill-restart) |
+| RCA and prevention | [Stuck thread RCA, prevention, observability](/realtime-issues/stuck-thread-rca-prevention-observability) |
+| Payment incident walkthrough | [Stuck thread payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study) |
+| Processing a large file safely | [10GB file processing index](/realtime-issues/process-10gb-file-master-index) |
+| Backpressure and production architecture | [10GB backpressure and observability](/realtime-issues/process-10gb-backpressure-observability) |
+
+## Q1-Q100 question list
+
+The question list is intentionally operational.
+
+Each question should be answered with state, evidence, mitigation, side effects, and prevention.
+
+### Q1-Q10: production incidents
+
+1. Q1. A Java service is at 100 percent CPU in production. What do you do?
+2. Q2. A production thread has been stuck for two hours. What do you do?
+3. Q3. The service throws `OutOfMemoryError` during peak traffic. How do you respond?
+4. Q4. Full GC is running repeatedly and requests are timing out. What do you check?
+5. Q5. Latency suddenly increased, but there was no deployment. How do you diagnose?
+6. Q6. Kafka consumers are up, heartbeating, and assigned partitions, but messages are not being processed. What do you do?
+7. Q7. HikariCP says the connection pool is exhausted. What is your incident path?
+8. Q8. An API has p99 latency of 30 seconds while median is normal. How do you localize it?
+9. Q9. You suspect a deadlock in production. What evidence do you need?
+10. Q10. QA cannot reproduce an intermittent production failure. How do you proceed?
+
+### Q11-Q18: concurrency
+
+11. Q11. Explain a real production scenario where `ExecutorService` was the right abstraction.
+12. Q12. When do you use `synchronized`, `ReentrantLock`, `ReadWriteLock`, `Atomic*`, `ConcurrentHashMap`, `Semaphore`, `CountDownLatch`, and `CompletableFuture`?
+13. Q13. You must make one thousand expensive downstream calls without exhausting threads. How do you design it?
+14. Q14. A service has 500 threads, 20 percent CPU, and timeouts. What is happening?
+15. Q15. An unbounded executor queue keeps growing. What do you do?
+16. Q16. Design a bounded thread pool for payments.
+17. Q17. Two microservices are waiting on each other. How do you diagnose and prevent it?
+18. Q18. When do you choose async over sync, and when is async the wrong answer?
+
+### Q19-Q32: JVM, GC, and performance
+
+19. Q19. The JVM fails with `java.lang.OutOfMemoryError: Java heap space`. What do you do?
+20. Q20. Compare heap, stack, metaspace, direct memory, and off-heap memory incidents.
+21. Q21. Tell a bad JVM tuning story and what you learned.
+22. Q22. When is increasing heap correct, and when does it hide a leak?
+23. Q23. How do you decide whether memory growth is a leak, cache growth, or load?
+24. Q24. What do you look for in a heap dump?
+25. Q25. How do you diagnose excessive allocation rate?
+26. Q26. How do short-lived objects create production pain?
+27. Q27. How do you choose a low-latency garbage collector?
+28. Q28. A single API is slow. How do you localize the bottleneck?
+29. Q29. CPU is high but throughput is low. What are the likely causes?
+30. Q30. How do you find a synchronization bottleneck?
+31. Q31. Which profiling tools do you use during incidents and why?
+32. Q32. How do you combine JFR, VisualVM, async-profiler, heap dumps, thread dumps, and GC logs?
+
+### Q33-Q42: Spring Boot and application runtime
+
+33. Q33. A Spring Boot endpoint times out only under load. What do you inspect?
+34. Q34. How do servlet thread pools, database pools, and downstream clients interact?
+35. Q35. A controller returns 200 but the business side effect is missing. How do you diagnose?
+36. Q36. Transaction boundaries are too large. What production symptoms appear?
+37. Q37. What happens when `@Transactional` wraps slow remote calls?
+38. Q38. How do you design request timeouts across ingress, service, database, and clients?
+39. Q39. How do you use circuit breakers without hiding correctness failures?
+40. Q40. How do you prevent retry storms?
+41. Q41. How do you design an outbox for reliability?
+42. Q42. How do you separate idempotency, deduplication, and exactly-once claims?
+
+### Q43-Q54: Kafka and streaming
+
+43. Q43. Kafka lag is growing. What do you check first?
+44. Q44. Consumers are rebalancing repeatedly. What is your incident path?
+45. Q45. A poison message blocks a partition. How do you recover safely?
+46. Q46. How do you tune `max.poll.interval.ms`, `max.poll.records`, and processing time?
+47. Q47. How do you preserve ordering without destroying throughput?
+48. Q48. How do you design idempotent consumers?
+49. Q49. What does "exactly once" mean in Kafka and where does it stop?
+50. Q50. How do you handle duplicate events after a consumer restart?
+51. Q51. How do you diagnose producer latency?
+52. Q52. How do you detect partition skew?
+53. Q53. How do you use DLQs without losing ownership?
+54. Q54. How do Kafka incidents intersect with database locks?
+
+For deeper Kafka review, use the [Kafka interview section](/kafka-interview) and [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency).
+
+### Q55-Q64: Redis and cache incidents
+
+55. Q55. Redis latency spikes during checkout. What do you check?
+56. Q56. A cache stampede takes down the database. How do you respond?
+57. Q57. How do you design TTLs to avoid synchronized expiry?
+58. Q58. When should Redis locks not be used?
+59. Q59. What is fencing and why does it matter for distributed locks?
+60. Q60. How do you debug Redis memory growth?
+61. Q61. What production symptoms come from hot keys?
+62. Q62. How do you design cache-aside safely?
+63. Q63. How do you handle Redis failover side effects?
+64. Q64. How do you prevent stale cache from causing financial errors?
+
+For deeper Redis review, use the [Redis interview section](/redis-interview) and [Redis distributed lock deep dive](/distributed-systems/redis-distributed-lock-deep-dive).
+
+### Q65-Q76: distributed systems and consistency
+
+65. Q65. Two services update shared business state. How do you protect consistency?
+66. Q66. When do you use a saga instead of a distributed transaction?
+67. Q67. How do you reason about timeout versus cancellation?
+68. Q68. What does partial failure look like in a Java microservice fleet?
+69. Q69. How do you debug a distributed deadlock?
+70. Q70. When is optimistic locking preferable to pessimistic locking?
+71. Q71. How do you diagnose PostgreSQL row-lock waits?
+72. Q72. How do you use fencing tokens with leases?
+73. Q73. How do you prevent split-brain ownership?
+74. Q74. How do you design idempotency across retries and failover?
+75. Q75. What observability do you require for distributed locks?
+76. Q76. How do you prove a consistency fix worked?
+
+For deeper coverage, use [distributed locking fundamentals](/distributed-systems/locking-fundamentals-and-layers), [concurrency deadlocks and timeouts](/distributed-systems/concurrency-deadlocks-and-timeouts), and [transactions, sagas, 2PC, and 3PC](/distributed-systems/transactions-2pc-3pc-saga).
+
+### Q77-Q86: data processing and backpressure
+
+77. Q77. How do you process a 10GB file without loading it into memory?
+78. Q78. How do you restart a failed batch at 70 percent completion?
+79. Q79. How do you split a file safely across workers?
+80. Q80. How do you design checkpoints and idempotency for batch writes?
+81. Q81. How do you protect a database from batch overload?
+82. Q82. How do you identify backpressure versus under-provisioning?
+83. Q83. How do you handle malformed records?
+84. Q84. How do you design a DLQ for batch ingestion?
+85. Q85. How do you secure sensitive data in failure artifacts?
+86. Q86. When do you move from one JVM to Spark, Flink, or another distributed engine?
+
+Use the [10GB file processing index](/realtime-issues/process-10gb-file-master-index), [checkpoint and idempotency guide](/realtime-issues/process-10gb-checkpoint-idempotency), and [backpressure guide](/realtime-issues/process-10gb-backpressure-observability).
+
+### Q87-Q94: observability and incident command
+
+87. Q87. What dashboard do you want before touching production?
+88. Q88. How do you distinguish leading and lagging indicators?
+89. Q89. How do you communicate uncertainty during an incident?
+90. Q90. What evidence do you capture before restart?
+91. Q91. How do you decide between rollback, restart, scale-out, and feature disablement?
+92. Q92. How do you write an RCA that changes engineering behavior?
+93. Q93. Which alerts are worth paging a Principal engineer?
+94. Q94. How do you validate that the recurrence controls actually work?
+
+The Real-Time Issues guides on [stuck thread RCA](/realtime-issues/stuck-thread-rca-prevention-observability) and [CPU, GC, kill, restart](/realtime-issues/stuck-thread-cpu-gc-kill-restart) are the best references here.
+
+### Q95-Q100: Principal judgment
+
+95. Q95. When do you stop digging for root cause and mitigate?
+96. Q96. How do you make a risky production change during an active incident?
+97. Q97. How do you decide whether a system needs redesign rather than tuning?
+98. Q98. How do you explain a technical outage to executives without oversimplifying?
+99. Q99. How do you coach teams away from restart-driven operations?
+100. Q100. What production failure changed how you design Java systems?
+
+## How to study the first 32 questions
+
+Do not memorize the answers as scripts.
+
+Memorize the reasoning pattern.
+
+For each question, rehearse five sentences:
+
+1. The state you establish.
+2. The hypotheses you separate.
+3. The evidence you correlate.
+4. The mitigation you choose and its side effects.
+5. The prevention control you would add.
+
+If the interviewer interrupts, stay calm and keep the frame.
+
+For example:
+
+> Before I restart that JVM, I want one or two low-cost artifacts if the process is stable enough: thread dumps, heap or class histogram depending on symptom, GC logs, and request traces. If customers are actively failing, I may mitigate first, but I will call out the evidence loss and the side effects of restart.
+
+That sentence sounds different from a tool list.
+
+It shows ownership.
+
+## Red flags in 30-YOE answers
+
+Avoid these patterns:
+
+- "I would just restart the pod."
+- "I would increase heap."
+- "Kafka guarantees exactly once, so duplicates are impossible."
+- "Async will make it faster."
+- "More threads will improve throughput."
+- "The database is slow" without query, lock, pool, and wait evidence.
+- "GC is the problem" without allocation rate, pause, heap occupancy, and CPU context.
+- "We can reproduce in QA" without explaining data volume, concurrency, topology, and timing differences.
+
+Each of these may be true in a narrow case.
+
+At Principal level, the issue is not whether the sentence can be true.
+
+The issue is whether you can prove it safely.
+
+## Interviewer follow-up themes
+
+Expect follow-ups that test whether your answer survives pressure:
+
+- "Customers are failing now. Are you still taking dumps?"
+- "What if the thread dump pauses the JVM?"
+- "What if the pod is in Kubernetes and about to be killed by liveness?"
+- "What if restarting triggers Kafka rebalance?"
+- "What if the database is already at max connections?"
+- "What if the heap dump contains customer data?"
+- "What if the issue disappears after restart?"
+- "What if increasing heap makes GC pauses worse?"
+- "What if the downstream is rate-limiting you?"
+- "What if only one tenant is affected?"
+
+The best answers do not become defensive.
+
+They revise the action based on state.
+
+## Final framing
+
+A 30-YOE Java interview is not testing whether you have seen every incident.
+
+Nobody has.
+
+It is testing whether you know how incidents lie.
+
+Metrics can mislead when viewed alone.
+
+Thread states can mislead when interpreted without CPU.
+
+Kafka health can mislead when consumers heartbeat but handlers are blocked.
+
+Restart can look like recovery while deleting the only evidence.
+
+The Principal pattern is to establish state, correlate evidence, mitigate with side-effect awareness, and institutionalize the fix.
+
+Use that pattern across Q1 through Q100.

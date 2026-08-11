@@ -1,0 +1,439 @@
+---
+slug: realtime-issues-master-index
+title: "Real-Time Issues Master Index: Production Incident Interview Prep"
+description: "A Staff and Principal on-call curriculum for explaining real production incidents in Java, Spring Boot, PostgreSQL, and Kafka systems."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, Incident Response, Java, Spring Boot, PostgreSQL, Kafka, Principal Interview]
+readingTime: 18 min
+publishedAt: "2026-08-11"
+---
+
+## What this section is for
+
+Real-Time Issues is the production incident **and large-data processing** section of this interview hub.
+
+It is built for Staff, Principal, and architect interviews where the interviewer does not want a library answer.
+
+They want to know how you behave when the pager is loud, the dashboard is red, leadership is asking for an ETA, and every restart might make the blast radius worse.
+
+The focus is Java and Spring Boot services backed by PostgreSQL, Kafka, and external APIs.
+
+The tone is intentionally operational.
+
+You should be able to say:
+
+- what you check first
+- what you refuse to guess
+- how you separate mitigation from RCA
+- when you restart and when you do not
+- how you read JVM evidence
+- how you protect downstream systems
+- how you communicate uncertainty without losing control
+
+The goal is not to memorize incident trivia.
+
+The goal is to build an incident narrative that sounds like someone who has carried production ownership for decades.
+
+## Current guides
+
+| # | Guide | Difficulty | Use it for |
+|---:|---|---|---|
+| 01 | [Stuck thread incident response](/realtime-issues/stuck-thread-incident-response) | Principal | First-response framing, blast radius, restart judgment, mitigation vs RCA |
+| 02 | [Stuck thread JVM thread dumps](/realtime-issues/stuck-thread-jvm-thread-dumps) | Principal | `jstack`, `jcmd`, `kill -3`, JFR, dump reading, deadlock evidence |
+| 03 | [Stuck thread DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools) | Staff | HikariCP, PostgreSQL locks, external API hangs, Tomcat and executor exhaustion |
+| 04 | [Spring, Kafka, and lock contention](/realtime-issues/stuck-thread-spring-kafka-locks) | Principal | MVC/WebFlux, Kafka consumers, JVM locks, distributed locks |
+| 05 | [CPU, GC, kill, and restart](/realtime-issues/stuck-thread-cpu-gc-kill-restart) | Principal | `top -H` → nid mapping, GC vs thread, interrupt, K8s restart |
+| 06 | [RCA, prevention, observability](/realtime-issues/stuck-thread-rca-prevention-observability) | Principal | Decision tree, RCA template, timeouts/CB/bulkhead, OTel |
+| 07 | [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study) | Principal | 20-pod payment outage walkthrough |
+| 08 | [Interview answer + follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups) | Principal | 3–5 min spoken answer + 20 hard follow-ups |
+| 09 | [Stuck thread cheat sheet](/realtime-issues/stuck-thread-cheat-sheet) | Staff | Symptom → cause → check → action → fix |
+| 10 | [Process 10 GB file — topic index](/realtime-issues/process-10gb-file-master-index) | Principal | Requirements, heap principle, architecture decision map |
+| 11 | [Streaming, NIO, memory-map](/realtime-issues/process-10gb-streaming-nio-mmap) | Principal | BufferedReader vs FileChannel vs MappedByteBuffer |
+| 12 | [Parallel chunks + backpressure](/realtime-issues/process-10gb-parallel-chunks) | Principal | Byte-range workers, CSV boundaries, bounded queues |
+| 13 | [DB load + Spring Batch](/realtime-issues/process-10gb-database-spring-batch) | Principal | JDBC batching, transactions, Spring Batch restart |
+| 14 | [Checkpoint + idempotency](/realtime-issues/process-10gb-checkpoint-idempotency) | Principal | Crash at 70%, at-least-once, UPSERT/unique keys, DLQ |
+| 15 | [Formats, cloud, distributed](/realtime-issues/process-10gb-formats-cloud-distributed) | Principal | External sort, JSON/XML streaming, S3, Spark/Flink |
+| 16 | [Observability + production architecture](/realtime-issues/process-10gb-backpressure-observability) | Principal | Little’s Law, metrics, security, financial architecture |
+| 17 | [10 GB file interview answers](/realtime-issues/process-10gb-interview-answer-and-followups) | Principal | 30s/2m/5m answers + 25 follow-ups |
+| 18 | [30 YOE Java interview — index](/realtime-issues/java-30yoe-interview-master-index) | Principal | Q1–Q100 map + Top 15 priority |
+| 19 | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa) | Principal | CPU, stuck thread, OOM, GC, Kafka, pools |
+| 20 | [Concurrency Q&A](/realtime-issues/java-30yoe-concurrency-qa) | Principal | Pools, locks, CF, backpressure |
+| 21 | [JVM / GC / performance Q&A](/realtime-issues/java-30yoe-jvm-gc-performance-qa) | Principal | Heap, dumps, profilers, latency |
+| 22 | [Spring + microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa) | Principal | Transactions, Saga, resilience |
+| 23 | [Kafka + database Q&A](/realtime-issues/java-30yoe-kafka-database-qa) | Principal | Lag, EOS, JDBC/JPA, 10GB/100M |
+| 24 | [Distributed + cache + migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa) | Principal | Locks, CAP, stampede, Java 8→17 |
+| 25 | [Architecture + code traps Q&A](/realtime-issues/java-30yoe-architecture-code-qa) | Principal | Payments design + code smells |
+
+## Recommended study path
+
+Start with the stuck-thread topic.
+
+It is the best first incident because it crosses every layer that matters in senior interviews:
+
+- JVM thread states
+- Spring request handling
+- HikariCP connection pools
+- PostgreSQL query and lock waits
+- Kafka consumer processing
+- external API timeouts
+- thread pool sizing
+- cascading failure
+- restart tradeoffs
+- incident communication
+
+If you can explain a stuck-thread incident well, you can usually explain most production latency and saturation incidents.
+
+### Path for the first pass
+
+| Step | Read | Outcome |
+|---:|---|---|
+| 1 | [Incident response](/realtime-issues/stuck-thread-incident-response) | Build the executive and on-call framing |
+| 2 | [JVM thread dumps](/realtime-issues/stuck-thread-jvm-thread-dumps) | Learn what evidence a JVM gives you |
+| 3 | [DB, API, pools](/realtime-issues/stuck-thread-db-api-pools) | Connect dumps to PostgreSQL / API / pool failure |
+| 4 | [Spring / Kafka / locks](/realtime-issues/stuck-thread-spring-kafka-locks) | Cover service-layer and messaging stuck cases |
+| 5 | [CPU / GC / restart](/realtime-issues/stuck-thread-cpu-gc-kill-restart) | Distinguish burn vs wait; restart judgment |
+| 6 | [RCA + prevention](/realtime-issues/stuck-thread-rca-prevention-observability) | Close with durable controls and telemetry |
+| 7 | [Payment case study](/realtime-issues/stuck-thread-payment-incident-case-study) | Rehearse an end-to-end investigation |
+| 8 | [Interview answer](/realtime-issues/stuck-thread-interview-answer-and-followups) | Memorize the spoken narrative + follow-ups |
+| 9 | [Cheat sheet](/realtime-issues/stuck-thread-cheat-sheet) | Last-minute revision table |
+
+### Path when you are short on prep time
+
+1. Read the first-response checklist in [stuck thread incident response](/realtime-issues/stuck-thread-incident-response).
+2. Memorize why "running for one hour" does not prove a thread is stuck.
+3. Learn the "three thread dumps 10 seconds apart" rule.
+4. Skim the [cheat sheet](/realtime-issues/stuck-thread-cheat-sheet) and [interview answer](/realtime-issues/stuck-thread-interview-answer-and-followups).
+5. Practice saying what you would do before restarting.
+
+### Path for Principal-level depth
+
+| Interview signal | Where to build it |
+|---|---|
+| Separates symptom from cause | [Incident response](/realtime-issues/stuck-thread-incident-response) |
+| Uses JVM evidence instead of folklore | [Thread dumps](/realtime-issues/stuck-thread-jvm-thread-dumps) |
+| Understands DB waits and connection leaks | [DB / API / pools](/realtime-issues/stuck-thread-db-api-pools) |
+| Reasons about Kafka + distributed locks | [Spring / Kafka / locks](/realtime-issues/stuck-thread-spring-kafka-locks) |
+| Maps Linux TID → Java stack | [CPU / GC / restart](/realtime-issues/stuck-thread-cpu-gc-kill-restart) |
+| Turns outage into lasting controls | [RCA / prevention](/realtime-issues/stuck-thread-rca-prevention-observability) |
+| Narrates a full payment incident | [Case study](/realtime-issues/stuck-thread-payment-incident-case-study) |
+
+## How to answer Real-Time Issues questions
+
+A weak answer starts with a fix.
+
+A strong answer starts with containment and evidence.
+
+The Principal answer has this shape:
+
+```text
+1. Confirm customer impact and blast radius.
+2. Check whether the symptom is one instance, one dependency, one shard, one topic, or the full fleet.
+3. Protect the system from cascading failure.
+4. Capture evidence before destructive action if safe.
+5. Mitigate with the smallest safe action.
+6. Keep communication crisp.
+7. Perform RCA after stabilization.
+8. Convert the RCA into controls, not just notes.
+```
+
+That sequence matters.
+
+You are not rewarded for knowing `jstack` if you let a retry storm take down PostgreSQL while you are collecting dumps.
+
+You are not rewarded for restarting every pod if the new pods immediately stampede the same locked database row.
+
+You are not rewarded for finding the root cause after the customer-facing incident was avoidably extended.
+
+## Interview stance
+
+When asked, "A thread has been running for one hour. Is it stuck?"
+
+Do not say yes.
+
+Say:
+
+> Not from duration alone. I need to know thread state, CPU usage, progress indicators, request age, lock ownership, downstream waits, pool metrics, and whether repeated dumps show the same stack without progress.
+
+That answer shows maturity.
+
+Long duration can be normal:
+
+- batch export
+- large report generation
+- Kafka replay
+- backfill
+- schema migration support task
+- checksum verification
+- legitimate PostgreSQL query
+- slow but bounded remote call
+
+Long duration can also be bad:
+
+- infinite loop
+- deadlock
+- lock convoy
+- waiting forever on `Future.get`
+- socket read without timeout
+- connection pool starvation
+- thread pool exhaustion
+- PostgreSQL lock wait
+- Kafka consumer blocked on downstream dependency
+
+The difference is evidence.
+
+## The production incident vocabulary
+
+Use precise words.
+
+| Word | Production meaning |
+|---|---|
+| Symptom | What users or monitors observe |
+| Signal | Metric, log, trace, dump, or event that supports a hypothesis |
+| Blast radius | Which customers, regions, shards, topics, or APIs are affected |
+| Saturation | A finite resource is full or near full |
+| Contention | Multiple actors are fighting for a shared resource |
+| Backpressure | A system intentionally slows producers or callers |
+| Brownout | Partial degradation instead of full outage |
+| Mitigation | Action that reduces current impact |
+| RCA | Explanation of why the incident happened and escaped controls |
+| Corrective action | Engineering change that prevents recurrence or improves detection |
+
+In Staff and Principal interviews, the vocabulary is a proxy for operating discipline.
+
+## What makes Real-Time Issues different from system design
+
+System design often starts from a blank page.
+
+Incident response starts from a running system with users already affected.
+
+You inherit:
+
+- partial telemetry
+- stale runbooks
+- incomplete deploy context
+- uncertain ownership
+- multiple plausible causes
+- pressure to act quickly
+- risk that the mitigation is harmful
+
+Your job is to make progress without pretending certainty.
+
+## Java and Spring Boot focus
+
+The guides assume common production stacks:
+
+- Java 17 or 21
+- Spring Boot services
+- embedded Tomcat or Jetty
+- HikariCP
+- PostgreSQL
+- Kafka producers and consumers
+- RestTemplate, WebClient, OkHttp, or Apache HttpClient
+- Micrometer, Prometheus, Grafana
+- OpenTelemetry or distributed tracing
+- Kubernetes or similar orchestration
+
+The exact framework is less important than the failure pattern.
+
+A bounded timeout is still mandatory.
+
+A pool can still saturate.
+
+A lock can still deadlock.
+
+A retry can still multiply load.
+
+A restart can still make recovery worse.
+
+## PostgreSQL and Kafka focus
+
+Many "stuck thread" incidents are not JVM bugs.
+
+They are Java threads faithfully waiting on:
+
+- a PostgreSQL row lock
+- a slow query plan
+- a leaked JDBC connection
+- a saturated HikariCP pool
+- a Kafka consumer handler blocked on a downstream call
+- an external API socket read with no deadline
+- an internal executor queue that never drains
+
+The JVM shows the symptom.
+
+PostgreSQL, Kafka, and dependency telemetry often explain the cause.
+
+## The on-call hierarchy of concerns
+
+During an incident, sequence your attention.
+
+| Priority | Question |
+|---:|---|
+| 1 | Are users failing, slow, or receiving incorrect results? |
+| 2 | Is the blast radius growing? |
+| 3 | Is there an active cascade into PostgreSQL, Kafka, or another service? |
+| 4 | Can we shed, throttle, disable, or route traffic safely? |
+| 5 | Can we capture enough evidence before restart? |
+| 6 | Is rollback safer than restart? |
+| 7 | What is the next update to stakeholders? |
+| 8 | What evidence do we need for RCA after impact is reduced? |
+
+This is the voice interviewers expect from someone who has been responsible for production.
+
+## What not to do in the interview
+
+Avoid these answers:
+
+- "I will just restart the server."
+- "RUNNABLE means it is using CPU."
+- "One-hour thread means deadlock."
+- "Kafka is healthy, so consumers are fine."
+- "The database is up, so it is not the database."
+- "Timeouts are optional because the provider is reliable."
+- "Retries will fix the dependency."
+- "Thread dump is only for JVM engineers."
+
+Each one is a real production trap.
+
+## The five-minute stuck-thread answer
+
+Use this if the interviewer asks for a quick response:
+
+```text
+I would first confirm impact and scope: affected endpoints, instances, p95 and p99 latency, error rate, saturation, and whether this is one thread or systemic.
+Then I would check JVM metrics, request pool metrics, HikariCP, PostgreSQL wait events, Kafka lag, external dependency latency, and recent deploys.
+If safe, I would capture three thread dumps around 10 seconds apart and correlate them with CPU, GC, and dependency dashboards.
+I would protect the system from cascades using timeouts, circuit breakers, traffic shedding, pausing consumers, or rollback depending on the blast radius.
+I would restart only if the instance is wedged, the blast radius is contained, and I have enough evidence or the customer impact requires it.
+RCA comes after mitigation: root cause, missing guardrail, detection gap, and corrective actions.
+```
+
+## The twenty-minute stuck-thread answer
+
+Use this when the interviewer wants depth.
+
+Walk the stack:
+
+1. User impact and SLO burn.
+2. Instance scope.
+3. Thread state and stack stability.
+4. CPU vs IO classification.
+5. Tomcat, executor, and queue saturation.
+6. HikariCP active, idle, pending, and timeout metrics.
+7. PostgreSQL `pg_stat_activity`, waits, locks, blocking PIDs, query age.
+8. External API connect, read, write, and total deadlines.
+9. Kafka consumer lag, rebalance rate, poll interval, handler latency.
+10. Restart, rollback, throttle, or feature flag decision.
+11. Evidence preservation.
+12. Post-incident corrective actions.
+
+The important part is not the list.
+
+The important part is how you prioritize under pressure.
+
+## Guide summaries
+
+### 01. Stuck thread incident response
+
+[Read the guide](/realtime-issues/stuck-thread-incident-response).
+
+This guide teaches the first response.
+
+It explains:
+
+- JVM states without overinterpreting them
+- deadlock, livelock, and starvation
+- CPU-bound vs IO-bound stuck behavior
+- why time alone is not proof
+- how to size the blast radius
+- when a restart helps
+- when a restart hides evidence
+- how to separate mitigation from RCA
+
+Start here.
+
+### 02. Stuck thread JVM thread dumps
+
+[Read the guide](/realtime-issues/stuck-thread-jvm-thread-dumps).
+
+This guide turns thread dumps into operational evidence.
+
+It covers:
+
+- `jstack`
+- `jcmd`
+- `kill -3`
+- JFR
+- VisualVM
+- Java Mission Control
+- three dumps 10 seconds apart
+- `nid`, thread state, monitors, and ownable synchronizers
+- deadlock examples
+- `ThreadMXBean`
+
+Use it after the first-response guide.
+
+### 03. Stuck thread DB, API, and pool failures
+
+[Read the guide](/realtime-issues/stuck-thread-db-api-pools).
+
+This guide connects JVM stacks to real backend causes.
+
+It covers:
+
+- HikariCP saturation
+- PostgreSQL long queries
+- PostgreSQL locks
+- JDBC connection leaks
+- external API hangs
+- missing timeouts
+- circuit breakers
+- bulkheads
+- retry storms
+- Tomcat and `@Async` pool exhaustion
+
+Use it to build durable fixes.
+
+## Practice prompts
+
+Answer these out loud.
+
+1. A Java thread has been RUNNABLE for one hour. What do you check?
+2. All Tomcat request threads are busy, CPU is low, and Hikari pending is high. What is your hypothesis?
+3. A Kafka consumer group lag spikes after a partner API latency spike. What do you do first?
+4. PostgreSQL shows many sessions waiting on `transactionid`. What does that imply?
+5. Three thread dumps show the same threads waiting on `Future.get`. How do you proceed?
+6. A restart clears the issue for five minutes and then it returns. What does that tell you?
+7. How do you avoid making a retry storm worse?
+8. What evidence do you capture before killing a JVM?
+9. When is a rollback safer than a restart?
+10. How do you explain uncertainty to executives during the incident?
+
+## Principal interview checklist
+
+Before the interview, make sure you can do the following:
+
+- define RUNNABLE, BLOCKED, WAITING, and TIMED_WAITING accurately
+- explain why a blocked thread may be a symptom, not root cause
+- read a basic Java thread dump
+- identify PostgreSQL lock waits
+- explain HikariCP active vs pending connections
+- describe socket timeout failures
+- explain bulkheads and circuit breakers
+- detect thread pool starvation
+- avoid unsafe restart reflexes
+- separate immediate mitigation from RCA
+- produce corrective actions tied to controls
+
+## Closing principle
+
+Real production incidents reward disciplined curiosity.
+
+Do not guess from one signal.
+
+Do not worship one tool.
+
+Do not confuse clearing symptoms with fixing the system.
+
+In a Principal interview, your answer should make the interviewer believe the service is safer because you are on call.

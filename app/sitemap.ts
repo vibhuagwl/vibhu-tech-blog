@@ -15,6 +15,7 @@ export default function sitemap():MetadataRoute.Sitemap{
     {path:'/complexity', key:'complexity' as const},
     {path:'/kafka-interview', key:'kafka-interview' as const},
     {path:'/redis-interview', key:'redis-interview' as const},
+    {path:'/realtime-issues', key:'realtime-issues' as const},
   ];
 
   return [

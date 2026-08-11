@@ -89,5 +89,6 @@ export const SECTION_CATEGORIES={
   'behavioral-interview':['Behavioral Interview'],
   'kafka-interview':['Kafka Interview'],
   'redis-interview':['Redis Interview'],
+  'realtime-issues':['Real-Time Issues'],
 } as const;
 

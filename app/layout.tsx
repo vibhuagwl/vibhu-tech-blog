@@ -30,6 +30,7 @@ export default function RootLayout({children}:{children:React.ReactNode}){
               <Link href="/complexity">Complexity</Link>
               <Link href="/kafka-interview">Kafka Interview</Link>
               <Link href="/redis-interview">Redis Interview</Link>
+              <Link href="/realtime-issues">Real-Time Issues</Link>
               <Link href="/interview-questions">Interview Questions</Link>
               <Link href="/about">About</Link>
             </nav>

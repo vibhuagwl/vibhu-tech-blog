@@ -1,0 +1,460 @@
+---
+slug: java-30yoe-spring-microservices-qa
+title: 'Java 30 YOE Principal Q&A: Spring Boot and Microservices Incidents'
+description: 'Principal-level answers for Spring Boot upgrade failures, transaction surprises, service boundaries, cascading failure, resilience patterns, idempotency, and saga tradeoffs.'
+category: 'Real-Time Issues'
+difficulty: Principal
+tags: [Real-Time Issues, Java, Spring Boot, Microservices, Transactions, Saga, Principal Interview]
+readingTime: 25 min
+publishedAt: '2026-08-11'
+---
+
+## How to use this guide
+
+These are 25-30 YOE Principal-style answers for production Spring Boot and microservice incidents.
+The expected answer is not a list of annotations; it is a calm sequence of diagnosis, safe mitigation, and prevention.
+Assume the interviewer is testing whether you can protect money, customer trust, and fleet stability while the system is already under pressure.
+Use the question numbers as stable anchors; the answers are intentionally written in the voice of an incident commander who also understands Java internals.
+
+Related guides:
+
+- [Realtime Spring and Kafka stuck-thread incident](/realtime-issues/stuck-thread-spring-kafka-locks)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+- [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency)
+- [Transactions, 2PC, 3PC, and Saga](/distributed-systems/transactions-2pc-3pc-saga)
+- [Java 30 YOE Kafka and database Q&A](/realtime-issues/java-30yoe-kafka-database-qa)
+- [Java 30 YOE distributed caching and migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa)
+- [Java 30 YOE architecture and code review Q&A](/realtime-issues/java-30yoe-architecture-code-qa)
+
+## Q33. How do you handle Spring Boot upgrade issues in a mature estate?
+
+First I would establish the production shape of the Spring Boot upgrade before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: inventory runtime Java, Spring Boot, Spring Cloud, Hibernate, servlet stack, security filters, starters, build plugins, actuator exposure, generated SQL, and serialization contracts before touching versions.
+
+- Evidence: compare dependency trees, startup logs, actuator `/conditions`, smoke-test traces, JFR startup recordings, canary error rates, database query fingerprints, and contract tests against the current baseline.
+
+- Mitigate: upgrade one representative service through compile, unit, slice, integration, smoke, load, and canary stages; freeze broad rollout until behavior, not just compilation, is proven.
+
+- Contain blast radius: route only low-risk traffic to the canary, keep the old image deployable, avoid schema changes in the same step, and pin Spring Cloud or Jakarta transitions so failures are attributable.
+
+- Recover safely: if the canary fails, roll back the artifact and preserve evidence: dependency tree, thread dump, heap histogram if needed, JFR, request samples, and database plan differences.
+
+- Prevent recurrence: create a platform upgrade playbook with compatibility matrices, BOM ownership, automated OpenRewrite recipes where useful, and contract tests for JSON, security, persistence, and actuator endpoints.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: aggressive upgrades reduce long-term risk but compress multiple failure modes; staged upgrades cost coordination but keep the blast radius visible.
+
+- What not to do: do not bump the parent version across hundreds of services, merge Jakarta namespace changes with business features, or silence migration warnings with broad exclusions.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Spring and Kafka stuck-thread patterns](/realtime-issues/stuck-thread-spring-kafka-locks).
+
+## Q34. A Spring Boot service now takes 90 seconds to start. What do you check?
+
+First I would establish the production shape of slow Spring Boot startup before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: separate classpath scanning, bean creation, proxy generation, JPA metamodel work, migration tools, Config Server, Vault, DNS, and remote calls hidden in `@PostConstruct` or constructors.
+
+- Evidence: enable `ApplicationStartup`, inspect actuator startup data, add timestamps around context refresh, take JFR, compare condition evaluation reports, and check thread dumps with `jstack` if startup appears stuck.
+
+- Mitigate: remove non-critical network calls from startup, make readiness fail until dependencies are usable, lazy-load optional beans, and temporarily disable costly migrations only with a rollback-safe database plan.
+
+- Contain blast radius: keep Kubernetes startup probes generous enough to avoid restart loops, but do not mark readiness true until connection pools, broker clients, and critical caches are actually usable.
+
+- Recover safely: if pods are cycling, stabilize one replica, capture logs and JFR, then choose rollback or a targeted configuration toggle rather than repeated redeploys.
+
+- Prevent recurrence: narrow component scan roots, split optional auto-configurations, track startup budgets in CI, and add alerts for startup time regression by service and deployment version.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: lazy initialization improves boot time but can move failure to the first user request; use it for optional paths, not for dependencies that define service readiness.
+
+- What not to do: do not increase probe timeouts forever, add more CPU without evidence, or hide a blocking secret manager call inside bean creation.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [RCA and observability guide](/realtime-issues/stuck-thread-rca-prevention-observability).
+
+## Q35. What does too many Spring beans usually mean in production?
+
+First I would establish the production shape of excess Spring bean count before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: treat bean count as a symptom of accidental auto-configuration, broad scans, duplicate clients, expensive constructors, test modules in production, and proxy layers that expand startup and heap.
+
+- Evidence: use actuator `/beans`, `/conditions`, heap histograms, JFR allocation profiles, dependency tree reports, and startup traces to identify which beans cost time or retained memory.
+
+- Mitigate: remove accidental starters, narrow package scanning, make client creation explicit, move work out of constructors, and disable unused auto-configurations with a documented reason.
+
+- Contain blast radius: protect production by rolling config changes one service at a time and watching startup, heap, GC, thread count, Hikari pools, and outbound connection counts.
+
+- Recover safely: if a release created duplicate clients or schedulers, roll back or disable the new auto-config before it floods downstream services.
+
+- Prevent recurrence: add architecture tests for module boundaries, starter review rules, and a service template that separates API, domain, persistence, and optional integration packages.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: auto-configuration is productive until ownership disappears; explicit configuration is more verbose but makes resource use and failure modes reviewable.
+
+- What not to do: do not chase a magic bean-count threshold, blame Spring alone, or tune heap around duplicate clients that should not exist.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [architecture and code review Q&A](/realtime-issues/java-30yoe-architecture-code-qa).
+
+## Q36. What are common `@Transactional` surprises?
+
+First I would establish the production shape of `@Transactional` behavior before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: confirm whether the call crosses the Spring proxy, what propagation and isolation are active, which exception types roll back, and whether the transaction wraps slow I/O or lazy loading.
+
+- Evidence: inspect proxy mode, logs with transaction boundaries, Hibernate SQL, `pg_stat_activity`, `pg_locks`, slow query logs, and thread dumps showing threads waiting on database or remote calls.
+
+- Mitigate: shrink the transaction to the database invariant, move remote calls outside it, configure rollback rules deliberately, and use explicit repository or service boundaries instead of annotation layering.
+
+- Contain blast radius: set pool wait timeouts and transaction timeouts so one bad path does not hold every Hikari connection or row lock.
+
+- Recover safely: after rollback-only surprises, return a clear business failure, avoid continuing with partially invalid state, and reconcile any side effect that already escaped the transaction.
+
+- Prevent recurrence: add tests for propagation, rollback rules, lock behavior, and isolation assumptions; require code review to name the invariant protected by each transaction.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: higher isolation can prevent anomalies but costs concurrency; optimistic locking improves throughput but requires correct retry and user-conflict handling.
+
+- What not to do: do not add `@Transactional` to controllers, wrap bank calls in a transaction, or catch exceptions and pretend commit will still be valid.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [transactions, 2PC, 3PC, and Saga](/distributed-systems/transactions-2pc-3pc-saga).
+
+## Q37. What happens when an exception occurs inside a transaction?
+
+First I would establish the production shape of exceptions inside transactions before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: identify whether the exception is checked or unchecked, whether Spring marked rollback-only, whether code swallowed it, and whether any side effect already happened outside the database.
+
+- Evidence: look for `UnexpectedRollbackException`, transaction debug logs, audit rows, outbox rows, database locks, and traces showing where the exception was caught and transformed.
+
+- Mitigate: let the failure surface as a domain error or configure `rollbackFor` deliberately; keep transaction scopes small enough that retry does not repeat external side effects.
+
+- Contain blast radius: separate validation failures from infrastructure failures and use circuit breakers or bulkheads so database threads are not consumed by repeated doomed work.
+
+- Recover safely: if commit fails after a swallowed exception, treat the request outcome as failed or unknown, check outbox and ledger state, and reconcile before sending more commands.
+
+- Prevent recurrence: standardize exception taxonomy, rollback policy, and error mapping; add tests for checked exceptions and catch blocks around transactional code.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: rolling back on every checked exception is simple but can discard recoverable domain outcomes; selective rollback needs discipline and tests.
+
+- What not to do: do not catch `Exception` inside a transaction, log and continue, or send notifications before the state transition is durably committed.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study).
+
+## Q38. Why is self-invocation a transaction bug?
+
+First I would establish the production shape of Spring self-invocation before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: verify whether `this.methodB()` bypasses the proxy, causing propagation, isolation, timeout, read-only hints, and rollback advice not to execute.
+
+- Evidence: use transaction debug logs, AOP proxy inspection, tests that assert transaction activity, and database observations such as missing locks or unexpected auto-commit behavior.
+
+- Mitigate: move the transactional method to another bean, call through the proxy deliberately, or use programmatic transactions when a local boundary must be explicit.
+
+- Contain blast radius: limit the fix to the boundary that owns the invariant; do not spread annotations across private methods to create an illusion of safety.
+
+- Recover safely: if data was written under wrong boundaries, compare audit rows, outbox records, and ledger transitions to identify partial effects before replay.
+
+- Prevent recurrence: add review rules that private, final, and self-invoked methods do not define transactional behavior; teach teams that AOP is call-path dependent.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: programmatic transactions are less magical and more verbose; proxy-based transactions are concise but require architectural discipline.
+
+- What not to do: do not inject self casually, enable circular dependencies to dodge the issue, or assume an annotation on a private method changes runtime behavior.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Spring and Kafka stuck-thread patterns](/realtime-issues/stuck-thread-spring-kafka-locks).
+
+## Q39. Should a bank call happen inside `@Transactional`?
+
+First I would establish the production shape of bank calls inside a transaction before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: first establish whether the transaction holds row locks, a Hikari connection, or a ledger state while waiting on an external bank whose latency and result are not controlled by your database.
+
+- Evidence: correlate thread dumps, Hikari active and pending metrics, `pg_locks`, bank latency histograms, timeout rates, and traces that show the transaction span covering HTTP client work.
+
+- Mitigate: persist payment intent and idempotency key, commit, call the bank with a provider reference, then persist result or unknown state in a short new transaction.
+
+- Contain blast radius: isolate provider adapters with bounded executors, timeouts, circuit breakers, and per-provider bulkheads so one bank cannot drain servlet threads or database connections.
+
+- Recover safely: on timeout, mark unknown or pending and reconcile with provider status before issuing another debit instruction.
+
+- Prevent recurrence: prevent recurrence with an outbox, provider attempt table, state machine, and a rule that remote side effects never execute while holding database locks.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: calling inside the transaction feels atomic to application developers but couples lock duration to network uncertainty; outside the transaction requires explicit reconciliation but scales safely.
+
+- What not to do: do not guess failure after a timeout, retry a debit with a new key, or increase the connection pool to compensate for blocked bank calls.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study).
+
+## Q40. Where do distributed transaction boundaries belong?
+
+First I would establish the production shape of distributed transaction boundaries before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: find the local consistency boundary first: the service, table set, or ledger that can commit one invariant atomically without waiting for another service.
+
+- Evidence: map write paths, outbox rows, Kafka events, database constraints, duplicate keys, trace spans, and any cross-service synchronous calls in the same user flow.
+
+- Mitigate: replace cross-service atomicity expectations with local transactions plus outbox, idempotent consumers, compensating actions, and reconciliation for unknown states.
+
+- Contain blast radius: reduce fan-out in the hot request path and let non-critical notifications, analytics, and emails run asynchronously with independent retry budgets.
+
+- Recover safely: when a downstream fails, keep durable state machine status and replayable commands rather than rolling back facts that have already left the service.
+
+- Prevent recurrence: define ownership of data, event contracts, schema evolution, and operator tools before extracting or integrating another service.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: 2PC gives strong coordination but creates blocking and operational coupling; Saga and outbox trade immediate atomicity for availability and recoverability.
+
+- What not to do: do not put one database transaction across services, share tables as a convenience, or call Saga a magic replacement for real invariants.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [transactions, 2PC, 3PC, and Saga](/distributed-systems/transactions-2pc-3pc-saga).
+
+## Q41. What breaks when a monolith is moved to microservices?
+
+First I would establish the production shape of monolith to microservices migration before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: look for local calls becoming network calls, one transaction becoming several, shared tables becoming ownership fights, and deployment order turning into correctness risk.
+
+- Evidence: use dependency graphs, database query logs, API traces, consumer lag, error budgets, contract tests, and incident history to find hidden coupling before the split.
+
+- Mitigate: strangle one business capability with clear data ownership, a rollback path, compatibility tests, and an operational dashboard before carving more code.
+
+- Contain blast radius: protect the monolith by avoiding dual writes without an outbox and by keeping traffic switches reversible with shadow reads or compare mode.
+
+- Recover safely: if the split fails, route traffic back, keep replayable events, and reconcile data drift rather than patching both systems manually.
+
+- Prevent recurrence: establish service ownership, SLOs, schema compatibility, tracing standards, and release sequencing as part of the architecture, not as paperwork.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: microservices can improve independent scaling and delivery, but they convert compile-time coupling into runtime and operational coupling.
+
+- What not to do: do not split by technical layer, share the old database indefinitely, or celebrate service count while incidents become harder to diagnose.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [distributed caching and migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa).
+
+## Q42. Where should you split a monolith first?
+
+First I would establish the production shape of first monolith split before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: select a boundary where business language is stable, data ownership is isolatable, transaction coupling is low, and operational benefit is measurable.
+
+- Evidence: inspect call graphs, table join patterns, deployment churn, latency hotspots, ownership maps, and production incident records before drawing service boxes.
+
+- Mitigate: start with a strangler route, anti-corruption layer, event contract, and database ownership plan that can run in parallel with the monolith.
+
+- Contain blast radius: limit blast radius with feature flags, percentage routing, shadow traffic, and read-only comparison before moving authoritative writes.
+
+- Recover safely: if results diverge, stop expansion, compare source-of-truth records, replay deterministic events, and keep the old path intact until drift is understood.
+
+- Prevent recurrence: prevent random service extraction by requiring an ownership document, SLO, data contract, migration runbook, and deprecation plan for every split.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: a clean first split may be less glamorous than the core domain, but it builds delivery muscle without risking the hardest invariant first.
+
+- What not to do: do not start with a table everyone joins, a hot payment ledger, or a workflow that depends on hidden in-process transactions.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [architecture and code review Q&A](/realtime-issues/java-30yoe-architecture-code-qa).
+
+## Q43. How do you prevent cascading failure between microservices?
+
+First I would establish the production shape of cascading failure before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: identify the resource that is saturating first: servlet threads, event loops, Hikari connections, Kafka consumers, executor workers, CPU, memory, or a downstream provider quota.
+
+- Evidence: watch dependency latency, timeout rate, retry rate, breaker state, queue depth, pool wait, pod restarts, `jstack` dumps, JFR profiles, and Kafka lag by partition.
+
+- Mitigate: set timeouts, bulkheads, circuit breakers, rate limits, backpressure, and load shedding in that order of evidence, with safe defaults per dependency.
+
+- Contain blast radius: separate pools by dependency and workload so a slow fraud API does not starve payment capture, health checks, or internal reconciliation.
+
+- Recover safely: drain queues cautiously, prefer replayable durable work, and shed low-value traffic before violating high-value invariants.
+
+- Prevent recurrence: run game days, dependency-failure tests, and chaos experiments that prove clients fail fast and dashboards show saturation before brownout.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: strict isolation costs more threads, pools, and configuration; shared pools are cheaper but make failure propagation harder to reason about.
+
+- What not to do: do not add retries during saturation, let default HTTP timeouts run for minutes, or scale callers when the downstream is already exhausted.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [stuck thread DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools).
+
+## Q44. When do you use circuit breaker, retry, timeout, bulkhead, and rate limit?
+
+First I would establish the production shape of resilience pattern selection before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: classify the failure: slow, failing, overloaded, non-idempotent, quota-limited, or locally resource-bound; each pattern protects a different resource.
+
+- Evidence: measure latency percentiles, timeout causes, retry amplification, breaker open counts, rejected tasks, queue wait, HTTP status mix, and downstream saturation signals.
+
+- Mitigate: apply timeouts first, retries only for transient idempotent operations, circuit breakers for failing dependencies, bulkheads for resource isolation, and rate limits for load control.
+
+- Contain blast radius: use separate budgets for user-facing, batch, and replay traffic so remediation does not compete with live operations.
+
+- Recover safely: when a breaker opens, return cached, pending, degraded, or explicit unavailable responses according to domain semantics.
+
+- Prevent recurrence: prevent misuse with central client templates, policy reviews, idempotency requirements, and dashboards that show each pattern doing useful work.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: retries improve success probability but consume capacity; breakers reduce harm but can hide recovery if probe traffic is wrong.
+
+- What not to do: do not stack libraries blindly, retry unsafe payment commands, or treat a circuit breaker as a substitute for a dependency SLO.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [RCA and observability guide](/realtime-issues/stuck-thread-rca-prevention-observability).
+
+## Q45. When do retries make an outage worse?
+
+First I would establish the production shape of retry amplification before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: first ask whether the dependency is saturated, whether the operation is idempotent, whether work may have succeeded before timeout, and whether clients retry in sync.
+
+- Evidence: check retry counters, request rate multiplication, timeout-after-success evidence, bank or database latency, error budgets, Kafka redelivery, and queue growth.
+
+- Mitigate: stop or cap retries, add exponential backoff with jitter, honor `Retry-After`, and fail fast on deterministic validation or authorization errors.
+
+- Contain blast radius: protect downstream systems with token buckets, concurrency limits, circuit breakers, and separate replay lanes for backfills or DLQ re-drives.
+
+- Recover safely: for ambiguous payment outcomes, write unknown state and reconcile rather than sending another side effect.
+
+- Prevent recurrence: set organization-wide retry budgets and require idempotency keys for any operation that may be retried by clients, brokers, gateways, or operators.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: lower retry counts can expose more errors to users, but it preserves recovery capacity and avoids turning a partial outage into a full one.
+
+- What not to do: do not retry forever, retry all status codes, synchronize backoff schedules, or hide retry storms behind high-level client defaults.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency).
+
+## Q46. Payment succeeds but notification fails. What do you do?
+
+First I would establish the production shape of payment success with notification failure before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: separate the payment invariant from the notification side effect; customer money state must not depend on email, SMS, or push delivery.
+
+- Evidence: inspect ledger rows, outbox events, notification queue depth, provider error rates, DLQ records, trace ids, and retry age for the notification subsystem.
+
+- Mitigate: commit payment success, publish a payment-succeeded event through outbox, and let notification retry independently with its own idempotency key.
+
+- Contain blast radius: rate-limit notification retries and isolate them from payment capture workers, database pools, and reconciliation jobs.
+
+- Recover safely: if notification remains failed, show operational state and allow targeted replay; do not reverse a valid payment because an email failed.
+
+- Prevent recurrence: prevent recurrence with DLQ ownership, aging alerts, templates tested in CI, provider fallback rules, and explicit product copy for delayed notification.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: synchronous notification gives immediate feedback but couples money movement to a weaker dependency; asynchronous notification improves reliability at the cost of eventual delivery.
+
+- What not to do: do not include notification in the payment database transaction, block user response on email, or lose the event because the provider was down.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [Kafka database Q&A](/realtime-issues/java-30yoe-kafka-database-qa).
+
+## Q47. How do you design payment idempotency?
+
+First I would establish the production shape of payment idempotency before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: define the operation identity before the API: merchant, customer, command type, amount, currency, business reference, and provider attempt scope.
+
+- Evidence: inspect unique constraints, request hashes, provider references, duplicate submissions, gateway retries, Kafka redelivery, webhook ids, and audit trail behavior under replay.
+
+- Mitigate: persist idempotency key, request hash, status, provider reference, response snapshot, timestamps, and ownership in one durable store with a unique constraint.
+
+- Contain blast radius: use cache only to reduce read pressure; the database or ledger constraint remains the authority for admitting a side effect.
+
+- Recover safely: on duplicate, return the stored result when the hash matches, reject conflicting payloads, and treat pending or unknown as pending rather than failed.
+
+- Prevent recurrence: prevent gaps with API contracts, SDK behavior, replay tests, provider idempotency propagation, and reconciliation that can close unknown attempts.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: very broad keys prevent duplicates but reject legitimate retries for changed data; narrow keys improve flexibility but risk double admission.
+
+- What not to do: do not use an in-memory map, timestamp key, random key per retry, or Kafka offset as the business identity.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [architecture and code review Q&A](/realtime-issues/java-30yoe-architecture-code-qa).
+
+## Q48. How do duplicate payments still happen?
+
+First I would establish the production shape of duplicate payments before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: trace every path that can submit the side effect: client retry, gateway retry, operator replay, Kafka redelivery, webhook duplication, timeout-after-success, and race between two pods.
+
+- Evidence: use provider logs, ledger constraints, idempotency table queries, audit events, Kafka offsets, DLQ re-drive history, and request correlation ids to reconstruct the duplicate admission point.
+
+- Mitigate: freeze unsafe retries, block new attempts for affected keys, reconcile provider state, and correct customer-visible state through auditable ledger entries.
+
+- Contain blast radius: contain impact with per-merchant kill switches, idempotency enforcement at the edge, and replay rate limits for remediation jobs.
+
+- Recover safely: recover by choosing the ledger and provider record as authorities, then issue refund, reversal, or correction according to payment network rules.
+
+- Prevent recurrence: prevent recurrence with stronger unique constraints, state-machine transitions, provider attempt references, and incident tests for timeout-after-success.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: strict duplicate prevention can leave more requests pending during ambiguity, but pending is safer than a second debit.
+
+- What not to do: do not mark timeout as failure automatically, delete duplicate rows by hand, or trust exactly-once marketing across external providers.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study).
+
+## Q49. How do you avoid 2PC while preserving correctness?
+
+First I would establish the production shape of avoiding 2PC before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: identify the true invariant and whether it fits inside one local database transaction; only then design cross-service propagation.
+
+- Evidence: inspect local constraints, outbox writes, relay lag, consumer idempotency, event ordering, duplicate keys, and reconciliation reports.
+
+- Mitigate: use local transaction plus transactional outbox, at-least-once relay, idempotent consumers, monotonic state transitions, and durable command status.
+
+- Contain blast radius: separate non-critical consumers so an analytics outage does not block the service that owns the invariant.
+
+- Recover safely: if the relay fails, restart from outbox position and let consumers dedupe; if a consumer fails, keep its DLQ owned and replayable.
+
+- Prevent recurrence: prevent drift with schema contracts, event versioning, outbox lag alerts, replay tests, and reconciliation between local facts and downstream projections.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: 2PC can simplify mental models but increases blocking and coupled availability; outbox requires duplicate handling but matches most microservice operations.
+
+- What not to do: do not dual-write database and broker outside one local transaction, depend on best-effort publishing, or call at-least-once a bug when idempotency is missing.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [transactions, 2PC, 3PC, and Saga](/distributed-systems/transactions-2pc-3pc-saga).
+
+## Q50. What is Saga, and when should you not use it?
+
+First I would establish the production shape of Saga workflow design before changing code or configuration. At Principal level, I want the invariant, the scarce resource, and the rollback path to be explicit.
+
+- Diagnose: determine whether the workflow is long-running, whether each step has a local transaction, and whether compensation is a real business action or wishful thinking.
+
+- Evidence: review state-machine rows, orchestration commands, choreography events, retries, compensation logs, stuck states, DLQs, and reconciliation dashboards.
+
+- Mitigate: model each step as a durable state transition with idempotent commands, explicit timeout handling, and operator-visible pending or failed states.
+
+- Contain blast radius: keep Saga workers isolated from online request capacity and use per-step retry budgets so one downstream outage does not jam the entire workflow.
+
+- Recover safely: recover by replaying from the last durable state, not by rerunning the whole workflow blindly; compensation must be auditable.
+
+- Prevent recurrence: prevent recurrence with workflow versioning, tests for every failed step, dashboards for stuck age, and runbooks for manual repair.
+
+- Concrete tooling: keep dashboards and runbooks around the exact signals named above, plus application logs with correlation ids, distributed traces, JFR when JVM behavior is suspect, and database views such as `pg_stat_activity` or `pg_locks` when persistence is involved.
+
+- Trade-off: orchestration centralizes visibility but can become a bottleneck; choreography reduces central coupling but makes global reasoning harder.
+
+- What not to do: do not use Saga when immediate atomic consistency is mandatory, compensation is impossible, a local transaction is enough, or nobody owns reconciliation.
+
+- Principal framing: explain the business invariant, show the operator-visible state machine, and connect this answer to [distributed caching and migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa).
+

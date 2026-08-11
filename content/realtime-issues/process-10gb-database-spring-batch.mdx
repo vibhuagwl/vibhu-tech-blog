@@ -1,0 +1,549 @@
+---
+slug: process-10gb-database-spring-batch
+title: "Process a 10 GB File into PostgreSQL with JDBC Batch and Spring Batch"
+description: "Production guidance for replacing row-by-row inserts with transactional JDBC batches and knowing when Spring Batch is the right tool for restartable large-file imports."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, Java, Spring Boot, Spring Batch, PostgreSQL, S3, JDBC]
+readingTime: 31 min
+publishedAt: "2026-08-11"
+---
+
+## The database is usually the bottleneck
+
+Reading 10 GB is rarely the whole problem.
+
+Persisting the records safely is often harder.
+
+A weak answer optimizes the reader and then performs one insert per row.
+
+A strong answer treats PostgreSQL as a shared production system with locks, WAL, indexes, connection pools, and restart semantics.
+
+The goal is:
+
+```text
+stream records -> validate -> write bounded transactional batches -> checkpoint -> resume safely
+```
+
+Not:
+
+```text
+read row -> open transaction -> insert row -> commit -> repeat millions of times
+```
+
+## Bad pattern: row-by-row insert
+
+This is the pattern to avoid:
+
+```java
+for (CustomerEvent event : events) {
+    jdbcTemplate.update("""
+            INSERT INTO imported_event(source_file_id, record_number, customer_id, event_type, occurred_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            event.sourceFileId(),
+            event.recordNumber(),
+            event.customerId(),
+            event.eventType(),
+            event.occurredAt());
+}
+```
+
+It is simple.
+
+It is also slow and operationally noisy.
+
+Every row pays for:
+
+- client round trip
+- parse and bind
+- executor overhead
+- index maintenance
+- WAL flush pressure
+- transaction overhead if autocommit is enabled
+
+If this runs against the same database as customer traffic, it can create an incident.
+
+## Better pattern: JDBC batch
+
+Batch writes amortize overhead.
+
+They also give a natural checkpoint interval.
+
+In Spring Boot, a production writer can use `JdbcTemplate.batchUpdate`.
+
+```java
+package com.example.importer.db;
+
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.List;
+
+@Repository
+public class CustomerEventJdbcWriter {
+    private final JdbcTemplate jdbcTemplate;
+
+    public CustomerEventJdbcWriter(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    public int[] writeBatch(List<CustomerEventRow> rows) {
+        return jdbcTemplate.batchUpdate("""
+                INSERT INTO imported_event(
+                    source_file_id,
+                    record_number,
+                    customer_id,
+                    event_type,
+                    occurred_at,
+                    payload_hash
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT (source_file_id, record_number) DO UPDATE
+                SET event_type = EXCLUDED.event_type,
+                    occurred_at = EXCLUDED.occurred_at,
+                    payload_hash = EXCLUDED.payload_hash
+                """, new BatchPreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps, int i) throws SQLException {
+                CustomerEventRow row = rows.get(i);
+                ps.setObject(1, row.sourceFileId());
+                ps.setLong(2, row.recordNumber());
+                ps.setString(3, row.customerId());
+                ps.setString(4, row.eventType());
+                ps.setTimestamp(5, Timestamp.from(row.occurredAt()));
+                ps.setString(6, row.payloadHash());
+            }
+
+            @Override
+            public int getBatchSize() {
+                return rows.size();
+            }
+        });
+    }
+}
+```
+
+The `ON CONFLICT` clause is not decoration.
+
+It makes retry behavior explicit.
+
+If the job writes a batch and dies before the caller observes success, rerunning the batch should not duplicate business rows.
+
+## Transaction boundary
+
+The batch and checkpoint should commit together.
+
+```java
+@Service
+public class ImportBatchCommitter {
+    private final CustomerEventJdbcWriter writer;
+    private final ImportCheckpointRepository checkpoints;
+    private final TransactionTemplate transactionTemplate;
+
+    public ImportBatchCommitter(
+            CustomerEventJdbcWriter writer,
+            ImportCheckpointRepository checkpoints,
+            TransactionTemplate transactionTemplate) {
+        this.writer = writer;
+        this.checkpoints = checkpoints;
+        this.transactionTemplate = transactionTemplate;
+    }
+
+    public void commit(UUID jobId, long nextRecordNumber, List<CustomerEventRow> rows) {
+        transactionTemplate.executeWithoutResult(status -> {
+            writer.writeBatch(rows);
+            checkpoints.markCommitted(jobId, nextRecordNumber);
+        });
+    }
+}
+```
+
+This matters.
+
+If data commits but checkpoint does not, retry should be safe because writes are idempotent.
+
+If checkpoint commits but data does not, records can be skipped.
+
+Do not allow that.
+
+## PreparedStatement directly
+
+For tighter control, use `PreparedStatement` directly.
+
+This is useful when you need driver-specific options or explicit flush points.
+
+```java
+public void writeWithPreparedStatement(Connection connection, List<CustomerEventRow> rows) throws SQLException {
+    connection.setAutoCommit(false);
+    try (PreparedStatement ps = connection.prepareStatement("""
+            INSERT INTO imported_event(source_file_id, record_number, customer_id, event_type, occurred_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (source_file_id, record_number) DO NOTHING
+            """)) {
+        for (CustomerEventRow row : rows) {
+            ps.setObject(1, row.sourceFileId());
+            ps.setLong(2, row.recordNumber());
+            ps.setString(3, row.customerId());
+            ps.setString(4, row.eventType());
+            ps.setTimestamp(5, Timestamp.from(row.occurredAt()));
+            ps.addBatch();
+        }
+        ps.executeBatch();
+        connection.commit();
+    } catch (SQLException ex) {
+        connection.rollback();
+        throw ex;
+    } finally {
+        connection.setAutoCommit(true);
+    }
+}
+```
+
+In Spring applications, prefer Spring transaction management unless you have a strong reason to own the connection lifecycle.
+
+Manual transaction code is easy to get wrong around pooling.
+
+## Batch size and database pressure
+
+Batch size must be chosen with the database.
+
+Larger batches reduce round trips.
+
+They also:
+
+- hold locks longer
+- create larger WAL bursts
+- increase rollback cost
+- use more heap
+- increase connection hold time
+- increase replication lag risk
+- delay checkpoints
+
+For ordinary OLTP rows, start around 500 to 2,000 rows.
+
+For narrow staging rows, a larger batch can be acceptable.
+
+For wide rows or heavy indexes, smaller batches are often safer.
+
+Measure:
+
+- Hikari active and pending connections
+- batch latency
+- lock waits
+- WAL generation
+- checkpoint frequency
+- replication lag
+- deadlocks
+- CPU on the database
+
+Do not tune import throughput in isolation.
+
+## When Spring Batch enters
+
+Custom code can be correct.
+
+Spring Batch is useful when the problem is not just reading a file.
+
+It is useful when you need:
+
+- restartability
+- skip and retry policy
+- job parameters
+- job repository tables
+- chunk-oriented processing
+- operational status
+- execution history
+- partitioned steps
+- controlled transactions
+- listener hooks
+
+Spring Batch is not magic.
+
+It formalizes the concerns you would otherwise implement yourself.
+
+## Spring Batch mental model
+
+The core shape is:
+
+```text
+Job
+  -> Step
+      -> ItemReader
+      -> ItemProcessor
+      -> ItemWriter
+      -> transaction per chunk
+```
+
+For a flat file:
+
+```text
+FlatFileItemReader -> ItemProcessor -> JdbcBatchItemWriter
+```
+
+The framework stores job and step metadata in the job repository.
+
+That repository is what enables restart decisions.
+
+## Spring Batch configuration
+
+This example uses Java configuration.
+
+```java
+@Configuration
+@EnableBatchProcessing
+public class CustomerImportJobConfig {
+    @Bean
+    Job customerImportJob(
+            JobRepository jobRepository,
+            Step importCustomerEventsStep) {
+        return new JobBuilder("customerImportJob", jobRepository)
+                .start(importCustomerEventsStep)
+                .build();
+    }
+
+    @Bean
+    Step importCustomerEventsStep(
+            JobRepository jobRepository,
+            PlatformTransactionManager transactionManager,
+            FlatFileItemReader<CustomerEventInput> reader,
+            ItemProcessor<CustomerEventInput, CustomerEventRow> processor,
+            JdbcBatchItemWriter<CustomerEventRow> writer) {
+        return new StepBuilder("importCustomerEventsStep", jobRepository)
+                .<CustomerEventInput, CustomerEventRow>chunk(1_000, transactionManager)
+                .reader(reader)
+                .processor(processor)
+                .writer(writer)
+                .faultTolerant()
+                .skip(MalformedRecordException.class)
+                .skipLimit(10_000)
+                .retry(TransientDataAccessException.class)
+                .retryLimit(3)
+                .build();
+    }
+}
+```
+
+The chunk size is the transaction size.
+
+Every 1,000 processed items, Spring Batch opens a transaction, writes the chunk, updates metadata, and commits.
+
+That is the restart boundary.
+
+## FlatFileItemReader
+
+A file reader must be step-scoped when it depends on job parameters.
+
+```java
+@Bean
+@StepScope
+FlatFileItemReader<CustomerEventInput> customerEventReader(
+        @Value("#{jobParameters['inputFile']}") Resource inputFile) {
+    return new FlatFileItemReaderBuilder<CustomerEventInput>()
+            .name("customerEventReader")
+            .resource(inputFile)
+            .encoding(StandardCharsets.UTF_8.name())
+            .linesToSkip(1)
+            .delimited()
+            .names("customerId", "eventType", "occurredAt", "payloadHash")
+            .targetType(CustomerEventInput.class)
+            .strict(true)
+            .build();
+}
+```
+
+For S3, common production options are:
+
+- stream the object to a controlled local file and pass it as a job parameter
+- use a Spring `Resource` implementation backed by S3
+- pre-stage the object and record the S3 version ID
+
+For restartability, make sure the same source version is used on retry.
+
+Do not restart against a mutable S3 key without version control.
+
+## Processor
+
+The processor is where validation and transformation belong.
+
+```java
+@Component
+public class CustomerEventProcessor implements ItemProcessor<CustomerEventInput, CustomerEventRow> {
+    @Override
+    public CustomerEventRow process(CustomerEventInput item) {
+        if (item.customerId() == null || item.customerId().isBlank()) {
+            throw new MalformedRecordException("CUSTOMER_ID_REQUIRED");
+        }
+        Instant occurredAt = Instant.parse(item.occurredAt());
+        return new CustomerEventRow(
+                item.sourceFileId(),
+                item.recordNumber(),
+                item.customerId(),
+                item.eventType(),
+                occurredAt,
+                item.payloadHash());
+    }
+}
+```
+
+Keep it deterministic.
+
+Avoid remote API calls inside the processor unless they are explicitly rate-limited, cached, and retry-safe.
+
+Remote calls inside a chunk transaction can create long locks and ambiguous side effects.
+
+## JdbcBatchItemWriter
+
+The writer should be idempotent.
+
+```java
+@Bean
+JdbcBatchItemWriter<CustomerEventRow> customerEventWriter(DataSource dataSource) {
+    return new JdbcBatchItemWriterBuilder<CustomerEventRow>()
+            .dataSource(dataSource)
+            .sql("""
+                    INSERT INTO imported_event(
+                        source_file_id,
+                        record_number,
+                        customer_id,
+                        event_type,
+                        occurred_at,
+                        payload_hash
+                    )
+                    VALUES (
+                        :sourceFileId,
+                        :recordNumber,
+                        :customerId,
+                        :eventType,
+                        :occurredAt,
+                        :payloadHash
+                    )
+                    ON CONFLICT (source_file_id, record_number) DO NOTHING
+                    """)
+            .beanMapped()
+            .assertUpdates(false)
+            .build();
+}
+```
+
+`assertUpdates(false)` is often needed when `ON CONFLICT DO NOTHING` can legitimately affect zero rows.
+
+That should be a conscious decision.
+
+Zero updates may mean idempotent retry.
+
+They may also mean a bad key.
+
+Measure duplicate counts separately.
+
+## Restartability
+
+Spring Batch stores execution state in its job repository.
+
+For file readers, it can remember position and resume from the last committed chunk.
+
+That only works if:
+
+- the job parameters identify the same input
+- the reader is restartable
+- chunk metadata is committed with the transaction
+- the source file has not changed
+- the writer is idempotent
+
+Restartability is not the same as correctness.
+
+It is a framework feature that still depends on source identity and idempotent side effects.
+
+## Skip and retry
+
+Skip means the record is bad and should not block the whole job.
+
+Retry means the failure may be transient.
+
+Do not confuse them.
+
+Skip examples:
+
+- malformed date
+- missing required column
+- invalid enum
+- line exceeds maximum length
+
+Retry examples:
+
+- transient PostgreSQL connection failure
+- serialization failure
+- deadlock victim
+- temporary S3 read failure
+
+Poison records should go to a rejected-record sink with sanitized context.
+
+Transient failures should retry with bounded attempts and metrics.
+
+## Job repository
+
+Spring Batch requires metadata tables.
+
+In PostgreSQL, these are the `BATCH_*` tables.
+
+They store:
+
+- job instance
+- job execution
+- job parameters
+- step execution
+- execution context
+- status and timestamps
+
+Treat them as production tables.
+
+Back them up if job restart matters.
+
+Monitor their growth.
+
+Do not casually truncate them while jobs may need restart history.
+
+## When Spring Batch beats custom code
+
+Use Spring Batch when:
+
+- imports are recurring
+- operations need a visible job model
+- failures must resume without custom checkpoint code
+- skip and retry policy is non-trivial
+- multiple file types share infrastructure
+- auditors need execution history
+- jobs may be partitioned later
+- a support team needs standard runbooks
+
+Use custom code when:
+
+- the import is small and simple
+- the format requires a custom parser
+- latency matters more than batch semantics
+- you need a specialized S3 range-read pipeline
+- framework metadata is heavier than the problem
+
+The Principal answer is not "always Spring Batch".
+
+It is:
+
+```text
+Use Spring Batch when its operational semantics match the risk.
+Use custom streaming code when the problem needs tighter control.
+In both cases, keep memory bounded, writes idempotent, and checkpoints tied to committed side effects.
+```
+
+## Interview closing answer
+
+```text
+I would avoid row-by-row inserts and write bounded JDBC batches inside transactions.
+The database schema would include an import identity and a uniqueness key so retries are idempotent.
+For recurring production imports, I would strongly consider Spring Batch:
+Job, Step, Reader, Processor, Writer, job repository, restartability, skip, and retry.
+If the file lives in S3, I would pin the object version and make the job parameters identify that exact input.
+```

@@ -1,0 +1,549 @@
+---
+slug: process-10gb-backpressure-observability
+title: "Processing a 10GB File: Backpressure, Observability, Security, and Tuning"
+description: "A Principal-level guide to thread sizing, Little's Law, bounded queue backpressure, metrics, security, benchmarking, tuning, architecture tradeoffs, and a financial-services ingestion design."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, Java, Backpressure, Observability, Security, Benchmarking, Principal Interview]
+readingTime: 30 min
+publishedAt: "2026-08-11"
+---
+
+## Scenario
+
+You have a 10GB file processor that works in development.
+
+Production is different.
+
+The database is slower.
+
+Object storage has throttling.
+
+Some records are malformed.
+
+One worker uses too much heap.
+
+Another worker creates so many threads that throughput drops.
+
+The Principal question is not only "can you parse the file?"
+
+It is "can you run this safely under production constraints?"
+
+## Related guides
+
+- [Checkpoints, idempotency, and crash recovery](/realtime-issues/process-10gb-checkpoint-idempotency)
+- [Formats, cloud files, and distributed processing](/realtime-issues/process-10gb-formats-cloud-distributed)
+- [Interview answer and follow-ups](/realtime-issues/process-10gb-interview-answer-and-followups)
+
+## Throughput starts with the bottleneck
+
+Every file processor is a pipeline.
+
+```text
+read bytes -> parse -> validate -> transform -> write DB or Kafka -> checkpoint -> audit
+```
+
+The slowest stage controls sustainable throughput.
+
+If the reader can parse 200,000 records per second and the database can commit 20,000 records per second, the safe system rate is near 20,000 records per second.
+
+If you keep reading faster than the database writes, memory grows.
+
+Eventually the process hits GC pressure or OOM.
+
+Backpressure is how the system says "slow down before correctness or availability degrades."
+
+## CPU-bound versus IO-bound work
+
+CPU-bound work spends most of its time on computation.
+
+Examples:
+
+- decompression
+- encryption
+- JSON schema validation
+- regex-heavy parsing
+- complex transformations
+- hashing large payloads
+
+IO-bound work spends most of its time waiting.
+
+Examples:
+
+- object-store reads
+- database writes
+- Kafka acknowledgements
+- enrichment API calls
+- filesystem reads on slow disks
+
+Thread sizing depends on which one dominates.
+
+## CPU thread sizing
+
+For CPU-bound work, start near the number of available cores.
+
+If the container has 8 cores, a CPU worker pool of 8 to 12 threads may be enough.
+
+More CPU threads can hurt.
+
+They increase context switching.
+
+They compete for CPU caches.
+
+They increase GC pressure if each task allocates heavily.
+
+They can make latency worse even when throughput appears slightly higher.
+
+Measure CPU saturation and run queue length.
+
+If CPU is already near saturation, adding threads is not capacity.
+
+It is contention.
+
+## IO thread sizing
+
+For blocking IO, more concurrency can help until a downstream limit is reached.
+
+Java 21 virtual threads make it cheaper to represent blocking tasks.
+
+That does not mean downstream systems can handle unlimited requests.
+
+Use explicit limiters:
+
+- database connection pool size
+- Kafka producer in-flight request limits
+- object-store request concurrency
+- API bulkhead semaphore
+- bounded executor queue
+
+Virtual threads are a programming model improvement.
+
+They are not a backpressure strategy.
+
+## Little's Law
+
+Little's Law is:
+
+```text
+concurrency = throughput * latency
+```
+
+If database writes take 50 milliseconds and you need 2,000 writes per second, the approximate required concurrency is:
+
+```text
+2,000 writes per second * 0.050 seconds = 100 in-flight writes
+```
+
+If the database cannot support 100 in-flight writes, you cannot reach 2,000 writes per second by adding application threads.
+
+You must reduce latency, batch writes, increase database capacity, change the sink, or lower the target rate.
+
+This is one of the clearest Principal-level interview signals.
+
+It turns thread count from a guess into a capacity calculation.
+
+## Why more threads can hurt
+
+More threads can hurt for several reasons.
+
+| Cause | Effect |
+|---|---|
+| context switching | CPU time is spent scheduling instead of processing |
+| larger queues | failures are discovered later |
+| more in-flight records | crash replay window grows |
+| more DB contention | locks, deadlocks, and connection waits increase |
+| more allocation | GC pressure increases |
+| more object-store requests | throttling and retries increase |
+| hidden fan-out | one input thread creates many downstream calls |
+
+The safe question is:
+
+"Which resource is idle, and which resource is saturated?"
+
+If no resource is idle, adding concurrency is usually harmful.
+
+## Bounded queues
+
+Use bounded queues between pipeline stages.
+
+```text
+reader -> bounded parse queue -> validators -> bounded write queue -> DB writers
+```
+
+When the write queue fills, validators block or slow down.
+
+When validators slow down, the parser slows down.
+
+When the parser slows down, the reader reads less from object storage.
+
+That is backpressure.
+
+It protects memory and downstream systems.
+
+## Unbounded queues
+
+An unbounded queue hides overload.
+
+The reader continues accepting work even though the writer is behind.
+
+The queue grows until heap is exhausted.
+
+Symptoms:
+
+- rising heap usage
+- long GC pauses
+- records waiting minutes before processing
+- checkpoint lag increasing
+- OOM killer restarts
+- duplicate replay after crash
+
+Unbounded queues turn throughput mismatch into an availability incident.
+
+For production ingestion, unbounded work queues should be treated as a design smell.
+
+## Queue policy
+
+When a bounded queue is full, choose an explicit policy.
+
+| Policy | Use when | Risk |
+|---|---|---|
+| block producer | normal batch ingestion | can reduce source read rate |
+| pause partition | Kafka input | requires correct offset handling |
+| reject work | API-triggered ingestion | caller must retry safely |
+| shed optional enrichment | noncritical side path | output may be degraded |
+| spill to disk | large burst handling | temp storage must be managed |
+
+For file processing, blocking the reader is often correct.
+
+There is no need to keep ingesting into heap when the sink is slow.
+
+## Metrics
+
+Expose metrics at every stage.
+
+Minimum counters and gauges:
+
+- `recordsRead`
+- `recordsProcessed`
+- `recordsFailed`
+- `bytesRead`
+- `bytesProcessed`
+- `readRateBytesPerSecond`
+- `processRateRecordsPerSecond`
+- `queueDepth`
+- `queueCapacity`
+- `dbLatency`
+- `dbBatchSize`
+- `checkpointOffset`
+- `checkpointRecordNumber`
+- `checkpointAgeSeconds`
+- `retryCount`
+- `dlqCount`
+- `workerLeaseAge`
+- `workerHeartbeatAge`
+- `etaSeconds`
+
+Metrics should be tagged carefully.
+
+Good tags:
+
+- job type
+- file type
+- worker pool
+- status
+- failure class
+
+Dangerous tags:
+
+- raw customer id
+- raw file path with unique values
+- idempotency key
+- full exception message
+
+High-cardinality metrics can damage the observability system.
+
+## Progress and ETA
+
+Progress should be computed from bytes and records.
+
+```text
+byte progress = checkpoint byte offset divided by total bytes
+record progress = processed records divided by estimated total records
+ETA = remaining work divided by recent stable throughput
+```
+
+Use a rolling window for throughput.
+
+Do not compute ETA from the first few seconds of warmup.
+
+Do not promise ETA as a guarantee.
+
+Call it an estimate and include confidence.
+
+For variable-size records, byte progress may be more stable than record progress.
+
+For variable-cost records, neither is perfect.
+
+## Logs
+
+Logs should tell the story of a job without exposing sensitive data.
+
+Useful log fields:
+
+- `jobId`
+- `fileId`
+- `chunkId`
+- `workerId`
+- `attempt`
+- `recordNumber`
+- `byteOffset`
+- failure class
+- retry decision
+- checkpoint status
+- duration
+
+Avoid logging full records.
+
+For PII or payment data, use hashes, masked excerpts, or references to encrypted audit storage.
+
+## Alerts
+
+Alert on symptoms that require action.
+
+Examples:
+
+| Alert | Why it matters |
+|---|---|
+| checkpoint age too high | worker may be stuck or checkpoint writes failing |
+| queue depth near capacity for sustained window | downstream is slower than upstream |
+| DLQ rate above threshold | schema or data quality issue |
+| retry rate above threshold | dependency or throttling issue |
+| DB latency p99 high | sink is becoming bottleneck |
+| worker heartbeat stale | lease may need reassignment |
+| ETA regression | throughput changed materially |
+| OOM restart | bounded memory invariant failed |
+
+Avoid alerting on raw record failures if the DLQ rate is within expected limits.
+
+Alert on sustained rate and business impact.
+
+## Security
+
+Large file processing often handles sensitive data.
+
+Security is part of the architecture.
+
+Controls:
+
+- encrypt input objects at rest
+- use TLS for reads and writes
+- encrypt temporary files and external-sort runs
+- restrict object-store access by job role
+- redact PII in logs
+- encrypt DLQ and audit records
+- use least-privilege database credentials
+- store checksums for integrity
+- clean temporary files after success and failure
+- set retention policies for raw files and DLQ data
+- audit operator replays and overrides
+
+If temp files are written to local disk, ensure the disk is encrypted.
+
+If temp files are written to object storage, ensure lifecycle cleanup exists.
+
+Do not leave raw records in `/tmp` after a failed job.
+
+## PII and data minimization
+
+The processor should not copy sensitive fields into every telemetry system.
+
+Principles:
+
+- parse only required fields
+- mask logs
+- hash identifiers when correlation is needed
+- store raw rejects in controlled storage
+- separate operational metadata from sensitive payload
+- limit DLQ access to approved roles
+
+For financial services, assume DLQ records are regulated data.
+
+Treat them like production data, not debug output.
+
+## Checksum strategy
+
+Use checksums for both integrity and idempotency diagnostics.
+
+Levels:
+
+| Level | Purpose |
+|---|---|
+| file checksum | detect changed or corrupted input |
+| chunk checksum | validate partitioned processing |
+| record checksum | detect conflicting duplicates |
+| temp-run checksum | validate external sort artifacts |
+| output checksum | support reconciliation |
+
+A duplicate idempotency key with a different record checksum should not be silently ignored.
+
+It should trigger an integrity failure or exception workflow.
+
+## Benchmarking process
+
+Benchmark in stages.
+
+1. Measure raw read throughput.
+2. Measure parse throughput with validation disabled.
+3. Measure validation throughput with a fixed input.
+4. Measure transform CPU cost.
+5. Measure database write throughput with realistic batch sizes.
+6. Measure end-to-end throughput.
+7. Inject malformed records.
+8. Inject slow database responses.
+9. Kill a worker mid-batch.
+10. Verify checkpoint replay and idempotency.
+
+Do not tune everything at once.
+
+Isolate the bottleneck.
+
+Then change one variable.
+
+## Tuning variables
+
+Useful variables:
+
+- read buffer size
+- parser batch size
+- DB batch size
+- checkpoint interval
+- worker count
+- queue capacity
+- object-store range size
+- connection pool size
+- transaction timeout
+- retry backoff
+- heap size
+- GC settings
+
+Each tuning change should have a hypothesis.
+
+Example:
+
+"DB latency is dominated by round trips, so increasing batch size from 500 to 2,000 records should improve throughput without exceeding transaction timeout."
+
+Then test it.
+
+If p99 latency or deadlocks increase, back off.
+
+## Comparison table
+
+| Approach | Strength | Backpressure model | Observability need | Principal risk |
+|---|---|---|---|---|
+| single Java worker | simple, controllable | bounded queues and batch commits | process metrics and checkpoint age | one host limits throughput |
+| `ExecutorService` | familiar parallelism | fixed pool and bounded queue | pool active count and queue depth | accidental unbounded submission |
+| Java 21 virtual threads | simpler blocking IO | semaphores and downstream limits | in-flight operations by dependency | confusing cheap threads with capacity |
+| Spring Batch | restartable chunks | chunk size and job repository | step metrics and skip counts | assuming framework checkpoint equals business idempotency |
+| Kafka pipeline | durable buffering | consumer lag and offset commits | lag, DLQ, processing latency | moving file parsing complexity elsewhere |
+| Spark | distributed batch and sort | executor resources and shuffle controls | stage metrics and shuffle size | per-record side effects hurt dependencies |
+| Flink | continuous stateful streams | source rate and checkpointing | checkpoint duration and backpressure | operational weight for simple batch |
+| Glue | managed AWS ETL | Spark-style job controls | job metrics and data catalog lineage | limited fit for custom transaction semantics |
+| K8s Jobs | containerized workers | work leases and queue limits | pod, lease, and checkpoint metrics | building orchestration manually |
+
+## Financial-services architecture
+
+For regulated payment or ledger ingestion, the architecture should favor auditability and replay safety.
+
+```text
+S3 versioned input
+  -> file metadata validation
+  -> checksum verification
+  -> partition planner
+  -> leased workers
+  -> streaming parser
+  -> schema validation
+  -> business validation
+  -> idempotent DB write or Kafka outbox
+  -> checkpoint update
+  -> encrypted DLQ for rejects
+  -> immutable audit log
+  -> reconciliation report
+```
+
+Diagram:
+
+```text
++-------------------+
+| S3 versioned file |
++---------+---------+
+          |
+          v
++-------------------+
+| validate metadata |
+| size, version,    |
+| checksum          |
++---------+---------+
+          |
+          v
++-------------------+
+| partition planner |
+| file or ranges    |
++---------+---------+
+          |
+          v
++-------------------+       +-------------------+
+| leased workers    | ----> | encrypted DLQ     |
+| parse and validate|       | bad records       |
++---------+---------+       +-------------------+
+          |
+          v
++-------------------+       +-------------------+
+| idempotent writes | ----> | Kafka outbox      |
+| DB constraints    |       | optional events   |
++---------+---------+       +-------------------+
+          |
+          v
++-------------------+
+| checkpoint store  |
+| offset and status |
++---------+---------+
+          |
+          v
++-------------------+
+| audit and recon   |
++-------------------+
+```
+
+The important property is that every step is recoverable.
+
+The input is immutable.
+
+The worker lease can expire.
+
+The parser can restart from a checkpoint.
+
+The database rejects duplicates.
+
+The DLQ preserves rejects.
+
+The audit log explains what happened.
+
+## Principal interview summary
+
+Say this:
+
+"I would size the processor from measured bottlenecks, not from a guessed thread count.
+
+For CPU stages I stay near core count.
+
+For blocking IO I use enough concurrency to cover latency, but I bound it with queues, semaphores, and downstream limits.
+
+Little's Law gives me a sanity check for required in-flight work.
+
+Unbounded queues are dangerous because they convert a slow DB into an OOM.
+
+I would expose records read, processed, failed, bytes, rate, queue depth, DB latency, checkpoint offset, checkpoint age, retries, DLQ count, and ETA.
+
+For financial data I would encrypt input, temp files, DLQ, and audit logs, redact PII, verify checksums, and clean temporary data.
+
+Then I would benchmark one stage at a time and tune batch size, worker count, queue capacity, and checkpoint interval against real p95 and p99 behavior."
