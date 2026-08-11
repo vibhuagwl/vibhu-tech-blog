@@ -69,6 +69,12 @@ a{text-decoration:none}
   color:#334155;
 }
 
+.prose-design a{
+  color:#2563eb;
+  font-weight:600;
+}
+.prose-design a:hover{text-decoration:underline}
+
 /* GFM markdown tables — readable scan, mobile scroll */
 .prose-design .table-wrap{
   overflow-x:auto;
