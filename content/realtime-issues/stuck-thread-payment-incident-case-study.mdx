@@ -160,7 +160,7 @@ join pg_locks blocking_locks
  and blocking_locks.classid is not distinct from blocked_locks.classid
  and blocking_locks.objid is not distinct from blocked_locks.objid
  and blocking_locks.objsubid is not distinct from blocked_locks.objsubid
- and blocking_locks.pid != blocked_locks.pid
+ and blocking_locks.pid <> blocked_locks.pid
 join pg_stat_activity blocking on blocking.pid = blocking_locks.pid
 where blocked.wait_event_type = 'Lock';
 ```

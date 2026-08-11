@@ -131,9 +131,9 @@ Production loop:
 
 ```java
 while (!done) {
-    Job job = queue.tryTakeOrNull();
-    if (job != null) {
-        process(job);
+    Optional<Job> job = queue.tryTake();
+    if (job.isPresent()) {
+        process(job.get());
     }
 }
 ```
@@ -384,7 +384,7 @@ The task must honor interrupt, or the underlying dependency must time out.
 Safer pattern:
 
 ```java
-Future future = executor.submit(task);
+Future<Result> future = executor.submit(task);
 try {
     return future.get(500, TimeUnit.MILLISECONDS);
 } catch (TimeoutException e) {
@@ -504,23 +504,79 @@ If grace is too long, rollouts stall and stuck owners hold resources longer.
 
 Choose grace based on bounded work, not hope.
 
-## Restart impact on requests, Kafka, DB, and locks
+## Request impact during restart
 
-| Area | Restart effect | Risk |
-|---|---|---|
-| HTTP requests | readiness should stop new traffic while in-flight requests drain | clients may retry while server still finishes work |
-| Kafka consumers | partitions revoke and reassign | uncommitted completed work replays; pre-committed unfinished work is lost |
-| DB transactions | connections close and transactions roll back | external side effects do not roll back with the DB |
-| JVM locks | process-local locks disappear | replacement work may repeat side effects |
-| Redis leases | release waits for TTL unless unlocked | stale owner may resume without fencing |
-| Redisson watchdog | renewal stops after process death | lock remains until renewed TTL expires |
-| ZooKeeper locks | ephemeral node clears after session expiry | recovery waits on session timeout |
+A restart affects requests differently by phase.
 
-Correct payment stance: perform durable idempotent effect, then commit Kafka offset.
+```text
+readiness false -> load balancer stops new requests
+in-flight requests continue until done or timeout
+SIGTERM hooks run
+connections close
+SIGKILL if grace expires
+client retries may arrive at other pods
+```
 
-If a consumer is stuck on one partition, restarting the whole deployment may simply move the same poison record to another pod.
+If clients retry without idempotency keys, restart can multiply side effects.
 
-Fencing tokens and idempotency make restart a safer tool; without them, restart is a correctness decision.
+If clients have shorter timeouts than the server, the server may finish work after the client has retried elsewhere.
+
+The fix is end-to-end deadlines and idempotency.
+
+## Kafka impact during restart
+
+Restarting a consumer causes partition revocation and reassignment.
+
+If offsets lag completed side effects, records replay.
+
+If offsets advanced before side effects, records are lost.
+
+Correct payment stance:
+
+```text
+perform durable idempotent effect
+then commit offset
+```
+
+During incidents, check:
+
+- current offset
+- committed offset
+- lag by partition
+- in-flight record keys
+- last successful commit time
+- rebalance count
+- duplicate suppression metric
+
+If a consumer is stuck on one partition, restarting the whole deployment may simply move the stuck record to another pod.
+
+Quarantine or repair the record when the evidence points to poison data.
+
+## DB and lock impact during restart
+
+When a pod dies, database connections close and transactions roll back.
+
+That usually releases row locks.
+
+But external side effects already performed before rollback do not roll back.
+
+Distributed locks depend on implementation:
+
+| Lock type | Restart effect |
+|---|---|
+| JVM `synchronized` | released with process death |
+| `ReentrantLock` | released with process death |
+| PostgreSQL transaction advisory lock | released on transaction end or session close |
+| PostgreSQL session advisory lock | released on session close |
+| Redis lease | released after TTL unless explicitly unlocked |
+| Redisson watchdog lock | renewal stops when process dies, then TTL expires |
+| ZooKeeper ephemeral lock | released after session expiration |
+
+The dangerous window is before release or expiration.
+
+The correctness question is whether a resumed or replacement owner can conflict.
+
+Fencing tokens answer that question better than human timing.
 
 ## Practical decision table
 

@@ -322,3 +322,81 @@ You can still mitigate traffic while investigating correctness.
 - [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
 - [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study)
 - [Interview answer and follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups)
+---
+slug: stuck-thread-cheat-sheet
+title: "Stuck Thread Cheat Sheet — Symptom → Cause → Action → Fix"
+description: "Interview-ready cheat sheet mapping stuck-thread symptoms to likely causes, what to check, immediate mitigation, and permanent fixes."
+category: Real-Time Issues
+difficulty: Staff
+tags: [Stuck Thread, Cheat Sheet, Incident, Java, Spring Boot, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-11"
+---
+
+## How to use this sheet
+
+In an interview or on-call: match the **symptom**, name the **likely cause**, say what you **check**, what you **do now**, and what you **fix forever**.
+
+Related deep dives:
+
+- [Incident response](/realtime-issues/stuck-thread-incident-response)
+- [Thread dumps](/realtime-issues/stuck-thread-jvm-thread-dumps)
+- [DB / API / pools](/realtime-issues/stuck-thread-db-api-pools)
+- [Payment case study](/realtime-issues/stuck-thread-payment-incident-case-study)
+
+## Master table
+
+| Symptom | Likely cause | What to check | Immediate action | Permanent fix |
+|---|---|---|---|---|
+| Thread `BLOCKED` | Monitor / lock contention or deadlock | 3 thread dumps 10s apart; owners; cycles | Fail fast on new traffic; avoid blind kill | Deterministic lock order; shrink critical section |
+| Thread `WAITING` / `TIMED_WAITING` | `wait`, `park`, `Future.get`, latch, pool borrow | Stack top frames; waiting object; duration | Bound waits; shed load | Timeouts + isolation + metrics on wait time |
+| Deadlock in dump | Circular lock wait | `jstack` deadlock section; ThreadMXBean | Restart only after capturing dumps/evidence | Lock ordering; fewer nested locks; tryLock timeouts |
+| DB lock / long txn | `FOR UPDATE` held while doing slow work | `pg_stat_activity`, `pg_locks`, Hikari active/waiting | Kill/cancel offending query if safe; scale readers carefully | Short transactions; never call external APIs in txn |
+| DB connection exhaustion | Leak or all connections blocked on locks/slow SQL | Hikari metrics; leak detection; PG sessions | Reject new requests; restart as last resort after dump | Pool sizing with timeouts; cancel queries; leak fixes |
+| External API hang | Missing read/connect timeout; retry storm | Client config; dependency latency; circuit metrics | Open circuit / disable caller path; increase isolation | Bound all timeouts; CB + bulkhead + retry budget |
+| Tomcat/async pool full | Downstream stuck → threads pile up | Active/queued/rejected; dependency health | Shed load; scale temporarily; restart carefully | Bulkheads per dependency; bounded queues; rejection policy |
+| Kafka consumer stuck | Slow process, poison msg, poll interval, DB/API inside handler | Lag, `max.poll.interval.ms`, dumps, offsets | Pause partition / move poison to DLQ; scale consumers | Timeouts in handler; DLQ; idempotency; separate pools |
+| 100% CPU one thread | Infinite loop, bad algo, catastrophic regex | `top -H` → TID → nid → dump; JFR | Restart after dump if burning CPU | Fix hot path; fuzz regex; rate limits |
+| High latency, CPU low | IO wait / blocked threads / pool wait | Dumps + dependency + pool metrics | Isolate dependency; degrade feature | Timeouts + backpressure |
+| GC / safepoint freezes | STW GC, allocation pressure, heap near full | GC logs, heap, allocation rate, JFR | Scale/restart; raise heap carefully | Reduce allocation; tune GC; memory budgets |
+| Distributed lock held hours | Lease too long / no TTL / crash without release | Redis TTL/owner; advisory lock session; ZK ephemeral | Manual unlock with audit if safe; fence writes | Short lease + fencing; don’t hold lock across IO |
+| Network / DNS stall | Connect hang without connect timeout | TCP states; DNS; client connect timeout | Failover / disable route | Connect+read timeouts; DNS caching policy |
+| “Looks stuck” but RUNNABLE | Busy loop or spinning lock | Same stack across dumps; CPU of that nid | Capture JFR; restart if confirmed burn | Fix algorithm; avoid busy-wait |
+| Problem vanishes after dump | Timing / rare race / GC pause | Correlate dump time with GC/metrics | Still RCA from dumps/logs | Add always-on sampling / continuous profiling |
+
+## 60-second triage order
+
+```text
+1. Blast radius + customer impact
+2. Protect system (shed / circuit / pause consumers)
+3. Capture evidence (dumps ×3, metrics, SQL, lag)
+4. Classify: CPU vs BLOCKED vs WAITING vs DB vs API vs pool vs Kafka vs GC
+5. Mitigate (cancel query / open circuit / restart ONE pod)
+6. RCA + permanent controls
+```
+
+## Never say in an interview
+
+```text
+❌ "I'd just restart the pod."
+❌ "I'd Thread.stop() it."
+❌ "Interrupt always kills the thread."
+❌ "A 1-hour request means the thread is deadlocked."
+```
+
+## Always say
+
+```text
+✅ Treat as incident first; capture evidence before destructive actions.
+✅ "Stuck" is a hypothesis — confirm with dumps + metrics.
+✅ Bound every remote call and DB interaction.
+✅ Restart is mitigation, not root cause.
+✅ Prevention: timeouts, bulkheads, CB, short transactions, observability.
+```
+
+## Related
+
+- [Interview answer + follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups)
+- [Distributed locking curriculum](/distributed-systems/distributed-locking-master-index)
+- [Kafka interview](/kafka-interview)
+- [Redis interview](/redis-interview)

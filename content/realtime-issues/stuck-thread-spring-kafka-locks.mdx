@@ -337,6 +337,29 @@ Never skip a payment record casually.
 
 Skipping is a business decision, not only a Kafka operation.
 
+## Rebalance storm
+
+Stuck listener threads can cause rebalances.
+
+Rebalances can cause more duplicate work.
+
+Duplicate work can create more DB and lock contention.
+
+That loop is common in payment incidents.
+
+Watch:
+
+```text
+kafka.consumer.rebalance.total
+kafka.consumer.last-poll-seconds-ago
+kafka.consumer.assigned-partitions
+kafka.consumer.records-lag-max
+```
+
+If rebalances are active, avoid rolling restarts unless you understand idempotency and lock ownership.
+
+A restart can be correct, but it is not free.
+
 ## `synchronized` contention cascade
 
 `synchronized` protects a monitor in one JVM.
@@ -357,7 +380,7 @@ Thread dump:
 ```text
 BLOCKED (on object monitor)
   at com.example.PaymentService.capture
-  - waiting to lock &lt;0x00000007123abcde>
+  - waiting to lock <0x00000007123abcde>
 ```
 
 The monitor address tells you all waiters are queued behind the same object.
@@ -519,7 +542,14 @@ A stuck Java thread does not necessarily end the ZooKeeper session.
 
 The session is often maintained by another client thread.
 
-Incident check: owner node data, session timeout, client host, operation age, predecessor node, and fencing token or sequence number.
+Incident check:
+
+- owner node data
+- session timeout
+- client host and pod
+- operation age
+- predecessor node
+- fencing token or sequence number
 
 If you kill the pod, the session should expire and release the ephemeral node after timeout.
 
@@ -529,13 +559,19 @@ That delay may be the difference between a controlled drain and a cascading retr
 
 Use this sequence during an active incident:
 
-| Step | Action |
-|---|---|
-| 1 | capture thread dumps before killing anything |
-| 2 | map owners to DB sessions, Kafka partitions, or lock keys |
-| 3 | stop the retry amplifier and choose the narrowest safe mitigation |
-| 4 | release or fence the stuck resource only after proving side-effect safety |
-| 5 | restore traffic gradually and leave behind metrics |
+1. identify the user-visible impact and affected route or consumer group
+2. capture thread dumps before killing anything
+3. identify blocked threads and their owners
+4. map owners to DB sessions, Kafka partitions, or lock keys
+5. stop the retry amplifier if one exists
+6. choose the narrowest safe mitigation
+7. release or fence the stuck resource only after proving side-effect safety
+8. restore traffic gradually
+9. leave behind metrics for the next incident
+
+The first thread dump is evidence.
+
+Do not lose it with a reflexive restart.
 
 ## Related drills
 
