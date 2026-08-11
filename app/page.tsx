@@ -11,7 +11,7 @@ const starts=[
   ['Behavior','Ownership, conflict, leadership and stakeholder stories.','/behavior'],
   ['Behavioral Interview','Staff+/Principal STAR bank — leadership & business impact.','/behavioral-interview'],
   ['Leadership Principles','All 16 Amazon LPs with STAR answers and Kafka follow-ups.','/leadership-principles'],
-  ['Complexity','Big-O tables for data structures and sorting — best to worst.','/complexity'],
+  ['Complexity','Master guide: derive Big-O from Java code — DS, graphs, DP, practice.','/complexity'],
   ['Kafka Interview','Staff+/Principal Kafka — 130+ failure & design questions.','/kafka-interview'],
   ['Redis Interview','Staff+/Principal Redis — internals, HA, cache failures, locks.','/redis-interview'],
 ];
