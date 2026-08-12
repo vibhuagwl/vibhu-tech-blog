@@ -51,6 +51,23 @@ export default function BehavioralInterview(){
         </div>
       </div>
 
+      <section className="mt-8 grid gap-4 md:grid-cols-2">
+        <Link href="/behavior" className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-950">
+          <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Behavior stories</div>
+          <h2 className="mt-3 text-2xl font-bold">Behavior</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Story frameworks, leadership themes, conflict, ownership, and reusable examples you can shape into STAR answers.
+          </p>
+        </Link>
+        <Link href="/behavioral-interview" className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-950">
+          <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Question bank</div>
+          <h2 className="mt-3 text-2xl font-bold">Behavior Interview</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Staff+ and Principal interview prompts, story bank drills, and follow-up questions for practice.
+          </p>
+        </Link>
+      </section>
+
       <section className="mt-10">
         <h2 className="text-2xl font-black">All topics</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">

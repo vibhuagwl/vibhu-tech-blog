@@ -49,9 +49,9 @@ const banks=[
   },
   {
     href:'/behavioral-interview',
-    label:'Behavioral Interview',
+    label:'Behavior Interview',
     level:'Staff',
-    blurb:'STAR banks for leadership, conflict, cost, and executive communication.',
+    blurb:'One hub for behavior story frameworks plus Staff+ / Principal behavioral interview banks.',
   },
   {
     href:'/leadership-principles',

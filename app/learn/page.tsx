@@ -35,8 +35,7 @@ export default function Learn(){
           <Link href="/system-design/system-design-master-index" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white">Master Index</Link>
           <Link href="/system-design/30-day-system-design-plan" className="rounded-lg border px-4 py-2 text-sm font-bold">30-Day Plan</Link>
           <Link href="/system-design/60-day-system-design-plan" className="rounded-lg border px-4 py-2 text-sm font-bold">60-Day Plan</Link>
-          <Link href="/behavior" className="rounded-lg border px-4 py-2 text-sm font-bold">Behavior</Link>
-          <Link href="/behavioral-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Behavioral Interview</Link>
+          <Link href="/behavioral-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Behavior Interview</Link>
           <Link href="/leadership-principles" className="rounded-lg border px-4 py-2 text-sm font-bold">Leadership Principles</Link>
           <Link href="/complexity" className="rounded-lg border px-4 py-2 text-sm font-bold">Complexity</Link>
           <Link href="/kafka-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Kafka Hub</Link>
