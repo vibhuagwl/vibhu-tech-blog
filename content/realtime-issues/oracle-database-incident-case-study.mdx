@@ -23,6 +23,31 @@ Final finding:
 
 Permanent fix: gather stats with histograms, add a virtual-column index for the pending slice, verify plan + buffer gets, keep pod×pool under Oracle session budget.
 
+## Sequence — this incident
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant User
+    participant API as Payment API / Hikari
+    participant Ora as Oracle
+    participant Oncall
+
+    User->>API: GET /payments PENDING
+    API->>Ora: sql_id execute
+    Note over Ora: FULL TABLE SCAN after growth
+    Ora-->>API: multi-second / pool pile-up
+    API-->>User: timeout / 504
+
+    Oncall->>API: p95 + Hikari pending
+    Oncall->>Ora: v$session → same sql_id, no blocker
+    Oncall->>Ora: v$sql avg_ms + buffers
+    Oncall->>Ora: DISPLAY_CURSOR → FULL scan
+    Oncall->>Ora: status skew + stale stats
+    Oncall->>Ora: virtual-column index + gather stats
+    Oncall->>Ora: INDEX RANGE SCAN proved
+    Oncall->>API: p95 ~220ms, pending 0
+`} />
+
 ## The endpoint and SQL
 
 ```text
