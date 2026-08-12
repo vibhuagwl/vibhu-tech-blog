@@ -54,3 +54,11 @@ curl http://localhost:8092/api/ops/dlq
 3. Consumer uses manual ack, not auto commit.
 4. Transient errors retry, poison goes to DLQ.
 5. Compression + linger + batch size reduce producer overhead.
+
+## Full properties pack (copy-paste templates)
+
+- `config-templates/producer-full.properties`
+- `config-templates/consumer-full.properties`
+- `config-templates/broker-full-template.properties`
+
+These files cover practical producer, consumer, and broker properties for interview and prod-checklist use.
