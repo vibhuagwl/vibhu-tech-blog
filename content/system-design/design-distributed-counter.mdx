@@ -1,0 +1,543 @@
+---
+slug: design-distributed-counter
+title: "Design a Distributed Counter — Complete HLD + LLD"
+description: "Single-page Staff guide: viral likes/views, sharded Redis INCR, Kafka aggregation, idempotency, exact vs approximate, class design, REST APIs, Spring Boot microservices demo — with Mermaid and memory sheet."
+category: System Design
+difficulty: Staff
+tags: [Distributed Counter, Redis, Kafka, Scalability, LLD, Spring Boot, System Design, Interview]
+readingTime: 40 min
+publishedAt: "2026-08-12"
+updatedAt: "2026-08-12"
+---
+
+## How to use this page (5/15/30 min)
+
+Design a **distributed counter** for likes, views, play counts, and similar high-QPS increments — not a claim about any company's private internals. Say that clearly, then pick exact vs approximate consistency based on the product.
+
+Related short note: [Counters at Scale](/system-design/counters-at-scale) · sibling problem: [Rate Limiter](/system-design/design-rate-limiter).
+
+### Pick your mode
+
+| If you have | Read these sections | Goal |
+|---|---|---|
+| 5 minutes | Memory sheet + story + spoken answer | Deliver a crisp Staff-level answer. |
+| 15 minutes | Add REST, sharding, idempotency, Kafka aggregate | Handle follow-ups. |
+| 30 minutes | Add LLD classes, Spring demo, failures, multi-region | Drive the interview. |
+
+### Memory sheet (one image — HLD + LLD)
+
+Spend 60 seconds on this. Trace the viral like journey, then skim hot-key mitigations, exact vs approx, and the five invariants.
+
+![Distributed counter HLD+LLD memory sheet covering clients, API, sharded INCR, Kafka aggregate, LLD classes, journey, failures](/images/distributed-counter/distributed-counter-memory-sheet.svg)
+
+### Mental model
+
+```text
+Client click -> idempotency gate -> sharded atomic INCR -> ACK UX -> async delta -> durable snapshot
+GET = sum(shards)  OR  snapshot + known lag
+```
+
+WHAT: a counter is a **high-QPS write-optimized number** with an explicit consistency contract.  
+HOW: avoid a single DB row; use sharded atomic increments on Redis (or equivalent), then async aggregation for durability and analytics.  
+WHY: celebrity posts create hot keys; retries create double-counts; Redis alone is not a permanent ledger.
+
+<Mermaid chart={`flowchart TD
+  A[5 min] --> B[Shard INCR + ACK]
+  B --> C[One trade-off]
+  D[15 min] --> E[Idempotency]
+  E --> F[Kafka snapshot]
+  F --> G[Exact vs HLL]
+  H[30 min] --> I[LLD classes]
+  I --> J[Spring demo]
+  J --> K[Failures rebuild]
+`} />
+
+### Interview promise
+
+```text
+I will never put viral likes on a single UPDATE likes = likes + 1 row.
+Hot path: sharded Redis INCR. Durable path: Kafka deltas → aggregator snapshot.
+LIKE is at-most-once per user×resource. VIEW can be many increments.
+```
+
+| Invariant | Why it matters |
+|---|---|
+| Hot path is sharded atomic INCR | Single row / single Redis key becomes a hotspot. |
+| LIKE is at-most-once per user×resource | Double-click and retries must not inflate counts. |
+| ACK UX fast; snapshot can lag | Product usually accepts short display lag. |
+| Rebuild path exists | Redis is cache-like; events/DB restore truth. |
+| Exact vs approximate is a product call | Money ≠ likes ≠ unique viewers. |
+
+---
+
+## The interview story (viral post)
+
+A celebrity posts a photo. Within minutes, **200K likes/minute** hit one `postId`. If your design is:
+
+```sql
+UPDATE posts SET like_count = like_count + 1 WHERE id = ?
+```
+
+that single row becomes a write lock hotspot and the database melts.
+
+Better story:
+
+Alice taps Like. The Counter API checks she has not already liked this post (`userId × postId`). It hashes Alice into shard `7` of 16 and atomically increments `counter:post123:shard:7`. The API returns 200 immediately so the heart fills in the UI. Asynchronously, an outbox publishes `CounterDeltaEvent` to Kafka. An Aggregator merges deltas into a durable snapshot for analytics and Redis rebuild. Bob's GET for the count sums all shards (or reads a slightly lagged snapshot — you state which).
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Alice
+  participant API as Counter API
+  participant ID as Idempotency Store
+  participant R as Sharded Counters
+  participant O as Outbox
+  participant K as Kafka
+  participant Agg as Aggregator
+  A->>API: POST increment LIKE
+  API->>ID: tryAcquire alice post123
+  ID-->>API: ok first time
+  API->>R: INCR shard 7
+  R-->>API: new shard value
+  API->>O: save CounterDelta
+  API-->>A: 200 ACK
+  O->>K: publish delta
+  K->>Agg: merge snapshot
+`} />
+
+---
+
+## Requirements and estimation
+
+### Functional requirements
+
+| Requirement | Notes |
+|---|---|
+| Increment | `+delta` (usually 1) for a `resourceId` |
+| Decrement / unlike | Optional; never go below zero |
+| Read current value | Fast GET for UI |
+| Like uniqueness | At most one like per user per resource |
+| View counting | Many increments; optional unique viewers |
+| Batch / admin reset | Rare ops with audit |
+
+### Non-functional requirements
+
+| NFR | Talking point |
+|---|---|
+| Latency | p99 incr ACK &lt; 20–50ms in-region |
+| Throughput | 100K–1M+ incr/sec on viral keys |
+| Durability | Survive Redis node loss via rebuild |
+| Consistency | Exact likes; eventual display OK |
+| Cost | Cheap hot path; batch durable writes |
+
+### REST API endpoints
+
+Implemented by the Spring Boot demo (`spring-distributed-counter-demo/`).
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/v1/counters/{resourceId}/increment` | Like / view increment |
+| `GET` | `/api/v1/counters/{resourceId}` | Current value (shard sum) |
+| `GET` | `/api/v1/counters/{resourceId}/shards` | Per-shard breakdown |
+| `POST` | `/api/v1/counters/{resourceId}/flush` | Force local buffer flush |
+| `GET` | `/api/v1/snapshots/{resourceId}` | Aggregator durable snapshot |
+| `GET` | `/actuator/health` | Liveness |
+
+#### Increment request
+
+```http
+POST /api/v1/counters/post-123/increment HTTP/1.1
+Content-Type: application/json
+X-User-Id: alice
+Idempotency-Key: alice-like-post-123
+
+{
+  "delta": 1,
+  "action": "LIKE",
+  "clientRequestId": "alice-like-post-123"
+}
+```
+
+```json
+{
+  "resourceId": "post-123",
+  "value": 42,
+  "accepted": true,
+  "duplicate": false,
+  "shard": 7
+}
+```
+
+Retry with the same idempotency key / like uniqueness returns `duplicate: true` and **does not** increase the count.
+
+### Capacity sketch
+
+| Input | Example |
+|---|---:|
+| Viral peak | 200K likes/min ≈ 3.3K/sec on one post |
+| Plus views | 10× likes → ~30K/sec on one resource |
+| Shard count | 16–64 to spread Redis hot key |
+| Fan-in to DB | Batch aggregate every 1–5s, not per click |
+
+---
+
+## High-level architecture
+
+```text
+Client → API Gateway → Counter Service
+                           |-- Idempotency store (LIKE seen-set)
+                           |-- Sharded Redis INCR
+                           |-- Outbox → Kafka CounterDelta
+                                    → Aggregator → Snapshot DB
+GET ← sum(shards)  or  snapshot (+ lag)
+```
+
+<Mermaid chart={`flowchart TB
+  C[Clients] --> GW[API Gateway]
+  GW --> CS[Counter Service]
+  CS --> IDEM[(Idempotency / seen-set)]
+  CS --> SH[(Sharded counters Redis)]
+  CS --> OB[Outbox]
+  OB --> KF[(Kafka deltas)]
+  KF --> AG[Aggregator]
+  AG --> SN[(Snapshot DB)]
+  CS --> GET[GET sum shards]
+  SN --> RE[Rebuild Redis]
+`} />
+
+### Why each piece exists
+
+| Component | Role |
+|---|---|
+| Counter Service | Validate, idempotency, pick shard, ACK |
+| Sharded Redis | Atomic hot-path INCR without single-key hotspot |
+| Idempotency / seen-set | Prevent double-like and safe retries |
+| Outbox + Kafka | Reliable async durability / analytics |
+| Aggregator + Snapshot | Rebuild source and reporting |
+
+### Consistency modes (say one)
+
+| Mode | GET behavior | Use |
+|---|---|---|
+| **Shard sum** | Read all N shard keys and sum | Exact, more Redis RTTs |
+| **Snapshot** | Read aggregated DB/Redis total | Faster, short lag |
+| **Hybrid** | Snapshot + recent local buffer | UX smooth |
+
+---
+
+## Exact likes vs approximate views
+
+| Use case | Technique | Notes |
+|---|---|---|
+| Exact likes | INCR + unique `(userId, resourceId)` | Product truth |
+| Exact play count | Sharded INCR | Accept eventual display |
+| Unique viewers | HyperLogLog / bloom | ~1% error OK |
+| Ranking / trends | Approximate + periodic exact | Cost control |
+
+**Staff line:** "I will not use HLL for bank balances or like counts that users can dispute; I will use HLL for unique impression estimates."
+
+---
+
+## Hot-key mitigations
+
+| Technique | How | Trade-off |
+|---|---|---|
+| Key sharding | `counter:{id}:shard:{i}` | GET must sum N keys |
+| Local buffer | Pod accumulates 50–100ms then flush | Crash loses tiny buffer unless careful |
+| Hierarchical | Edge regional counters + global merge | Cross-region lag |
+| Read snapshot | Cache total for feed rendering | Stale by design |
+| Write shedding | Drop VIEW under extreme load | Never drop payment; product policy |
+
+<Mermaid chart={`flowchart LR
+  P[post-123 viral] --> S0[shard0]
+  P --> S1[shard1]
+  P --> S2[shard2]
+  P --> SN[shardN]
+  S0 --> SUM[GET sum]
+  S1 --> SUM
+  S2 --> SUM
+  SN --> SUM
+`} />
+
+---
+
+## Low-level design (classes and flow)
+
+### Class diagram
+
+```text
+CounterController
+    → CounterService
+         → IdempotencyStore
+         → ShardSelector
+         → CounterRepository   (incrShard, sumShards, shardBreakdown)
+         → DeltaPublisher      (outbox + local event / Kafka)
+CounterAggregator
+    → SnapshotRepository
+    → on(CounterDeltaEvent)
+```
+
+<Mermaid chart={`classDiagram
+  class CounterController {
+    +increment()
+    +get()
+    +shards()
+  }
+  class CounterService {
+    +increment()
+    +getValue()
+  }
+  class IdempotencyStore {
+    +tryAcquire()
+  }
+  class ShardSelector {
+    +select()
+  }
+  class CounterRepository {
+    +incrShard()
+    +sumShards()
+  }
+  class DeltaPublisher {
+    +publish()
+  }
+  CounterController --> CounterService
+  CounterService --> IdempotencyStore
+  CounterService --> ShardSelector
+  CounterService --> CounterRepository
+  CounterService --> DeltaPublisher
+`} />
+
+### LLD sequence — LIKE increment
+
+```text
+1. Controller binds DTO + X-User-Id + Idempotency-Key
+2. Service: if action=LIKE → IdempotencyStore.tryAcquire(user, resource)
+   - false → return current value, duplicate=true
+3. shard = ShardSelector.select(userId or requestId, shardCount)
+4. CounterRepository.incrShard(resourceId, shard, delta)
+5. Outbox save + DeltaPublisher.publish(CounterDeltaEvent)
+6. Return { value: sumShards or approximate, accepted: true }
+```
+
+### Key data structures
+
+| Structure | Key | Value |
+|---|---|---|
+| Shard counter | `counter:{resourceId}:shard:{i}` | long |
+| Like seen-set | `liked:{resourceId}` or pair key | set / bitmap / DB unique |
+| Idempotency | `idem:{clientRequestId}` | result stub TTL |
+| Snapshot | `snapshot:{resourceId}` | long + updatedAt |
+| Outbox | `outboxId` | serialized delta |
+
+### Core algorithms (interview whiteboard)
+
+**Shard pick**
+
+```text
+shard = hash(userId XOR resourceId) % N
+```
+
+**INCR (atomic)**
+
+```text
+REDIS: INCRBY counter:{id}:shard:{s} delta
+```
+
+**GET exact**
+
+```text
+total = 0
+for i in 0..N-1:
+  total += GET counter:{id}:shard:{i}
+return total
+```
+
+**Unlike**
+
+```text
+if remove from seen-set succeeded:
+  DECRBY same shard (or any shard) by 1
+  clamp at 0 in aggregator if needed
+```
+
+---
+
+## Spring Boot microservices — end-to-end working code
+
+Runnable demo: **`spring-distributed-counter-demo/`**  
+Browse source: [/spring-distributed-counter-demo](/spring-distributed-counter-demo)
+
+| Module | Port | Role |
+|---|---:|---|
+| `counter-common` | — | DTOs + `CounterDeltaEvent` |
+| `counter-api` | 8091 | REST, shards, idempotency, outbox |
+| `counter-aggregator` | 8092 | Merge deltas → snapshot |
+
+Default profile **`local`**: in-memory ConcurrentHashMap shards + Spring application events (no Docker).  
+Profile **`kafka`**: Kafka between API and aggregator.
+
+### Run locally
+
+```bash
+cd spring-distributed-counter-demo
+mvn -pl counter-api test
+mvn -q -pl counter-api spring-boot:run
+# other terminal (optional aggregator for local events it can share process / or separate)
+./scripts/demo.sh
+```
+
+### Sample curl
+
+```bash
+BASE=http://localhost:8091
+curl -s -X POST "$BASE/api/v1/counters/post-1/increment" \
+  -H 'Content-Type: application/json' -H 'X-User-Id: alice' \
+  -H 'Idempotency-Key: alice-like-1' \
+  -d '{"delta":1,"action":"LIKE"}'
+curl -s -X POST "$BASE/api/v1/counters/post-1/increment" \
+  -H 'Content-Type: application/json' -H 'X-User-Id: alice' \
+  -H 'Idempotency-Key: alice-like-1' \
+  -d '{"delta":1,"action":"LIKE"}'   # duplicate → same value
+curl -s "$BASE/api/v1/counters/post-1"
+curl -s "$BASE/api/v1/counters/post-1/shards"
+```
+
+### REST controller (`counter-api`)
+
+```java
+@RestController
+@RequestMapping("/api/v1/counters")
+public class CounterController {
+  @PostMapping("/{resourceId}/increment")
+  public IncrementCounterResponse increment(
+      @PathVariable String resourceId,
+      @RequestHeader(name = "X-User-Id", required = false) String userId,
+      @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
+      @RequestBody IncrementCounterRequest request) {
+    return counterService.increment(resourceId, request, userId, idempotencyKey);
+  }
+
+  @GetMapping("/{resourceId}")
+  public CounterValueResponse get(@PathVariable String resourceId) {
+    return counterService.get(resourceId); // SHARD_SUM
+  }
+
+  @GetMapping("/{resourceId}/shards")
+  public ShardBreakdownResponse shards(@PathVariable String resourceId) {
+    return counterService.shards(resourceId);
+  }
+}
+```
+
+### Increment service (idempotency → shard INCR → outbox)
+
+```java
+IdempotencyDecision decision = idempotencyStore.reserveIfFirst(
+    resourceId, action, userId, request.clientRequestId(), idempotencyKey);
+if (!decision.firstWrite()) {
+  return new IncrementCounterResponse(resourceId, counterStore.sum(resourceId),
+      false, -1, null, decision.key().orElse(null), "SHARD_SUM");
+}
+
+ShardKey shardKey = counterStore.chooseShard(resourceId, stableShardHint(...));
+counterStore.increment(shardKey, delta);          // hot path first
+outboxPublisher.publish(new CounterDeltaEvent(...)); // then async durability
+return new IncrementCounterResponse(resourceId, counterStore.sum(resourceId),
+    true, shardKey.shard(), ...);
+```
+
+### Map demo → HLD invariants
+
+| Invariant | Code |
+|---|---|
+| Sharded INCR | `ShardedCounterStore.increment` + `chooseShard` |
+| LIKE at-most-once | `IdempotencyStore.reserveIfFirst` |
+| Persist then event | incr then `OutboxPublisher.publish` |
+| GET exact | `counterStore.sum` → `SHARD_SUM` |
+| Async durability | `CounterDeltaEvent` → aggregator `SnapshotStore` |
+
+Full file tree: **[Browse spring-distributed-counter-demo →](/spring-distributed-counter-demo)**
+
+---
+
+## Multi-region, failures, observability
+
+### Multi-region
+
+| Pattern | Notes |
+|---|---|
+| Sticky region | User likes in home region shards |
+| Active-active | Regional shards + global Kafka merge; accept lag |
+| CRDT G-Counter | Math for mergeable increments (Staff bonus) |
+
+### What-if Q&A
+
+| Question | Answer |
+|---|---|
+| Single DB row? | No for viral hot path |
+| Redis loses data? | Rebuild from snapshot + Kafka replay |
+| Kafka lag? | Shard sum still correct for GET |
+| Double-click? | Idempotency + LIKE uniqueness |
+| Unlike? | Remove seen + DECR; never negative |
+| Unique views? | HLL; say error bound |
+| Rate limiter vs counter? | Limiter decides allow/deny; counter stores magnitude |
+| Clock skew? | Don't use wall clock for uniqueness |
+| Shard imbalance? | Rehash / raise N / salt by requestId |
+| Money counters? | Strong ledger, not this design |
+
+### Metrics
+
+| Metric | Alert |
+|---|---|
+| incr latency p99 | Hot shard / Redis |
+| duplicate rate | Client retry storms |
+| Kafka lag | Snapshot staleness |
+| shard skew | Rebalance N |
+| rebuild duration | DR readiness |
+
+---
+
+## Whiteboard cheat sheet
+
+```text
+Core:
+Client → Counter API → idempotency → sharded INCR → ACK
+→ outbox/Kafka → aggregator snapshot → GET Σ shards
+
+Never:
+UPDATE single row for viral likes
+Kafka as client protocol
+HLL for disputed exact likes
+
+LIKE: at-most-once(user, resource)
+VIEW: many INCR; unique → HLL
+```
+
+<Mermaid chart={`flowchart LR
+  CLI[Client] --> API[Counter API]
+  API --> IDEM[Idempotency]
+  API --> SH[Shards]
+  API --> K[Kafka]
+  K --> SNAP[Snapshot]
+  SH --> GET[GET sum]
+`} />
+
+---
+
+## 5 / 15 / 30 minute spoken answers
+
+### 5-minute
+
+"I'll design a distributed counter for likes and views. The naive `UPDATE likes = likes + 1` on one row dies under viral QPS. Hot path is sharded Redis `INCR` on `counter:{id}:shard:{i}`. For likes I enforce at-most-once per user and resource with an idempotency store. The API ACKs immediately after the shard increment, then publishes a delta through an outbox to Kafka. An aggregator builds a durable snapshot for rebuild and analytics. GET returns the sum of shards for an exact read, or a snapshot if we accept short lag. Views can use plain increments; unique viewers can use HyperLogLog."
+
+### 15-minute
+
+Add: REST shapes, shard selection hash, local buffer flush, exact vs approximate product call, fail/rebuild if Redis is lost, Kafka lag does not corrupt shard-sum GET, unlike via DECR + seen-set removal, difference from rate limiter.
+
+### 30-minute
+
+Add: LLD class diagram (`CounterService`, `ShardSelector`, `IdempotencyStore`, `CounterRepository`, `DeltaPublisher`, aggregator), Spring Boot demo mapping, multi-region merge, CRDT G-Counter mention, observability (p99, lag, skew), load-shed policy for VIEW only, Staff trade-off table.
+
+---
+
+## Staff-level closing
+
+Hot counters are a **write-amplification and hotspot** problem first, a storage problem second. Name the consistency contract, shard the hot key, make likes idempotent, ACK fast, and always have a rebuild story. Point to the runnable Spring modules when asked "how would you implement this?"

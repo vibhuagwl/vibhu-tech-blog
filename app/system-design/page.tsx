@@ -14,6 +14,11 @@ const FEATURED_HLD=[
     title:'Design E-Voting — Complete HLD',
     blurb:'Single-page Staff/Lead guide: voter auth, secret ballot, one-vote enforcement, immutable ballot store, tally, audit, encryption, failures, memory sheet.',
   },
+  {
+    href:'/system-design/design-distributed-counter',
+    title:'Design Distributed Counter — HLD + LLD',
+    blurb:'Viral likes/views: sharded INCR, Kafka aggregate, idempotency, exact vs approximate, class design, REST APIs, Spring Boot demo, memory sheet.',
+  },
 ];
 
 export default function SystemDesign(){
@@ -40,7 +45,7 @@ export default function SystemDesign(){
       <section className="mt-10">
         <h2 className="text-2xl font-black">Complete HLD guides</h2>
         <p className="mt-2 text-sm text-slate-500">Single-page Staff/Lead designs with memory sheets and full interview coverage.</p>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {FEATURED_HLD.map((item)=>(
             <Link key={item.href} href={item.href} className="card p-6 transition hover:-translate-y-0.5">
               <h3 className="text-xl font-bold">{item.title}</h3>

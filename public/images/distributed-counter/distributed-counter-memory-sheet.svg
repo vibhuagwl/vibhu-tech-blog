@@ -1,0 +1,298 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1280" viewBox="0 0 1800 1280">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .t { font-family: Georgia, 'Times New Roman', serif; }
+      .s { font-family: 'Segoe UI', Tahoma, sans-serif; }
+      .title { font-size: 34px; font-weight: 700; fill: #0f172a; }
+      .sub { font-size: 15px; fill: #475569; }
+      .h { font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .b { font-size: 12px; fill: #1e293b; }
+      .sm { font-size: 11px; fill: #334155; }
+      .tiny { font-size: 10px; fill: #475569; }
+      .inv { font-size: 11px; font-weight: 700; }
+      .arr { stroke: #334155; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+    ]]></style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect width="1800" height="1280" fill="#f8fafc"/>
+  <rect x="0" y="0" width="1800" height="88" fill="#0f172a"/>
+  <text class="t title" x="40" y="42" fill="#f8fafc">Distributed Counter  HLD + LLD Memory Sheet</text>
+  <text class="s sub" x="40" y="68" fill="#94a3b8">Likes · views · hot keys · shard INCR · Kafka aggregate · idempotency · exact vs approximate</text>
+  <text class="s tiny" x="1680" y="55" text-anchor="end" fill="#94a3b8">Staff / Lead recall</text>
+
+  <!-- CLIENTS -->
+  <rect x="24" y="110" width="220" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="110" width="220" height="32" rx="10" fill="#0f172a"/>
+  <rect x="24" y="126" width="220" height="16" fill="#0f172a"/>
+  <text class="s h" x="134" y="132" text-anchor="middle" fill="#f8fafc">CLIENTS / USE CASES</text>
+  <rect x="40" y="156" width="188" height="48" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="134" y="178" text-anchor="middle" font-weight="700">Like button</text>
+  <text class="s tiny" x="134" y="194" text-anchor="middle">exact · at-most-once / user</text>
+  <rect x="40" y="214" width="188" height="48" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="134" y="236" text-anchor="middle" font-weight="700">View / play count</text>
+  <text class="s tiny" x="134" y="252" text-anchor="middle">high QPS · eventual OK</text>
+  <rect x="40" y="272" width="188" height="48" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="134" y="294" text-anchor="middle" font-weight="700">Rate / quota meter</text>
+  <text class="s tiny" x="134" y="310" text-anchor="middle">related but different NFR</text>
+  <text class="s sm" x="134" y="348" text-anchor="middle">Never say</text>
+  <text class="s tiny" x="134" y="366" text-anchor="middle" font-weight="700">UPDATE row SET c=c+1</text>
+  <text class="s tiny" x="134" y="384" text-anchor="middle">as the only hot-path write</text>
+
+  <!-- EDGE -->
+  <rect x="268" y="110" width="280" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="268" y="110" width="280" height="32" rx="10" fill="#1e3a5f"/>
+  <rect x="268" y="126" width="280" height="16" fill="#1e3a5f"/>
+  <text class="s h" x="408" y="132" text-anchor="middle" fill="#f8fafc">EDGE / API</text>
+  <rect x="284" y="156" width="248" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="174" text-anchor="middle" font-weight="700">API Gateway</text>
+  <text class="s tiny" x="408" y="190" text-anchor="middle">auth · rate limit · route</text>
+  <rect x="284" y="210" width="248" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="228" text-anchor="middle" font-weight="700">Counter Service</text>
+  <text class="s tiny" x="408" y="244" text-anchor="middle">validate · idempotency · shard</text>
+  <rect x="284" y="264" width="248" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="282" text-anchor="middle" font-weight="700">Read path</text>
+  <text class="s tiny" x="408" y="298" text-anchor="middle">sum shards or snapshot+´</text>
+  <rect x="284" y="318" width="248" height="50" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="338" text-anchor="middle" font-weight="700">Local buffer (optional)</text>
+  <text class="s tiny" x="408" y="356" text-anchor="middle">batch flush ’ Redis / Kafka</text>
+  <path class="arr" d="M244 200 H268"/>
+
+  <!-- HOT PATH -->
+  <rect x="572" y="110" width="340" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="572" y="110" width="340" height="32" rx="10" fill="#14532d"/>
+  <rect x="572" y="126" width="340" height="16" fill="#14532d"/>
+  <text class="s h" x="742" y="132" text-anchor="middle" fill="#f8fafc">HOT PATH (HLD)</text>
+  <rect x="588" y="156" width="308" height="50" rx="6" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>
+  <text class="s sm" x="742" y="178" text-anchor="middle" font-weight="700">Sharded Redis INCR </text>
+  <text class="s tiny" x="742" y="196" text-anchor="middle">counter:{id}:shard:{0..N-1}</text>
+  <rect x="588" y="218" width="150" height="50" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="663" y="240" text-anchor="middle" font-weight="700">Idempotency</text>
+  <text class="s tiny" x="663" y="256" text-anchor="middle">LIKE: user×resource</text>
+  <rect x="752" y="218" width="144" height="50" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="824" y="240" text-anchor="middle" font-weight="700">Pick shard</text>
+  <text class="s tiny" x="824" y="256" text-anchor="middle">hash(user) % N</text>
+  <rect x="588" y="280" width="308" height="88" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="742" y="304" text-anchor="middle" font-weight="700">ACK client immediately</text>
+  <text class="s tiny" x="742" y="322" text-anchor="middle">then async: outbox ’ Kafka ’ aggregator</text>
+  <text class="s tiny" x="742" y="340" text-anchor="middle">durable DB snapshot for rebuild / analytics</text>
+  <text class="s tiny" x="742" y="358" text-anchor="middle" font-weight="700">Invariant: hot write ` single DB row</text>
+  <path class="arr" d="M548 230 H572"/>
+
+  <!-- DATA -->
+  <rect x="936" y="110" width="420" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="936" y="110" width="420" height="32" rx="10" fill="#7c2d12"/>
+  <rect x="936" y="126" width="420" height="16" fill="#7c2d12"/>
+  <text class="s h" x="1146" y="132" text-anchor="middle" fill="#f8fafc">DATA PLANE</text>
+  <rect x="952" y="156" width="190" height="70" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="2"/>
+  <text class="s b" x="1047" y="180" text-anchor="middle" font-weight="700">Shard counters</text>
+  <text class="s tiny" x="1047" y="198" text-anchor="middle">Redis INCR atomic</text>
+  <text class="s tiny" x="1047" y="214" text-anchor="middle">spread viral hot key</text>
+  <rect x="1156" y="156" width="184" height="70" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="2"/>
+  <text class="s b" x="1248" y="180" text-anchor="middle" font-weight="700">Kafka deltas</text>
+  <text class="s tiny" x="1248" y="198" text-anchor="middle">CounterDeltaEvent</text>
+  <text class="s tiny" x="1248" y="214" text-anchor="middle">key = resourceId</text>
+  <rect x="952" y="240" width="190" height="70" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5"/>
+  <text class="s b" x="1047" y="264" text-anchor="middle" font-weight="700">Snapshot DB</text>
+  <text class="s tiny" x="1047" y="282" text-anchor="middle">periodic durable total</text>
+  <text class="s tiny" x="1047" y="298" text-anchor="middle">rebuild if Redis lost</text>
+  <rect x="1156" y="240" width="184" height="70" rx="8" fill="#fef3c7" stroke="#a16207" stroke-width="1.5"/>
+  <text class="s b" x="1248" y="264" text-anchor="middle" font-weight="700">Seen-set / HLL</text>
+  <text class="s tiny" x="1248" y="282" text-anchor="middle">LIKE: exact set / bloom</text>
+  <text class="s tiny" x="1248" y="298" text-anchor="middle">unique views: HLL OK</text>
+  <text class="s tiny" x="1146" y="338" text-anchor="middle">Outbox bridges API txn ’ Kafka (no lost deltas)</text>
+  <text class="s tiny" x="1146" y="358" text-anchor="middle" font-weight="700">GET = £ shards (stronger) or snapshot+lag (faster)</text>
+  <text class="s tiny" x="1146" y="376" text-anchor="middle">State the consistency you promise in the interview</text>
+  <path class="arr" d="M912 226 H936"/>
+
+  <!-- LLD -->
+  <rect x="1380" y="110" width="396" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="1380" y="110" width="396" height="32" rx="10" fill="#4c1d95"/>
+  <rect x="1380" y="126" width="396" height="16" fill="#4c1d95"/>
+  <text class="s h" x="1578" y="132" text-anchor="middle" fill="#f8fafc">LLD CLASSES</text>
+  <text class="s sm" x="1400" y="170" font-weight="700">CounterService</text>
+  <text class="s tiny" x="1400" y="186">increment · get · flush</text>
+  <text class="s sm" x="1400" y="212" font-weight="700">ShardSelector</text>
+  <text class="s tiny" x="1400" y="228">hash(userId|requestId) % N</text>
+  <text class="s sm" x="1400" y="254" font-weight="700">IdempotencyStore</text>
+  <text class="s tiny" x="1400" y="270">seen(user, resource, action)</text>
+  <text class="s sm" x="1400" y="296" font-weight="700">CounterRepository</text>
+  <text class="s tiny" x="1400" y="312">incrShard · sumShards</text>
+  <text class="s sm" x="1400" y="338" font-weight="700">DeltaPublisher / Aggregator</text>
+  <text class="s tiny" x="1400" y="354">CounterDeltaEvent ’ snapshot</text>
+  <text class="s tiny" x="1578" y="378" text-anchor="middle" font-weight="700">API ’ Service ’ Repo ’ Event</text>
+
+  <!-- JOURNEY -->
+  <rect x="24" y="412" width="1752" height="150" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="412" width="1752" height="30" rx="10" fill="#0f172a"/>
+  <rect x="24" y="426" width="1752" height="16" fill="#0f172a"/>
+  <text class="s h" x="900" y="433" text-anchor="middle" fill="#f8fafc">VIRAL POST LIKE JOURNEY (say this out loud)</text>
+
+  <rect x="40" y="456" width="150" height="86" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s sm" x="115" y="482" text-anchor="middle" font-weight="700">1. Click Like</text>
+  <text class="s tiny" x="115" y="502" text-anchor="middle">user + postId</text>
+  <text class="s tiny" x="115" y="518" text-anchor="middle">Idempotency-Key</text>
+  <text class="s tiny" x="115" y="534" text-anchor="middle">delta=1</text>
+
+  <rect x="210" y="456" width="150" height="86" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s sm" x="285" y="482" text-anchor="middle" font-weight="700">2. Auth / validate</text>
+  <text class="s tiny" x="285" y="502" text-anchor="middle">JWT / rate limit</text>
+  <text class="s tiny" x="285" y="518" text-anchor="middle">action=LIKE</text>
+  <text class="s tiny" x="285" y="534" text-anchor="middle"> </text>
+
+  <rect x="380" y="456" width="170" height="86" rx="8" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>
+  <text class="s sm" x="465" y="482" text-anchor="middle" font-weight="700">3. Idempotent </text>
+  <text class="s tiny" x="465" y="502" text-anchor="middle">seen(user,post)?</text>
+  <text class="s tiny" x="465" y="518" text-anchor="middle">yes ’ return</text>
+  <text class="s tiny" x="465" y="534" text-anchor="middle">same total</text>
+
+  <rect x="570" y="456" width="150" height="86" rx="8" fill="#bbf7d0" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="645" y="482" text-anchor="middle" font-weight="700">4. Pick shard</text>
+  <text class="s tiny" x="645" y="502" text-anchor="middle">hash % N</text>
+  <text class="s tiny" x="645" y="518" text-anchor="middle">avoid hot key</text>
+  <text class="s tiny" x="645" y="534" text-anchor="middle"> </text>
+
+  <rect x="740" y="456" width="160" height="86" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5"/>
+  <text class="s sm" x="820" y="482" text-anchor="middle" font-weight="700">5. INCR shard</text>
+  <text class="s tiny" x="820" y="502" text-anchor="middle">atomic Redis</text>
+  <text class="s tiny" x="820" y="518" text-anchor="middle">or ConcurrentMap</text>
+  <text class="s tiny" x="820" y="534" text-anchor="middle">demo</text>
+
+  <rect x="920" y="456" width="150" height="86" rx="8" fill="#fef3c7" stroke="#a16207" stroke-width="1.5"/>
+  <text class="s sm" x="995" y="482" text-anchor="middle" font-weight="700">6. Outbox</text>
+  <text class="s tiny" x="995" y="502" text-anchor="middle">CounterDelta</text>
+  <text class="s tiny" x="995" y="518" text-anchor="middle">publish event</text>
+  <text class="s tiny" x="995" y="534" text-anchor="middle"> </text>
+
+  <rect x="1090" y="456" width="150" height="86" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s sm" x="1165" y="482" text-anchor="middle" font-weight="700">7. ACK UX</text>
+  <text class="s tiny" x="1165" y="502" text-anchor="middle">200 OK</text>
+  <text class="s tiny" x="1165" y="518" text-anchor="middle">optimistic UI</text>
+  <text class="s tiny" x="1165" y="534" text-anchor="middle"> </text>
+
+  <rect x="1260" y="456" width="150" height="86" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s sm" x="1335" y="482" text-anchor="middle" font-weight="700">8. Aggregate</text>
+  <text class="s tiny" x="1335" y="502" text-anchor="middle">Kafka consumer</text>
+  <text class="s tiny" x="1335" y="518" text-anchor="middle">update snapshot</text>
+  <text class="s tiny" x="1335" y="534" text-anchor="middle"> </text>
+
+  <rect x="1430" y="456" width="150" height="86" rx="8" fill="#fce7f3" stroke="#be185d" stroke-width="1.5"/>
+  <text class="s sm" x="1505" y="482" text-anchor="middle" font-weight="700">9. GET count</text>
+  <text class="s tiny" x="1505" y="502" text-anchor="middle">£ shards</text>
+  <text class="s tiny" x="1505" y="518" text-anchor="middle">or snapshot</text>
+  <text class="s tiny" x="1505" y="534" text-anchor="middle"> </text>
+
+  <rect x="1600" y="456" width="156" height="86" rx="8" fill="#fce7f3" stroke="#be185d" stroke-width="1.5"/>
+  <text class="s sm" x="1678" y="482" text-anchor="middle" font-weight="700">10. Rebuild</text>
+  <text class="s tiny" x="1678" y="502" text-anchor="middle">Redis lost?</text>
+  <text class="s tiny" x="1678" y="518" text-anchor="middle">replay events</text>
+  <text class="s tiny" x="1678" y="534" text-anchor="middle">+ snapshot</text>
+
+  <path class="arr" d="M190 499 H210"/>
+  <path class="arr" d="M360 499 H380"/>
+  <path class="arr" d="M550 499 H570"/>
+  <path class="arr" d="M720 499 H740"/>
+  <path class="arr" d="M900 499 H920"/>
+  <path class="arr" d="M1070 499 H1090"/>
+  <path class="arr" d="M1240 499 H1260"/>
+  <path class="arr" d="M1410 499 H1430"/>
+  <path class="arr" d="M1580 499 H1600"/>
+
+  <!-- BOTTOM 4 -->
+  <rect x="24" y="584" width="420" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="584" width="420" height="28" rx="10" fill="#166534"/>
+  <rect x="24" y="598" width="420" height="14" fill="#166534"/>
+  <text class="s h" x="234" y="604" text-anchor="middle" fill="#f8fafc">HOT KEY MITIGATIONS</text>
+  <text class="s sm" x="44" y="640" font-weight="700">Shard key into N buckets</text>
+  <text class="s tiny" x="44" y="658">counter:post123:shard:0..15</text>
+  <text class="s sm" x="44" y="684" font-weight="700">Local buffer + flush</text>
+  <text class="s tiny" x="44" y="702">pod batches 100ms ’ Redis</text>
+  <text class="s sm" x="44" y="728" font-weight="700">Hierarchical / regional</text>
+  <text class="s tiny" x="44" y="746">edge count + global reconcile</text>
+  <text class="s sm" x="44" y="772" font-weight="700">Read replica / cache snapshot</text>
+  <text class="s tiny" x="44" y="790" font-weight="700">Viral posts need Ne1664 shards</text>
+
+  <rect x="460" y="584" width="420" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="460" y="584" width="420" height="28" rx="10" fill="#9a3412"/>
+  <rect x="460" y="598" width="420" height="14" fill="#9a3412"/>
+  <text class="s h" x="670" y="604" text-anchor="middle" fill="#f8fafc">EXACT vs APPROXIMATE</text>
+  <text class="s sm" x="480" y="640" font-weight="700">Exact likes</text>
+  <text class="s tiny" x="480" y="658">INCR + user×post seen-set / unique index</text>
+  <text class="s sm" x="480" y="684" font-weight="700">Approximate unique viewers</text>
+  <text class="s tiny" x="480" y="702">HyperLogLog · bloom · sampling</text>
+  <text class="s sm" x="480" y="728" font-weight="700">Eventual display count</text>
+  <text class="s tiny" x="480" y="746">UX ack now · global lag seconds OK</text>
+  <text class="s sm" x="480" y="772" font-weight="700">Never mix without saying it</text>
+  <text class="s tiny" x="480" y="790" font-weight="700">Product decides money vs likes vs views</text>
+
+  <rect x="896" y="584" width="420" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="896" y="584" width="420" height="28" rx="10" fill="#5b21b6"/>
+  <rect x="896" y="598" width="420" height="14" fill="#5b21b6"/>
+  <text class="s h" x="1106" y="604" text-anchor="middle" fill="#f8fafc">LLD SEQUENCE</text>
+  <text class="s sm" x="916" y="640" font-weight="700">Controller ’ CounterService</text>
+  <text class="s tiny" x="916" y="658">DTO validation · action type</text>
+  <text class="s sm" x="916" y="684" font-weight="700">IdempotencyStore.tryAcquire</text>
+  <text class="s tiny" x="916" y="702">false ’ return current value</text>
+  <text class="s sm" x="916" y="728" font-weight="700">ShardSelector.select ’ Repo.incr</text>
+  <text class="s tiny" x="916" y="746">Outbox.save ’ Publisher.publish</text>
+  <text class="s sm" x="916" y="772" font-weight="700">Aggregator.onDelta ’ Snapshot</text>
+  <text class="s tiny" x="916" y="790" font-weight="700">GET: sumShards() for exact path</text>
+
+  <rect x="1332" y="584" width="444" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="1332" y="584" width="444" height="28" rx="10" fill="#1e3a5f"/>
+  <rect x="1332" y="598" width="444" height="14" fill="#1e3a5f"/>
+  <text class="s h" x="1554" y="604" text-anchor="middle" fill="#f8fafc">FAILURES · OPS · TRADE-OFFS</text>
+  <text class="s sm" x="1352" y="640" font-weight="700">Redis down</text>
+  <text class="s tiny" x="1352" y="656">fail-open buffer / fail-closed · rebuild later</text>
+  <text class="s sm" x="1352" y="680" font-weight="700">Kafka lag</text>
+  <text class="s tiny" x="1352" y="696">shard sum still correct; snapshot stale</text>
+  <text class="s sm" x="1352" y="720" font-weight="700">Double-click / retry</text>
+  <text class="s tiny" x="1352" y="736">idempotency key + LIKE uniqueness</text>
+  <text class="s sm" x="1352" y="760" font-weight="700">Clock skew</text>
+  <text class="s tiny" x="1352" y="776">don't use wall clock for uniqueness</text>
+  <text class="s tiny" x="1352" y="792" font-weight="700">SLO: incr p99 · lag · rebuild time</text>
+
+  <!-- INVARIANTS -->
+  <rect x="24" y="824" width="1752" height="120" rx="10" fill="#0f172a"/>
+  <text class="s h" x="900" y="852" text-anchor="middle" fill="#f8fafc">FIVE INVARIANTS (memorize)</text>
+  <text class="s inv" x="60" y="888" fill="#86efac">1. Hot path is sharded atomic INCR  not a single DB row</text>
+  <text class="s inv" x="720" y="888" fill="#93c5fd">2. LIKE is at-most-once per user×resource</text>
+  <text class="s inv" x="60" y="920" fill="#fcd34d">3. ACK UX fast; durable snapshot can lag</text>
+  <text class="s inv" x="520" y="920" fill="#c4b5fd">4. Rebuild path exists (events + snapshot)</text>
+  <text class="s inv" x="1000" y="920" fill="#fda4af">5. Exact vs approximate is a product decision</text>
+
+  <!-- FAILURES + CHEAT -->
+  <rect x="24" y="964" width="860" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="964" width="860" height="28" rx="10" fill="#7f1d1d"/>
+  <rect x="24" y="978" width="860" height="14" fill="#7f1d1d"/>
+  <text class="s h" x="454" y="984" text-anchor="middle" fill="#f8fafc">WHAT-IF FAILURES (fast answers)</text>
+  <text class="s sm" x="44" y="1020" font-weight="700">Celebrity post 1M likes/min</text>
+  <text class="s tiny" x="44" y="1036">raise shard count · local buffer · async snapshot</text>
+  <text class="s sm" x="44" y="1060" font-weight="700">Client retries after timeout</text>
+  <text class="s tiny" x="44" y="1076">Idempotency-Key / LIKE uniqueness ’ no double count</text>
+  <text class="s sm" x="44" y="1100" font-weight="700">Redis flush / failover</text>
+  <text class="s tiny" x="44" y="1116">AOF/RDB + rebuild from Kafka/DB; temporary stale OK</text>
+  <text class="s sm" x="44" y="1140" font-weight="700">Aggregator crash</text>
+  <text class="s tiny" x="44" y="1156">Kafka replay; shards remain source for GET sum</text>
+  <text class="s sm" x="44" y="1180" font-weight="700">Unlike / decrement</text>
+  <text class="s tiny" x="44" y="1196">DECR same shard or tombstone LIKE; never negative</text>
+  <text class="s sm" x="44" y="1220" font-weight="700">Multi-region</text>
+  <text class="s tiny" x="44" y="1236">regional shards + global aggregate; accept lag</text>
+
+  <rect x="900" y="964" width="876" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="900" y="964" width="876" height="28" rx="10" fill="#0f172a"/>
+  <rect x="900" y="978" width="876" height="14" fill="#0f172a"/>
+  <text class="s h" x="1338" y="984" text-anchor="middle" fill="#f8fafc">ONE-BREATH CHEAT + REST</text>
+  <text class="s sm" x="920" y="1024" font-weight="700">Core sentence</text>
+  <text class="s tiny" x="920" y="1044">Client ’ Counter API ’ idempotency ’ sharded INCR ’ ACK</text>
+  <text class="s tiny" x="920" y="1060">’ outbox/Kafka ’ aggregator snapshot ’ GET £ shards</text>
+  <text class="s sm" x="920" y="1090" font-weight="700">REST</text>
+  <text class="s tiny" x="920" y="1108">POST /counters/{id}/increment · GET /counters/{id}</text>
+  <text class="s tiny" x="920" y="1124">GET /counters/{id}/shards · POST .../flush</text>
+  <text class="s sm" x="920" y="1154" font-weight="700">Never say</text>
+  <text class="s tiny" x="920" y="1172">"single Postgres row for viral likes"</text>
+  <text class="s tiny" x="920" y="1188">"eventually consistent is fine for bank money"</text>
+  <text class="s tiny" x="920" y="1204">"Kafka is the client write path"</text>
+</svg>
