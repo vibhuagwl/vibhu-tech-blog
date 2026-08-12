@@ -1,6 +1,7 @@
 import {Suspense} from 'react';
 import Link from 'next/link';
 import OAuthCodeExplorer from '@/components/oauth-code-explorer';
+import OAuthSequenceDiagrams from '@/components/oauth-sequence-diagrams';
 import {buildOAuthDemoTree,listOAuthDemoFiles} from '@/lib/oauth-demo-source';
 
 export const metadata={
@@ -35,6 +36,10 @@ export default function OAuthJwtDemoPage(){
             Interview guide →
           </Link>
           <span className="text-slate-300">·</span>
+          <a href="#auth-code" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+            Sequence diagrams →
+          </a>
+          <span className="text-slate-300">·</span>
           <a
             href="https://github.com/vibhuagwl/vibhu-tech-blog/tree/main/oauth-jwt-demo"
             className="font-semibold text-blue-700 hover:underline dark:text-blue-400"
@@ -46,7 +51,9 @@ export default function OAuthJwtDemoPage(){
         </div>
       </header>
 
-      <div className="mt-8">
+      <OAuthSequenceDiagrams />
+
+      <div className="mt-10">
         {files.length===0?(
           <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-500">
             Source folder not found at build time.
