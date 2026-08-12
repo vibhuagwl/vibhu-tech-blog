@@ -1,67 +1,1829 @@
 ---
 slug: design-whatsapp
-title: Design WhatsApp — Messaging System Design
-description: "Entry point to the full WhatsApp-like HLD curriculum: WebSocket, Kafka, Redis, sharding, media, calls, multi-device — interview-ready with Mermaid diagrams."
+title: "Design WhatsApp — Complete High-Level System Design"
+description: "Single-page WhatsApp-like HLD for Staff interviews: architecture, protocols, messaging, groups, Kafka, Redis, media, calls, sharding, failures, cheat sheet — with Mermaid diagrams."
 category: System Design
-difficulty: Advanced
-tags: [Messaging, Kafka, WebSocket, Distributed Systems, WhatsApp]
-readingTime: 8 min
-publishedAt: 2026-08-10
-updatedAt: 2026-08-12
+difficulty: Staff
+tags: [WhatsApp, Messaging, WebSocket, Kafka, Redis, WebRTC, System Design, Interview]
+readingTime: 45 min
+publishedAt: "2026-08-10"
+updatedAt: "2026-08-12"
 ---
 
-## Start here
+## How to use this page (5/15/30 min)
 
-This page is the **short entry**. The full Staff/Lead curriculum (architecture, flows, Kafka, Redis, media, calls, failures, cheat sheet) is here:
+This is a **WhatsApp-like industry design**, not a claim about private WhatsApp internals. In an interview, say that clearly, then design a messaging platform with similar product behavior: low-latency chat, offline delivery, groups, media, calls, linked devices, privacy, and large-scale reliability.
 
-**→ [WhatsApp System Design — Full Curriculum](/system-design/whatsapp-system-design-master-index)**
+### Pick your mode
 
----
+| If you have | Read these sections | Goal |
+|---|---|---|
+| 5 minutes | Memory sheet + story + spoken answer | Deliver a crisp Staff-level answer. |
+| 15 minutes | Add protocols, one-to-one, groups, offline, Kafka, Redis | Handle the first wave of follow-ups. |
+| 30 minutes | Add sharding, multi-region, media, calls, failures, Q&A | Drive the interview instead of reacting. |
 
-## 30-second story
+### Memory sheet (one image — all components)
 
-> Alice sends Bob a message over WebSocket. Message Service validates, assigns ids, **persists**, then publishes to Kafka partitioned by `conversationId`. Delivery workers check Redis presence: online → push on the owning WebSocket node; offline → FCM/APNS and sync later. ACKs drive SENT / DELIVERED / READ. Media uses object storage + CDN. Calls use WebRTC. Kafka is internal — not phone-to-phone.
+Spend 60 seconds on this before the interview. Trace Alice → Bob left-to-right, then skim the bottom panels (groups, media, calls, scale) and the five invariants bar.
 
----
+![WhatsApp-like HLD memory sheet covering clients, edge, core services, data plane, delivery, Alice→Bob journey, groups, media, calls, scale, invariants, and failures](/images/whatsapp/whatsapp-hld-memory-sheet.svg)
 
-## Memorize this box
-
-<Mermaid chart={`flowchart LR
-  C[Client] --> G[Gateway]
-  G --> MS[Message Service]
-  MS --> DB[DB]
-  DB --> K[Kafka]
-  K --> D[Delivery]
-  D --> P{Online?}
-  P -->|Yes| WS[WebSocket]
-  P -->|No| Push[Push]
-`} />
+### Mental model
 
 ```text
-Client → WS/API Gateway → Message Service → DB → Kafka
-  → Delivery → Presence(Redis) → WS or Push → ACK
-Media → S3 → CDN
-Calls → Signal(WS) + WebRTC
+User action -> durable fact -> ordered stream -> delivery decision -> client ACK -> derived state
 ```
 
-**All diagrams:** [Diagram Memory Map](/system-design/whatsapp-diagrams-memory-map)
----
+WHAT: a chat system is a **durable event system with realtime edges**.  
+HOW: clients talk to gateways; services persist source-of-truth rows; Kafka fans internal work; Redis holds ephemeral presence; object storage holds media; WebRTC carries call media.  
+WHY: the system must survive disconnects, retries, duplicate sends, hot groups, region issues, and app restarts without losing messages.
 
-## Timed drills
+<Mermaid chart={`flowchart TD
+  A[5 min answer] --> B[Architecture box]
+  B --> C[Message journey]
+  C --> D[Offline and ACKs]
+  D --> E[One trade off]
+  F[15 min answer] --> G[Protocols]
+  G --> H[Kafka Redis DB]
+  H --> I[Groups and ordering]
+  J[30 min answer] --> K[Sharding]
+  K --> L[Multi region]
+  L --> M[Calls media failures]
+`} />
 
-| Time | Open |
+### Interview promise
+
+By the end you should be able to say:
+
+```text
+Phone does not send a WhatsApp message directly to another phone.
+Phone -> WhatsApp-like edge -> backend -> durable storage -> delivery pipeline -> recipient edge.
+Kafka is internal service-to-service infrastructure, not phone-to-phone transport.
+```
+
+Keep repeating the Staff-level invariant:
+
+| Invariant | Why it matters |
 |---|---|
-| 5 min | [Cheat sheet + timed answers](/system-design/whatsapp-interview-failures-cheatsheet) |
-| 15 min | [Architecture](/system-design/whatsapp-requirements-architecture) + [Message flow](/system-design/whatsapp-message-flow) + [Ordering](/system-design/whatsapp-ordering-idempotency) |
-| 30 min | Full [curriculum index](/system-design/whatsapp-system-design-master-index) |
+| Persist before delivery | A delivered message cannot disappear after a crash. |
+| Idempotency by client message id | Mobile retries are normal, not exceptional. |
+| Ordering per conversation | Global ordering is unnecessary and expensive. |
+| Presence is ephemeral | Redis can be rebuilt; the message log cannot. |
+| Kafka is internal only | Clients use HTTPS/WebSocket/WebRTC, not Kafka. |
 
 ---
 
-## Classic follow-ups
+## The interview story (Alice → Bob)
 
-1. Ordering? → conversation partition + serverSeq  
-2. Duplicates? → clientMsgId idempotency  
-3. Offline? → durable DB + push + sync  
-4. Scale connections? → WS fleet + registry  
-5. Large groups? → hybrid fan-out  
-6. Kafka down / Redis down? → see [failures Q&A](/system-design/whatsapp-interview-failures-cheatsheet)
+Start with a story. Interviewers remember stories better than component lists.
+
+Alice opens her phone on a train. Her app already has a WebSocket connection to a nearby edge gateway. She types "on my way" to Bob and presses send.
+
+The client creates a `clientMsgId`, encrypts the payload for Bob's devices, and sends a small envelope to the backend. The Message Service authenticates Alice, checks that Alice can send to the conversation, assigns a server id and a monotonically increasing sequence number for that conversation, stores the message, then publishes an internal event.
+
+A Delivery Worker consumes the event. It checks Redis to see whether Bob's devices are online. Bob's laptop is connected; his phone is offline. The worker pushes the message to the laptop's WebSocket node and stores pending delivery state for the phone. Bob's laptop sends a delivery ACK. Later Bob opens the phone, syncs missed messages, and sends read receipts from both devices.
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Alice Phone
+  participant GW as WebSocket Gateway
+  participant MS as Message Service
+  participant DB as Message DB
+  participant K as Kafka Internal
+  participant DW as Delivery Worker
+  participant R as Redis Presence
+  participant B as Bob Device
+  A->>GW: send envelope clientMsgId
+  GW->>MS: authenticated send
+  MS->>DB: insert message and sequence
+  DB-->>MS: committed
+  MS->>K: publish MessageCreated
+  MS-->>GW: accepted serverMsgId
+  GW-->>A: SENT ack
+  K-->>DW: consume MessageCreated
+  DW->>R: lookup Bob online sessions
+  R-->>DW: gateway node for Bob laptop
+  DW->>GW: push to Bob session
+  GW->>B: deliver encrypted payload
+  B-->>GW: delivery ack
+  GW->>MS: mark delivered
+`} />
+
+### Story-first answer outline
+
+| Beat | Say this |
+|---|---|
+| Client edge | Alice uses WebSocket for realtime send and receive. |
+| Durable core | The backend stores message metadata and encrypted payload before fan-out. |
+| Internal async | Kafka decouples commit path from delivery, notifications, indexing, analytics, and retries. |
+| Recipient edge | Delivery workers route to Bob's current WebSocket node using Redis presence. |
+| Offline | If Bob is offline, store pending state and send mobile push as a wake-up, not as the source of truth. |
+| ACKs | Sent, delivered, and read are separate state transitions. |
+| Scale | Partition by conversation id for ordering; shard users and conversations independently. |
+
+### What makes it Staff-level
+
+A junior answer says "use WebSockets and Kafka". A Staff answer explains:
+
+- exactly what is durable and what is ephemeral;
+- why Kafka does not give client delivery by itself;
+- where ordering is enforced;
+- how duplicates are prevented;
+- what happens when Redis, Kafka, a gateway, or a region fails;
+- why groups and linked devices change write amplification;
+- what is different for text, media, calls, status, search, payments, and live location.
+
+---
+
+## Requirements & estimation
+
+### Functional requirements
+
+| Area | Requirement | Notes |
+|---|---|---|
+| Identity | Register users by phone number or account id | Actual product policy can vary. |
+| Contacts | Discover contacts who are users | Privacy-aware hash upload or permissioned sync. |
+| One-to-one | Send text, emoji, reactions, edits, deletes | Conversation-scoped ordering. |
+| Groups | Create groups, membership, roles, send to many users | Needs fan-out strategy. |
+| Offline | Deliver after reconnect | Durable unread and pending state. |
+| Receipts | Sent, delivered, read | Per recipient and per device details may be compacted. |
+| Presence | Online, last seen, typing | Ephemeral with privacy controls. |
+| Media | Upload/download images, files, voice notes | Object storage plus CDN. |
+| Calls | Audio/video/group calls | WebRTC media, signaling through backend. |
+| Linked devices | Multiple devices per account | Recipient is user-device, not just user. |
+| Status | Temporary broadcast stories | Expiring media and viewer state. |
+| Search | Search local or server-indexed messages | Usually privacy-constrained. |
+| Payments | Optional money transfer flow | Strong consistency and audit. |
+
+### Non-functional requirements
+
+| Requirement | Target talking point |
+|---|---|
+| Latency | p99 &lt; 200ms for send ACK in-region; delivery best effort near realtime. |
+| Availability | Messaging path should degrade, not go fully dark on cache or Kafka incidents. |
+| Durability | Once accepted, a message survives process, node, and zone failures. |
+| Ordering | Per conversation ordering, not global ordering. |
+| Privacy | End-to-end encrypted payload design; backend routes opaque envelopes. |
+| Scale | Hundreds of millions of daily active users; millions of concurrent sockets. |
+| Cost | Media and fan-out dominate; use object storage, CDN, batching, compaction. |
+| Abuse | Rate limits, device trust, spam controls, group invite controls. |
+
+### Back-of-envelope numbers
+
+Use simple round numbers. The exact numbers matter less than showing how they shape design.
+
+| Input | Example |
+|---|---:|
+| Daily active users | 500M |
+| Concurrent connections | 50M |
+| Messages per active user per day | 100 |
+| Text messages per day | 50B |
+| Average text envelope | 1 KB |
+| Text write volume | 50 TB/day before replication/indexes |
+| Media messages | 5B/day |
+| Average media object | 1 MB after compression |
+| Media write volume | 5 PB/day before lifecycle policies |
+| Group fan-out multiplier | 2x to 1000x depending on group size |
+
+### Estimation diagram
+
+<Mermaid chart={`flowchart LR
+  U[DAU] --> M[Messages per user]
+  M --> T[Total messages]
+  T --> P[Partitions]
+  T --> S[Storage per day]
+  T --> D[Delivery workers]
+  G[Group size mix] --> F[Fan out multiplier]
+  F --> D
+  F --> S
+  C[Concurrent sockets] --> W[WebSocket fleet]
+  C --> R[Presence Redis]
+`} />
+
+### Capacity takeaways
+
+| Observation | Design implication |
+|---|---|
+| Connections are long-lived | Use a stateless WebSocket fleet plus external session registry. |
+| Text writes are small but huge in count | Partition message storage and Kafka by conversation id. |
+| Media bytes dwarf text bytes | Store media outside message DB. |
+| Groups create write amplification | Hybrid fan-out with thresholds. |
+| Push notification is unreliable as transport | Push wakes the app; sync fetches durable messages. |
+
+---
+
+## High-level architecture (big Mermaid)
+
+The architecture has four planes.
+
+| Plane | Responsibility |
+|---|---|
+| Edge plane | TLS termination, auth, WebSocket, rate limit, upload URLs, signaling. |
+| Product services | Message, conversation, group, user, media, call, status, search, payment. |
+| Data plane | Message DB, user DB, object storage, Redis, Kafka, search index. |
+| Operations plane | Observability, config, deploy, abuse detection, audit, disaster recovery. |
+
+<Mermaid chart={`flowchart TD
+  subgraph Clients
+    A[Alice Mobile]
+    B[Bob Mobile]
+    C[Bob Desktop]
+  end
+
+  subgraph Edge
+    LB[Global Load Balancer]
+    API[HTTPS API Gateway]
+    WS[WebSocket Gateway Fleet]
+    UP[Upload Gateway]
+    SIG[Call Signaling Gateway]
+  end
+
+  subgraph Core Services
+    AUTH[Auth Service]
+    USER[User Service]
+    CONTACT[Contact Service]
+    CONV[Conversation Service]
+    GROUP[Group Service]
+    MSG[Message Service]
+    DELIV[Delivery Service]
+    MEDIA[Media Service]
+    CALL[Call Service]
+    STATUS[Status Service]
+    SEARCH[Search Service]
+    PAY[Payment Service]
+  end
+
+  subgraph Data Stores
+    UDB[(User DB)]
+    CDB[(Conversation DB)]
+    MDB[(Message DB Shards)]
+    GDB[(Group DB)]
+    REDIS[(Redis Presence Cache)]
+    KAFKA[(Kafka Internal Event Bus)]
+    OBJ[(Object Storage)]
+    CDN[CDN]
+    IDX[(Search Index)]
+    LEDGER[(Payment Ledger)]
+  end
+
+  subgraph Workers
+    FAN[Fanout Workers]
+    PUSH[Push Workers]
+    RETRY[Retry Workers]
+    MEDIAW[Media Transcode Workers]
+    INDEXW[Index Workers]
+    AUDIT[Audit Workers]
+  end
+
+  A --> LB
+  B --> LB
+  C --> LB
+  LB --> API
+  LB --> WS
+  LB --> UP
+  LB --> SIG
+
+  API --> AUTH
+  WS --> AUTH
+  API --> USER
+  API --> CONTACT
+  API --> CONV
+  API --> GROUP
+  WS --> MSG
+  API --> MSG
+  UP --> MEDIA
+  SIG --> CALL
+
+  USER --> UDB
+  CONTACT --> UDB
+  CONV --> CDB
+  GROUP --> GDB
+  MSG --> MDB
+  MSG --> KAFKA
+  MSG --> CDB
+  WS --> REDIS
+  DELIV --> REDIS
+  KAFKA --> FAN
+  KAFKA --> PUSH
+  KAFKA --> RETRY
+  KAFKA --> INDEXW
+  KAFKA --> AUDIT
+  FAN --> DELIV
+  DELIV --> WS
+  PUSH --> API
+  MEDIA --> OBJ
+  OBJ --> CDN
+  MEDIA --> KAFKA
+  MEDIAW --> OBJ
+  INDEXW --> IDX
+  SEARCH --> IDX
+  CALL --> REDIS
+  STATUS --> OBJ
+  STATUS --> KAFKA
+  PAY --> LEDGER
+`} />
+
+### Request path vs async path
+
+```text
+Synchronous send path:
+Client -> WS Gateway -> Message Service -> Message DB -> ACK to sender
+
+Asynchronous side effects:
+MessageCreated -> Kafka -> delivery, push, group fan-out, index, metrics, abuse checks
+```
+
+### What is not in this diagram
+
+| Not shown | Reason |
+|---|---|
+| Exact encryption protocol | Mention end-to-end encryption at HLD, do not pretend to know private internals. |
+| ML moderation details | For encrypted messages, moderation moves to metadata, reports, or client-side signals. |
+| Vendor-specific databases | Choose generic stores first, then map to Cassandra/DynamoDB/MySQL/Postgres as follow-up. |
+| Phone-to-phone Kafka | There is none. Kafka is internal. |
+
+### Boundary summary
+
+| Component | Stores durable state? | Scales by |
+|---|---|---|
+| WebSocket Gateway | No | connection count, region, user affinity |
+| Message Service | Writes durable state | conversation shard |
+| Delivery Service | Mostly no | event partitions and session fan-out |
+| Redis Presence | No | user id hash and region |
+| Kafka | Durable internal log | topic partitions |
+| Message DB | Yes | conversation id or bucketed conversation id |
+| Object Storage | Yes | object key prefix and region |
+
+---
+
+## Communication protocols (table + Mermaid)
+
+A WhatsApp-like system is not one protocol. It uses the right protocol for each job.
+
+| Flow | Client protocol | Backend protocol | Why |
+|---|---|---|---|
+| Login, profile, contacts | HTTPS/JSON or HTTPS/gRPC | gRPC/HTTP | Request-response, cacheable, easy auth. |
+| Send/receive text | WebSocket | gRPC plus Kafka events | Low-latency bidirectional edge, durable backend. |
+| Message sync after offline | HTTPS page fetch or WebSocket request | DB query | Efficient backfill and pagination. |
+| Media upload | HTTPS multipart or resumable upload | Object storage API | Large bytes bypass message DB. |
+| Media download | HTTPS CDN | Object storage/CDN | Cheap global reads. |
+| Typing and presence | WebSocket | Redis pub/sub or streams | Ephemeral and fast. |
+| Call setup | WebSocket signaling | Call service and Redis | Exchange offers, answers, ICE candidates. |
+| Call media | WebRTC SRTP | TURN/SFU if needed | Realtime media path. |
+| Push notification | APNS/FCM | Push provider API | Wake offline mobile device. |
+| Internal workflows | None on phone | Kafka | Decouple backend services. |
+
+### Protocol selection diagram
+
+<Mermaid chart={`flowchart LR
+  Client[Mobile or Desktop Client] -->|HTTPS| API[API Gateway]
+  Client -->|WebSocket| WS[WebSocket Gateway]
+  Client -->|HTTPS upload| Upload[Upload Gateway]
+  Client -->|WebRTC media| MediaPath[Peer TURN or SFU]
+  API --> Services[Backend Services]
+  WS --> Services
+  Upload --> ObjectStore[Object Storage]
+  Services -->|Kafka internal only| Kafka[Kafka]
+  Services -->|gRPC or HTTP| Internal[Internal Services]
+  Services --> Push[APNS FCM]
+`} />
+
+### Send protocol decision
+
+| Option | Good | Bad | Use? |
+|---|---|---|---|
+| HTTPS polling | Simple | High latency, wasteful | Backup and sync, not primary realtime. |
+| Server-Sent Events | Simple server push | Client-to-server still needs separate channel | Rare for chat app primary flow. |
+| WebSocket | Bidirectional, mobile friendly enough | Requires connection fleet and heartbeats | Primary realtime channel. |
+| MQTT-like protocol | Efficient pub/sub semantics | More custom infra and client complexity | Possible, but explain similarly to WebSocket. |
+| Kafka to phone | None for mobile clients | Not suitable, exposes infra, heavy clients | No. Kafka is not phone-to-phone. |
+
+### WebSocket lifecycle
+
+<Mermaid chart={`stateDiagram-v2
+  [*] --> Disconnected
+  Disconnected --> Connecting: app opens
+  Connecting --> Authenticated: token accepted
+  Authenticated --> Active: heartbeat ok
+  Active --> Idle: app background
+  Idle --> Active: foreground or push wake
+  Active --> Reconnecting: network change
+  Idle --> Reconnecting: heartbeat missed
+  Reconnecting --> Active: resume session
+  Reconnecting --> Disconnected: token expired or timeout
+  Active --> Disconnected: logout
+`} />
+
+### Staff sound bite
+
+```text
+WebSocket gives the realtime pipe, but not durability, ordering, replay, or cross-service fan-out.
+Those come from Message DB, conversation sequencing, sync APIs, Kafka, and ACK processing.
+```
+
+---
+
+## User, contact, conversation, group
+
+Keep the domain model small and interview-friendly.
+
+### Entities
+
+| Entity | What | Key fields |
+|---|---|---|
+| User | Account identity | userId, phoneHash, displayName, status, settings |
+| Device | Installed client | deviceId, userId, deviceType, publicKeys, lastSeenAt |
+| ContactEdge | A knows B | ownerUserId, contactUserId, alias, privacy flags |
+| Conversation | Message container | conversationId, type, createdAt, lastSeq |
+| Participant | User in conversation | conversationId, userId, role, joinedSeq, mutedUntil |
+| Message | Durable message record | conversationId, serverSeq, senderId, clientMsgId, payloadRef |
+| Group | Conversation metadata | groupId, title, avatarRef, admins, settings |
+| Receipt | Recipient progress | conversationId, userId, deliveredSeq, readSeq |
+
+### Model diagram
+
+<Mermaid chart={`flowchart TD
+  U[User] --> D[Device]
+  U --> CE[Contact Edge]
+  CE --> U2[Other User]
+  U --> P[Participant]
+  P --> C[Conversation]
+  C --> M[Message]
+  C --> G[Group Metadata]
+  M --> R[Receipt]
+  M --> MR[Media Reference]
+  D --> S[Session]
+  S --> PR[Presence Record]
+`} />
+
+### Conversation types
+
+| Type | Membership | Ordering | Fan-out |
+|---|---|---|---|
+| Direct | 2 users, many devices | Single conversation sequence | Send to recipient devices. |
+| Small group | 3 to maybe hundreds | Single conversation sequence | Fan-out on write. |
+| Large group/community | Hundreds to many thousands | Conversation sequence plus batches | Hybrid fan-out. |
+| Broadcast list | Sender to many direct recipients | Separate logical direct sends | Sender-controlled fan-out. |
+| Status | Publisher to audience | Per publisher timeline | Pull or fan-out to viewers. |
+
+### Conversation creation
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Alice
+  participant API as API Gateway
+  participant C as Conversation Service
+  participant U as User Service
+  participant DB as Conversation DB
+  A->>API: create direct chat with Bob
+  API->>C: request conversation
+  C->>U: validate users and privacy
+  U-->>C: allowed
+  C->>DB: find or create direct conversation
+  DB-->>C: conversationId
+  C-->>API: conversation metadata
+  API-->>A: ready to send
+`} />
+
+### Design choices
+
+| Question | Staff answer |
+|---|---|
+| Do we create a direct conversation row before first message? | Either is acceptable. I prefer find-or-create on first send for simple sync semantics. |
+| Do devices belong to conversations? | Devices belong to users; participant state belongs to users; delivery state may expand to devices. |
+| Do groups reuse conversations? | Yes. A group is metadata plus membership over a conversation stream. |
+| Can conversation id be derived from two user ids? | For direct chat maybe, but a generated id is safer for migrations, linked devices, and privacy. |
+
+---
+
+## One-to-one messaging (sequence Mermaid + ticks state machine)
+
+### The send path
+
+WHAT: Alice sends an encrypted envelope to Bob.  
+HOW: backend validates, sequences, persists, emits event, delivers to Bob's online devices, and records ACKs.  
+WHY: the phone can retry safely, gateways can crash, and Bob can sync later.
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Alice Client
+  participant WS1 as Alice WS Node
+  participant M as Message Service
+  participant ID as Idempotency Store
+  participant DB as Message DB
+  participant K as Kafka
+  participant D as Delivery Worker
+  participant P as Presence Redis
+  participant WS2 as Bob WS Node
+  participant B as Bob Client
+
+  A->>WS1: Send clientMsgId c1 payload
+  WS1->>M: SendMessage request
+  M->>ID: check Alice c1
+  alt duplicate
+    ID-->>M: existing serverMsgId
+    M-->>WS1: existing ack
+  else first time
+    ID-->>M: not seen
+    M->>DB: transaction insert message seq 42
+    DB-->>M: commit ok
+    M->>ID: remember c1 -> serverMsgId
+    M->>K: MessageCreated conversation partition
+    M-->>WS1: SENT serverMsgId seq 42
+  end
+  WS1-->>A: SENT tick
+  K-->>D: event seq 42
+  D->>P: Bob sessions
+  P-->>D: WS2 session
+  D->>WS2: push message
+  WS2->>B: deliver
+  B-->>WS2: delivered ack
+  WS2->>M: update receipt deliveredSeq 42
+  B-->>WS2: read ack
+  WS2->>M: update receipt readSeq 42
+`} />
+
+### Tick state machine
+
+<Mermaid chart={`stateDiagram-v2
+  [*] --> LocalPending: user taps send
+  LocalPending --> SentToServer: server accepted and persisted
+  SentToServer --> DeliveredToRecipient: recipient device ack
+  DeliveredToRecipient --> ReadByRecipient: read receipt ack
+  LocalPending --> FailedRetryable: timeout or network lost
+  FailedRetryable --> LocalPending: retry same clientMsgId
+  SentToServer --> DeletedForEveryone: delete action accepted
+  ReadByRecipient --> DeletedForEveryone: delete action accepted
+`} />
+
+### Tick semantics
+
+| UI state | Backend meaning | Caveat |
+|---|---|---|
+| Clock | Client has local pending message | May not have reached server. |
+| Single tick | Server persisted message | Not proof Bob has received it. |
+| Double tick | At least one recipient device delivered | For groups, can be partial. |
+| Blue/read | Recipient read progress crossed message seq | Privacy settings may suppress. |
+
+### Persist plus Kafka sketch
+
+This is conceptual Java, not production-ready code.
+
+```java
+public final class MessageCommandHandler {
+  private final MessageRepository messages;
+  private final IdempotencyRepository idempotency;
+  private final ConversationSequencer sequencer;
+  private final TransactionRunner tx;
+  private final KafkaTemplate<String, MessageCreatedEvent> kafka;
+
+  public SendResult send(SendMessageCommand cmd) {
+    return tx.required(() -> {
+      Optional<SendResult> previous = idempotency.find(cmd.senderId(), cmd.clientMsgId());
+      if (previous.isPresent()) {
+        return previous.get();
+      }
+
+      long seq = sequencer.nextSeq(cmd.conversationId());
+      MessageRow row = MessageRow.accepted(
+          cmd.conversationId(),
+          seq,
+          cmd.senderId(),
+          cmd.clientMsgId(),
+          cmd.encryptedPayloadRef(),
+          Instant.now());
+
+      messages.insert(row);
+      SendResult result = new SendResult(row.serverMsgId(), row.conversationId(), seq);
+      idempotency.record(cmd.senderId(), cmd.clientMsgId(), result);
+
+      kafka.send(
+          "message-created",
+          cmd.conversationId().toString(),
+          MessageCreatedEvent.from(row));
+
+      return result;
+    });
+  }
+}
+```
+
+In a real system, consider the **transactional outbox** pattern so DB commit and event publication do not split-brain.
+
+<Mermaid chart={`flowchart LR
+  TX[DB transaction] --> M[Insert message]
+  TX --> I[Insert idempotency key]
+  TX --> O[Insert outbox event]
+  O --> P[Outbox publisher]
+  P --> K[Kafka]
+  K --> D[Delivery workers]
+`} />
+
+### Delete and edit
+
+| Feature | Durable record | Delivery effect |
+|---|---|---|
+| Edit | New message version or edit event | Clients replace visible text if policy allows. |
+| Delete for me | Per-user tombstone | Only requester's view changes. |
+| Delete for everyone | Conversation event with policy window | Recipients render tombstone. |
+| Reaction | Small event keyed by message id and user id | Can be compacted or updated. |
+
+---
+
+## Group messaging (fan-out write vs read)
+
+Groups are the first major scaling fork.
+
+### Fan-out options
+
+| Strategy | What | Good | Bad | Use for |
+|---|---|---|---|---|
+| Fan-out on write | Create per-recipient inbox entries when sender sends | Fast reads and push | Expensive writes for large groups | Small and medium groups |
+| Fan-out on read | Store once; readers query group stream | Cheap writes | Read path must merge and track progress | Very large groups |
+| Hybrid | Write fan-out for active or small groups, pull for huge groups | Balanced | More complexity | Staff answer |
+
+<Mermaid chart={`flowchart TD
+  S[Sender sends to group] --> Size{Group size}
+  Size -->|Small| W[Fan out on write]
+  Size -->|Large| R[Fan out on read]
+  Size -->|Medium or active subset| H[Hybrid]
+  W --> I1[Recipient inbox rows]
+  R --> G1[Single group stream]
+  H --> A1[Fan out to active users]
+  H --> A2[Pull for inactive users]
+  I1 --> FastRead[Fast unread reads]
+  G1 --> CheapWrite[Cheap send writes]
+`} />
+
+### Group send sequence
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Alice
+  participant M as Message Service
+  participant G as Group Service
+  participant DB as Message DB
+  participant K as Kafka
+  participant F as Fanout Worker
+  participant D as Delivery Worker
+  participant R as Redis Presence
+  participant B as Bob
+  participant C as Carol
+
+  A->>M: send group message
+  M->>G: validate membership and permissions
+  G-->>M: member set version 17
+  M->>DB: insert group message seq 501
+  M->>K: GroupMessageCreated
+  M-->>A: sent
+  K-->>F: consume event
+  F->>F: choose fanout strategy
+  F->>D: delivery task Bob
+  F->>D: delivery task Carol
+  D->>R: lookup sessions
+  D->>B: push if online
+  D->>C: push if online
+`} />
+
+### Membership versioning
+
+A group message must be evaluated against a membership view.
+
+| Problem | Solution |
+|---|---|
+| Bob leaves while Alice sends | Use membership version or joinedSeq/leftSeq. |
+| Admin removes member | New membership event takes effect at a sequence boundary. |
+| New member joins | New member receives messages with seq greater than joinSeq unless history sharing is enabled. |
+| Group settings change | Settings are conversation events with sequence numbers. |
+
+<Mermaid chart={`stateDiagram-v2
+  [*] --> NotMember
+  NotMember --> Member: invited or added
+  Member --> Admin: promoted
+  Admin --> Member: demoted
+  Member --> Left: leaves group
+  Admin --> Left: leaves group
+  Member --> Removed: removed by admin
+  Left --> Member: rejoins
+  Removed --> Member: invited again
+`} />
+
+### Group receipt compaction
+
+For small groups, exact per-user read receipt is fine. For huge groups, store aggregate counters and only fetch details on demand.
+
+| Receipt type | Small group | Large group |
+|---|---|---|
+| Delivered | Per user | Count plus sampled/details page |
+| Read | Per user | Count plus top recent readers |
+| Sender UI | Full list | Partial list and count |
+| Storage | `message_recipient_state` rows | `group_message_stats` plus sparse details |
+
+### Hot group protection
+
+```text
+If one celebrity-scale group creates too many delivery tasks:
+- batch fan-out by member shard;
+- prioritize online active members;
+- let inactive members pull on reconnect;
+- cap receipt detail work;
+- isolate hot group partitions.
+```
+
+---
+
+## Ordering & idempotency
+
+Ordering and duplicate handling are where many interviews turn.
+
+### Ordering goals
+
+| Scope | Need total order? | Reason |
+|---|---|---|
+| Entire platform | No | Impossible and unnecessary. |
+| Per user inbox | Partial | Multiple conversations can interleave. |
+| Per conversation | Yes | Chat history must be coherent. |
+| Per sender device before server ACK | Local only | Client can show pending order. |
+| Across linked devices | Eventually consistent | Device clocks differ; server sequence wins. |
+
+### Conversation sequencing
+
+<Mermaid chart={`flowchart LR
+  A[Send request] --> H[Hash conversationId]
+  H --> P[Owner partition]
+  P --> L[Conversation sequence allocator]
+  L --> DB[Insert seq N]
+  DB --> K[Kafka key conversationId]
+  K --> C[Consumers process in partition order]
+`} />
+
+### Idempotency key
+
+Use a stable client-generated id. The same send retry must map to the same accepted message.
+
+| Field | Purpose |
+|---|---|
+| `senderId` | Prevent different users colliding. |
+| `clientMsgId` | Stable UUID generated once per local message. |
+| `conversationId` | Validates duplicate is for same conversation. |
+| `payloadHash` | Optional safety check for inconsistent retry. |
+| `serverMsgId` | Returned answer for duplicates. |
+
+### Idempotency sketch
+
+```java
+public final class IdempotentSendService {
+  private final IdempotencyRepository keys;
+  private final MessageRepository messages;
+
+  public SendResult sendOnce(SendMessageCommand cmd) {
+    IdempotencyKey key = new IdempotencyKey(cmd.senderId(), cmd.clientMsgId());
+
+    try {
+      keys.insertPending(key, cmd.conversationId(), cmd.payloadHash());
+    } catch (DuplicateKeyException duplicate) {
+      return keys.awaitFinalResult(key)
+          .orElseThrow(() -> new RetryableConflictException("send still committing"));
+    }
+
+    try {
+      MessageRow row = messages.createWithNextSequence(cmd);
+      keys.markSucceeded(key, row.serverMsgId(), row.serverSeq());
+      return new SendResult(row.serverMsgId(), row.conversationId(), row.serverSeq());
+    } catch (RuntimeException failure) {
+      keys.markFailedIfRetryable(key, failure.getClass().getSimpleName());
+      throw failure;
+    }
+  }
+}
+```
+
+### Ordering state diagram
+
+<Mermaid chart={`stateDiagram-v2
+  [*] --> ClientPending
+  ClientPending --> ServerSequenced: seq assigned
+  ServerSequenced --> VisibleInHistory: persisted
+  VisibleInHistory --> DeliveredOutOfOrder: later seq arrived first on client
+  DeliveredOutOfOrder --> ReorderedBySeq: missing seq fetched
+  VisibleInHistory --> Stable: contiguous seq available
+  Stable --> [*]
+`} />
+
+### Common pitfalls
+
+| Pitfall | Better answer |
+|---|---|
+| Order by client timestamp | Client clocks lie; use server sequence. |
+| One Kafka partition for all messages | Bottleneck and global blast radius. |
+| Random Kafka key | Breaks conversation ordering. |
+| Assume exactly-once delivery to phone | Use at-least-once plus idempotent client handling. |
+| Deduplicate by message text | Same text can be sent twice intentionally. |
+
+### Out-of-order client handling
+
+```text
+Client receives seq 100, then seq 102.
+Client renders 100 and marks 102 as buffered.
+Client asks sync API for seq 101 or waits briefly.
+When 101 arrives, client renders 101 then 102.
+```
+
+---
+
+## Offline, presence, WebSocket fleet
+
+### WebSocket fleet responsibilities
+
+| Responsibility | Detail |
+|---|---|
+| Authenticate | Validate token at connect and refresh. |
+| Maintain session | userId, deviceId, connectionId, nodeId, region. |
+| Heartbeat | Detect dead mobile networks. |
+| Send push frames | Deliver realtime envelopes. |
+| Receive ACKs | Forward delivered/read/sync requests. |
+| Backpressure | Drop or slow ephemeral signals before durable messages. |
+
+<Mermaid chart={`flowchart TD
+  Client[Client] --> LB[Layer 4 or 7 Load Balancer]
+  LB --> WS1[WS Node A]
+  LB --> WS2[WS Node B]
+  LB --> WS3[WS Node C]
+  WS1 --> R[Redis Session Registry]
+  WS2 --> R
+  WS3 --> R
+  D[Delivery Worker] --> R
+  D -->|route to node A| WS1
+  D -->|route to node B| WS2
+  WS1 --> Client
+`} />
+
+### Presence record
+
+| Key | Value | TTL |
+|---|---|---|
+| `presence:user:{userId}` | online summary and last heartbeat | seconds |
+| `session:{connectionId}` | userId, deviceId, nodeId, region | seconds |
+| `node:{nodeId}:sessions` | set of connectionIds | refreshed by node |
+| `typing:{conversationId}:{userId}` | typing until timestamp | very short |
+
+### Presence Java sketch
+
+```java
+public final class PresenceHeartbeatHandler {
+  private final RedisClient redis;
+  private final Clock clock;
+
+  public void heartbeat(UserId userId, DeviceId deviceId, ConnectionId connectionId, NodeId nodeId) {
+    Instant now = clock.instant();
+    SessionRecord session = new SessionRecord(userId, deviceId, connectionId, nodeId, now);
+
+    redis.setex("session:" + connectionId.value(), 45, Json.write(session));
+    redis.sadd("node:" + nodeId.value() + ":sessions", connectionId.value());
+    redis.setex("presence:user:" + userId.value(), 45, "online");
+  }
+
+  public PresenceView lookup(UserId userId) {
+    String value = redis.get("presence:user:" + userId.value());
+    return value == null ? PresenceView.offlineOrUnknown() : PresenceView.online();
+  }
+}
+```
+
+Presence can be wrong for a short time. That is acceptable because durable sync fixes missed messages.
+
+### Offline delivery flow
+
+<Mermaid chart={`sequenceDiagram
+  participant D as Delivery Worker
+  participant R as Redis Presence
+  participant P as Push Service
+  participant DB as Message DB
+  participant B as Bob Phone
+  D->>R: lookup Bob
+  R-->>D: no active session
+  D->>DB: ensure pending message remains unread
+  D->>P: send push notification with minimal metadata
+  P-->>B: wake app when possible
+  B->>DB: sync messages since lastSeq
+  DB-->>B: encrypted message page
+  B-->>DB: delivered ack seq
+`} />
+
+### Reconnect sync
+
+| Step | Client sends | Server returns |
+|---|---|---|
+| Resume | userId, deviceId, lastSeen conversation seqs | missed messages, membership deltas, receipt deltas |
+| Gap fill | conversationId, fromSeq, limit | contiguous message page |
+| ACK replay | highest delivered/read seq per conversation | accepted receipt state |
+| Session refresh | connectionId, device keys | new session registry entry |
+
+### Backpressure policy
+
+| Traffic | Priority | Drop policy |
+|---|---|---|
+| Message delivery | Highest | Do not drop after accepted; retry/sync. |
+| Receipts | High | Coalesce by highest seq. |
+| Typing | Low | Drop freely. |
+| Presence fan-out | Low | Sample, TTL, privacy filters. |
+| Media thumbnails | Medium | Retry through CDN or sync. |
+
+---
+
+## Redis & distributed lock
+
+Redis is a **speed layer**, not the source of truth for messages.
+
+### Redis use cases
+
+| Use case | Why Redis fits | Source of truth |
+|---|---|---|
+| Presence | Low-latency TTL keys | None; ephemeral truth. |
+| Session routing | Fast lookup user -> node | Rebuilt from active sockets. |
+| Rate limiting | Atomic counters with TTL | Policy config. |
+| Idempotency cache | Fast duplicate check | Durable idempotency table if needed. |
+| Group metadata cache | Reduce DB reads | Group DB. |
+| Distributed locks | Short critical sections | DB constraints or fencing tokens. |
+
+<Mermaid chart={`flowchart TD
+  WS[WebSocket Node] -->|heartbeat setex| R[(Redis)]
+  D[Delivery Worker] -->|lookup sessions| R
+  API[API Gateway] -->|rate counters| R
+  G[Group Service] -->|metadata cache| R
+  R -->|miss| DB[(Durable DB)]
+  L[Lock Client] -->|set nx px| R
+  L -->|fencing token| DB
+`} />
+
+### Distributed lock pattern
+
+Use locks sparingly. Prefer database uniqueness, compare-and-swap, or partition ownership. If you need a Redis lock, use a lease plus fencing token.
+
+<Mermaid chart={`sequenceDiagram
+  participant W1 as Worker 1
+  participant R as Redis
+  participant DB as DB with fencing
+  participant W2 as Worker 2
+  W1->>R: SET lock key token1 NX PX 5000
+  R-->>W1: ok
+  W1->>DB: write with fencing token 101
+  W2->>R: SET lock key token2 NX PX 5000
+  R-->>W2: ok after lease expiry
+  W2->>DB: write with fencing token 102
+  W1->>DB: late write token 101
+  DB-->>W1: reject stale token
+`} />
+
+### Lock decision table
+
+| Problem | Use lock? | Better primitive |
+|---|---|---|
+| Assign conversation sequence | Usually no | Single partition owner or DB atomic counter. |
+| Create direct conversation once | No | Unique index on normalized participants. |
+| Process media job once | Maybe | Idempotent job row and retry state. |
+| Group admin mutation | Maybe | Versioned compare-and-swap. |
+| Prevent two WebSocket owners for same device | Maybe | Lease with fencing token. |
+
+### Redis failure behavior
+
+| Redis issue | Impact | Degradation |
+|---|---|---|
+| Presence cache down | Online lookup fails | Treat as unknown, rely on push and sync. |
+| Rate limit cache down | Abuse risk | Local limits plus stricter edge defaults. |
+| Group cache stale | Wrong metadata risk | Version check with DB. |
+| Lock unavailable | Mutations slow or fail closed | Use DB constraints for critical writes. |
+
+---
+
+## Kafka (internal only) & failures
+
+Say this explicitly:
+
+```text
+Kafka is NOT phone-to-phone. Mobile clients do not produce to or consume from Kafka.
+Kafka is an internal backend event log used after services accept and persist facts.
+```
+
+### Kafka topics
+
+| Topic | Key | Producers | Consumers |
+|---|---|---|---|
+| `message-created` | conversationId | Message Service | Delivery, fan-out, push, index, metrics |
+| `receipt-updated` | conversationId | Message Service | Sender notification, analytics |
+| `group-membership-changed` | groupId | Group Service | Cache invalidation, sync workers |
+| `media-uploaded` | mediaId | Media Service | Transcode, scan, thumbnail |
+| `call-signaling-event` | callId | Call Service | Call state workers |
+| `status-created` | publisherUserId | Status Service | Fan-out or timeline workers |
+| `payment-event` | paymentId | Payment Service | Ledger audit, notification |
+
+<Mermaid chart={`flowchart LR
+  MS[Message Service] -->|message-created| K[(Kafka)]
+  GS[Group Service] -->|membership-changed| K
+  MED[Media Service] -->|media-uploaded| K
+  K --> DW[Delivery Workers]
+  K --> FW[Fanout Workers]
+  K --> PW[Push Workers]
+  K --> IW[Index Workers]
+  K --> MW[Media Workers]
+  K --> OBS[Metrics Audit]
+`} />
+
+### Why Kafka is useful
+
+| Need | Kafka helps by |
+|---|---|
+| Decoupling | Message send does not wait for every side effect. |
+| Replay | Rebuild derived indexes or retry delivery tasks. |
+| Ordering | Key by conversation id to keep per-conversation order in a partition. |
+| Backpressure | Consumers lag without taking down writers immediately. |
+| Audit | Durable internal event history for operational workflows. |
+
+### Failure matrix
+
+| Failure | What users see | System response |
+|---|---|---|
+| Kafka producer fails before DB commit | Send fails | Client retries same clientMsgId. |
+| DB commit succeeds but Kafka publish fails | Message accepted but not delivered immediately | Outbox publisher retries event. |
+| Consumer crashes after delivery before offset commit | Duplicate delivery possible | Client and receipt update are idempotent. |
+| Consumer commits before delivery | Dangerous if no durable delivery task | Use transactional task table or commit after durable handoff. |
+| Kafka lag grows | Delayed delivery and side effects | Autoscale consumers, shed low-priority work. |
+| Poison event | Partition blocked | Dead-letter with alert after bounded retries. |
+
+### Kafka plus outbox sequence
+
+<Mermaid chart={`sequenceDiagram
+  participant MS as Message Service
+  participant DB as DB
+  participant OP as Outbox Publisher
+  participant K as Kafka
+  participant D as Delivery Worker
+  MS->>DB: transaction insert message and outbox row
+  DB-->>MS: commit
+  MS-->>MS: ack sender
+  OP->>DB: read unpublished outbox rows
+  OP->>K: publish event
+  K-->>OP: ack
+  OP->>DB: mark outbox published
+  K-->>D: consume event
+`} />
+
+### Consumer idempotency
+
+```text
+DeliveryWorker key = conversationId + serverSeq + recipientDeviceId
+If task already succeeded, ignore duplicate event.
+If task pending, retry with exponential backoff.
+If device is offline, leave durable unread state and push wake-up.
+```
+
+---
+
+## Media, voice, live location, typing
+
+### Media is not a giant message row
+
+WHAT: message DB stores metadata and references.  
+HOW: upload media to object storage, process thumbnails/transcodes async, send a message with `mediaId`.  
+WHY: databases are bad at serving petabytes of blobs to global mobile clients.
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Alice
+  participant API as Media API
+  participant OBJ as Object Storage
+  participant K as Kafka
+  participant W as Media Worker
+  participant MSG as Message Service
+  participant B as Bob
+  A->>API: request upload media metadata
+  API-->>A: pre-signed upload URL mediaId
+  A->>OBJ: upload encrypted bytes
+  OBJ-->>API: upload complete callback or client complete
+  API->>K: media-uploaded
+  K-->>W: transcode thumbnail scan
+  W->>OBJ: write derivatives
+  A->>MSG: send message referencing mediaId
+  MSG-->>B: deliver media message metadata
+  B->>OBJ: download via CDN URL
+`} />
+
+### Media table
+
+| Type | Storage | Processing | Delivery |
+|---|---|---|---|
+| Image | Object storage | thumbnail, dimensions, optional safety scan | message contains media ref. |
+| Video | Object storage | transcode, thumbnail, duration | CDN streaming or download. |
+| File | Object storage | metadata, virus scanning if policy allows | download link. |
+| Voice note | Object storage | waveform, duration, codec normalization | small media message. |
+| Sticker | CDN/object storage | pack metadata | cached aggressively. |
+
+### Voice notes
+
+Voice notes are media messages with low-latency UX.
+
+```text
+Record -> local encode -> resumable upload -> mediaId -> message send -> receiver downloads or streams.
+```
+
+### Typing indicator
+
+Typing is ephemeral. Never put every keypress in the durable message log.
+
+<Mermaid chart={`stateDiagram-v2
+  [*] --> NotTyping
+  NotTyping --> Typing: user enters text
+  Typing --> Typing: heartbeat every few seconds
+  Typing --> NotTyping: send message
+  Typing --> NotTyping: timeout
+  Typing --> NotTyping: conversation closed
+`} />
+
+### Live location
+
+Live location is a temporary stream with privacy and battery constraints.
+
+<Mermaid chart={`flowchart TD
+  Client[Location Sender] --> API[Location API]
+  API --> Auth[Consent and duration check]
+  Auth --> R[Redis recent location]
+  Auth --> DB[(Location share metadata)]
+  R --> Sub[Subscribed recipients]
+  Sub --> WS[WebSocket push]
+  DB --> Expire[Expiration worker]
+  Expire --> Stop[Stop sharing event]
+`} />
+
+| Feature | Design |
+|---|---|
+| Current location message | One static coordinate message. |
+| Live location | Time-bounded stream keyed by shareId. |
+| Storage | Recent points in Redis; durable share metadata in DB. |
+| Delivery | WebSocket updates, lower priority than messages. |
+| Privacy | Explicit duration, revocation, recipient authorization. |
+
+### Media failure cases
+
+| Failure | Handling |
+|---|---|
+| Upload interrupted | Resumable upload chunks. |
+| Message sent before upload completes | Reject or show pending until media ready. |
+| CDN stale | Versioned media URLs. |
+| Object deleted by lifecycle | Message remains but media unavailable per retention policy. |
+| Transcode delayed | Deliver original or show processing state. |
+
+---
+
+## Audio / video / group calls (WebRTC)
+
+Calls are not normal chat messages. They require signaling plus a realtime media path.
+
+### Call split
+
+| Part | Protocol | Backend role |
+|---|---|---|
+| Signaling | WebSocket | Authenticate, route offers/answers/ICE, call state. |
+| Media | WebRTC SRTP | Peer-to-peer when possible, relay through TURN/SFU when needed. |
+| Push wake-up | APNS/FCM or call notification | Wake offline recipient. |
+| Call records | DB | Missed call, duration metadata, no media payload. |
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Alice
+  participant SIG as Signaling Service
+  participant R as Redis Presence
+  participant P as Push
+  participant B as Bob
+  participant T as TURN or SFU
+  A->>SIG: create call offer
+  SIG->>R: lookup Bob sessions
+  alt Bob online
+    SIG->>B: offer over WebSocket
+  else Bob offline
+    SIG->>P: call push notification
+    P-->>B: wake app
+    B->>SIG: connect signaling
+    SIG->>B: offer
+  end
+  B-->>SIG: answer
+  SIG-->>A: answer
+  A->>B: WebRTC media if direct path works
+  A->>T: relay media if NAT requires
+  B->>T: relay media if NAT requires
+`} />
+
+### WebRTC architecture
+
+<Mermaid chart={`flowchart LR
+  A[Alice Client] -->|offer answer ICE| S[Signaling Gateway]
+  B[Bob Client] -->|offer answer ICE| S
+  A <-->|SRTP direct if possible| B
+  A <-->|SRTP relay| TURN[TURN Relay]
+  B <-->|SRTP relay| TURN
+  A <-->|group media| SFU[Selective Forwarding Unit]
+  B <-->|group media| SFU
+  C[Carol Client] <-->|group media| SFU
+  S --> CS[Call Service]
+  CS --> DB[(Call Metadata DB)]
+`} />
+
+### Group calls
+
+| Choice | Explanation |
+|---|---|
+| Mesh peer-to-peer | Simple for tiny calls, but bandwidth grows with participants. |
+| SFU | Clients upload one stream; SFU forwards selected streams. Good for groups. |
+| MCU | Server mixes media. More CPU, sometimes useful for compatibility. |
+| TURN | Relay when NAT blocks direct peer connection. |
+
+### Call state machine
+
+<Mermaid chart={`stateDiagram-v2
+  [*] --> Created
+  Created --> Ringing: offer routed
+  Ringing --> Connecting: answer received
+  Connecting --> Active: media established
+  Ringing --> Missed: timeout
+  Ringing --> Declined: recipient rejects
+  Connecting --> Failed: ICE failed
+  Active --> Ended: hangup
+  Failed --> Ended
+  Missed --> [*]
+  Declined --> [*]
+  Ended --> [*]
+`} />
+
+### Call follow-ups
+
+| Question | Answer |
+|---|---|
+| Does Kafka carry audio packets? | No. Audio/video packets use WebRTC media paths, not Kafka. |
+| Is a call a message? | Call events may appear in chat history, but media is separate. |
+| How do you ring offline users? | Push notification wakes the app; signaling resumes on connect. |
+| How do you scale group calls? | Use regional SFUs, participant limits, simulcast, adaptive bitrate. |
+| How do you handle privacy? | Encrypt media, minimize call metadata, protect signaling auth. |
+
+---
+
+## Status, broadcast, search, linked devices, profile
+
+These features reuse the core primitives but stress different trade-offs.
+
+### Status
+
+Status is a temporary feed. It looks like chat media but behaves like stories.
+
+<Mermaid chart={`flowchart TD
+  A[Publisher] --> S[Status Service]
+  S --> OBJ[Object Storage]
+  S --> DB[(Status Metadata DB)]
+  S --> K[Kafka]
+  K --> F[Audience Fanout Worker]
+  F --> T[(Viewer Timeline Store)]
+  V[Viewer] --> T
+  V --> CDN[CDN Media]
+  T --> EXP[Expiration Worker]
+`} />
+
+| Concern | Design |
+|---|---|
+| Expiry | TTL metadata and object lifecycle. |
+| Audience | Contacts, privacy exclusions, close friends. |
+| Viewer state | Store viewed status ids per viewer. |
+| Scale | Fan-out active audience; pull for cold viewers. |
+
+### Broadcast
+
+Broadcast is not the same as a group.
+
+| Group | Broadcast |
+|---|---|
+| Shared conversation visible to members. | Sender sends separate messages to recipients. |
+| Replies go to group. | Replies usually go to direct chat. |
+| Membership is shared. | Recipient list is private to sender. |
+| One sequence for group. | Many direct conversation sequences. |
+
+### Search
+
+Search depends heavily on privacy model. In an end-to-end encrypted product, server-side plaintext indexing may be impossible. A WhatsApp-like HLD can present options.
+
+| Search type | Where index lives | Trade-off |
+|---|---|---|
+| Local device search | Client | Strong privacy, limited to synced messages. |
+| Encrypted server index | Server | Complex searchable encryption trade-offs. |
+| Metadata search | Server | Useful for media/profile, not message text. |
+| Enterprise/admin export | Separate controlled product | Different compliance model. |
+
+<Mermaid chart={`flowchart LR
+  M[Message Stored] --> K[Kafka event]
+  K --> P{Privacy model}
+  P -->|local search| C[Client local index]
+  P -->|server metadata| I[Index Worker]
+  I --> IDX[(Search Index)]
+  Q[Search Query] --> C
+  Q --> IDX
+`} />
+
+### Linked devices
+
+Linked devices make every recipient a set of devices.
+
+<Mermaid chart={`flowchart TD
+  U[User Bob] --> P[Phone]
+  U --> D1[Desktop]
+  U --> D2[Tablet]
+  M[Incoming Message] --> K[Device Key Bundle]
+  K --> E1[Envelope for Phone]
+  K --> E2[Envelope for Desktop]
+  K --> E3[Envelope for Tablet]
+  E1 --> S1[Device delivery state]
+  E2 --> S2[Device delivery state]
+  E3 --> S3[Device delivery state]
+`} />
+
+| Linked-device issue | Design response |
+|---|---|
+| New device needs history | Sync recent encrypted history or server fan-out new envelopes after link. |
+| Device offline for months | Retention limit and re-sync policy. |
+| Device key changes | Sender fetches new key bundle and marks safety change. |
+| Read on one device | User-level read progress may advance, device-level delivery remains separate. |
+| Logout one device | Revoke device token and remove sessions. |
+
+### Profile
+
+Profile, avatar, about text, privacy settings, and blocked users are ordinary API-backed metadata, but they affect message delivery authorization.
+
+| Profile field | Storage | Cache rule |
+|---|---|---|
+| Display name | User DB | Cache with version. |
+| Avatar | Object storage ref | CDN with versioned URL. |
+| About | User DB | Privacy filtered. |
+| Last seen setting | User settings | Enforced before exposing presence. |
+| Block list | User privacy DB | Strongly checked on send. |
+
+---
+
+## Polls, events, payments
+
+### Polls
+
+Polls are structured messages with mutable vote state.
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Alice
+  participant M as Message Service
+  participant P as Poll Service
+  participant DB as Poll DB
+  participant K as Kafka
+  participant B as Bob
+  A->>M: send poll message
+  M->>P: create poll options
+  P->>DB: insert poll
+  M->>M: persist poll message
+  M->>K: message-created
+  B->>P: vote option 2
+  P->>DB: upsert vote by user
+  P->>K: poll-vote-updated
+  K-->>B: updated counts
+`} />
+
+| Poll concern | Design |
+|---|---|
+| One vote or multiple | Constraint in Poll DB. |
+| Change vote | Upsert by pollId and userId. |
+| Anonymous poll | Store vote but hide voter identity from clients if product requires. |
+| Group scale | Emit compact count deltas. |
+
+### Events
+
+Events can mean calendar-like group events or internal domain events. Separate them.
+
+| Event type | Example | Store |
+|---|---|---|
+| Product event | Group meetup invite | Event Service DB plus conversation message. |
+| Domain event | MessageCreated | Kafka internal. |
+| Audit event | Admin changed group setting | Audit log. |
+
+<Mermaid chart={`flowchart TD
+  GE[Group Event Created] --> EDB[(Event DB)]
+  GE --> MSG[Conversation Event Message]
+  GE --> K[Kafka]
+  K --> REM[Reminder Worker]
+  K --> SYNC[Calendar Sync Worker]
+  REM --> PUSH[Push Notification]
+`} />
+
+### Payments
+
+Payments are not just chat messages. They require stronger correctness.
+
+<Mermaid chart={`sequenceDiagram
+  participant A as Alice
+  participant API as Payment API
+  participant P as Payment Service
+  participant L as Ledger
+  participant PSP as Payment Provider
+  participant M as Message Service
+  participant B as Bob
+  A->>API: pay Bob amount idempotencyKey
+  API->>P: validate auth risk limits
+  P->>L: create pending ledger entry
+  P->>PSP: initiate transfer
+  PSP-->>P: success callback
+  P->>L: mark settled
+  P->>M: create payment receipt message
+  M-->>B: payment message delivered
+`} />
+
+| Payment rule | Why |
+|---|---|
+| Use idempotency keys | Button retries must not double charge. |
+| Use ledger | Balances need auditability. |
+| Do not rely on chat delivery for settlement | Money movement is source of truth. |
+| Send payment message after state transition | Chat is notification, not ledger. |
+| Handle provider callbacks idempotently | External systems retry. |
+
+---
+
+## Database design & partitioning/sharding
+
+### Core tables
+
+Use logical schemas in the interview; map to SQL/NoSQL depending on scale.
+
+| Table | Primary key | Notes |
+|---|---|---|
+| `users` | userId | Phone hash, profile, account state. |
+| `devices` | userId, deviceId | Device public keys and token state. |
+| `contacts` | ownerUserId, contactUserId | Contact graph edge. |
+| `conversations` | conversationId | Type, createdAt, lastSeq. |
+| `participants` | conversationId, userId | Role, joinSeq, leftSeq, mute state. |
+| `messages` | conversationId, serverSeq | Main chat history. |
+| `message_by_id` | serverMsgId | Lookup by id. |
+| `idempotency_keys` | senderId, clientMsgId | Duplicate send control. |
+| `receipts` | conversationId, userId | Delivered/read high-water marks. |
+| `recipient_tasks` | recipientUserId, conversationId, serverSeq | Optional inbox fan-out. |
+| `media_objects` | mediaId | Object key, type, owner, state. |
+| `outbox_events` | shardId, eventId | Reliable Kafka publication. |
+
+### Message row
+
+```text
+messages(
+  conversation_id,
+  server_seq,
+  server_msg_id,
+  sender_user_id,
+  sender_device_id,
+  client_msg_id,
+  message_type,
+  encrypted_payload_ref,
+  media_id,
+  created_at,
+  edit_version,
+  tombstone_state
+)
+```
+
+### Partitioning diagram
+
+<Mermaid chart={`flowchart TD
+  CID[conversationId] --> H[hash]
+  H --> S1[Message shard 1]
+  H --> S2[Message shard 2]
+  H --> S3[Message shard 3]
+  H --> S4[Message shard 4]
+  S1 --> P1[Partitions by time bucket]
+  S2 --> P2[Partitions by time bucket]
+  S3 --> P3[Partitions by time bucket]
+  S4 --> P4[Partitions by time bucket]
+  UID[userId] --> U1[User shard]
+  UID --> R1[Receipt shard]
+  MID[mediaId] --> O[Object storage prefix]
+`} />
+
+### Sharding choices
+
+| Data | Shard by | Reason |
+|---|---|---|
+| Messages | conversationId plus time bucket | Conversation reads and ordering. |
+| Receipts | conversationId or userId | Depends on read pattern; high-water marks are small. |
+| User profile | userId | Direct lookup. |
+| Contacts | ownerUserId | User sync loads own contacts. |
+| Group membership | groupId | Group operations read member set. |
+| Recipient inbox | recipientUserId | Fast unread sync for user. |
+| Media metadata | mediaId | Independent of chat partition. |
+| Outbox | source shard id | Publisher scans locally. |
+
+### Conversation sequence allocation
+
+<Mermaid chart={`sequenceDiagram
+  participant M as Message Service
+  participant O as Partition Owner
+  participant C as Conversation Row
+  participant DB as Message DB
+  M->>O: request next seq conversationId
+  O->>C: compare and increment lastSeq
+  C-->>O: seq 9001
+  O->>DB: insert message at seq 9001
+  DB-->>O: ok
+  O-->>M: accepted seq 9001
+`} />
+
+### SQL-like constraints
+
+```sql
+-- Conceptual constraints, not vendor-specific DDL.
+unique(conversation_id, server_seq)
+unique(sender_user_id, client_msg_id)
+unique(conversation_id, user_id) on participants where left_seq is null
+unique(poll_id, voter_user_id) for single-vote polls
+unique(payment_idempotency_key, payer_user_id)
+```
+
+### Read patterns
+
+| Query | Access path |
+|---|---|
+| Open conversation | `messages where conversationId = ? and seq &lt; cursor order by seq desc limit ?` |
+| Sync after reconnect | Per conversation high-water marks or recipient inbox by userId. |
+| Unread count | Receipt high-water mark compared with conversation lastSeq. |
+| Group members | groupId partition, cached with version. |
+| Media metadata | mediaId lookup, then signed CDN URL. |
+| Search | Local client index or privacy-compatible server index. |
+
+### Data retention
+
+| Data | Retention idea |
+|---|---|
+| Message metadata | Product policy; may be long-lived. |
+| Deleted payload | Tombstone plus deletion schedule. |
+| Media object | Lifecycle by user deletion, expiry, or retention policy. |
+| Presence | Seconds/minutes. |
+| Typing | Seconds. |
+| Kafka | Hours to days for operational replay; not permanent source of truth. |
+| Audit/payment ledger | Long-lived by compliance. |
+
+---
+
+## Multi-region, security, observability, deployment
+
+### Multi-region strategy
+
+Start simple: route each user to a home region, keep direct conversations in an owner region, replicate for disaster recovery, and optimize cross-region delivery later.
+
+<Mermaid chart={`flowchart TD
+  subgraph RegionA[Region A]
+    AEdge[Edge A]
+    AMS[Message Service A]
+    ADB[(Message DB A)]
+    AK[(Kafka A)]
+  end
+  subgraph RegionB[Region B]
+    BEdge[Edge B]
+    BMS[Message Service B]
+    BDB[(Message DB B)]
+    BK[(Kafka B)]
+  end
+  UserA[Alice] --> AEdge
+  UserB[Bob] --> BEdge
+  AEdge --> AMS
+  AMS --> ADB
+  AMS --> AK
+  AMS -->|cross region delivery event| BMS
+  BMS --> BEdge
+  ADB -->|async replication| BDB
+  AK -->|selected replicated topics| BK
+`} />
+
+### Region ownership
+
+| Option | Benefit | Cost |
+|---|---|---|
+| User home region | Simple profile and presence ownership | Cross-region chats need routing. |
+| Conversation home region | Strong conversation ordering | Participants far away pay latency. |
+| Active-active per conversation | High availability | Conflict resolution complexity. |
+| Active-passive DR | Easier correctness | Failover time and possible data lag. |
+
+### Security
+
+| Layer | Control |
+|---|---|
+| Transport | TLS for client-edge and service-service. |
+| Payload | End-to-end encrypted message content in WhatsApp-like design. |
+| Auth | Short-lived access tokens, refresh flow, device binding. |
+| Abuse | Rate limits, spam scoring, group invite controls, report flow. |
+| Key management | Device key registration, key rotation, safety number changes. |
+| Privacy | Last-seen settings, block list, audience filters. |
+| Media | Signed URLs, object ACLs, lifecycle deletion. |
+| Payments | Strong authentication, ledger audit, risk checks. |
+
+### Observability
+
+<Mermaid chart={`flowchart LR
+  App[Services] --> Metrics[Metrics]
+  App --> Logs[Structured Logs]
+  App --> Traces[Distributed Traces]
+  App --> Audit[Audit Events]
+  Metrics --> Alert[Alerts]
+  Logs --> Debug[Debugging]
+  Traces --> Latency[Latency Breakdown]
+  Audit --> Compliance[Compliance Review]
+`} />
+
+| Metric | Why |
+|---|---|
+| send ACK latency p50/p95/p99 | User-perceived send health. |
+| delivery latency by online/offline | Delivery pipeline health. |
+| Kafka consumer lag by topic | Async backlog. |
+| WebSocket connections per node | Capacity and imbalance. |
+| heartbeat misses | Network or fleet issue. |
+| DB write latency per shard | Hot shard detection. |
+| duplicate send rate | Client/network retry signal. |
+| push success rate | Offline wake-up reliability. |
+| media upload failure rate | Large-byte path health. |
+| call setup success and ICE failure | Realtime call health. |
+
+### Deployment
+
+| Practice | Reason |
+|---|---|
+| Canary WebSocket nodes | Connection bugs are high blast radius. |
+| Schema migrations backward-compatible | Mobile clients upgrade slowly. |
+| Feature flags | Gradual rollout by region and app version. |
+| Partition-aware autoscaling | Scale hot consumers and shards. |
+| Load shedding | Drop typing/presence before durable messages. |
+| Runbooks | Redis down, Kafka lag, DB hot shard, push provider outage. |
+
+### Failure isolation
+
+<Mermaid chart={`flowchart TD
+  Incident[Incident] --> Class{Classify}
+  Class -->|Cache| Cache[Redis degraded]
+  Class -->|Stream| Stream[Kafka lag or outage]
+  Class -->|Storage| Storage[DB shard issue]
+  Class -->|Edge| Edge[WebSocket node issue]
+  Cache --> D1[Disable presence accuracy rely on sync]
+  Stream --> D2[Outbox accumulates slow side effects]
+  Storage --> D3[Fail writes for affected shard protect durability]
+  Edge --> D4[Reconnect clients to healthy nodes]
+  D1 --> Alert[Alert and observe]
+  D2 --> Alert
+  D3 --> Alert
+  D4 --> Alert
+`} />
+
+---
+
+## Corner cases & what-if Q&A (table of 25)
+
+| # | What if interviewer asks... | Staff answer |
+|---:|---|---|
+| 1 | Alice taps send twice because the network is slow. | Use `clientMsgId` idempotency; duplicate retries return the same `serverMsgId`. |
+| 2 | Message DB commits but Kafka publish fails. | Use transactional outbox; sender ACK can succeed, publisher retries event until Kafka receives it. |
+| 3 | Kafka delivers the same event twice. | Consumers are idempotent by conversationId, seq, recipient/device. |
+| 4 | Bob receives seq 12 before seq 11. | Client buffers or fetches the gap; server sequence is source of display order. |
+| 5 | Redis says Bob is offline but he is online. | Push may be sent unnecessarily; Bob also syncs via WebSocket, no message loss. |
+| 6 | Redis says Bob is online but socket is dead. | Delivery attempt fails; worker retries and client sync repairs. |
+| 7 | A WebSocket node dies with 1M connections. | Clients reconnect with jitter; session registry TTL expires; load balancer spreads reconnects. |
+| 8 | A group has 100K members. | Use hybrid fan-out: active members get write fan-out, inactive members pull from group stream. |
+| 9 | Bob leaves a group while Alice sends. | Membership version or join/left sequence defines who receives the message. |
+| 10 | Sender edits a message. | Store edit event/version with policy checks; deliver as ordered conversation event. |
+| 11 | Sender deletes for everyone. | Store tombstone event; clients render deletion if policy window allows. |
+| 12 | Bob blocks Alice. | Send authorization checks block list before accepting new direct messages. |
+| 13 | Alice sends media and app closes mid-upload. | Resumable upload; message is not finalized until media is uploaded or marked pending. |
+| 14 | CDN is down in one region. | Fallback to origin or alternate CDN, with degraded media download but chat text continues. |
+| 15 | Push provider is down. | Offline users may not wake immediately; durable sync delivers when they open app. |
+| 16 | Kafka lag is high. | Send ACK can still work if DB is healthy; delivery side effects lag; autoscale and shed low priority consumers. |
+| 17 | DB shard is hot. | Split hot conversation buckets, isolate large groups, move partitions, cache metadata, throttle abusive senders. |
+| 18 | Need exactly-once message delivery. | Phones get at-least-once delivery with idempotency; exactly-once end-to-end is not realistic. |
+| 19 | Need global ordering. | Reject requirement; per-conversation ordering is the product invariant. |
+| 20 | Bob has four linked devices. | Encrypt or wrap payload per device, track delivery per device, roll up user-level read state. |
+| 21 | Device keys change. | Fetch latest key bundle, mark safety change, reject stale envelopes if policy requires. |
+| 22 | Search message text under E2E encryption. | Prefer local device index; server plaintext index conflicts with privacy. |
+| 23 | Group call has 30 people. | Use SFU, simulcast/adaptive bitrate, regional routing, participant limits. |
+| 24 | Payment notification is lost. | Ledger remains source of truth; chat message can be retried or reconstructed. |
+| 25 | Region A fails during send. | If commit did not happen, retry to failover region; if committed, replicate/outbox drives recovery depending on RPO. |
+
+---
+
+## Whiteboard diagram + one-page cheat sheet
+
+### Memory sheet
+
+Use the **Memory sheet** image at the top of this page as your last 60-second recall before drawing.
+
+### Whiteboard diagram
+
+Draw this in the interview before diving into details.
+
+<Mermaid chart={`flowchart LR
+  A[Client] -->|WebSocket HTTPS| E[Edge Gateway]
+  E --> M[Message Service]
+  M --> DB[(Message DB)]
+  M --> O[(Outbox)]
+  O --> K[(Kafka Internal)]
+  K --> D[Delivery Workers]
+  D --> R[(Redis Presence)]
+  D -->|online| WS[WebSocket Node]
+  D -->|offline| P[Push Service]
+  WS --> B[Recipient Client]
+  P --> B
+  B -->|sync missed| E
+  MEDIA[Media Upload] --> OBJ[(Object Storage)]
+  OBJ --> CDN[CDN]
+  CALL[Calls] --> SIG[Signaling]
+  SIG --> RTC[WebRTC TURN SFU]
+`} />
+
+### One-page cheat sheet
+
+```text
+Core answer:
+Client -> WS/API Gateway -> Message Service -> Message DB -> Outbox/Kafka -> Delivery -> Redis presence -> WS or Push -> ACK/sync
+
+Never say:
+Phone -> Kafka -> Phone
+
+Ordering:
+conversationId key, serverSeq, per-conversation order only
+
+Idempotency:
+senderId + clientMsgId -> same serverMsgId on retry
+
+Durability:
+persist before delivery; outbox bridges DB and Kafka
+
+Offline:
+push is wake-up, sync API fetches durable messages
+
+Presence:
+Redis TTL is fast but approximate
+
+Groups:
+small = fan-out on write; huge = fan-out on read; real answer = hybrid
+
+Media:
+object storage and CDN; message row stores media reference
+
+Calls:
+WebSocket signaling; WebRTC media; TURN/SFU for NAT/groups
+
+Multi-region:
+user or conversation home region; async replication; failover with clear RPO/RTO
+
+Security:
+TLS, auth, device keys, E2E encrypted payloads, privacy settings, abuse limits
+
+Observability:
+send latency, delivery latency, consumer lag, socket counts, DB hot shards, push success, call setup failures
+```
+
+### Component checklist
+
+| Component | Interview phrase |
+|---|---|
+| Gateway | Terminates client protocols and keeps backend services insulated from mobile connection churn. |
+| Message Service | Owns validation, sequencing, persistence, idempotency. |
+| Message DB | Source of truth for accepted messages. |
+| Outbox | Ensures committed messages eventually become Kafka events. |
+| Kafka | Internal asynchronous bus for delivery and derived work. |
+| Redis | Presence, session routing, rate limits, short-lived coordination. |
+| Delivery Worker | Converts durable events into per-recipient/device attempts. |
+| Push Service | Wakes offline devices, not the message source of truth. |
+| Media Service | Issues upload URLs and stores media metadata. |
+| Call Service | Routes signaling and records call state. |
+
+### If the interviewer challenges scale
+
+| Challenge | Response |
+|---|---|
+| 50M sockets | Stateless WS nodes, sharded session registry, heartbeats, reconnect jitter. |
+| 50B messages/day | Partition DB and Kafka by conversation id, batch consumers, compact receipts. |
+| 5PB media/day | Object storage, CDN, lifecycle, compression, resumable upload. |
+| Huge groups | Hybrid fan-out and receipt compaction. |
+| Region failure | Clear ownership, replication, idempotent retry, degraded cross-region delivery. |
+
+---
+
+## 5 / 15 / 30 minute spoken answers
+
+### 5-minute answer
+
+"I’ll design a WhatsApp-like system, not private WhatsApp internals. The main path is: mobile client connects to an edge gateway over WebSocket for realtime messaging and HTTPS for normal APIs and media upload. When Alice sends Bob a message, the Message Service validates auth and membership, deduplicates using Alice’s `clientMsgId`, assigns a server sequence number for that conversation, persists the encrypted message envelope, and returns a sent ACK. After persistence, an outbox publishes a `MessageCreated` event to Kafka. Kafka is internal only; phones do not talk to Kafka.
+
+Delivery workers consume the event, look up Bob’s online devices in Redis presence, and push over the owning WebSocket nodes. If Bob is offline, the message remains durable and the Push Service sends APNS/FCM as a wake-up. Bob’s client syncs missed messages after reconnect. Delivered and read receipts are separate idempotent updates, usually high-water marks per conversation. For groups, I use fan-out on write for small groups and hybrid/pull for huge groups. Media goes to object storage and CDN, with the message row storing a media reference. Calls use WebSocket signaling and WebRTC media through direct, TURN, or SFU paths."
+
+### 15-minute answer
+
+"I would split the design into edge, core services, data, and workers. Edge has API Gateway, WebSocket Gateway, Upload Gateway, and Call Signaling. Core services include User, Contact, Conversation, Group, Message, Delivery, Media, Status, Search, and Payment if required. Data includes user DB, conversation DB, message DB shards, Redis for presence/session routing, Kafka for internal events, object storage/CDN for media, and search or ledger stores for optional features.
+
+For one-to-one messages, the important invariant is persist before delivery. The client sends a message envelope with `clientMsgId`. The server checks idempotency, gets the next `serverSeq` for the conversation, writes the message and outbox event in one transaction, and ACKs. An outbox publisher writes to Kafka keyed by conversationId so consumers preserve per-conversation order. Delivery workers check Redis for recipient sessions. Online devices get WebSocket delivery; offline devices get push wake-up and later sync. ACKs are idempotent and can be coalesced.
+
+For groups, group metadata and participant membership are versioned. Small groups can create per-recipient inbox tasks on write, which makes reads fast. Very large groups store the message once in the group stream and let recipients pull, with active members possibly receiving fan-out. Ordering is per conversation only. Duplicates are handled by client message id and by idempotent consumers. Redis is not the message store; if Redis fails, presence becomes unknown and sync still works. Kafka is not the client protocol; it decouples backend side effects like delivery, push, indexing, media processing, and metrics."
+
+### 30-minute answer
+
+"I’ll start with requirements: one-to-one and group messaging, offline delivery, receipts, media, voice notes, calls, status, linked devices, privacy, and abuse controls. Non-functional goals are low send ACK latency, high durability, per-conversation ordering, huge socket scale, and graceful degradation. I’ll state that this is a WhatsApp-like industry design and that private internals may differ.
+
+The high-level architecture has clients using WebSocket for realtime, HTTPS for APIs and media, and WebRTC for calls. The Message Service owns the critical write path: authenticate, authorize, dedupe by `(senderId, clientMsgId)`, assign `serverSeq`, persist to Message DB, write an outbox event, and ACK. The outbox publishes to Kafka so DB commit and async delivery do not split-brain. Kafka topics are keyed by conversationId for ordered consumers. Delivery workers transform events into recipient-device delivery attempts. Redis stores presence and session routing with TTLs. If Redis is wrong or unavailable, we degrade to push plus sync because the durable message log is still correct.
+
+For data, messages are partitioned by conversationId and time bucket; users by userId; groups by groupId; media by mediaId; receipts are high-water marks. Direct chats have generated conversation ids. Groups reuse the conversation stream plus membership tables with joinSeq/leftSeq or membership version. Small groups use fan-out on write, large groups use pull or hybrid, and huge receipt details are compacted. Linked devices mean encryption envelopes and delivery state may be per device, while read state can roll up per user.
+
+Media uses object storage and CDN with upload URLs, async transcode, thumbnails, and lifecycle rules. The message contains a media reference, not raw bytes. Typing and presence are ephemeral WebSocket/Redis signals. Live location is a time-bounded stream with recent points in Redis and durable share metadata. Calls use WebSocket signaling to exchange offers, answers, and ICE candidates; media flows through WebRTC peer-to-peer when possible, TURN relay when needed, and SFU for group calls. Kafka does not carry audio/video packets.
+
+For multi-region, I would choose user-home or conversation-home ownership initially, with async replication and explicit failover semantics. Active-active per conversation is possible but increases conflict complexity. Security includes TLS, token auth, device binding, end-to-end encrypted payloads, key rotation, signed media URLs, block lists, rate limits, and payment ledger controls if payments exist. Observability tracks send ACK latency, delivery latency, Kafka lag, socket count, Redis health, DB hot shards, duplicate rate, push success, media failures, and call setup failures. Deployment uses canaries, feature flags, backward-compatible schemas, and load shedding that drops typing before durable messages."
