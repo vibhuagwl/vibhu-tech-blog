@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>CORS Security Demo — API Lab</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+  <h1>Spring Security — CORS lab (API :8091)</h1>
+  <p class="muted">CORS is enforced by the <strong>browser</strong>. Open the frontend from a different origin to see allow vs block.</p>
+
+  <div class="card">
+    <h2>End-to-end setup</h2>
+    <ol>
+      <li>Keep this API running on <code>http://localhost:8091</code></li>
+      <li>Serve the frontend from <code>http://localhost:5500</code>:</li>
+    </ol>
+    <pre>cd spring-cors-demo/frontend
+python3 -m http.server 5500</pre>
+    <p>Then open <a href="http://localhost:5500" target="_blank" rel="noopener">http://localhost:5500</a></p>
+  </div>
+
+  <div class="card">
+    <h2>Allowlist</h2>
+    <p>Only <code>http://localhost:5500</code> is allowed (see <code>cors.allowed-origins</code>).</p>
+    <ul>
+      <li>Allowed origin → browser exposes JSON to JS</li>
+      <li>Evil origin → browser blocks (no usable ACAO)</li>
+      <li>Preflight <code>OPTIONS</code> must succeed before credentialed POST</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Quick curl checks</h2>
+    <pre># Allowed origin — look for Access-Control-Allow-Origin
+curl -i -H "Origin: http://localhost:5500" \
+  http://localhost:8091/api/public/ping
+
+# Blocked origin — no matching ACAO
+curl -i -H "Origin: http://evil.example" \
+  http://localhost:8091/api/public/ping
+
+# Preflight for credentialed POST
+curl -i -X OPTIONS http://localhost:8091/api/transfers \
+  -H "Origin: http://localhost:5500" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: authorization,content-type"</pre>
+  </div>
+</body>
+</html>

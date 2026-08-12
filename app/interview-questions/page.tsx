@@ -33,7 +33,7 @@ const banks=[
     href:'/spring-security',
     label:'Spring Security',
     level:'Staff',
-    blurb:'One hub for OAuth + JWT, Authn + Authz, and IDAnywhere OIDC source demos.',
+    blurb:'One hub for OAuth + JWT, Authn + Authz, CORS Security, and IDAnywhere OIDC source demos.',
   },
   {
     href:'/kafka-interview',
