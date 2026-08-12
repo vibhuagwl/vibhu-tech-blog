@@ -68,6 +68,7 @@ const ORDER=[
   'production-database-change-risk-checklist',
   'spring-secrets-pii-handling',
   'spring-kafka-dlq-payments',
+  'spring-kafka-payments-interview-story',
 ];
 
 export default function RealtimeIssues(){

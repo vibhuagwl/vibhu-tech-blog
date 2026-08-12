@@ -1,0 +1,179 @@
+---
+slug: spring-kafka-payments-interview-story
+title: "Kafka Payments — Interview Storytelling from Real Spring Code"
+description: "Use one Spring Kafka payment flow to answer producer, consumer, offset, retry, DLQ, partition, batching, and failure questions in interviews without sounding theoretical."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Kafka Interview, Spring Kafka, DLQ, Offsets, Producer, Consumer, Payments]
+readingTime: 10 min
+publishedAt: "2026-08-12"
+---
+
+**Base implementation:** [Spring Kafka payments demo](/spring-kafka-payments-demo)  
+**Code-first guide:** [producer + consumer + DLQ page](/realtime-issues/spring-kafka-dlq-payments)
+
+---
+
+## The one story to remember
+
+> I explain Kafka using a payment capture flow. A Spring Boot `payment-api` controller receives `POST /api/payments`, builds a business key like `accountId:paymentId`, and publishes a JSON `PaymentRequestedEvent` to Kafka with idempotence, batching, compression, and a producer transaction enabled. A `settlement-worker` consumes with manual offset commit, retries transient bank failures, sends poison messages to a DLQ, dedupes by `payment_id`, and publishes a result event for both success and failure.
+
+If you can say that cleanly, most Kafka interview follow-ups become easy.
+
+---
+
+## Box — interview memory map
+
+<Mermaid chart={`flowchart TD
+    A[Controller] --> B[Producer]
+    B --> C[Broker]
+    C --> D[Consumer]
+    D --> E{Success?}
+    E -->|Yes| F[Commit offset + publish result]
+    E -->|Retryable| G[Retry handler]
+    E -->|Poison| H[DLQ]
+    D --> I[Idempotency table]
+    B --> J[Batching + compression + custom key]`} />
+
+---
+
+## 30-second answer
+
+> In my Spring Kafka example, the REST controller publishes a payment request with key `accountId:paymentId` so ordering is stable per account. The producer uses `acks=all`, idempotence, compression, batching, and a transaction prefix. The consumer disables auto-commit and manually acknowledges only after settlement succeeds. Transient bank errors retry through `DefaultErrorHandler`; poison events go to a same-partition DLQ through `DeadLetterPublishingRecoverer`. I also dedupe with a processed table so replay or crash recovery doesn’t double-charge.
+
+---
+
+## 90-second answer
+
+> I use a very concrete payment story rather than Kafka theory. A client hits `payment-api`, which validates the request and publishes `PaymentRequestedEvent` to `payment.requested.v1`. I derive the Kafka key from business identity, `accountId:paymentId`, because I want ordering for a customer account and predictable partitioning. On the producer side I enable idempotence, `acks=all`, `linger.ms`, `batch.size`, and `compression.type=zstd`, so the producer accumulator forms batches instead of spraying tiny messages.  
+>
+> On the consumer side, `settlement-worker` uses `enable-auto-commit=false` and `MANUAL_IMMEDIATE` ack mode. That means offsets move only after business logic finishes. If the bank call times out, I throw a retryable exception and let `DefaultErrorHandler` retry. If the payload is poison, I throw a non-retryable exception and publish to a DLT using `DeadLetterPublishingRecoverer`. I also keep a `processed_payments` table keyed by `payment_id` so redelivery doesn’t create duplicate settlement. That gives me a full story from controller to broker to consumer to DLQ with operational controls.
+
+---
+
+## 5-minute answer structure
+
+Use this exact order:
+
+1. **Entry point** — controller receives payment request  
+2. **Producer decision** — custom key, serializer, batching, compression  
+3. **Broker decision** — fixed topic names, intentional partitions, broker limits  
+4. **Consumer decision** — manual commit, assignment strategy, max poll limits  
+5. **Failure handling** — transient retry vs poison DLQ  
+6. **Safety** — idempotence on producer and dedupe on consumer  
+7. **Operational answer** — what I check during lag / poison / duplicate incidents
+
+---
+
+## If interviewer asks “Why custom key?”
+
+Say:
+
+> I key by `accountId:paymentId` because I want same-account ordering and deterministic partition routing. That makes settlement easier to reason about. The tradeoff is hot partitions if one account becomes noisy, so I mention that explicitly.
+
+---
+
+## If interviewer asks “How do offsets work here?”
+
+Say:
+
+> I turn off auto-commit. The listener acknowledges only after processing succeeds. So if the worker crashes before ack, Kafka redelivers, which is why I combine manual commit with idempotent consumer logic using a processed table.
+
+---
+
+## If interviewer asks “How do you handle poison messages?”
+
+Say:
+
+> I classify failures. Transient bank timeout is retryable. Broken payload is not. Retryable exceptions go through `DefaultErrorHandler` with backoff. Non-retryable ones are sent immediately to a same-partition DLQ with `DeadLetterPublishingRecoverer`, so support can inspect or replay later without blocking the main consumer group.
+
+---
+
+## If interviewer asks “What about batching and accumulator?”
+
+Say:
+
+> I don’t explain Kafka internals first. I say my producer sets `linger.ms` and `batch.size`, so the accumulator waits briefly and groups records into larger requests. That improves throughput and works even better with compression like `zstd`.
+
+---
+
+## If interviewer asks “What partition assignment strategy did you use?”
+
+Say:
+
+> I used `CooperativeStickyAssignor` on the consumer because during rolling deploys I want fewer disruptive rebalances and better partition stickiness than eager rebalance behavior.
+
+---
+
+## If interviewer asks “How do you prevent duplicates?”
+
+Say:
+
+> I handle duplicates on both sides. Producer idempotence reduces duplicate publish risk. Consumer side still assumes redelivery can happen, so I protect settlement with a `processed_payments` table keyed by `payment_id`.
+
+---
+
+## Producer-side talking points
+
+| Question | Short answer |
+|---|---|
+| Acks? | `acks=all` because payment events are not fire-and-forget |
+| Idempotence? | enabled to reduce duplicate writes on retry |
+| Compression? | `zstd` to reduce broker/network load |
+| Serializer? | `JsonSerializer` with one shared event contract |
+| Batch creation? | `linger.ms` + `batch.size` |
+| Transactions? | producer transaction around publish path |
+
+---
+
+## Consumer-side talking points
+
+| Question | Short answer |
+|---|---|
+| Commit policy? | manual commit after success |
+| Deserializer? | `JsonDeserializer` with trusted package + default type |
+| Retry? | `DefaultErrorHandler` + fixed backoff |
+| DLQ? | `DeadLetterPublishingRecoverer` to same-partition DLT |
+| Assign policy? | `CooperativeStickyAssignor` |
+| Duplicate safety? | processed table keyed by `payment_id` |
+
+---
+
+## Failure scenarios to say out loud
+
+### 1. Broker slow
+
+> Producer starts buffering in accumulator; batching and compression help, but if broker stays unhealthy, retries increase latency and I watch send rate, request latency, and buffer pressure.
+
+### 2. Consumer crashes after DB call but before ack
+
+> Kafka redelivers. My processed table prevents duplicate settlement.
+
+### 3. One poison event blocks the partition
+
+> I do not keep retrying forever. I classify it non-retryable and move it to DLQ quickly.
+
+### 4. Bank dependency is flaky for 2 minutes
+
+> I retry transient failures a small number of times locally, then DLQ or fail result depending on policy. I do not let one partition stall forever.
+
+### 5. Hot merchant or hot account
+
+> Custom key gives stable ordering, but can hotspot a partition. I call out that tradeoff and would revisit key design or topic partitioning if traffic becomes skewed.
+
+---
+
+## Best one-line answers
+
+- **Producer:** “I publish with business key, idempotence, batching, compression, and transaction prefix.”
+- **Consumer:** “I consume with manual offset commit, retry transient failures, and DLQ poison events.”
+- **Offsets:** “No auto-commit; commit only after success.”
+- **DLQ:** “Same-partition DLT for poison and retry-exhausted records.”
+- **Duplicates:** “Producer idempotence plus consumer-side dedupe.”
+- **Partitioning:** “Custom business key for ordering, with hot-key tradeoff clearly acknowledged.”
+
+---
+
+## Final interview closer
+
+> I avoid talking about Kafka like a glossary. I explain one payment flow end to end — controller, key, producer, topic, consumer, offset, retry, DLQ, dedupe, and operations. That sounds like production ownership, not memorized theory.
