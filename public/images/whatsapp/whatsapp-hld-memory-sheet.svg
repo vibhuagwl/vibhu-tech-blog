@@ -1,0 +1,323 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1280" viewBox="0 0 1800 1280">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .t { font-family: Georgia, 'Times New Roman', serif; }
+      .s { font-family: 'Segoe UI', Tahoma, sans-serif; }
+      .title { font-size: 34px; font-weight: 700; fill: #0f172a; }
+      .sub { font-size: 15px; fill: #475569; }
+      .h { font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .b { font-size: 12px; fill: #1e293b; }
+      .sm { font-size: 11px; fill: #334155; }
+      .tiny { font-size: 10px; fill: #475569; }
+      .inv { font-size: 11px; font-weight: 700; fill: #0f172a; }
+      .muted { fill: #64748b; }
+      .arr { stroke: #334155; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .arrd { stroke: #64748b; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; marker-end: url(#arrowg); }
+    ]]></style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrowg" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <!-- Atmosphere -->
+  <rect width="1800" height="1280" fill="#f8fafc"/>
+  <rect x="0" y="0" width="1800" height="88" fill="#0f172a"/>
+  <text class="t title" x="40" y="42" fill="#f8fafc">WhatsApp-like HLD  Memory Sheet</text>
+  <text class="s sub" x="40" y="68" fill="#94a3b8">One picture: edge · core · data · workers · media · calls · invariants. Interview story: Alice ’ Bob.</text>
+  <text class="s tiny" x="1680" y="55" text-anchor="end" fill="#94a3b8">Staff / Lead recall</text>
+
+  <!-- ========== CLIENTS ========== -->
+  <rect x="24" y="110" width="220" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="110" width="220" height="32" rx="10" fill="#0f172a"/>
+  <rect x="24" y="126" width="220" height="16" fill="#0f172a"/>
+  <text class="s h" x="134" y="132" text-anchor="middle" fill="#f8fafc">CLIENTS</text>
+  <rect x="40" y="156" width="188" height="52" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="134" y="178" text-anchor="middle" font-weight="700">Alice phone</text>
+  <text class="s tiny" x="134" y="196" text-anchor="middle">+ linked devices</text>
+  <rect x="40" y="220" width="188" height="52" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="134" y="242" text-anchor="middle" font-weight="700">Bob phone</text>
+  <text class="s tiny" x="134" y="260" text-anchor="middle">laptop / watch / web</text>
+  <text class="s sm" x="134" y="300" text-anchor="middle">Protocols</text>
+  <text class="s tiny" x="134" y="320" text-anchor="middle">WebSocket · chat realtime</text>
+  <text class="s tiny" x="134" y="338" text-anchor="middle">HTTPS · login / sync / media</text>
+  <text class="s tiny" x="134" y="356" text-anchor="middle">WebRTC · call media</text>
+  <text class="s tiny" x="134" y="374" text-anchor="middle" font-weight="700">Never: phone ’ Kafka</text>
+
+  <!-- ========== EDGE ========== -->
+  <rect x="268" y="110" width="280" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="268" y="110" width="280" height="32" rx="10" fill="#1e3a5f"/>
+  <rect x="268" y="126" width="280" height="16" fill="#1e3a5f"/>
+  <text class="s h" x="408" y="132" text-anchor="middle" fill="#f8fafc">EDGE / GATEWAYS</text>
+  <rect x="284" y="156" width="248" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="174" text-anchor="middle" font-weight="700">API Gateway</text>
+  <text class="s tiny" x="408" y="190" text-anchor="middle">auth · rate limit · REST</text>
+  <rect x="284" y="210" width="248" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="228" text-anchor="middle" font-weight="700">WebSocket Gateway</text>
+  <text class="s tiny" x="408" y="244" text-anchor="middle">sticky / registry · heartbeats</text>
+  <rect x="284" y="264" width="248" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="282" text-anchor="middle" font-weight="700">Upload Gateway</text>
+  <text class="s tiny" x="408" y="298" text-anchor="middle">pre-signed media upload</text>
+  <rect x="284" y="318" width="248" height="50" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="338" text-anchor="middle" font-weight="700">Call Signaling</text>
+  <text class="s tiny" x="408" y="356" text-anchor="middle">offer / answer / ICE over WS</text>
+
+  <!-- arrows clients -> edge -->
+  <path class="arr" d="M244 182 H268"/>
+  <path class="arr" d="M244 246 H268"/>
+
+  <!-- ========== CORE SERVICES ========== -->
+  <rect x="572" y="110" width="340" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="572" y="110" width="340" height="32" rx="10" fill="#14532d"/>
+  <rect x="572" y="126" width="340" height="16" fill="#14532d"/>
+  <text class="s h" x="742" y="132" text-anchor="middle" fill="#f8fafc">CORE SERVICES</text>
+  <rect x="588" y="156" width="150" height="40" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="663" y="181" text-anchor="middle" font-weight="700">User / Auth</text>
+  <rect x="752" y="156" width="144" height="40" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="824" y="181" text-anchor="middle" font-weight="700">Contact</text>
+  <rect x="588" y="206" width="150" height="40" rx="6" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>
+  <text class="s sm" x="663" y="231" text-anchor="middle" font-weight="700">Message </text>
+  <rect x="752" y="206" width="144" height="40" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="824" y="231" text-anchor="middle" font-weight="700">Conversation</text>
+  <rect x="588" y="256" width="150" height="40" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="663" y="281" text-anchor="middle" font-weight="700">Group</text>
+  <rect x="752" y="256" width="144" height="40" rx="6" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>
+  <text class="s sm" x="824" y="281" text-anchor="middle" font-weight="700">Delivery </text>
+  <rect x="588" y="306" width="98" height="36" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s tiny" x="637" y="328" text-anchor="middle" font-weight="700">Media</text>
+  <rect x="696" y="306" width="98" height="36" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s tiny" x="745" y="328" text-anchor="middle" font-weight="700">Call</text>
+  <rect x="804" y="306" width="92" height="36" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s tiny" x="850" y="328" text-anchor="middle" font-weight="700">Status</text>
+  <text class="s tiny" x="742" y="368" text-anchor="middle">Also: Search · Push · Payments · Profile</text>
+  <text class="s tiny" x="742" y="382" text-anchor="middle" font-weight="700">Message owns: validate · seq · persist · idempotency</text>
+
+  <path class="arr" d="M548 230 H572"/>
+
+  <!-- ========== DATA PLANE ========== -->
+  <rect x="936" y="110" width="420" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="936" y="110" width="420" height="32" rx="10" fill="#7c2d12"/>
+  <rect x="936" y="126" width="420" height="16" fill="#7c2d12"/>
+  <text class="s h" x="1146" y="132" text-anchor="middle" fill="#f8fafc">DATA PLANE (source of truth vs cache)</text>
+  <rect x="952" y="156" width="190" height="70" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="2"/>
+  <text class="s b" x="1047" y="180" text-anchor="middle" font-weight="700">Message DB</text>
+  <text class="s tiny" x="1047" y="198" text-anchor="middle">shard by conversationId</text>
+  <text class="s tiny" x="1047" y="214" text-anchor="middle">durable · serverSeq</text>
+  <rect x="1156" y="156" width="184" height="70" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="2"/>
+  <text class="s b" x="1248" y="180" text-anchor="middle" font-weight="700">Outbox + Kafka</text>
+  <text class="s tiny" x="1248" y="198" text-anchor="middle">INTERNAL only</text>
+  <text class="s tiny" x="1248" y="214" text-anchor="middle">key = conversationId</text>
+  <rect x="952" y="240" width="190" height="70" rx="8" fill="#fef3c7" stroke="#a16207" stroke-width="1.5"/>
+  <text class="s b" x="1047" y="264" text-anchor="middle" font-weight="700">Redis</text>
+  <text class="s tiny" x="1047" y="282" text-anchor="middle">presence · session map</text>
+  <text class="s tiny" x="1047" y="298" text-anchor="middle">TTL · NOT message SoT</text>
+  <rect x="1156" y="240" width="184" height="70" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5"/>
+  <text class="s b" x="1248" y="264" text-anchor="middle" font-weight="700">User / Group DB</text>
+  <text class="s tiny" x="1248" y="282" text-anchor="middle">profiles · membership</text>
+  <text class="s tiny" x="1248" y="298" text-anchor="middle">joinSeq / leftSeq</text>
+  <text class="s tiny" x="1146" y="338" text-anchor="middle">Object Storage + CDN (media bytes) · Search index · Payment ledger</text>
+  <text class="s tiny" x="1146" y="358" text-anchor="middle" font-weight="700">Rule: persist Message DB before delivery attempt</text>
+  <text class="s tiny" x="1146" y="376" text-anchor="middle">Redis wrong/down ’ degrade to push + sync (messages still safe)</text>
+
+  <path class="arr" d="M912 226 H936"/>
+
+  <!-- ========== RIGHT RAIL: delivery outcome ========== -->
+  <rect x="1380" y="110" width="396" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="1380" y="110" width="396" height="32" rx="10" fill="#4c1d95"/>
+  <rect x="1380" y="126" width="396" height="16" fill="#4c1d95"/>
+  <text class="s h" x="1578" y="132" text-anchor="middle" fill="#f8fafc">DELIVERY OUTCOME</text>
+  <rect x="1396" y="156" width="364" height="56" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s b" x="1578" y="178" text-anchor="middle" font-weight="700">Online ’ WebSocket node push</text>
+  <text class="s tiny" x="1578" y="196" text-anchor="middle">session registry ’ correct WS pod</text>
+  <rect x="1396" y="226" width="364" height="56" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s b" x="1578" y="248" text-anchor="middle" font-weight="700">Offline ’ Push (APNS / FCM)</text>
+  <text class="s tiny" x="1578" y="266" text-anchor="middle">wake-up only · sync fetches durable msgs</text>
+  <rect x="1396" y="296" width="364" height="72" rx="8" fill="#f5f3ff" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s b" x="1578" y="320" text-anchor="middle" font-weight="700">ACK ticks</text>
+  <text class="s tiny" x="1578" y="338" text-anchor="middle">SENT (persist) ’ DELIVERED (device ACK)</text>
+  <text class="s tiny" x="1578" y="354" text-anchor="middle">’ READ (high-water mark / multi-device)</text>
+
+  <path class="arr" d="M1356 250 H1380"/>
+
+  <!-- ========== ALICE ’ BOB JOURNEY ========== -->
+  <rect x="24" y="412" width="1752" height="150" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="412" width="1752" height="30" rx="10" fill="#0f172a"/>
+  <rect x="24" y="426" width="1752" height="16" fill="#0f172a"/>
+  <text class="s h" x="900" y="433" text-anchor="middle" fill="#f8fafc">ALICE ’ BOB MESSAGE JOURNEY (say this out loud)</text>
+
+  <!-- step boxes -->
+  <rect x="40" y="456" width="150" height="86" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s sm" x="115" y="482" text-anchor="middle" font-weight="700">1. Client</text>
+  <text class="s tiny" x="115" y="502" text-anchor="middle">clientMsgId</text>
+  <text class="s tiny" x="115" y="518" text-anchor="middle">encrypt envelope</text>
+  <text class="s tiny" x="115" y="534" text-anchor="middle">WS send</text>
+
+  <rect x="210" y="456" width="150" height="86" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s sm" x="285" y="482" text-anchor="middle" font-weight="700">2. Gateway</text>
+  <text class="s tiny" x="285" y="502" text-anchor="middle">auth token</text>
+  <text class="s tiny" x="285" y="518" text-anchor="middle">route to</text>
+  <text class="s tiny" x="285" y="534" text-anchor="middle">Message Svc</text>
+
+  <rect x="380" y="456" width="170" height="86" rx="8" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>
+  <text class="s sm" x="465" y="482" text-anchor="middle" font-weight="700">3. Persist </text>
+  <text class="s tiny" x="465" y="502" text-anchor="middle">idempotency check</text>
+  <text class="s tiny" x="465" y="518" text-anchor="middle">serverSeq + DB write</text>
+  <text class="s tiny" x="465" y="534" text-anchor="middle">outbox + SENT ACK</text>
+
+  <rect x="570" y="456" width="150" height="86" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5"/>
+  <text class="s sm" x="645" y="482" text-anchor="middle" font-weight="700">4. Kafka</text>
+  <text class="s tiny" x="645" y="502" text-anchor="middle">MessageCreated</text>
+  <text class="s tiny" x="645" y="518" text-anchor="middle">partition key</text>
+  <text class="s tiny" x="645" y="534" text-anchor="middle">= conversationId</text>
+
+  <rect x="740" y="456" width="160" height="86" rx="8" fill="#bbf7d0" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="820" y="482" text-anchor="middle" font-weight="700">5. Delivery</text>
+  <text class="s tiny" x="820" y="502" text-anchor="middle">consume event</text>
+  <text class="s tiny" x="820" y="518" text-anchor="middle">devices for Bob</text>
+  <text class="s tiny" x="820" y="534" text-anchor="middle">fan-out attempts</text>
+
+  <rect x="920" y="456" width="150" height="86" rx="8" fill="#fef3c7" stroke="#a16207" stroke-width="1.5"/>
+  <text class="s sm" x="995" y="482" text-anchor="middle" font-weight="700">6. Presence</text>
+  <text class="s tiny" x="995" y="502" text-anchor="middle">Redis lookup</text>
+  <text class="s tiny" x="995" y="518" text-anchor="middle">online sessions</text>
+  <text class="s tiny" x="995" y="534" text-anchor="middle">or offline</text>
+
+  <rect x="1090" y="456" width="150" height="86" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s sm" x="1165" y="482" text-anchor="middle" font-weight="700">7a. Online</text>
+  <text class="s tiny" x="1165" y="502" text-anchor="middle">WS node push</text>
+  <text class="s tiny" x="1165" y="518" text-anchor="middle">device ACK</text>
+  <text class="s tiny" x="1165" y="534" text-anchor="middle">’ DELIVERED</text>
+
+  <rect x="1260" y="456" width="150" height="86" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s sm" x="1335" y="482" text-anchor="middle" font-weight="700">7b. Offline</text>
+  <text class="s tiny" x="1335" y="502" text-anchor="middle">pending stays</text>
+  <text class="s tiny" x="1335" y="518" text-anchor="middle">in Message DB</text>
+  <text class="s tiny" x="1335" y="534" text-anchor="middle">+ push wake</text>
+
+  <rect x="1430" y="456" width="150" height="86" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s sm" x="1505" y="482" text-anchor="middle" font-weight="700">8. Sync</text>
+  <text class="s tiny" x="1505" y="502" text-anchor="middle">reconnect pull</text>
+  <text class="s tiny" x="1505" y="518" text-anchor="middle">missed msgs</text>
+  <text class="s tiny" x="1505" y="534" text-anchor="middle">by serverSeq</text>
+
+  <rect x="1600" y="456" width="156" height="86" rx="8" fill="#fce7f3" stroke="#be185d" stroke-width="1.5"/>
+  <text class="s sm" x="1678" y="482" text-anchor="middle" font-weight="700">9. Read</text>
+  <text class="s tiny" x="1678" y="502" text-anchor="middle">read receipt</text>
+  <text class="s tiny" x="1678" y="518" text-anchor="middle">HWM update</text>
+  <text class="s tiny" x="1678" y="534" text-anchor="middle">’ blue ticks</text>
+
+  <!-- tiny arrows between steps -->
+  <path class="arr" d="M190 499 H210"/>
+  <path class="arr" d="M360 499 H380"/>
+  <path class="arr" d="M550 499 H570"/>
+  <path class="arr" d="M720 499 H740"/>
+  <path class="arr" d="M900 499 H920"/>
+  <path class="arr" d="M1070 499 H1090"/>
+  <path class="arr" d="M1240 499 H1260"/>
+  <path class="arr" d="M1410 499 H1430"/>
+  <path class="arr" d="M1580 499 H1600"/>
+
+  <!-- ========== BOTTOM GRID: 4 panels ========== -->
+  <!-- Groups -->
+  <rect x="24" y="584" width="420" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="584" width="420" height="28" rx="10" fill="#166534"/>
+  <rect x="24" y="598" width="420" height="14" fill="#166534"/>
+  <text class="s h" x="234" y="604" text-anchor="middle" fill="#f8fafc">GROUPS</text>
+  <text class="s sm" x="44" y="640" font-weight="700">Small group ’ fan-out on write</text>
+  <text class="s tiny" x="44" y="658">1 message write ’ N inbox delivery tasks</text>
+  <text class="s sm" x="44" y="684" font-weight="700">Huge group ’ fan-out on read / hybrid</text>
+  <text class="s tiny" x="44" y="702">store once in group stream · active pull</text>
+  <text class="s sm" x="44" y="728" font-weight="700">Membership safety</text>
+  <text class="s tiny" x="44" y="746">joinSeq / leftSeq · membership version</text>
+  <text class="s tiny" x="44" y="764">dont deliver after leave · hot partitions</text>
+  <text class="s tiny" x="44" y="786" font-weight="700">Receipts: compact for mega-groups</text>
+
+  <!-- Media & realtime -->
+  <rect x="460" y="584" width="420" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="460" y="584" width="420" height="28" rx="10" fill="#9a3412"/>
+  <rect x="460" y="598" width="420" height="14" fill="#9a3412"/>
+  <text class="s h" x="670" y="604" text-anchor="middle" fill="#f8fafc">MEDIA · VOICE · TYPING · LOCATION</text>
+  <text class="s sm" x="480" y="640" font-weight="700">Media path</text>
+  <text class="s tiny" x="480" y="658">pre-sign ’ Object Storage ’ CDN</text>
+  <text class="s tiny" x="480" y="674">message row stores mediaId / URL ref</text>
+  <text class="s tiny" x="480" y="690" font-weight="700">Kafka never carries image/video bytes</text>
+  <text class="s sm" x="480" y="716" font-weight="700">Voice note = media + waveform meta</text>
+  <text class="s sm" x="480" y="740" font-weight="700">Typing / presence = ephemeral</text>
+  <text class="s tiny" x="480" y="758">WS + Redis TTL · drop under load OK</text>
+  <text class="s sm" x="480" y="782" font-weight="700">Live location = time-bounded stream</text>
+
+  <!-- Calls -->
+  <rect x="896" y="584" width="420" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="896" y="584" width="420" height="28" rx="10" fill="#5b21b6"/>
+  <rect x="896" y="598" width="420" height="14" fill="#5b21b6"/>
+  <text class="s h" x="1106" y="604" text-anchor="middle" fill="#f8fafc">CALLS (WebRTC)</text>
+  <text class="s sm" x="916" y="640" font-weight="700">Signaling over WebSocket</text>
+  <text class="s tiny" x="916" y="658">invite · offer · answer · ICE · hangup</text>
+  <text class="s sm" x="916" y="684" font-weight="700">Media path separate from chat</text>
+  <text class="s tiny" x="916" y="702">P2P when possible · TURN for NAT</text>
+  <text class="s tiny" x="916" y="718">SFU for group calls (N:N ’ N:1:N)</text>
+  <text class="s sm" x="916" y="744" font-weight="700">Call Service records state / metrics</text>
+  <text class="s tiny" x="916" y="762">not the audio/video pipe</text>
+  <text class="s tiny" x="916" y="786" font-weight="700">Never put RTP packets on Kafka</text>
+
+  <!-- Scale / region / security -->
+  <rect x="1332" y="584" width="444" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="1332" y="584" width="444" height="28" rx="10" fill="#1e3a5f"/>
+  <rect x="1332" y="598" width="444" height="14" fill="#1e3a5f"/>
+  <text class="s h" x="1554" y="604" text-anchor="middle" fill="#f8fafc">SCALE · REGION · SECURITY · OPS</text>
+  <text class="s sm" x="1352" y="640" font-weight="700">Sharding</text>
+  <text class="s tiny" x="1352" y="656">messages by conversationId · users by userId</text>
+  <text class="s tiny" x="1352" y="672">hot chats ’ split / salt / dedicated pools</text>
+  <text class="s sm" x="1352" y="696" font-weight="700">Multi-region</text>
+  <text class="s tiny" x="1352" y="712">home region (user or convo) · async repl</text>
+  <text class="s tiny" x="1352" y="728">clear RPO/RTO · idempotent failover</text>
+  <text class="s sm" x="1352" y="752" font-weight="700">Security</text>
+  <text class="s tiny" x="1352" y="768">TLS · JWT/device · E2EE payloads · abuse limits</text>
+  <text class="s sm" x="1352" y="788" font-weight="700">SLOs: send ACK · delivery · Kafka lag · sockets</text>
+
+  <!-- ========== INVARIANTS BAR ========== -->
+  <rect x="24" y="824" width="1752" height="120" rx="10" fill="#0f172a"/>
+  <text class="s h" x="900" y="852" text-anchor="middle" fill="#f8fafc">FIVE INVARIANTS (memorize)</text>
+  <text class="s inv" x="60" y="888" fill="#86efac">1. Persist before delivery</text>
+  <text class="s inv" x="380" y="888" fill="#93c5fd">2. Idempotency = sender + clientMsgId</text>
+  <text class="s inv" x="820" y="888" fill="#fcd34d">3. Order per conversation only</text>
+  <text class="s inv" x="1220" y="888" fill="#c4b5fd">4. Presence is ephemeral (Redis)</text>
+  <text class="s inv" x="60" y="920" fill="#fda4af">5. Kafka is internal S2S  phones use WS / HTTPS / WebRTC</text>
+  <text class="s tiny" x="900" y="928" text-anchor="end" fill="#94a3b8"> </text>
+
+  <!-- ========== FAILURES + CHEAT ========== -->
+  <rect x="24" y="964" width="860" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="964" width="860" height="28" rx="10" fill="#7f1d1d"/>
+  <rect x="24" y="978" width="860" height="14" fill="#7f1d1d"/>
+  <text class="s h" x="454" y="984" text-anchor="middle" fill="#f8fafc">WHAT-IF FAILURES (fast answers)</text>
+  <text class="s sm" x="44" y="1020" font-weight="700">Message Service crash after DB write</text>
+  <text class="s tiny" x="44" y="1036">outbox republishes · client retry safe via clientMsgId</text>
+  <text class="s sm" x="44" y="1060" font-weight="700">Kafka lag / broker down</text>
+  <text class="s tiny" x="44" y="1076">messages already durable · catch-up delivery · DLQ for poison</text>
+  <text class="s sm" x="44" y="1100" font-weight="700">Redis down</text>
+  <text class="s tiny" x="44" y="1116">treat as unknown presence ’ push + sync · dont lose chat</text>
+  <text class="s sm" x="44" y="1140" font-weight="700">WebSocket node dies</text>
+  <text class="s tiny" x="44" y="1156">clients reconnect with jitter · registry TTL expires · re-route</text>
+  <text class="s sm" x="44" y="1180" font-weight="700">Duplicate send / double delivery</text>
+  <text class="s tiny" x="44" y="1196">idempotent write + idempotent consumer / ACK</text>
+  <text class="s sm" x="44" y="1220" font-weight="700">Hot group / celebrity chat</text>
+  <text class="s tiny" x="44" y="1236">hybrid fan-out · shard · receipt compaction · rate limits</text>
+
+  <rect x="900" y="964" width="876" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="900" y="964" width="876" height="28" rx="10" fill="#0f172a"/>
+  <rect x="900" y="978" width="876" height="14" fill="#0f172a"/>
+  <text class="s h" x="1338" y="984" text-anchor="middle" fill="#f8fafc">ONE-BREATH CHEAT LINE + EXTRAS</text>
+  <text class="s sm" x="920" y="1024" font-weight="700">Core sentence</text>
+  <text class="s tiny" x="920" y="1044">Client ’ WS/API GW ’ Message Svc ’ Message DB ’ Outbox/Kafka</text>
+  <text class="s tiny" x="920" y="1060">’ Delivery ’ Redis presence ’ WS or Push ’ ACK / sync</text>
+  <text class="s sm" x="920" y="1090" font-weight="700">Also on the whiteboard</text>
+  <text class="s tiny" x="920" y="1108">Status (24h TTL) · Broadcast lists · Linked devices · Search</text>
+  <text class="s tiny" x="920" y="1124">Polls · Events bus · Payments (webhook idempotency)</text>
+  <text class="s sm" x="920" y="1154" font-weight="700">Load shed order</text>
+  <text class="s tiny" x="920" y="1172">drop typing first · keep durable message path</text>
+  <text class="s sm" x="920" y="1196" font-weight="700">Never say</text>
+  <text class="s tiny" x="920" y="1214">phone publishes to Kafka · Redis is the message store</text>
+  <text class="s tiny" x="920" y="1230">global total order for all chats · push stores the message</text>
+</svg>

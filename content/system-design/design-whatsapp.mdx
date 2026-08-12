@@ -18,9 +18,15 @@ This is a **WhatsApp-like industry design**, not a claim about private WhatsApp 
 
 | If you have | Read these sections | Goal |
 |---|---|---|
-| 5 minutes | Story, architecture, cheat sheet, spoken answer | Deliver a crisp Staff-level answer. |
+| 5 minutes | Memory sheet + story + spoken answer | Deliver a crisp Staff-level answer. |
 | 15 minutes | Add protocols, one-to-one, groups, offline, Kafka, Redis | Handle the first wave of follow-ups. |
 | 30 minutes | Add sharding, multi-region, media, calls, failures, Q&A | Drive the interview instead of reacting. |
+
+### Memory sheet (one image — all components)
+
+Spend 60 seconds on this before the interview. Trace Alice → Bob left-to-right, then skim the bottom panels (groups, media, calls, scale) and the five invariants bar.
+
+![WhatsApp-like HLD memory sheet covering clients, edge, core services, data plane, delivery, Alice→Bob journey, groups, media, calls, scale, invariants, and failures](/images/whatsapp/whatsapp-hld-memory-sheet.svg)
 
 ### Mental model
 
@@ -1696,6 +1702,10 @@ Start simple: route each user to a home region, keep direct conversations in an 
 ---
 
 ## Whiteboard diagram + one-page cheat sheet
+
+### Memory sheet
+
+Use the **Memory sheet** image at the top of this page as your last 60-second recall before drawing.
 
 ### Whiteboard diagram
 
