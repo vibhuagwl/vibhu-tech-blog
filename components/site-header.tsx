@@ -63,7 +63,7 @@ export default function SiteHeader(){
             href="/learn"
             className={`rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-900 dark:hover:text-white ${linkActive(pathname,'/learn')?'bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-white':''}`}
           >
-            Learn
+            Learning Paths
           </Link>
 
           <div className="relative">
@@ -101,7 +101,7 @@ export default function SiteHeader(){
             href="/interview-questions"
             className={`rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-900 dark:hover:text-white ${linkActive(pathname,'/interview-questions')?'bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-white':''}`}
           >
-            Interview
+            Interview Practice
           </Link>
           <Link
             href="/about"
@@ -126,8 +126,8 @@ export default function SiteHeader(){
       {open && (
         <div className="border-t border-slate-200 bg-white md:hidden dark:border-slate-800 dark:bg-slate-950">
           <nav className="mx-auto max-h-[calc(100vh-4rem)] max-w-[1400px] space-y-1 overflow-y-auto px-5 py-4" aria-label="Mobile">
-            <Link href="/learn" className="block rounded-lg px-3 py-3 text-sm font-semibold">Learn</Link>
-            <Link href="/interview-questions" className="block rounded-lg px-3 py-3 text-sm font-semibold">Interview</Link>
+            <Link href="/learn" className="block rounded-lg px-3 py-3 text-sm font-semibold">Learning Paths</Link>
+            <Link href="/interview-questions" className="block rounded-lg px-3 py-3 text-sm font-semibold">Interview Practice</Link>
             <Link href="/search" className="block rounded-lg px-3 py-3 text-sm font-semibold">Search</Link>
             <Link href="/about" className="block rounded-lg px-3 py-3 text-sm font-semibold">About</Link>
             <div className="pt-3 text-[11px] font-semibold uppercase tracking-[.14em] text-slate-500">Topics</div>
