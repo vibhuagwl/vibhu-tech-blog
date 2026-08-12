@@ -1,0 +1,43 @@
+---
+slug: kafka-optimization-index
+title: "Kafka Optimization & Performance"
+description: "Tune producer, consumer, broker, and cluster for throughput and latency — without treating configs as isolated knobs."
+category: "Kafka Interview"
+difficulty: Senior
+tags: [Kafka, Optimization, Performance, Producer, Consumer]
+readingTime: 6 min
+publishedAt: "2026-08-12"
+---
+
+# Kafka Optimization & Performance
+
+## Memory formula
+
+```text
+BATCH → COMPRESS → SEND → RETRY     (producer)
+POLL → PROCESS → COMMIT             (consumer)
+CPU · DISK · NET · PAGE CACHE       (broker)
+PARTITIONS · RF · LEADERS · RACK    (cluster)
+```
+
+## Tracks
+
+| Track | Start here | Deep links |
+| --- | --- | --- |
+| **Producer** | [Producer optimization](/kafka-interview/kafka-optimization-producer) | [batch.size](/kafka-interview/kafka-config-batch-size), [Producer interview](/kafka-interview/kafka-producer-interview) |
+| **Consumer** | [Consumer optimization](/kafka-interview/kafka-optimization-consumer) | [max.poll.records](/kafka-interview/kafka-config-max-poll-records), [lag](/kafka-interview/kafka-experience-consumer-lag) |
+| **Broker** | Disk, network, replica fetchers, page cache | [Architecture](/kafka-interview/kafka-architecture-interview) |
+| **Cluster** | Partition count, RF, ISR, leader balance | [Performance & scaling](/kafka-interview/kafka-performance-scaling-interview) |
+
+## How to use this section
+
+1. **Identify the bottleneck** (producer CPU, consumer lag, broker disk, network).
+2. **Change one layer** with a hypothesis.
+3. **Measure** before claiming victory.
+4. **Read the config detail** for the property — not a second copy of the same essay in Knowledge.
+
+## Related
+
+- [Configuration reference](/kafka-interview/kafka-configuration-index)
+- [Troubleshooting](/kafka-interview/kafka-troubleshooting-index)
+- [Cheat sheet](/kafka-interview/kafka-cheat-sheet)

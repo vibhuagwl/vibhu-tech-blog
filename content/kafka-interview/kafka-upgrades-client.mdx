@@ -1,0 +1,101 @@
+---
+slug: kafka-upgrades-client
+title: "Kafka Client / JAR Upgrade Guide"
+description: "Practical dependency upgrade workflow for kafka-clients with Java/Spring compatibility checks, testing stages, canary, and rollback — version numbers only when known."
+category: "Kafka Interview"
+difficulty: Principal
+tags: [Kafka, Upgrade, Compatibility, kafka-clients, Spring Kafka]
+readingTime: 10 min
+publishedAt: "2026-08-12"
+---
+
+## Why are we upgrading?
+
+Typical drivers:
+
+- security fixes
+- broker compatibility
+- Spring Boot / Spring Kafka BOM alignment
+- bug fixes in the client
+- performance improvements you can measure
+
+## Current → target
+
+Document explicitly in the change ticket:
+
+```text
+Current: kafka-clients X (and Spring Kafka / Boot versions)
+Target:  kafka-clients Y (and aligned Spring stack if required)
+Java:    current runtime version
+Broker:  current broker version
+```
+
+Do not assume X→Y is safe without checking release notes for **your** versions.
+
+## What can break?
+
+1. Java compatibility
+2. Spring Boot compatibility
+3. Spring Kafka compatibility
+4. Transitive dependency conflicts
+5. Removed / deprecated APIs
+6. Configuration behavior changes
+7. Serialization / deserializer defaults
+8. Security / TLS / SASL changes
+9. Performance regressions
+10. Test doubles and embedded Kafka versions
+
+## Dependency analysis checklist
+
+```text
+1. Java compatibility
+2. Spring Boot compatibility
+3. Spring Kafka compatibility
+4. Transitive dependencies
+5. Removed APIs
+6. Deprecated APIs
+7. Configuration changes
+8. Serialization behavior
+9. Security changes
+10. Performance changes
+```
+
+## Pipeline
+
+```text
+BUILD
+→ UNIT TEST
+→ INTEGRATION TEST
+→ CONTRACT TEST
+→ PERFORMANCE TEST
+→ REGRESSION
+→ CANARY
+→ PRODUCTION
+→ MONITOR
+```
+
+## Canary signals
+
+- produce / consume error rates
+- rebalance rate
+- lag
+- p99 processing latency
+- GC / CPU on producers and consumers
+
+## Rollback
+
+Keep:
+
+- previous artifact version ready
+- config rollback notes
+- broker change freeze if client-only upgrade
+- clear “abort canary” criteria
+
+## Interview answer
+
+> I treat Kafka upgrades as a dependency chain — Boot, Spring Kafka, client, broker, Java. I verify release notes for our versions, run integration and performance tests, canary on one service, watch lag and error rates, and keep a rollback artifact ready.
+
+## Related
+
+- [Upgrades hub](/kafka-interview/kafka-upgrades-index)
+- [Schema compatibility](/kafka-interview/kafka-microservices-schema-interview)

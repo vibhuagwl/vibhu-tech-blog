@@ -1,0 +1,74 @@
+---
+slug: kafka-config-batch-size
+title: "batch.size — Producer Configuration Detail"
+description: "What batch.size does, when to increase or decrease it, trade-offs with linger.ms, production risks, and interview tips — without rewriting producer theory."
+category: "Kafka Interview"
+difficulty: Senior
+tags: [Kafka, Configuration, Producer, batch.size, Optimization]
+readingTime: 7 min
+publishedAt: "2026-08-12"
+---
+
+## Category
+
+Producer
+
+## Purpose
+
+Controls the maximum size (bytes) of a produce batch for a partition before the producer sends it (subject to `linger.ms` and other send triggers).
+
+## Why it matters
+
+Larger batches usually mean:
+
+- better compression efficiency
+- fewer requests
+- higher throughput
+
+at the cost of:
+
+- more memory
+- higher end-to-end latency while waiting to fill
+
+## When to increase
+
+- Throughput is the bottleneck
+- Compression ratio is poor on tiny batches
+- Network is chatty (many small requests)
+
+## When not to increase
+
+- Strict p99 produce latency SLOs
+- Memory-constrained producers
+- Very low message rate (batches never fill anyway — tune `linger.ms` deliberately)
+
+## Trade-off
+
+```text
+Throughput ↑
+Memory usage ↑
+Latency (often) ↑
+```
+
+## Related settings
+
+- `linger.ms` — wait time to help fill batches
+- `compression.type` — benefits from larger batches
+- `buffer.memory` — total producer buffer budget
+- `acks` — durability cost per batch send
+
+Deep performance framing: [Producer optimization](/kafka-interview/kafka-optimization-producer)
+
+Concept / interview framing: [Producer interview](/kafka-interview/kafka-producer-interview)
+
+## Real-world story
+
+A payments producer had high request rate and mediocre throughput. Raising `batch.size` with a small `linger.ms` improved compression and cut broker request rate — but a second change that set a large linger broke a latency SLO. The win was **batch size + measured linger**, not maxing both.
+
+## Interview tip
+
+Say: “`batch.size` is a throughput knob that trades memory and latency. I always pair it with `linger.ms` and measure produce p99.”
+
+## Cheat sheet line
+
+`batch.size` → max bytes per produce batch (throughput vs memory/latency).

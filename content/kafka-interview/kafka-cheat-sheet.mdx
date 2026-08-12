@@ -1,0 +1,85 @@
+---
+slug: kafka-cheat-sheet
+title: "Kafka Cheat Sheet"
+description: "One-page Kafka recall: architecture, producer, consumer, broker, performance, troubleshooting, reliability, and interview hooks — memory-first formulas."
+category: "Kafka Interview"
+difficulty: Senior
+tags: [Kafka, Cheat Sheet, Revision, Interview, Recall]
+readingTime: 5 min
+publishedAt: "2026-08-12"
+---
+
+## Architecture
+
+```text
+Broker → Topic → Partition → Replica
+Leader serves reads/writes · Followers replicate · ISR = caught-up set
+```
+
+## Producer
+
+```text
+BATCH → COMPRESS → SEND → RETRY
+```
+
+- `acks` · `batch.size` · `linger.ms` · compression · retries · idempotence
+
+Detail: [batch.size](/kafka-interview/kafka-config-batch-size) · [Producer opt](/kafka-interview/kafka-optimization-producer)
+
+## Consumer
+
+```text
+POLL → PROCESS → COMMIT
+```
+
+- group · offset · `max.poll.records` · `max.poll.interval.ms` · session timeout
+
+Detail: [max.poll.records](/kafka-interview/kafka-config-max-poll-records) · [Consumer groups](/kafka-interview/kafka-knowledge-consumer-groups)
+
+## Broker / cluster
+
+- replication · ISR · leader · controller / KRaft · disk · network · page cache
+
+## Performance
+
+```text
+Throughput ↔ Latency
+Batching · Compression · Partitioning · Consumer count ≤ partitions
+```
+
+## Troubleshooting
+
+```text
+METRIC → LOG → ROOT CAUSE → FIX
+```
+
+Lag · Rebalance · ISR · Disk · CPU · Network
+
+Playbook: [Lag](/kafka-interview/kafka-troubleshooting-consumer-lag)
+
+## Reliability
+
+```text
+REPLICATE → ACK → RECOVER
+```
+
+Replication · `acks` · idempotence · transactions (when needed)
+
+## Upgrade
+
+```text
+DEPENDENCY → CODE → TEST → CANARY → ROLLBACK
+```
+
+## Interview hooks
+
+- Architecture trade-offs
+- Failure scenarios
+- Scaling partitions vs consumers
+- Exactly-once realities
+
+## Revision modes
+
+- [1-minute revision](/kafka-interview/kafka-one-minute-revision)
+- [5-minute interview revision](/kafka-interview/kafka-five-minute-revision)
+- Full banks: [Staff+ index](/kafka-interview/kafka-staff-principal-interview-index)

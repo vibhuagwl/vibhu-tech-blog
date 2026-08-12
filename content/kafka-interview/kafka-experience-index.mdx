@@ -1,0 +1,61 @@
+---
+slug: kafka-experience-index
+title: "Kafka Real-World Experience — Production Incident Map"
+description: "Production Kafka experience hub: consumer lag, rebalances, duplication, disk pressure, ordering, DLQ recovery — separate from fundamentals so stories stay focused."
+category: "Kafka Interview"
+difficulty: Principal
+tags: [Kafka, Experience, Production, Incident, Interview]
+readingTime: 8 min
+publishedAt: "2026-08-12"
+---
+
+## Why this section is separate
+
+Fundamentals teach **how Kafka works**.
+
+This section teaches **how Kafka behaves when money, latency, and on-call pressure are real**.
+
+Do not bury incidents inside beginner definitions.
+
+## Experience map
+
+| Incident type | Start here |
+|---|---|
+| Consumer lag | [Lag incident walkthrough](/kafka-interview/kafka-experience-consumer-lag) |
+| Rebalance storms | [Rebalance incident](/kafka-interview/kafka-experience-rebalance) |
+| Failure scenarios bank | [Failure scenarios interview](/kafka-interview/kafka-failure-scenarios-interview) |
+| Poison / DLQ | [DLQ interview](/kafka-interview/kafka-dlq-poison-message-interview) |
+| Payments / EOS | [Transactions & payments](/kafka-interview/kafka-transactions-payments-interview) |
+| Scenario drills | [Staff+ drills](/kafka-interview/kafka-scenario-drills-staff-plus) |
+
+## Incident template used here
+
+```text
+INCIDENT
+  ↓
+BUSINESS IMPACT
+  ↓
+SYMPTOMS
+  ↓
+INVESTIGATION
+  ↓
+ROOT CAUSE
+  ↓
+DECISION
+  ↓
+IMPLEMENTATION
+  ↓
+VALIDATION
+  ↓
+RESULT
+  ↓
+PREVENTION
+  ↓
+INTERVIEW VERSION
+```
+
+## Related
+
+- Fundamentals → [Knowledge](/kafka-interview/kafka-knowledge-index)
+- Symptom playbooks → [Troubleshooting](/kafka-interview/kafka-troubleshooting-index)
+- Spoken answers → [Interview](/kafka-interview/kafka-staff-principal-interview-index)
