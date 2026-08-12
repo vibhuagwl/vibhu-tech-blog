@@ -25,6 +25,117 @@ Symptom (API p95 / stuck threads / Hikari pending)
   -> mitigate (kill blocker / cancel SQL / scale) then permanent fix
 ```
 
+## Box diagram — types of Oracle troubleshooting I do
+
+<Mermaid chart={`flowchart TB
+    subgraph SYM["App symptom"]
+      A["API p95 / 504 / Hikari timeout / stuck threads in JDBC"]
+    end
+
+    subgraph TRIAGE["First 2 minutes"]
+      B["v$session ACTIVE\nevent + sql_id + blocking_session"]
+    end
+
+    A --> B
+
+    B -->|blocking_session set| L["Locks / blocking\nenq: TX"]
+    B -->|same sql_id + IO/CPU| P["Slow SQL / bad plan\nfull scan, skew, stats"]
+    B -->|log file sync| C["Commit / redo latency\ntiny commits"]
+    B -->|sessions / pool full| D["Pool vs Oracle sessions\nleak or oversized pool"]
+    B -->|ORA-01653| F["Tablespace / unable to extend"]
+
+    L --> Lfix["Fix: txn boundary\nkill only as bridge"]
+    P --> Pfix["Fix: DISPLAY_CURSOR\nindex + gather stats"]
+    C --> Cfix["Fix: batch commit"]
+    D --> Dfix["Fix: close leaks\npod × pool math"]
+    F --> Ffix["Fix: add space\nretention purge"]
+`} />
+
+## Box diagram — Java → Oracle path I reason about
+
+<Mermaid chart={`flowchart LR
+    Client["Client / Gateway"] --> API["Spring Boot API"]
+    API --> Hikari["HikariCP pool"]
+    Hikari --> JDBC["Oracle JDBC"]
+    JDBC --> Sess["v$session"]
+    Sess --> SQL["v$sql / sql_id"]
+    Sess --> Wait["wait event / class"]
+    SQL --> Plan["DISPLAY_CURSOR"]
+    Wait --> Lock["lock tree"]
+    Wait --> Redo["log file sync"]
+    Plan --> Stats["stats / skew / index"]
+`} />
+
+## Sequence — first-response investigation
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor Oncall
+    participant App as Spring / Hikari / jstack
+    participant Ora as v$session
+    participant SQL as v$sql / ASH
+    participant Next as Case A–F playbook
+
+    Oncall->>App: Capture route, p95, error, thread dump
+    Oncall->>Ora: ACTIVE users — event, wait_class, sql_id, blocking_session
+    Oncall->>SQL: sql_text for hot sql_id
+
+    alt enq TX / blocking_session
+        Oncall->>Next: Case B — blocking tree + txn fix
+    else High avg_ms / buffer_gets
+        Oncall->>Next: Case A — plan, skew, index
+    else log file sync
+        Oncall->>Next: Case C — batch commits
+    else sessions at limit / Hikari pending
+        Oncall->>Next: Case D — pool math / leaks
+    else ORA-01653
+        Oncall->>Next: Case F — tablespace
+    end
+`} />
+
+## Sequence — Case A (slow SQL that used to be fast)
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant Oncall
+    participant VSQL as v$sql
+    participant XPLAN as DISPLAY_CURSOR
+    participant Data as stats / skew
+    participant Fix as index + gather stats
+    participant API as Payment API
+
+    Oncall->>VSQL: avg_ms + gets_per_exec
+    Oncall->>XPLAN: ALLSTATS LAST
+    Note over XPLAN: FULL scan / huge buffers
+    Oncall->>Data: STATUS skew + last_analyzed
+    Oncall->>Fix: targeted index + DBMS_STATS
+    Oncall->>XPLAN: prove INDEX RANGE SCAN
+    Oncall->>API: p95 + Hikari pending OK
+`} />
+
+## Sequence — Case B (row lock / stuck checkout)
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant User
+    participant App as Spring @Transactional
+    participant DB as Oracle row lock
+    participant Other as Other sessions
+    participant Oncall
+
+    User->>App: processPayment
+    App->>DB: SELECT … FOR UPDATE
+    App->>App: HTTP gateway call while txn open
+    Note over DB: Row lock held
+    Other->>DB: Same row / related SQL
+    DB-->>Other: enq: TX wait → API timeout
+    Oncall->>DB: Blocking tree from v$session
+    Oncall->>App: Move HTTP outside txn
+    opt Bridge only
+        Oncall->>DB: KILL SESSION blocker
+    end
+`} />
+
 ## Incident kit — run these first (2 minutes)
 
 ### 1) Who is active right now?
