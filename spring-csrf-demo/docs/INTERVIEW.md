@@ -1,20 +1,30 @@
 # CSRF interview talk track
 
-## What CSRF is
+## Live example (memorize the URLs)
 
-Cross-Site Request Forgery: attacker site tricks the victim's browser into sending a state-changing request to your origin **while the session cookie is auto-attached**.
+| Role | URL |
+|---|---|
+| Bank (victim logged in) | `https://bank.example.com` |
+| Attacker page | `https://evil-gifts.example/win-prize.html` |
+| Local demo | `http://localhost:8090/transfer` |
 
-## Defense
+1. Victim logs into bank → `JSESSIONID` cookie set  
+2. Victim opens evil page → hidden form POSTs to `/transfer`  
+3. Browser auto-attaches bank cookie  
+4. **With CSRF ON → HTTP 403** `Invalid CSRF token found for .../transfer`  
+5. Transfer does **not** execute  
 
-Spring Security issues a secret CSRF token bound to the session (or cookie). Mutating requests must present that token. Attackers on another origin cannot read it (same-origin policy).
+## Fix
 
-## Modes in this demo
+```java
+http.csrf(Customizer.withDefaults());
+```
 
-| Mode | Path | Token delivery |
-|---|---|---|
-| Session (default) | `/transfer` | Hidden `_csrf` form field |
-| Cookie (SPA) | `/spa/**` | `XSRF-TOKEN` cookie + `X-XSRF-TOKEN` header |
-| Disabled | typical JWT API | No browser session cookie → CSRF N/A |
+```html
+<input type="hidden" name="_csrf" value="..."/>
+```
+
+Evil site cannot read the token (same-origin policy).
 
 ## Do not say
 
