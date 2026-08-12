@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9000
+  cloud:
+    gateway:
+      routes:
+        - id: payments
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/payments/**
+        - id: accounts
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/accounts/**
+        - id: admin
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/admin/**
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

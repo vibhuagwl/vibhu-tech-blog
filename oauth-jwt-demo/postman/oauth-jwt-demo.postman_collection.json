@@ -1,0 +1,128 @@
+{
+  "info": {
+    "name": "OAuth JWT Demo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "OIDC Discovery",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:9000/.well-known/openid-configuration"
+      }
+    },
+    {
+      "name": "JWKS",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:9000/oauth2/jwks"
+      }
+    },
+    {
+      "name": "Client Credentials",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "payment-service"
+            },
+            {
+              "key": "password",
+              "value": "payment-secret"
+            }
+          ]
+        },
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "grant_type",
+              "value": "client_credentials"
+            },
+            {
+              "key": "scope",
+              "value": "account.read"
+            }
+          ]
+        },
+        "url": "http://localhost:9000/oauth2/token"
+      }
+    },
+    {
+      "name": "Get Account",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": "http://localhost:8081/api/accounts/A-100"
+      }
+    },
+    {
+      "name": "List Payments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user_access_token}}"
+          }
+        ],
+        "url": "http://localhost:8081/api/payments"
+      }
+    },
+    {
+      "name": "Create Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{user_access_token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fromAccount\": \"A1\",\n  \"toAccount\": \"A2\",\n  \"amount\": 10.5,\n  \"currency\": \"USD\"\n}"
+        },
+        "url": "http://localhost:8081/api/payments"
+      }
+    },
+    {
+      "name": "Admin Reports",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{admin_access_token}}"
+          }
+        ],
+        "url": "http://localhost:8081/api/admin/reports"
+      }
+    },
+    {
+      "name": "Missing Token",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:8081/api/payments"
+      }
+    }
+  ]
+}

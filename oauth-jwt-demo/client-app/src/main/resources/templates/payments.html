@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><title>Payments</title></head>
+<body>
+  <h1>Payments for <span th:text="${user}">user</span></h1>
+  <p>Scopes: <span th:text="${scopes}">scopes</span></p>
+  <pre th:text="${payments}">[]</pre>
+  <p><a href="/">Home</a></p>
+</body>
+</html>
