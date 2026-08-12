@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Transfer — CSRF protected</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+  <h1>Money transfer</h1>
+  <p class="muted">Signed in as <strong sec:authentication="name">user</strong>.
+    This POST is protected by the session CSRF token.</p>
+
+  <p th:if="${message}" class="ok" th:text="${message}"></p>
+
+  <div class="card">
+    <h2>Protected form</h2>
+    <form th:action="@{/transfer}" method="post">
+      <!-- Explicit CSRF field (also added automatically by th:action forms) -->
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <label>To account <input type="text" name="toAccount" value="B" required/></label>
+      <label>Amount (₹) <input type="text" name="amount" value="100" required/></label>
+      <button type="submit">Transfer</button>
+    </form>
+    <p class="muted">Token parameter: <code th:text="${_csrf.parameterName}">_csrf</code></p>
+  </div>
+
+  <div class="card">
+    <h2>Attack demo (no CSRF)</h2>
+    <p class="muted">This form deliberately omits the CSRF field. Expect <strong>403 Forbidden</strong>.</p>
+    <form action="/transfer" method="post">
+      <input type="hidden" name="toAccount" value="ATTACKER"/>
+      <input type="hidden" name="amount" value="9999"/>
+      <button type="submit">Forge transfer without CSRF</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Ledger</h2>
+    <ul>
+      <li th:each="row : ${ledger}" th:text="${row}">entry</li>
+    </ul>
+    <p th:if="${#lists.isEmpty(ledger)}" class="muted">No transfers yet.</p>
+  </div>
+
+  <p>
+    <form th:action="@{/logout}" method="post" style="display:inline">
+      <button type="submit">Logout</button>
+    </form>
+    · <a th:href="@{/}">Home</a>
+  </p>
+</body>
+</html>

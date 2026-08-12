@@ -29,6 +29,7 @@ export default function sitemap():MetadataRoute.Sitemap{
     {url:`${base}/spring-security`, lastModified:new Date()},
     {url:`${base}/oauth-jwt-demo`, lastModified:new Date()},
     {url:`${base}/spring-auth-demo`, lastModified:new Date()},
+    {url:`${base}/spring-csrf-demo`, lastModified:new Date()},
     {url:`${base}/idanywhere-demo`, lastModified:new Date()},
     {url:`${base}/spring-kafka-payments-demo`, lastModified:new Date()},
     {url:`${base}/design-patterns`, lastModified:new Date()},

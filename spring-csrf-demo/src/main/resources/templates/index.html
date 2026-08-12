@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>CSRF Protection Demo</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+  <h1>Spring Security — CSRF Protection</h1>
+  <p class="muted">Session cookies + state-changing POSTs need CSRF tokens. JWT/stateless APIs usually disable CSRF.</p>
+
+  <div class="card">
+    <h2>Lab goals</h2>
+    <ul>
+      <li>Login as <code>alice</code> / <code>password</code></li>
+      <li>Submit a transfer <strong>with</strong> the hidden CSRF field → success</li>
+      <li>Replay a POST without the token → HTTP 403</li>
+      <li>Compare Cookie CSRF for SPA-style clients under <code>/spa/**</code></li>
+    </ul>
+    <p><a th:href="@{/login}">Sign in →</a> · <a th:href="@{/transfer}">Transfer form →</a></p>
+  </div>
+</body>
+</html>
