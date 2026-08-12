@@ -1,0 +1,469 @@
+---
+slug: api-integration-interview-answer-and-followups
+title: "API Integration Interview Answer and Principal Follow-Ups"
+description: "Spoken interview answers and Principal-level follow-ups for API integration across REST, gRPC, Kafka, idempotency, versioning, security, retries, outbox, saga, pagination, gateways, and rollout."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, API Integration, Spring Boot, Microservices, REST, gRPC, Kafka, Principal Interview]
+readingTime: 34 min
+publishedAt: "2026-08-12"
+---
+
+## How to use this guide
+
+Use this as a spoken answer bank for Principal Java and Spring Boot interviews.
+
+The interviewer is usually not asking whether you know REST, gRPC, or Kafka definitions.
+
+They are testing whether you can design API integration that survives:
+
+- partial failure
+- duplicate requests
+- version drift
+- authorization mistakes
+- retry storms
+- overloaded dependencies
+- ambiguous payment outcomes
+- cross-service observability gaps
+
+The strongest answer keeps returning to contracts and failure semantics.
+
+## 30-second spoken answer
+
+"I approach API integration as a contract plus a failure boundary. For synchronous calls I usually start with REST for broad compatibility or gRPC for controlled high-throughput internal traffic. For asynchronous decoupling, fan-out, replay, or eventual consistency, I use Kafka.
+
+Regardless of protocol, I require authentication, authorization, correlation ids, metrics, timeouts, retry only when idempotent, backoff with jitter, circuit breakers, and clear error responses. For commands like payments, I design idempotency, durable state, and reconciliation before I allow retries. The goal is not just to connect services; it is to keep one dependency failure from becoming a platform outage."
+
+## 2-minute spoken answer
+
+"I design API integration by separating the contract from the transport and then defining the failure behavior. First I ask what the caller needs: an immediate answer, a durable command, or an event that can be consumed later. If the caller needs a direct response and clients are broad or external, REST is usually the simplest, most operable choice. If both sides are internal, high volume, and need strong schema generation or streaming, gRPC can be a better fit. If the producer should not block on consumer availability, if fan-out or replay matters, or if eventual consistency is acceptable, Kafka is the right style.
+
+Then I make the integration production-safe. Every outbound call has connect, response, and total timeouts. I propagate correlation ids and trace context. Calls are authenticated with OAuth2 JWTs, workload identity, or mTLS, and the callee still enforces domain authorization. I map errors consistently with stable codes and HTTP statuses: 400 for validation, 401 and 403 for auth, 404 for not found, 409 for conflicts, 429 for rate limits, 500 for unexpected bugs, and 503 for temporary unavailability.
+
+For resilience, I do not start with retry. I start with timeout and idempotency. If an operation is safe to retry, retries use bounded attempts, exponential backoff, jitter, and a retry budget. If the dependency keeps failing, a circuit breaker opens and the service either returns a truthful fallback or fails fast. For async workflows, exhausted or poison messages go to a DLQ with owner, correlation id, attempt count, and replay instructions.
+
+For payments and other non-idempotent side effects, an ambiguous timeout is the dangerous case. I use idempotency keys, durable local state, provider references, outbox events, reconciliation, and operator-visible pending states. I would rather expose a pending or unavailable state than double-charge a customer. That is the core principle: APIs are not only request and response; they are contracts for identity, authorization, failure, retry, and recovery."
+
+## 5-minute spoken answer
+
+"When I hear API integration, I first avoid jumping directly to REST versus gRPC. I start with the business interaction. Is the caller asking a question, issuing a command, or publishing a fact? Does the user need an immediate answer? Is the operation safe to repeat? Who owns the data? What happens if the callee is slow, unavailable, or returns an ambiguous result?
+
+For synchronous request-response, REST is often my default because it is easy to operate, easy to debug, and works well with gateways, OpenAPI, status codes, and many client types. I use gRPC when the environment is controlled, internal, high-throughput, or streaming-oriented, and when schema-first protobuf contracts and generated clients provide real value. I use Kafka when I want temporal decoupling, fan-out, replay, high throughput, and eventual consistency. I do not use Kafka just to hide a slow synchronous dependency; that only moves the failure.
+
+Once the style is chosen, I define the non-negotiables. Each call has a timeout budget. That means connection timeout, response timeout, and a total request budget that fits inside the upstream deadline. I propagate correlation ids and trace context across HTTP headers and Kafka messages. I emit metrics by dependency, route, status, latency, timeout, retry attempt, circuit state, and bulkhead rejection. The system must be debuggable during an incident without reading code.
+
+Security is another layer of the contract. At the edge, the gateway can validate tokens, rate limits, request size, and coarse policies. The service still enforces domain authorization. Authentication proves who the caller is; authorization decides whether that caller can act on this resource in this tenant. For users I expect OAuth2 and OIDC. For service-to-service calls I expect workload identity or mTLS, sometimes combined with a JWT carrying delegated user context. Secrets come from a secrets manager and rotate with overlap. Tokens and PII do not appear in logs.
+
+Error handling must also be consistent. Clients should see a stable JSON body with code, message, timestamp, and correlation id, or a standards-based problem response if the organization uses RFC7807. I map validation to 400, authentication to 401, authorization to 403, not found to 404, conflicts to 409, rate limits to 429, unexpected service bugs to 500, and temporary dependency or overload failures to 503. I never expose stack traces, SQL, internal class names, or raw upstream errors.
+
+For resilience, I am careful with retries. Retry is a load multiplier, so I only retry when the operation is idempotent and the failure is likely transient. The retry policy needs bounded attempts, exponential backoff, jitter, and a budget. If failures continue, a circuit breaker should fail fast. Bulkheads keep a bad dependency from consuming all threads or connections. Rate limits protect shared dependencies and enforce tenant fairness. Readiness should stop routing traffic to pods that cannot serve safely.
+
+For async integration, I focus on durable state and ownership. The transactional outbox is useful when a service must update its database and publish an event without losing either side. A relay publishes the outbox record to Kafka, and consumers use idempotency because delivery is at least once. Poison records or exhausted retries go to a DLQ with replay instructions and an owner. A DLQ without ownership is delayed data loss.
+
+For distributed workflows, saga is useful when one business process spans services and can be decomposed into local transactions plus compensating actions. I would not use saga when the business requires strict atomicity, when compensation is not real, or when the workflow is actually owned by one service and should remain local.
+
+My production concern is always cascading failure. A slow downstream service with no timeout causes caller threads to wait. Clients retry. Connection pools fill. Circuit breakers open too late. What looked like one bad dependency becomes a platform outage. The prevention is explicit contracts, bounded waits, idempotency, safe retry, circuit breakers, bulkheads, correlation, metrics, and clear ownership for every failure path."
+
+## Follow-up 1: REST vs gRPC?
+
+Use REST when compatibility, operational simplicity, and broad client support matter.
+
+REST works well for public APIs, partner APIs, browser-facing APIs, and resource-oriented internal APIs.
+
+It is easy to inspect with common tools, integrates naturally with API gateways, and has mature conventions around HTTP status codes.
+
+Use gRPC when both sides are controlled, traffic is internal, schema generation matters, latency or payload efficiency matters, or streaming is a real requirement.
+
+gRPC gives protobuf contracts, generated clients, HTTP/2, and explicit deadlines.
+
+The Principal answer is not "one is better."
+
+It is:
+
+> REST optimizes for interoperability and operability. gRPC optimizes for strongly typed high-performance internal contracts. Both still require auth, timeouts, observability, and versioning.
+
+See [service-to-service communication](/realtime-issues/api-service-to-service-communication).
+
+## Follow-up 2: When would you use Kafka?
+
+Use Kafka when decoupling is part of the requirement.
+
+Good reasons:
+
+- producer should not block on consumer availability
+- multiple consumers need the same fact
+- replay is valuable
+- ordering by key matters
+- high throughput is needed
+- eventual consistency is acceptable
+- the workflow can continue after durable acceptance
+
+Do not use Kafka just because a synchronous call is slow.
+
+That can hide latency while creating harder consistency and replay problems.
+
+In Spring Boot, I would also ask about schema ownership, idempotent consumers, partition keys, DLQ, observability, and replay procedures before approving Kafka.
+
+## Follow-up 3: How do you design an idempotent POST?
+
+Require an idempotency key for command-style POSTs that may be retried.
+
+Persist:
+
+- idempotency key
+- caller identity
+- request hash
+- command status
+- response summary or resource reference
+- creation and expiry timestamp
+
+On first request, create the command record and process it.
+
+On duplicate with the same key and same request hash, return the original result or current command status.
+
+On duplicate with the same key and different payload, return 409.
+
+For payments, include provider reference and reconciliation state.
+
+Do not rely on an in-memory cache for financial idempotency.
+
+It must survive process restarts and duplicate delivery.
+
+## Follow-up 4: What is your API versioning strategy?
+
+Prefer backward-compatible evolution first.
+
+Safe changes include:
+
+- adding optional response fields
+- adding optional request fields with defaults
+- adding new endpoints
+- adding enum values only if clients tolerate unknown values
+
+Breaking changes need explicit rollout.
+
+Options include:
+
+- URI versioning
+- header versioning
+- media type versioning
+- separate endpoint for a new capability
+
+For internal APIs, I still want consumer inventory, contract tests, deprecation windows, canary clients, and metrics by version.
+
+The worst strategy is changing DTO behavior and hoping all clients upgrade together.
+
+## Follow-up 5: JWT vs mTLS?
+
+JWT and mTLS answer different questions.
+
+JWT commonly carries caller claims, scopes, tenant, audience, and expiry.
+
+It is useful for OAuth2 access tokens and delegated user context.
+
+mTLS authenticates the workload or endpoint at the transport layer using certificates.
+
+It is useful for service-to-service identity and encrypted internal traffic.
+
+For high-risk internal APIs, I may use both:
+
+- mTLS proves the calling workload
+- JWT carries delegated user or service claims
+- the callee checks both
+
+The service should still enforce domain authorization.
+
+Authentication is not enough.
+
+See [API authentication, authorization, and security](/realtime-issues/api-authn-authz-security).
+
+## Follow-up 6: When do you return 503 vs 500?
+
+Return 500 when this service hit an unexpected internal bug.
+
+Examples:
+
+- null pointer
+- serialization bug
+- invariant violation
+- unexpected exception
+
+Return 503 when the service is temporarily unable to serve.
+
+Examples:
+
+- required dependency is down
+- circuit breaker is open
+- database pool exhausted
+- service is overloaded
+- pod is draining
+
+The distinction matters because clients may retry 503 if the operation is idempotent and retry budget allows.
+
+Clients should not blindly retry every 500.
+
+See [API error handling and resilience](/realtime-issues/api-error-handling-resilience).
+
+## Follow-up 7: How do retry storms happen?
+
+Retry storms happen when many callers retry the same failing dependency without coordination.
+
+Common causes:
+
+- no timeout
+- immediate retries
+- no jitter
+- too many attempts
+- gateway retries plus service retries plus SDK retries
+- retrying non-idempotent or overloaded paths
+- retry timeout exceeds user request budget
+
+The fix is:
+
+- timeouts first
+- bounded attempts
+- exponential backoff
+- jitter
+- retry budget
+- circuit breaker
+- bulkhead
+- rate limiting
+- attempt-count metrics
+
+During an incident, I may reduce retries or open a circuit to stop amplification.
+
+## Follow-up 8: Why use the outbox pattern?
+
+Use the outbox pattern when one service must update its database and publish an event reliably.
+
+Without outbox:
+
+```text
+write database
+  -> process crashes before Kafka publish
+  -> state changed but event missing
+```
+
+Or:
+
+```text
+publish event
+  -> database transaction rolls back
+  -> consumers see a fact that never committed
+```
+
+With outbox:
+
+- local transaction writes business row and outbox row
+- relay publishes outbox row to Kafka
+- outbox row is marked sent
+- consumers are idempotent
+
+The outbox does not eliminate duplicates.
+
+It prevents lost events between the database and broker boundary.
+
+## Follow-up 9: When should you not use saga?
+
+Do not use saga when the business requires strict atomicity and compensation is not acceptable.
+
+Avoid saga when:
+
+- compensation cannot undo the action
+- intermediate states are unacceptable
+- ownership actually belongs inside one service
+- the workflow is too small to justify orchestration
+- teams cannot operate the state machine
+- observability and manual repair are missing
+
+Saga is not magic distributed rollback.
+
+It is a sequence of local transactions with explicit compensating actions.
+
+If "refund later" is not acceptable to the business, do not present saga as equivalent to atomic commit.
+
+## Follow-up 10: What are pagination pitfalls?
+
+Pagination breaks APIs more often than teams expect.
+
+Pitfalls:
+
+- offset pagination becomes slow at large offsets
+- concurrent inserts cause skipped or duplicated rows
+- unstable sort order changes pages
+- missing tie-breaker creates nondeterminism
+- filtering rules change between requests
+- total count is expensive or stale
+- clients request huge page sizes
+
+For large datasets, prefer cursor pagination with a stable sort.
+
+Example:
+
+```text
+ORDER BY created_at DESC, id DESC
+cursor = last_created_at + last_id
+```
+
+Define max page size.
+
+Document consistency expectations.
+
+Never expose database internals as the cursor if that leaks implementation or tenant data.
+
+## Follow-up 11: Why is DTO leakage a problem?
+
+DTO leakage happens when persistence entities or internal models become API contracts.
+
+Problems:
+
+- database fields become public accidentally
+- lazy-loading creates serialization surprises
+- internal refactors become breaking API changes
+- security-sensitive fields leak
+- clients couple to domain internals
+- validation rules become unclear
+
+Use explicit request and response DTOs at service boundaries.
+
+Map only the fields the API intends to expose.
+
+This is especially important in Spring Boot with JPA entities, because serialization can accidentally traverse relationships and leak data or create performance problems.
+
+## Follow-up 12: How do you propagate correlation IDs?
+
+At the gateway, accept or create a correlation id.
+
+Then propagate it through:
+
+- inbound request context
+- structured logs
+- outbound HTTP headers
+- gRPC metadata
+- Kafka message headers
+- DLQ records
+- audit events
+- traces
+
+Use standard trace context where possible and keep correlation id as a business-support search key.
+
+In Spring Boot, a servlet filter or WebFlux filter can put the id into MDC.
+
+HTTP clients and Kafka producers should read it and pass it downstream.
+
+The rule is simple: if a call crosses a boundary, the correlation id crosses with it.
+
+## Follow-up 13: How do you design rate limiting?
+
+Start with the resource being protected.
+
+Examples:
+
+- tenant fairness
+- login abuse
+- expensive search endpoint
+- third-party quota
+- downstream database capacity
+
+Then choose the dimension:
+
+- user
+- tenant
+- API key
+- IP
+- service identity
+- route
+- region
+
+Choose behavior:
+
+- return 429 for caller-specific limit
+- return 503 for general service overload
+- include `Retry-After` when helpful
+- emit metrics for allowed and rejected requests
+- decide fail-open or fail-closed for limiter dependency failure
+
+For distributed limits, Redis or gateway-native rate limiters are common.
+
+The design must define burst size, sustained rate, clock behavior, and operational override.
+
+## Follow-up 14: How do you roll out a breaking API change?
+
+First, challenge whether it must be breaking.
+
+If it must:
+
+- introduce new version or endpoint
+- keep old version running
+- publish migration guide
+- identify consumers
+- add contract tests
+- canary one client
+- monitor errors and usage by version
+- set deprecation window
+- remove only after adoption and approval
+
+For internal services, do not assume "we own all clients" means "we can break them today."
+
+Batch jobs, scripts, old mobile clients, and partner integrations often survive longer than expected.
+
+The rollout is done when traffic and error metrics prove no active clients depend on the old contract.
+
+## Follow-up 15: What should an API gateway own?
+
+An API gateway can own cross-cutting edge concerns:
+
+- routing
+- TLS termination
+- authentication
+- request size limits
+- rate limiting
+- WAF integration
+- coarse authorization
+- correlation id creation
+- protocol translation
+- access logs
+- coarse metrics
+
+It should not become the owner of all business rules.
+
+Services should still own:
+
+- domain authorization
+- resource-level checks
+- invariants
+- idempotency records
+- transaction boundaries
+- audit of business decisions
+
+If the gateway is the only place authorization exists, internal calls and future routes can bypass policy accidentally.
+
+The Principal stance is gateway for shared enforcement, service for domain truth.
+
+## Closing answer
+
+API integration is successful when failure is boring.
+
+That means:
+
+- contracts are explicit
+- statuses and error codes are stable
+- authn and authz are separated
+- timeouts are mandatory
+- retries are bounded and idempotent
+- circuit breakers fail fast
+- bulkheads isolate dependency pain
+- Kafka workflows are replayable
+- outbox prevents lost events
+- correlation ids make incidents searchable
+- versioning allows safe rollout
+
+If I can explain the happy path but not the duplicate, timeout, partial failure, authorization denial, and rollback paths, the API is not ready for production.
+
+## Related Real-Time Issues guides
+
+- [Service-to-service API communication](/realtime-issues/api-service-to-service-communication)
+- [API error handling and resilience](/realtime-issues/api-error-handling-resilience)
+- [API authentication, authorization, and security](/realtime-issues/api-authn-authz-security)
+- [Spring Boot and microservices incidents](/realtime-issues/java-30yoe-spring-microservices-qa)
+

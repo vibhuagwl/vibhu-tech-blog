@@ -1,0 +1,742 @@
+---
+slug: api-integration-patterns
+title: "API Integration Patterns: REST, gRPC, Kafka, Saga, Outbox, Retry, DLQ, and Idempotency"
+description: "Principal-level guide to choosing synchronous and asynchronous integration patterns for payment systems, including request-response, pub/sub, EDA, saga, outbox, circuit breaker, retries, DLQ, and idempotent consumers."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [API Integration, Kafka, REST, gRPC, Saga, Outbox, DLQ, Idempotency, Payments]
+readingTime: 27 min
+publishedAt: "2026-08-12"
+---
+
+## The interview framing
+
+API integration is not a transport decision.
+
+It is a coupling decision.
+
+When you choose REST, gRPC, Kafka, a saga, or an outbox, you choose:
+
+- latency profile
+- failure propagation
+- ownership boundary
+- retry semantics
+- consistency model
+- observability model
+- operational recovery path
+
+At Staff and Principal level, the strongest answers explain the trade-off instead of naming the pattern.
+
+## Core question
+
+The core question is:
+
+> Does the caller need an immediate answer from the callee, or does the system need durable progress even if participants are temporarily unavailable?
+
+If the caller needs an immediate answer, synchronous REST or gRPC may be right.
+
+If the system needs durable progress, asynchronous Kafka or a workflow pattern may be right.
+
+Payment systems usually need both.
+
+They may expose REST at the edge and use Kafka internally.
+
+## Synchronous REST
+
+REST is a good fit when:
+
+- clients are external or browser/mobile-friendly
+- resource modeling matters
+- human debugging matters
+- caching or standard HTTP semantics help
+- the operation can finish within a known latency budget
+- compatibility must be widely understood
+
+Example:
+
+```text
+GET /api/v1/payments/{paymentId}
+POST /api/v1/payments/{paymentId}/captures
+```
+
+REST is simple to observe and easy to operate.
+
+It also creates tight runtime coupling.
+
+If the PSP, fraud service, or ledger is slow inside the request path, checkout latency inherits that slowness.
+
+## Synchronous gRPC
+
+gRPC is a good fit when:
+
+- integration is service-to-service
+- schemas should be strongly typed
+- low overhead matters
+- streaming is useful
+- clients are controlled by the platform
+- contracts are managed with protobuf
+
+Example:
+
+```proto
+service PaymentRiskService {
+  rpc ScorePayment(ScorePaymentRequest) returns (ScorePaymentResponse);
+}
+```
+
+gRPC is excellent for internal calls with clear ownership.
+
+It is less attractive for broad public APIs, old clients, proxies, or teams without schema-governance discipline.
+
+## Asynchronous Kafka
+
+Kafka is a good fit when:
+
+- producers and consumers should be decoupled
+- events need durable replay
+- consumers need independent scaling
+- downstream work can be eventually consistent
+- high volume should not block request threads
+- multiple services react to the same business fact
+
+Example:
+
+```text
+payment.created.v1
+payment.authorized.v1
+payment.capture.requested.v1
+payment.captured.v1
+```
+
+Kafka moves coupling from request time to contract time.
+
+That is powerful, but it does not remove correctness work.
+
+Events are delivered at least once in practical systems.
+
+Consumers must be idempotent.
+
+## Request-response pattern
+
+Request-response is the default mental model:
+
+```text
+client -> payment-api -> fraud-service -> payment-api -> client
+```
+
+It is appropriate when:
+
+- the client cannot proceed without the answer
+- latency is predictable
+- the callee has high availability
+- the failure mode can be shown immediately to the caller
+
+The production risk is cascade.
+
+If fraud latency rises, payment API threads wait.
+
+If clients retry aggressively, the payment API sends more fraud calls.
+
+If the payment API holds DB connections while calling fraud, a slow dependency becomes a database incident.
+
+## Pub/Sub pattern
+
+Publish-subscribe means producers do not know all consumers.
+
+```text
+payment-api -> payment.created.v1 -> ledger-consumer
+                                  -> email-consumer
+                                  -> analytics-consumer
+                                  -> risk-consumer
+```
+
+This is strong when multiple services need the same fact.
+
+The producer should publish a business event, not an internal table-change leak.
+
+The producer must also own schema evolution.
+
+Every consumer becomes part of the compatibility surface.
+
+## Event-driven architecture
+
+Event-driven architecture is broader than using Kafka.
+
+It means state changes are communicated as durable facts.
+
+A good event is:
+
+- named as a business fact
+- immutable
+- versioned
+- traceable
+- replay-safe
+- minimal but sufficient
+- free of secrets
+- documented with ownership
+
+Bad event:
+
+```json
+{
+  "table": "payments",
+  "op": "U",
+  "after": {
+    "status": "C"
+  }
+}
+```
+
+Better event:
+
+```json
+{
+  "eventId": "evt_01J2PAYCREATED",
+  "eventType": "PaymentCreated",
+  "eventVersion": 1,
+  "occurredAt": "2026-08-12T10:15:30Z",
+  "producer": "payment-api",
+  "correlationId": "corr_9b1d",
+  "payment": {
+    "paymentId": "pay_123",
+    "merchantId": "mer_456",
+    "customerId": "cus_789",
+    "amountMinor": 1299,
+    "currency": "USD",
+    "status": "CREATED"
+  }
+}
+```
+
+The better event describes a business fact.
+
+It does not force consumers to understand the producer database.
+
+## PaymentCreated event contract
+
+For `PaymentCreated`, define:
+
+- topic name
+- key
+- schema
+- ownership
+- ordering expectation
+- retention
+- replay rules
+- privacy classification
+- idempotency key
+- compatibility policy
+
+Example topic:
+
+```text
+payment.created.v1
+```
+
+Example key:
+
+```text
+paymentId
+```
+
+Using `paymentId` as the key preserves order for events about the same payment.
+
+It can create hot partitions if one merchant or payment family dominates traffic.
+
+That trade-off should be explicit.
+
+## Saga pattern
+
+A saga coordinates a business transaction across services without one global ACID transaction.
+
+For a payment order:
+
+```text
+1. Create payment intent.
+2. Reserve inventory.
+3. Authorize payment.
+4. Create shipment.
+5. Capture payment.
+6. Emit order confirmed.
+```
+
+If shipment creation fails after authorization, the saga compensates.
+
+Compensation may be:
+
+- void authorization
+- release inventory
+- mark order failed
+- notify customer
+- schedule reconciliation
+
+Saga is useful when business steps cross ownership boundaries.
+
+It adds operational complexity because partial states are normal.
+
+For a deeper distributed transaction comparison, see [Transactions, 2PC, 3PC, and Saga](/distributed-systems/transactions-2pc-3pc-saga).
+
+## Choreography vs orchestration
+
+Choreography:
+
+```text
+payment-created -> inventory reserves -> payment authorizes -> shipping creates
+```
+
+Benefits:
+
+- loose coupling
+- services react independently
+- fewer central workflow dependencies
+
+Costs:
+
+- harder global visibility
+- implicit process flow
+- failure debugging crosses many consumers
+
+Orchestration:
+
+```text
+order-workflow-service commands each step
+```
+
+Benefits:
+
+- explicit state machine
+- easier timeout and compensation policy
+- clearer incident ownership
+
+Costs:
+
+- central coordinator
+- more workflow code
+- potential bottleneck if poorly designed
+
+## Outbox pattern
+
+The outbox pattern solves the common DB plus Kafka atomicity problem.
+
+Without outbox:
+
+```text
+1. Insert payment row.
+2. Publish PaymentCreated event.
+```
+
+If the process crashes between steps, the row exists but the event is missing.
+
+With outbox:
+
+```text
+1. Begin DB transaction.
+2. Insert payment row.
+3. Insert outbox row.
+4. Commit DB transaction.
+5. Relay outbox row to Kafka.
+6. Mark outbox row published.
+```
+
+Now payment state and event intent commit together.
+
+The relay can retry safely.
+
+Consumers still need idempotency because the relay may publish more than once.
+
+## Outbox row shape
+
+```sql
+create table outbox_events (
+    id uuid primary key,
+    aggregate_type varchar(64) not null,
+    aggregate_id varchar(128) not null,
+    event_type varchar(128) not null,
+    event_version int not null,
+    payload jsonb not null,
+    headers jsonb not null,
+    status varchar(32) not null,
+    created_at timestamptz not null,
+    published_at timestamptz
+);
+```
+
+Important operational metrics:
+
+- oldest unpublished outbox age
+- publish failure count
+- relay lag
+- duplicate publish count
+- topic send latency
+- row lock wait time
+
+Outbox is not finished until it has a dashboard.
+
+## Retry pattern
+
+Retries are useful only when the operation is safe to retry.
+
+Retry is appropriate for:
+
+- transient network failures
+- dependency overload with backoff
+- leader election failover
+- temporary rate limits with clear retry-after semantics
+
+Retry is dangerous for:
+
+- non-idempotent payment side effects
+- validation errors
+- authorization failures
+- permanent business-rule conflicts
+- hot partitions already overloaded
+
+Always combine retry with:
+
+- timeout
+- max attempts
+- exponential backoff
+- jitter
+- idempotency
+- metrics
+
+## DLQ pattern
+
+A dead-letter queue is not a trash can.
+
+It is a quarantine and investigation path.
+
+Use DLQ for:
+
+- poison messages
+- schema incompatibility
+- permanent validation failure
+- repeated dependency failure after bounded retry
+- manual reconciliation cases
+
+Do not send to DLQ silently.
+
+Alert on:
+
+- DLQ count
+- DLQ age
+- top error code
+- topic and partition
+- consumer group
+- tenant or merchant concentration
+
+The runbook must answer how a record leaves the DLQ.
+
+Replay without idempotency can recreate the incident.
+
+## Circuit breaker pattern
+
+A circuit breaker prevents a sick dependency from consuming all local resources.
+
+States:
+
+```text
+CLOSED -> OPEN -> HALF_OPEN -> CLOSED
+```
+
+For payment APIs, a circuit breaker can:
+
+- fail fast when PSP calls time out
+- protect servlet threads
+- protect Hikari pools
+- reduce retry storms
+- preserve capacity for reads and status checks
+
+It should not hide data uncertainty.
+
+If capture state is unknown, the API should expose a recoverable pending state and reconciliation path.
+
+## Idempotent consumer pattern
+
+Kafka consumers should assume duplicates.
+
+An idempotent consumer records processed message identity or uses a natural business constraint.
+
+Example:
+
+```sql
+create table processed_messages (
+    consumer_name varchar(128) not null,
+    message_id varchar(128) not null,
+    processed_at timestamptz not null,
+    primary key (consumer_name, message_id)
+);
+```
+
+Consumer flow:
+
+```text
+1. Begin transaction.
+2. Insert processed message key.
+3. If duplicate key conflict, skip side effect.
+4. Apply business update.
+5. Commit transaction.
+6. Commit Kafka offset.
+```
+
+This gives effectively-once business effects.
+
+It does not mean Kafka magically made external side effects exactly once.
+
+For a deeper guide, see [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency) and [Kafka transactions and payments](/kafka-interview/kafka-transactions-payments-interview).
+
+## Spring Kafka idempotent consumer sketch
+
+```java
+package com.example.payments.events;
+
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Component
+public class PaymentCreatedConsumer {
+    private final ProcessedMessageRepository processedMessages;
+    private final LedgerService ledger;
+
+    public PaymentCreatedConsumer(
+            ProcessedMessageRepository processedMessages,
+            LedgerService ledger) {
+        this.processedMessages = processedMessages;
+        this.ledger = ledger;
+    }
+
+    @KafkaListener(topics = "payment.created.v1", groupId = "ledger-service")
+    @Transactional
+    public void onPaymentCreated(PaymentCreatedEvent event) {
+        boolean firstTime = processedMessages.tryInsert(
+                "ledger-service",
+                event.eventId());
+
+        if (!firstTime) {
+            return;
+        }
+
+        ledger.openPendingEntry(
+                event.payment().paymentId(),
+                event.payment().amountMinor(),
+                event.payment().currency());
+    }
+}
+```
+
+The repository should use a database uniqueness constraint.
+
+An in-memory set is not enough after restart.
+
+## Decision matrix
+
+| Pattern | Latency | Reliability | Coupling | Best use | Main risk |
+|---|---|---|---|---|---|
+| REST request-response | Low when dependencies are healthy | Depends on callee availability | Runtime coupled | Public APIs, reads, simple commands | Cascading latency and retry storms |
+| gRPC request-response | Very low for internal calls | Depends on callee availability | Runtime and schema coupled | Internal high-throughput service calls | Harder public compatibility and client diversity |
+| Kafka pub/sub | Higher end-to-end completion latency | Durable, replayable | Contract coupled | Domain events and fan-out | Duplicate delivery and eventual consistency |
+| Saga choreography | Variable | Durable if each step persists state | Loosely coupled but implicit | Multi-service business workflows | Hard RCA and hidden dependencies |
+| Saga orchestration | Variable | Durable with workflow state | Coordinator coupled | Explicit payment/order workflows | Coordinator complexity |
+| Outbox | Event publish can lag | Strong DB plus event intent durability | Producer owns event contract | State change plus event publication | Relay lag and duplicate publish |
+| Retry plus DLQ | Adds latency | Improves transient recovery | Depends on retry boundaries | Temporary dependency failure and poison records | Amplifying load or unsafe replay |
+| Circuit breaker | Fails fast | Protects local capacity | Explicit dependency boundary | Slow or failing downstreams | Returning uncertainty without clear status |
+| Idempotent consumer | No major latency when indexed | Protects effects from duplicates | Consumer owns dedupe | At-least-once event processing | Dedupe store hotspot or wrong key |
+
+## Production failure: REST dependency inside DB transaction
+
+At 13:20 UTC, checkout p99 jumps above 20 seconds.
+
+Thread dumps show request threads waiting for Hikari connections.
+
+Active DB connections are inside:
+
+```text
+PaymentService.capture
+  -> begin transaction
+  -> update payment
+  -> call pspClient.capture
+  -> insert ledger row
+  -> commit
+```
+
+The PSP is slow.
+
+The service holds DB connections while waiting on the network.
+
+Soon every pod exhausts its pool.
+
+The incident is described as "the database is down," but the root cause is integration design.
+
+Better flow:
+
+```text
+1. Short transaction reserves capture intent.
+2. Outbox emits CaptureRequested.
+3. Worker calls PSP with idempotency key and timeout.
+4. Short transaction records result.
+5. Captured event fans out to ledger and notification.
+```
+
+The trade-off is eventual consistency.
+
+The benefit is that a PSP brownout no longer consumes every request thread and DB connection.
+
+## Production failure: DLQ without replay discipline
+
+A schema change adds a new `PaymentCreated` enum value.
+
+One consumer does not tolerate unknown values.
+
+Messages go to DLQ.
+
+An engineer patches the consumer and replays the DLQ.
+
+The consumer re-applies ledger entries because it did not record processed event IDs.
+
+The second incident is worse than the first.
+
+The prevention is:
+
+- backward-compatible event evolution
+- consumer contract tests
+- idempotent consumer writes
+- DLQ replay runbook
+- replay metrics
+
+## Choosing sync vs async in an interview
+
+Use this reasoning:
+
+```text
+If the caller needs the result now and the work fits the latency budget, use sync REST or gRPC.
+If the work may outlive the caller, use 202 plus durable async processing.
+If multiple services need to react to a fact, publish an event.
+If state changes and events must not diverge, use outbox.
+If a business transaction spans services, model a saga.
+If retries exist, make side effects idempotent.
+If messages can fail forever, provide DLQ and replay discipline.
+If dependencies can brown out, add circuit breakers and bulkheads.
+```
+
+That answer shows judgment.
+
+It avoids pattern worship.
+
+## Bulkheads and integration isolation
+
+Although not always listed as an API pattern, bulkheads matter in production.
+
+Separate:
+
+- servlet request threads
+- async worker pools
+- PSP client pools
+- database pools for reads and writes
+- Kafka consumer concurrency
+- partner-specific quotas
+
+Without bulkheads, one slow partner can consume the entire platform.
+
+Circuit breakers stop calls.
+
+Bulkheads limit how much damage those calls can do before they stop.
+
+## Observability for integrations
+
+Every integration pattern needs telemetry.
+
+For REST and gRPC:
+
+- dependency latency
+- timeout count
+- status code
+- retry count
+- circuit state
+- request deadline remaining
+
+For Kafka:
+
+- consumer lag
+- oldest record age
+- processing latency
+- DLQ count
+- retry topic depth
+- duplicate suppression count
+- commit latency
+
+For outbox:
+
+- unpublished row count
+- oldest unpublished age
+- publish attempts
+- relay errors
+
+For saga:
+
+- workflow state counts
+- stuck state age
+- compensation count
+- step latency
+
+## Security and privacy
+
+Integration contracts can leak sensitive data.
+
+For payment events:
+
+- never emit PAN or CVV
+- avoid raw PSP tokens unless approved
+- hash idempotency keys in logs
+- classify event payloads
+- document retention
+- restrict replay permissions
+- protect DLQ access
+
+DLQ often contains the worst payloads because records failed validation.
+
+Treat it as production data, not a developer sandbox.
+
+## Interview traps
+
+Avoid these claims:
+
+- "Kafka makes the system eventually exactly once."
+- "DLQ means we do not lose data."
+- "Circuit breaker fixes the downstream."
+- "Saga is just distributed transactions."
+- "Outbox guarantees consumers process exactly once."
+- "Retries are harmless with exponential backoff."
+- "Events can mirror database tables."
+
+Replace them with:
+
+- "Kafka gives durable at-least-once delivery in common configurations."
+- "DLQ preserves records for investigation and controlled replay."
+- "Circuit breaker protects local capacity."
+- "Saga models business progress and compensation."
+- "Outbox makes state and publish intent atomic."
+- "Retries require idempotency and budgets."
+- "Events are business contracts."
+
+## Cross-links
+
+Use these related guides:
+
+- [API Integration & Frameworks hub](/realtime-issues/api-integration-frameworks-master-index)
+- [Contract-first REST API design](/realtime-issues/api-design-contracts-rest)
+- [API versioning and compatibility](/realtime-issues/api-versioning-compatibility)
+- [Transactions, 2PC, 3PC, and Saga](/distributed-systems/transactions-2pc-3pc-saga)
+- [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency)
+- [Kafka transactions and payments](/kafka-interview/kafka-transactions-payments-interview)
+- [Kafka DLQ and poison messages](/kafka-interview/kafka-dlq-poison-message-interview)
+
+## Final interview answer
+
+> I choose the integration pattern based on latency, reliability, and coupling. REST or gRPC is right when the caller needs an immediate answer and the dependency can meet the budget. Kafka is better when the business fact should be durable, replayable, and consumed independently. For payment workflows, I often expose REST externally, persist command state, use an outbox to publish events, process side effects asynchronously with idempotency keys, and make consumers idempotent because duplicates are normal. If the workflow spans services, I model it as a saga with explicit states and compensation. Retries are bounded with backoff and jitter, DLQ is a controlled replay path, and circuit breakers protect local capacity during dependency brownouts.
+
+## Final principle
+
+The pattern is not the architecture.
+
+The architecture is the set of failure guarantees you can explain, measure, and recover under production pressure.
