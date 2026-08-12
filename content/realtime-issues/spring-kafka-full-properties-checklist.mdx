@@ -30,6 +30,49 @@ Templates live in:
 
 ---
 
+## End-to-end sequence — payment request to DLQ/success
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor Client
+    participant API as payment-api (Controller)
+    participant Prod as Kafka Producer
+    participant Broker as Kafka Broker
+    participant Cons as settlement-worker (Consumer)
+    participant Bank as Bank Gateway
+    participant DLT as payment.requested.v1.DLT
+    participant Result as payment.results.v1
+
+    Client->>API: POST /api/payments
+    API->>Prod: Build key accountId:paymentId + event JSON
+    Prod->>Broker: Send payment.requested.v1<br/>acks=all, idempotence, batch+compression
+    Broker-->>Cons: Deliver record (manual commit mode)
+    Cons->>Cons: Deserialize + validate + idempotency check
+    Cons->>Bank: Settle payment
+
+    alt settlement success
+        Bank-->>Cons: OK
+        Cons->>Result: Publish status=SETTLED
+        Cons->>Cons: Commit offset (acknowledge)
+    else transient failure
+        Bank-->>Cons: timeout/5xx
+        Cons->>Cons: Throw retryable exception
+        Cons->>Cons: DefaultErrorHandler retries with backoff
+        alt retry succeeds
+            Cons->>Result: Publish status=SETTLED
+            Cons->>Cons: Commit offset
+        else retry exhausted
+            Cons->>DLT: DeadLetterPublishingRecoverer
+            Cons->>Result: Publish status=FAILED
+        end
+    else poison payload
+        Cons->>Cons: Throw non-retryable exception
+        Cons->>DLT: Direct to DLT (same partition)
+        Cons->>Result: Publish status=FAILED
+    end`} />
+
+---
+
 ## Producer properties — must set
 
 | Property | Set | Why |
