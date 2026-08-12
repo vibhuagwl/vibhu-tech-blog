@@ -1,0 +1,413 @@
+---
+slug: api-integration-frameworks-master-index
+title: "API Integration & Frameworks"
+description: "A Principal-level hub for API design as end-to-end integration engineering across REST contracts, async messaging, compatibility, Spring Boot, and production failure modes."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [API Design, Integration, Spring Boot, REST, Kafka, Principal Interview, Real-Time Issues]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+## What this hub is for
+
+API design is often explained too narrowly.
+
+Many candidates describe controllers, HTTP verbs, and JSON payloads.
+
+That is useful, but it is not enough for Principal or Staff interviews.
+
+At this level, API design is end-to-end engineering.
+
+It includes:
+
+- the business capability exposed by the API
+- the ownership boundary behind the API
+- the contract consumers rely on
+- the correctness guarantees under retry and timeout
+- the operational behavior during downstream failure
+- the versioning strategy after consumers have shipped
+- the observability that proves the system is healthy
+- the migration path when the contract must change
+
+A good API is not just a clean endpoint.
+
+A good API is a contract that survives production.
+
+## The Principal framing
+
+When I design an API, I start with the system boundary, not the URL.
+
+The URL is implementation detail until I understand the capability.
+
+For example, "capture a payment" is not merely:
+
+```text
+POST /payments/{paymentId}/captures
+```
+
+It is a distributed workflow with money movement, external PSP behavior, retries, customer timeouts, reconciliation, audit, fraud checks, chargeback exposure, and regulatory evidence.
+
+The endpoint is only the front door.
+
+The design is the behavior behind the door.
+
+## Polished spoken answer
+
+Use this as the strong interview answer paragraph.
+
+> When I talk about API integration design, I do not start by choosing REST, gRPC, or Kafka. I first define the business capability, ownership boundary, contract, consistency model, failure modes, idempotency rules, versioning strategy, and observability. REST endpoints are only the synchronous surface. The real design is how the system behaves when a client retries after a timeout, a downstream PSP is slow, a Kafka event is delivered twice, an old mobile app keeps using a previous schema, or a partial failure leaves money movement uncertain. For a payment API, I want contract-first OpenAPI, resource-oriented names, DTOs separate from entities, explicit pagination and filtering, stable error semantics, idempotent POST using `Idempotency-Key`, asynchronous handoff for high-volume work, backward-compatible evolution, consumer contract tests, and metrics that show adoption, latency, errors, retries, duplicate suppression, and old-version usage.
+
+That paragraph is intentionally broad.
+
+It shows the interviewer that you see APIs as production contracts, not code generation artifacts.
+
+## Guide map
+
+| # | Guide | Difficulty | Use it for |
+|---:|---|---|---|
+| 01 | [Contract-first REST API design](/realtime-issues/api-design-contracts-rest) | Principal | OpenAPI, payments resources, DTO boundaries, pagination, status codes, idempotency, async APIs, Spring Boot sketches |
+| 02 | [API integration patterns](/realtime-issues/api-integration-patterns) | Principal | REST/gRPC vs Kafka, request-response, pub/sub, EDA, saga, outbox, DLQ, circuit breaker, idempotent consumer |
+| 03 | [API versioning and compatibility](/realtime-issues/api-versioning-compatibility) | Principal | Compatible evolution, `/api/v1` vs v2, header/media-type versioning, deprecation, contract tests |
+| 04 | [Authn, Authz & API security](/realtime-issues/api-authn-authz-security) | Principal | OAuth2/JWT, mTLS, RBAC/ABAC, secrets, least privilege |
+| 05 | [Error handling & resilience](/realtime-issues/api-error-handling-resilience) | Principal | Error contract, status mapping, retry/CB/DLQ, when not to retry |
+| 06 | [Service-to-service communication](/realtime-issues/api-service-to-service-communication) | Principal | Timeouts, bulkheads, correlation, cascading failure prevention |
+| 07 | [Interview answers + follow-ups](/realtime-issues/api-integration-interview-answer-and-followups) | Principal | 30s/2m/5m answers + Principal follow-ups |
+
+## How the guides fit together
+
+The first guide is about contract design.
+
+It answers:
+
+- What is the resource model?
+- What is in the OpenAPI contract?
+- What should never leak from JPA entities?
+- How do clients paginate, filter, sort, and select fields?
+- What status code and error shape should callers build against?
+- How does `Idempotency-Key` prevent duplicate payment side effects?
+- When should a synchronous API become an asynchronous job or event?
+
+The second guide is about integration style.
+
+It answers:
+
+- When is synchronous REST acceptable?
+- When does gRPC fit better?
+- When should Kafka own the integration?
+- How do request-response, pub/sub, EDA, saga, outbox, retry, DLQ, circuit breaker, and idempotent consumers differ?
+- How do you explain a `PaymentCreated` event without overclaiming exactly-once behavior?
+
+The third guide is about time.
+
+It answers:
+
+- How do you evolve a contract after clients depend on it?
+- When is `/api/v1` enough?
+- When do headers or media types create more precision?
+- What is a credible deprecation timeline?
+- How do consumer contract tests prevent accidental breaks?
+- How do you find and retire old usage safely?
+
+## What Principal interviewers listen for
+
+They listen for whether you treat API design as a distributed-systems problem.
+
+They want to hear:
+
+- contracts before implementation
+- explicit ownership boundaries
+- DTOs instead of entity leakage
+- compatibility as the default
+- idempotency for side effects
+- deadlines and cancellation
+- bounded retries with jitter
+- async handoff when latency budgets cannot hold
+- observability for each dependency and version
+- migration plans for old consumers
+
+They also listen for trade-offs.
+
+If every answer is "use REST," the answer is shallow.
+
+If every answer is "use Kafka," the answer is also shallow.
+
+The Principal answer says where each tool is strong and where it fails.
+
+## API design is a production incident prevention tool
+
+Bad API design creates incidents months later.
+
+Examples:
+
+- no idempotency key means duplicate charges after client retries
+- no timeout budget means server work continues after the caller has left
+- entity leakage means a database refactor becomes a public breaking change
+- ambiguous `500` responses mean clients retry unsafe operations
+- missing pagination means one partner can scan the whole table
+- unbounded filtering means one query plan can pin the database
+- no version telemetry means nobody knows who still uses the old contract
+- synchronous PSP calls in checkout mean a provider brownout becomes customer-facing
+
+API design is therefore not documentation polish.
+
+It is a control surface for failure.
+
+## Payment API example
+
+A naive API might say:
+
+```text
+POST /pay
+```
+
+With a body:
+
+```json
+{
+  "amount": 1000,
+  "card": "..."
+}
+```
+
+That design hides all important decisions.
+
+A production API needs to answer:
+
+- Is this authorization, capture, refund, or transfer?
+- Who owns `paymentId`?
+- Is the amount immutable after authorization?
+- What happens if the caller times out after the PSP succeeds?
+- Can the caller retry safely?
+- What response means "accepted but not settled"?
+- Where does reconciliation write the final state?
+- What event is emitted after durable state changes?
+
+That leads to clearer resources:
+
+```text
+POST /api/v1/payments
+POST /api/v1/payments/{paymentId}/authorizations
+POST /api/v1/payments/{paymentId}/captures
+POST /api/v1/payments/{paymentId}/refunds
+GET  /api/v1/payments/{paymentId}
+GET  /api/v1/payments?customerId=...&status=CAPTURED&limit=50
+```
+
+The names are not the main value.
+
+The main value is that each resource can have a clear lifecycle, contract, idempotency rule, and audit story.
+
+## Contract-first means operations-first
+
+Contract-first OpenAPI is not merely generating interfaces.
+
+It is a forcing function.
+
+It forces the team to decide:
+
+- required fields
+- optional fields
+- validation rules
+- examples
+- error schema
+- enum names
+- pagination shape
+- security scopes
+- idempotency headers
+- deprecation metadata
+- response codes
+
+It also makes review easier.
+
+Reviewers can ask:
+
+- What will old clients do if this field is missing?
+- Is this enum open to future values?
+- Can this POST be retried?
+- Does the error tell clients whether retry is safe?
+- Is the async status resource documented?
+- Is the eventual consistency window stated?
+
+## The controller is not the contract
+
+In Spring Boot, the controller is an adapter.
+
+It should not be the only place the contract exists.
+
+A Principal-level design separates:
+
+- OpenAPI contract
+- request DTO
+- response DTO
+- domain model
+- persistence entity
+- service orchestration
+- integration clients
+- events
+
+That separation lets the contract evolve without moving the database shape directly into the public API.
+
+It also lets incident response map symptoms to layers.
+
+If a response field is wrong, ask whether the DTO mapping is wrong.
+
+If state is wrong, ask whether the domain transition is wrong.
+
+If duplicate effects occurred, ask whether idempotency failed at the effect boundary.
+
+## Decision shape
+
+Use this sequence when asked to design an API:
+
+```text
+1. Define the business capability and owner.
+2. Define caller personas and latency budget.
+3. Choose sync or async interaction style.
+4. Model resources, commands, and events.
+5. Write the contract before implementation.
+6. Define idempotency and retry semantics.
+7. Define errors and status transitions.
+8. Define pagination, filtering, sorting, and field selection.
+9. Define versioning and compatibility rules.
+10. Define telemetry, audit, and rollout controls.
+```
+
+That sequence prevents endpoint-first thinking.
+
+## Study path
+
+### First pass
+
+| Step | Read | Outcome |
+|---:|---|---|
+| 1 | [Contract-first REST API design](/realtime-issues/api-design-contracts-rest) | Learn how to make the synchronous contract safe and evolvable |
+| 2 | [API integration patterns](/realtime-issues/api-integration-patterns) | Learn when REST should hand off to Kafka, saga, outbox, or DLQ |
+| 3 | [API versioning and compatibility](/realtime-issues/api-versioning-compatibility) | Learn how to change APIs without breaking consumers |
+
+### Interview cram path
+
+If you have limited prep time:
+
+1. Memorize the polished spoken answer above.
+2. Review idempotent POST with `Idempotency-Key`.
+3. Review why DTOs must not be JPA entities.
+4. Review the sync vs async decision matrix.
+5. Review compatible evolution rules.
+
+### Principal depth path
+
+For deeper signal:
+
+1. Explain a payment capture failure where the client timed out but the PSP later succeeded.
+2. Show how the idempotency table collapses retries.
+3. Show why the outbox event is written in the same DB transaction as the payment state.
+4. Show how old clients survive additive fields and enum evolution.
+5. Show monitoring for `/api/v1` usage before a v2 migration.
+
+## Production failure story
+
+Imagine checkout latency jumps from 300 ms to 12 seconds.
+
+The first dashboard says the payment API is slow.
+
+A shallow answer says "scale the pods."
+
+A Principal answer asks:
+
+- Is the API slow before or after it reserves payment state?
+- Are threads waiting on Hikari, PSP sockets, Kafka send, or CPU?
+- Are clients retrying after their own timeout?
+- Are retries using the same `Idempotency-Key`?
+- Is the PSP call inside a database transaction?
+- Is Kafka lag from event publication or consumer processing?
+- Are old clients sending a missing field that now triggers validation failure?
+
+The mitigation may be:
+
+- shed low-priority traffic
+- lower dependency timeout budgets
+- open a circuit breaker
+- switch captures to async accepted state
+- pause one noisy partner
+- terminate a database blocker
+- stop a bad rollout
+
+The durable fix may be:
+
+- move PSP calls outside long transactions
+- add outbox publication
+- require idempotency for payment side effects
+- isolate connection pools
+- add contract tests for client assumptions
+- add version and client metrics
+
+## Trade-off vocabulary
+
+Use these contrasts in interviews.
+
+| Choice | Benefit | Cost |
+|---|---|---|
+| REST request-response | Simple, debuggable, familiar | Tight latency coupling and synchronous failure propagation |
+| gRPC | Strong contracts and efficient service-to-service calls | Harder public compatibility and browser/client constraints |
+| Kafka event | Durable decoupling and replay | Eventual consistency and duplicate delivery |
+| Saga | Clear compensation across services | More states and operational complexity |
+| Outbox | Atomic DB state plus event intent | Requires relay, dedupe, and lag monitoring |
+| Idempotency key | Safe retries for side effects | Requires storage, key scoping, and conflict rules |
+| Versioned path | Easy routing and documentation | Can multiply APIs if compatibility discipline is weak |
+
+## What not to say
+
+Avoid:
+
+- "I would expose CRUD endpoints for every table."
+- "I would return the entity directly."
+- "Kafka gives exactly-once end to end."
+- "A `500` means the client should retry."
+- "We can remove v1 after deployment."
+- "Versioning solves compatibility."
+- "Idempotency is just deduplication."
+
+Each statement reveals a missing production scar.
+
+## What to say instead
+
+Say:
+
+- "The API exposes business capabilities, not tables."
+- "The contract is DTO-based and reviewed before implementation."
+- "POST side effects require idempotency at the effect boundary."
+- "Errors declare whether retry is safe."
+- "Async status resources handle work that cannot meet the caller budget."
+- "Events are at-least-once and consumers are idempotent."
+- "Compatible changes are preferred over new versions."
+- "Old-version usage is monitored before deprecation."
+
+## Cross-reference list
+
+Internal guide links:
+
+- [Contract-first REST API design](/realtime-issues/api-design-contracts-rest)
+- [API integration patterns](/realtime-issues/api-integration-patterns)
+- [API versioning and compatibility](/realtime-issues/api-versioning-compatibility)
+- [Stuck thread DB, API, and pools](/realtime-issues/stuck-thread-db-api-pools)
+- [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+
+Related system-design links:
+
+- [Transactions, 2PC, 3PC, and Saga](/distributed-systems/transactions-2pc-3pc-saga)
+- [Kafka locking and idempotency](/distributed-systems/kafka-locking-and-idempotency)
+- [Kafka transactions and payments](/kafka-interview/kafka-transactions-payments-interview)
+
+## Final mental model
+
+An API is a promise.
+
+The promise is not only that a route exists.
+
+The promise is that callers can depend on behavior across success, retry, timeout, partial failure, schema evolution, and deprecation.
+
+That is why API integration belongs in Real-Time Issues.
+
+When the contract is vague, the incident channel pays the bill.
