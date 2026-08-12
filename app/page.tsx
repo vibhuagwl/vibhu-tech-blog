@@ -22,6 +22,7 @@ const reasons=[
 const paths=[
   {title:'System Design',href:'/system-design',blurb:'Architecture problems, estimation, and Staff follow-ups.'},
   {title:'Distributed Systems',href:'/distributed-systems',blurb:'Locking, messaging, resilience, and consistency.'},
+  {title:'Design Patterns',href:'/design-patterns',blurb:'All 23 GoF patterns: source, revision cards, memory formula, poster, mock interview.'},
   {title:'Real-Time Issues',href:'/realtime-issues',blurb:'Stuck threads, Aurora, Oracle SQL, Java migration, Lead Experience.'},
   {title:'JPMC Experience',href:'/jpmc-experience',blurb:'Hadron Cashlines, Kafka replay, tax, RSU, Terraform.'},
   {title:'Spring Security',href:'/spring-security',blurb:'OAuth + JWT, Authn + Authz, and IDAnywhere OIDC grouped under one hub.'},

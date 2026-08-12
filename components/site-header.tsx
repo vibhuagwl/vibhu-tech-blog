@@ -9,6 +9,7 @@ import ThemeToggle from '@/components/theme-toggle';
 const TOPICS=[
   {href:'/system-design',label:'System Design',blurb:'Architecture problems & trade-offs'},
   {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking, messaging, resilience'},
+  {href:'/design-patterns',label:'Design Patterns',blurb:'23 GoF patterns · source · revision · mock interview'},
   {href:'/realtime-issues',label:'Real-Time Issues',blurb:'Production incidents & on-call'},
   {href:'/jpmc-experience',label:'JPMC Experience',blurb:'Hadron · Tax · RSU · Platform'},
   {href:'/spring-security',label:'Spring Security',blurb:'OAuth + JWT, Authn + Authz, and IDAnywhere OIDC'},
