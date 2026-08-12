@@ -68,6 +68,40 @@ mvn -pl resource-api spring-boot:run -Dspring-boot.run.profiles=idanywhere
 
 See `web-app/src/main/resources/application-idanywhere.yml`.
 
+## Pointing at Okta or Keycloak
+
+Same Spring Security code — only issuer / client credentials change.
+Register redirect URI `http://localhost:8088/login/oauth2/code/idanywhere` at the IdP
+(registration id stays `idanywhere` so controllers/templates do not change).
+
+### Okta
+
+```bash
+export OKTA_ISSUER_URI=https://dev-xxxxx.okta.com/oauth2/default
+export OKTA_CLIENT_ID=...
+export OKTA_CLIENT_SECRET=...
+export OKTA_API_AUDIENCE=api://payments-api   # or your Okta API audience
+
+mvn -pl web-app spring-boot:run -Dspring-boot.run.profiles=okta
+mvn -pl resource-api spring-boot:run -Dspring-boot.run.profiles=okta
+```
+
+See `web-app/src/main/resources/application-okta.yml`.
+
+### Keycloak
+
+```bash
+export KEYCLOAK_ISSUER_URI=http://localhost:8080/realms/payments
+export KEYCLOAK_CLIENT_ID=payments-web
+export KEYCLOAK_CLIENT_SECRET=...
+export KEYCLOAK_API_AUDIENCE=account          # or your client/audience
+
+mvn -pl web-app spring-boot:run -Dspring-boot.run.profiles=keycloak
+mvn -pl resource-api spring-boot:run -Dspring-boot.run.profiles=keycloak
+```
+
+See `web-app/src/main/resources/application-keycloak.yml`.
+
 ## Authn vs Authz
 
 | Step | Who |
