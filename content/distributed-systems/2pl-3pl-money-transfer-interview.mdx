@@ -1,11 +1,11 @@
 ---
 slug: 2pl-3pl-money-transfer-interview
 title: "2PL + 3PL Money Transfer — Interview Diagrams + Full Code"
-description: "Staff interview sheet for concurrent bank transfers: why it is called 2-phase and 3-phase locking, Mermaid flows, Redis + PostgreSQL, crash recovery — plus the full distributed-locking/ Spring source on this page."
+description: "Staff interview sheet for concurrent bank transfers: why it is called 2PL/3PL, how they work across multiple microservices with sequence diagrams, Redis + PostgreSQL, crash recovery — plus the full distributed-locking/ Spring source."
 category: Distributed Systems
 difficulty: Staff
-tags: [2PL, 3PL, Distributed Locking, Redis, PostgreSQL, Money Transfer, Interview, Mermaid, Spring Boot]
-readingTime: 14 min
+tags: [2PL, 3PL, Distributed Locking, Redis, PostgreSQL, Money Transfer, Interview, Mermaid, Spring Boot, Microservices]
+readingTime: 16 min
 publishedAt: "2026-08-12"
 updatedAt: "2026-08-12"
 ---
@@ -36,8 +36,8 @@ Combined demand is ₹13,000. Only **one** transfer can succeed. Say that outcom
 | If you have | Read | Goal |
 |---|---|---|
 | **5 minutes** | Memory sheet → [why 2PL / 3PL](#why-called-2pl-and-3pl) → spoken answer | Clear the round |
-| **10 minutes** | Add happy path, timeout, deadlock, crash recovery, 3PL states | Handle follow-ups |
-| **15 minutes** | Add code snippets + open [source explorer](#source) (`TwoPhaseLockingManager`) | Drive the whiteboard |
+| **10 minutes** | [Multi-microservice example](#multi-microservice-example-how-2pl--3pl-span-services) + concurrent race diagram | Explain cross-service locking |
+| **15 minutes** | Crash recovery diagram + [source explorer](#source) (`TwoPhaseLockingManager`) | Drive the whiteboard |
 
 Deep dives (optional later): [Locking hub](/distributed-systems/distributed-locking-master-index) · [Redis lock](/distributed-systems/redis-distributed-lock-deep-dive) · [PostgreSQL locking](/distributed-systems/postgresql-locking-deep-dive) · [2PC / 3PC / Saga](/distributed-systems/transactions-2pc-3pc-saga)
 
@@ -162,6 +162,154 @@ Sync path carries locks and money. Kafka is dashed — audit / lifecycle only.
 |---|---|
 | **Sync** | Client → Transfer → Redis lock → PG `FOR UPDATE` → commit → unlock |
 | **Async** | `Started` / `Locked` / `Committed` / `RolledBack` on Kafka |
+
+---
+
+## Multi-microservice example (how 2PL + 3PL span services)
+
+One process cannot hold JDBC locks across services. With **several microservices**, you still keep the same rules — but the **coordinator** is the Transaction Service, and locks live in a **shared Lock Service (Redis)**.
+
+### Example topology (this lab)
+
+| Microservice | Port | Owns | Role in 2PL / 3PL |
+|---|---:|---|---|
+| **API Gateway** | 8080 | Edge routing | Forwards `POST /transfers` |
+| **Transaction Service** | 8083 | Transfer DB + 3PL state | Coordinator — grow/shrink locks, drive phases |
+| **Lock Service** | 8081 | Redis leases | Exclusive lock API + fencing tokens |
+| **Account Service** | 8082 | Ledger DB | `FOR UPDATE` debit/credit with fencing check |
+| **Recovery Service** | 8084 | Polls stale txs | Resumes or aborts from persisted 3PL state |
+
+```text
+Client
+  → Gateway
+      → Transaction Service   ← 3PL state machine lives here
+            → Lock Service → Redis     ← 2PL leases (cross-service)
+            → Account Service → Postgres ledger
+      ← Recovery Service (async) reads Transaction DB + finishes incomplete txs
+```
+
+**Interview line:** “2PL is enforced by a central lock microservice; 3PL state is stored by the transfer coordinator; each ledger service only mutates under a fencing token.”
+
+### How 2PL works across microservices
+
+| 2PL phase | Who does what |
+|---|---|
+| **Growing** | Transaction Service calls Lock Service `acquire(account:A)` then `acquire(account:B)` (sorted). No unlock yet. |
+| **Critical section** | Still holding leases, Transaction Service calls Account Service prepare/apply. Other transfer pods block on Lock Service. |
+| **Shrinking** | Only after COMMIT or ABORT — Transaction Service calls Lock Service `release` for A and B. |
+
+Locks are **not** local synchronized blocks. Every Transfer pod asks the same Lock Service, so mutual exclusion works across instances and services.
+
+### How 3PL works across microservices
+
+| 3PL phase | Transaction Service state | Calls |
+|---|---|---|
+| **1. Lock / prepare** | `LOCKING` → `PRE_COMMIT` | Lock Service acquire → Account Service prepare (balance check) |
+| **2. Ready** | `COMMIT_READY` | Persist “ready” in Transaction DB (crash checkpoint) |
+| **3. Commit + release** | `COMMITTED` → `RELEASED` | Account Service apply → Lock Service release |
+
+If Transaction Service dies after `COMMIT_READY`, **Recovery Service** loads that row and either finishes apply + release, or aborts + release — using fencing so a zombie pod cannot write.
+
+### Diagram — one transfer across 5 services
+
+Transfer **A → B ₹7,000**. Watch 2PL grow → 3PL prepare/ready/commit → 2PL shrink.
+
+<Mermaid chart={`sequenceDiagram
+  autonumber
+  participant C as Client
+  participant G as Gateway :8080
+  participant T as Transaction Svc :8083
+  participant L as Lock Svc :8081
+  participant A as Account Svc :8082
+  participant R as Redis
+  participant P as Postgres ledger
+
+  C->>G: POST /transfers A to B 7000
+  G->>T: forward + Idempotency-Key
+  Note over T: 3PL begin ACTIVE
+  T->>L: acquire lock account:A
+  L->>R: SET NX PX + fence n
+  R-->>L: OK
+  L-->>T: token + fence n
+  T->>L: acquire lock account:B
+  L->>R: SET NX PX + fence m
+  L-->>T: token + fence m
+  Note over T: 2PL growing done · state LOCKING
+  T->>A: prepareTransfer fence n,m
+  A->>P: SELECT A,B FOR UPDATE
+  A-->>T: balances OK
+  Note over T: 3PL PRE_COMMIT then COMMIT_READY
+  T->>A: applyTransfer fence n,m
+  A->>P: debit A credit B COMMIT
+  A-->>T: applied
+  Note over T: 3PL COMMITTED
+  T->>L: release A and B
+  L->>R: Lua DEL if token matches
+  Note over T: 2PL shrinking · state RELEASED
+  T-->>G: COMPLETED
+  G-->>C: 200
+`} />
+
+### Diagram — two Transfer pods racing (multi-instance)
+
+Same Lock Service serializes them. Pod-2 cannot enter Account Service until Pod-1 shrinks.
+
+<Mermaid chart={`sequenceDiagram
+  autonumber
+  participant T1 as Transfer pod-1
+  participant T2 as Transfer pod-2
+  participant L as Lock Service
+  participant A as Account Service
+
+  T1->>L: acquire A then B
+  L-->>T1: OK fences
+  T2->>L: acquire A
+  Note over T2,L: waits · 2PL growing blocked
+  T1->>A: prepare + apply A to B 7000
+  A-->>T1: COMMITTED balances
+  T1->>L: release A,B
+  Note over T1: 2PL shrinking done
+  L-->>T2: acquire A OK
+  T2->>L: acquire C
+  T2->>A: prepare A to C 6000
+  A-->>T2: insufficient funds
+  T2->>L: release A,C
+  Note over T2: 3PL ABORTED then RELEASED
+`} />
+
+### Diagram — crash between microservices + recovery
+
+Coordinator dies after `COMMIT_READY` but before unlock. Recovery Service finishes phase 3.
+
+<Mermaid chart={`sequenceDiagram
+  autonumber
+  participant T as Transaction Svc
+  participant L as Lock Service
+  participant A as Account Service
+  participant Rec as Recovery Svc :8084
+
+  T->>L: acquire A,B
+  T->>A: prepare OK
+  T->>T: persist COMMIT_READY
+  Note over T: pod killed · leases may still be held
+  Rec->>T: load stale COMMIT_READY row
+  Rec->>A: applyTransfer with stored fences
+  A-->>Rec: applied or already applied
+  Rec->>L: release A,B
+  Rec->>T: mark COMMITTED then RELEASED
+  Note over Rec: fencing blocks any zombie apply
+`} />
+
+### What each service must remember
+
+| Service | Must | Must not |
+|---|---|---|
+| Transaction Service | Own 3PL state + call order | Unlock before commit/abort |
+| Lock Service | Atomic acquire/release + fence | Care about balances |
+| Account Service | Enforce balance + check fence | Trust callers without fence |
+| Recovery Service | Resume from durable state | Start new business transfers |
+
+**Say this:** “With many microservices, 2PL is a shared lock service used by every transfer instance; 3PL is the coordinator’s durable checklist so recovery can complete the money move after a crash.”
 
 ---
 
