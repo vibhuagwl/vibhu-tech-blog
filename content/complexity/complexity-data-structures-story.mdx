@@ -1,0 +1,226 @@
+---
+slug: complexity-data-structures-story
+title: "Data Structures — Time & Space Story Guide"
+description: "Remember array, list, stack, queue, hash, tree, heap, trie, and graph complexity with storytelling hooks, step-by-step formulas, and Java snippets."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Data Structures, Big-O, Java, Story, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-12"
+---
+
+**How to use this page:** Pick a structure → read the **story hook** → see the **formula** → skim the **Java snippet**.
+
+Step-by-step method: [Complexity Step-by-Step Story](/complexity/complexity-step-by-step-story)  
+Full tables: [Data Structures Time & Space](/complexity/data-structures-time-space-complexity)
+
+---
+
+## Box — pick the right structure by complexity need
+
+```text
+Need O(1) index?        → Array
+Need O(1) ends insert?  → Deque / linked list
+Need O(1) avg lookup?   → HashMap
+Need sorted + O(log N)?   → TreeMap / balanced BST
+Need min/max fast?      → Heap
+Need prefix search?     → Trie
+Need sparse graph walk? → Adjacency list
+```
+
+---
+
+## 1. Array — "Apartment with room numbers"
+
+**Story:** Every element lives at `base + index × size`. No walking — you **jump** directly.
+
+```java
+int x = nums[i];  // one address calc + one read
+```
+
+| Operation | Formula | Big-O | Why |
+|---|---|---|---|
+| Access `i` | 1 read | **O(1)** | direct address |
+| Search unsorted | up to N compares | **O(N)** | may scan all |
+| Insert middle | shift ~N/2 | **O(N)** | elements move |
+| Delete middle | shift ~N/2 | **O(N)** | elements move |
+
+**ArrayList append story:** Usually O(1), but sometimes the building **doubles** and everyone moves → rare O(N), **amortized O(1)**.
+
+```java
+list.add(x);  // amortized O(1)
+```
+
+Deep dive: [Arrays Complexity](/complexity/arrays-complexity)
+
+---
+
+## 2. Linked List — "Treasure hunt with clues"
+
+**Story:** No room numbers. To reach item `k`, follow `k` `next` pointers.
+
+```java
+Node cur = head;
+for (int i = 0; i < k; i++) cur = cur.next;  // k steps
+```
+
+| Operation | Big-O | Story |
+|---|---|---|
+| Access by index | **O(N)** | walk k nodes |
+| Insert at head | **O(1)** | repoint head |
+| Search | **O(N)** | walk until found |
+| Space | **O(N)** | node + pointer per item |
+
+Deep dive: [Linked List](/complexity/linked-list-complexity)
+
+---
+
+## 3. Stack — "Plate pile"
+
+**Story:** Only touch the **top**. Push/pop = one pointer move.
+
+```java
+stack.push(x);  // O(1)
+stack.pop();    // O(1)
+```
+
+| Operation | Time | Space |
+|---|---|---|
+| push / pop / peek | **O(1)** | **O(N)** stored items |
+
+Deep dive: [Stack](/complexity/stack-complexity)
+
+---
+
+## 4. Queue — "Ticket line"
+
+**Story:** Join at back, leave from front. With circular buffer → O(1) both ends.
+
+```java
+queue.offer(x);  // O(1)
+queue.poll();    // O(1) with ArrayDeque
+```
+
+Deep dive: [Queue](/complexity/queue-complexity)
+
+---
+
+## 5. HashMap / HashSet — "Labeled lockers"
+
+**Story:** Hash the key → open **one bucket** → short chain inside.
+
+```java
+map.get(key);   // O(1) average: hash + bucket walk
+map.put(key,v); // O(1) average
+```
+
+| Case | Time | Story |
+|---|---|---|
+| Average | **O(1)** | chain length ≈ load factor (small) |
+| Worst | **O(N)** | every key lands in same bucket |
+| Space | **O(N)** | table + entries |
+
+**Formula intuition:**
+
+```text
+expected chain length α = N / M   (M = buckets)
+if α is bounded (e.g. < 0.75) → average O(1)
+```
+
+Deep dive: [HashMap & HashSet](/complexity/hashmap-hashset-complexity)
+
+---
+
+## 6. BST / Balanced Tree — "Sorted filing cabinet"
+
+**Story:** Each comparison throws away **half** the remaining keys (if balanced).
+
+```java
+// balanced BST search
+while (node != null) {
+    if (key == node.val) return node;
+    node = key < node.val ? node.left : node.right;  // one level down
+}
+// height h ≈ log N → O(log N) comparisons
+```
+
+| Tree type | Search | Story |
+|---|---|---|
+| Unbalanced BST | O(N) worst | becomes a linked list |
+| AVL / Red-Black | **O(log N)** | height capped |
+
+Deep dive: [Trees BST AVL](/complexity/trees-bst-avl-complexity)
+
+---
+
+## 7. Heap (PriorityQueue) — "Emergency room triage"
+
+**Story:** Smallest item always at root. Insert/extract bubble up/down tree height.
+
+```java
+pq.offer(x);  // O(log N) swim
+pq.poll();    // O(log N) sink
+pq.peek();    // O(1) root
+```
+
+**Build heap trick:** Bottom-up heapify is **O(N)**, not O(N log N).
+
+Deep dive: [Heap](/complexity/heap-priorityqueue-complexity)
+
+---
+
+## 8. Trie — "Prefix tree for autocomplete"
+
+**Story:** Cost follows **word length L**, not number of words stored.
+
+```java
+// walk one character per level
+Node node = root;
+for (char c : word.toCharArray()) {
+    node = node.children[c - 'a'];  // O(1) per char
+}
+// total O(L)
+```
+
+Deep dive: [Trie](/complexity/trie-complexity)
+
+---
+
+## 9. Graph — "City map"
+
+**Story:** `V` cities, `E` roads. Adjacency list stores each road once.
+
+```java
+// BFS — each vertex once, each edge twice (undirected)
+Queue<Integer> q = new ArrayDeque<>();
+boolean[] seen = new boolean[V];  // O(V) space
+```
+
+| Representation | Space | BFS/DFS time |
+|---|---|---|
+| Adjacency list | **O(V + E)** | **O(V + E)** |
+| Adjacency matrix | **O(V²)** | O(V²) to scan row |
+
+Deep dive: [Graph Algorithms](/complexity/graph-algorithms-complexity) · [BFS](/complexity/bfs-complexity) · [DFS](/complexity/dfs-complexity)
+
+---
+
+## Master snapshot (interview table)
+
+| Structure | Access | Search | Insert | Delete | Extra space |
+|---|---|---|---|---|---|
+| Array | O(1) | O(N) | O(N) mid | O(N) mid | O(1) |
+| Linked list | O(N) | O(N) | O(1) head | O(1) head | O(1) |
+| HashMap | — | O(1)* avg | O(1)* avg | O(1)* avg | O(N) |
+| Balanced BST | O(log N) | O(log N) | O(log N) | O(log N) | O(N) |
+| Heap | — | O(N) | O(log N) | O(log N) | O(N) |
+| Trie | O(L) | O(L) | O(L) | O(L) | high |
+
+\*average; worst O(N) for hash
+
+---
+
+## Next
+
+- [Algorithms Story Guide](/complexity/complexity-algorithms-story)
+- [Complexity Cheat Sheet](/complexity/complexity-cheat-sheet)

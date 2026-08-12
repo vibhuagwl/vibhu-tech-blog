@@ -1,0 +1,309 @@
+---
+slug: complexity-algorithms-story
+title: "Algorithms — Time & Space Story Guide"
+description: "Sorting, searching, two pointers, sliding window, recursion, DP, backtracking, BFS/DFS, and graphs — complexity derived step-by-step with Java snippets and memory hooks."
+category: Complexity
+difficulty: Intermediate
+tags: [Complexity, Algorithms, Big-O, Java, Story, Interview]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+**Memory hook:** Every algorithm pattern answers: *"How many times does the main work run, and how much extra memory do I carry?"*
+
+Method: [Step-by-Step Story](/complexity/complexity-step-by-step-story) · Structures: [Data Structures Story](/complexity/complexity-data-structures-story)
+
+---
+
+## Box — algorithm families
+
+```text
+SCAN once          → O(N)
+HALVE each step    → O(log N)
+NESTED over N      → O(N²)
+SORT + scan        → O(N log N)
+STATES × TRANSITION → DP
+EXPLORE branches  → backtracking / BFS / DFS
+```
+
+---
+
+## 1. Linear scan — "Walk the street once"
+
+```java
+public static int max(int[] a) {
+    int best = a[0];
+    for (int x : a) best = Math.max(best, x);
+    return best;
+}
+```
+
+```text
+N = a.length
+Loop: N iterations
+Time: O(N)
+Space: O(1)
+```
+
+---
+
+## 2. Binary search — "Discard half"
+
+```java
+while (lo <= hi) {
+    int mid = lo + (hi - lo) / 2;
+    // one comparison → half the range gone
+}
+```
+
+```text
+Iterations ≈ log₂ N
+Time: O(log N)
+Space: O(1)
+```
+
+Full proof: [Binary Search Derived](/complexity/binary-search-derived)
+
+---
+
+## 3. Two pointers — "Two walkers, never more than 2N steps"
+
+**Story:** Left and right move forward; each index visited at most twice.
+
+```java
+public static int maxArea(int[] h) {
+    int lo = 0, hi = h.length - 1, best = 0;
+    while (lo < hi) {
+        best = Math.max(best, Math.min(h[lo], h[hi]) * (hi - lo));
+        if (h[lo] < h[hi]) lo++; else hi--;
+    }
+    return best;
+}
+```
+
+```text
+lo moves ≤ N times, hi moves ≤ N times
+Total pointer moves ≤ 2N
+Time: O(N)
+Space: O(1)
+```
+
+Deep dive: [Two Pointers](/complexity/two-pointers-complexity)
+
+---
+
+## 4. Sliding window — "Expand right, shrink left"
+
+**Story:** Right edge enters the window once. Left edge leaves at most once per right move → **2N** total.
+
+```java
+public static int longestUnique(String s) {
+    int[] last = new int[128];
+    Arrays.fill(last, -1);
+    int left = 0, best = 0;
+    for (int right = 0; right < s.length(); right++) {
+        char c = s.charAt(right);
+        left = Math.max(left, last[c] + 1);
+        last[c] = right;
+        best = Math.max(best, right - left + 1);
+    }
+    return best;
+}
+```
+
+```text
+right: N steps
+left:  moves forward only, total ≤ N over whole run
+Time:  O(N)
+Space: O(alphabet) for last[] → O(1) if fixed ASCII
+```
+
+Deep dive: [Sliding Window](/complexity/sliding-window-complexity)
+
+---
+
+## 5. Sorting — "Compare neighbors until ordered"
+
+| Algorithm | Time (typical) | Space | Story |
+|---|---|---|---|
+| Bubble / Insertion | O(N²) | O(1) | nested or shifting |
+| Merge sort | O(N log N) | O(N) | divide + merge levels |
+| Quick sort (avg) | O(N log N) | O(log N) stack | partition tree |
+| Heap sort | O(N log N) | O(1) | heapify + extract |
+| Counting / Radix | O(N + K) | O(K) | not comparison-based |
+
+**Merge sort formula sketch:**
+
+```text
+T(N) = 2T(N/2) + O(N)   → Master Theorem → O(N log N)
+```
+
+Deep dive: [Sorting Algorithms Derived](/complexity/sorting-algorithms-derived)
+
+---
+
+## 6. Recursion — "Call yourself until base case"
+
+```java
+static int factorial(int n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+}
+```
+
+```text
+Depth of calls: n
+Time: O(n) multiplications
+Space: O(n) stack frames
+```
+
+Deep dive: [Recursion](/complexity/recursion-complexity) · [Master Theorem](/complexity/master-theorem)
+
+---
+
+## 7. Dynamic programming — "States × transitions"
+
+**Story:** Fill a table; each cell computed once from neighbors.
+
+```java
+static int coinChange(int[] coins, int amount) {
+    int[] dp = new int[amount + 1];
+    Arrays.fill(dp, amount + 1);
+    dp[0] = 0;
+    for (int a = 1; a <= amount; a++) {
+        for (int c : coins) {
+            if (c <= a) dp[a] = Math.min(dp[a], dp[a - c] + 1);
+        }
+    }
+    return dp[amount];
+}
+```
+
+```text
+States: amount + 1  → O(amount)
+Transitions per state: O(#coins)
+Time: O(amount × coins)
+Space: O(amount) for dp[]
+```
+
+**Universal DP formula:**
+
+```text
+time  = (# states) × (cost per transition)
+space = (# stored states) + recursion stack if top-down
+```
+
+Deep dive: [Dynamic Programming](/complexity/dynamic-programming-complexity)
+
+---
+
+## 8. Backtracking — "Try choice, undo, try next"
+
+```java
+static void subsets(int[] nums, int i, List<Integer> path, List<List<Integer>> out) {
+    if (i == nums.length) { out.add(new ArrayList<>(path)); return; }
+    path.add(nums[i]); subsets(nums, i + 1, path, out); path.remove(path.size() - 1);
+    subsets(nums, i + 1, path, out);
+}
+```
+
+```text
+Each element: take or skip → 2 choices
+Leaves: 2^N subsets
+Time: O(N · 2^N) including copy cost
+Space: O(N) recursion depth + output
+```
+
+Deep dive: [Backtracking](/complexity/backtracking-complexity)
+
+---
+
+## 9. BFS / DFS on graphs — "Visit every room and door once"
+
+```java
+static void bfs(List<List<Integer>> g, int start) {
+    boolean[] seen = new boolean[g.size()];
+    ArrayDeque<Integer> q = new ArrayDeque<>();
+    q.add(start); seen[start] = true;
+    while (!q.isEmpty()) {
+        int u = q.poll();
+        for (int v : g.get(u)) {
+            if (!seen[v]) { seen[v] = true; q.add(v); }
+        }
+    }
+}
+```
+
+```text
+V = vertices, E = edges (adjacency list)
+
+Each vertex enqueued once: O(V)
+Each edge examined once:   O(E)
+Time: O(V + E)
+Space: O(V) for seen + queue
+```
+
+Deep dive: [BFS](/complexity/bfs-complexity) · [DFS](/complexity/dfs-complexity)
+
+---
+
+## 10. Dijkstra — "Greedy shortest path with a heap"
+
+```text
+Time: O((V + E) log V) with binary heap
+Space: O(V) dist[] + heap
+```
+
+Deep dive: [Graph Algorithms](/complexity/graph-algorithms-complexity)
+
+---
+
+## 11. Monotonic stack — "Each element pushed once, popped once"
+
+```java
+// next greater element pattern
+Deque<Integer> st = new ArrayDeque<>();
+for (int i = 0; i < n; i++) {
+    while (!st.isEmpty() && a[st.peek()] < a[i]) st.pop();
+    st.push(i);
+}
+```
+
+```text
+Each index pushed once, popped at most once
+Total stack ops ≤ 2N
+Time: O(N)
+Space: O(N) stack
+```
+
+Deep dive: [Monotonic Stack](/complexity/monotonic-stack-complexity)
+
+---
+
+## Pattern picker (interview)
+
+| You see in code | Likely time | Likely space |
+|---|---|---|
+| one loop | O(N) | O(1) |
+| sort + loop | O(N log N) | O(1) or O(N) |
+| nested loops same array | O(N²) | O(1) |
+| binary search / halving | O(log N) | O(1) |
+| BFS/DFS adj list | O(V+E) | O(V) |
+| DP table size T | O(T × work) | O(T) |
+| subsets / permutations | O(2^N) / O(N!) | O(N) stack |
+
+---
+
+## Practice path (15 min)
+
+1. [Step-by-Step Story](/complexity/complexity-step-by-step-story) — learn the detective method  
+2. [Data Structures Story](/complexity/complexity-data-structures-story) — pick the right tool  
+3. [Practice Problems](/complexity/complexity-practice-problems) — derive from code  
+4. [Interview Traps](/complexity/interview-traps-complexity) — fix wrong answers  
+
+---
+
+## Related
+
+- [Complexity Master Index](/complexity/complexity-master-index)
+- [Formula Sheet](/complexity/complexity-formula-sheet)

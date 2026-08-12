@@ -1,0 +1,284 @@
+---
+slug: complexity-step-by-step-story
+title: "How to Calculate Time & Space Complexity — Step-by-Step Story"
+description: "Story-first method to derive Big-O from any Java program: count work, write the formula, simplify, and explain space — with code snippets you can remember in interviews."
+category: Complexity
+difficulty: Beginner
+tags: [Complexity, Big-O, Java, Story, Interview, Step by Step]
+readingTime: 15 min
+publishedAt: "2026-08-12"
+---
+
+**Memory hook:** You are a **work detective**. Your job is not to guess Big-O — it is to **count how many times the expensive line runs**, write a formula, then simplify.
+
+```text
+CODE → count executions → formula → simplify → Big-O
+       (same for SPACE: extra memory only)
+```
+
+Full curriculum: [Complexity Master Index](/complexity/complexity-master-index)
+
+---
+
+## The 5-step story (say this in every interview)
+
+| Step | Detective question | Output |
+|---:|---|---|
+| 1 | What is **N**? (array length? nodes? edges?) | `N = nums.length` |
+| 2 | What is the **dominant operation**? | comparisons, hash lookups, swaps |
+| 3 | How many times does it run? | `N`, `N²`, `N log N` |
+| 4 | Write the **formula** | `3N + 4`, `N(N-1)/2` |
+| 5 | **Simplify** (drop constants & lower terms) | `O(N)`, `O(N²)` |
+
+**Space rule:** Count only **extra** memory you allocate (not the input itself).
+
+```text
+auxiliary space = new arrays + maps + recursion stack depth
+```
+
+---
+
+## Story 1 — One full scan (array sum)
+
+**Plot:** You walk a hallway with `N` doors. Each door has a number. You add them once.
+
+```java
+public static long sum(int[] nums) {
+    long total = 0;                         // O(1) setup
+    for (int i = 0; i < nums.length; i++) { // runs N times
+        total += nums[i];                   // O(1) per iteration
+    }
+    return total;
+}
+```
+
+**Count executions:**
+
+```text
+Let N = nums.length
+
+Loop body runs: N times
+Additions:      N
+Loop checks:    N + 1  (i goes 0..N)
+
+Formula (time):  a·N + b   where a, b are small constants
+Simplify:        N
+Big-O time:      O(N)
+```
+
+**Space:**
+
+```text
+Extra variables: total, i  → 2 slots
+Formula:         constant
+Big-O space:     O(1)
+```
+
+**30-second interview line:**
+
+> I define N as the array length. The addition inside the loop runs once per element, so work grows linearly — O(N) time and O(1) extra space.
+
+---
+
+## Story 2 — Nested loops (compare all pairs)
+
+**Plot:** `N` people in room A. For each person, you shake hands with everyone in room B (`M` people).
+
+```java
+public static int countMatches(int[] a, int[] b) {
+    int count = 0;
+    for (int i = 0; i < a.length; i++) {           // N times
+        for (int j = 0; j < b.length; j++) {       // M times each
+            if (a[i] == b[j]) count++;             // O(1)
+        }
+    }
+    return count;
+}
+```
+
+**Count executions:**
+
+```text
+N = a.length
+M = b.length
+
+Outer runs N times
+Inner runs M times per outer
+Comparisons = N × M
+
+Formula:  N·M
+If M = N: N²
+Big-O:    O(N·M)  or  O(N²) when same size
+Space:    O(1)
+```
+
+**Trap to avoid:** Two loops one after another is **addition**, not multiplication.
+
+```java
+for (...) { /* N */ }
+for (...) { /* N */ }
+// → N + N = O(N), NOT O(N²)
+```
+
+---
+
+## Story 3 — Triangle loop (dependent inner bound)
+
+**Plot:** For each row `i`, you only visit columns `0 .. i-1` (upper triangle).
+
+```java
+public static void printPairs(int n) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < i; j++) {
+            System.out.println(i + "," + j);
+        }
+    }
+}
+```
+
+**Count executions:**
+
+```text
+Inner iterations when i = 0: 0
+when i = 1: 1
+...
+when i = n-1: n-1
+
+Total = 0 + 1 + 2 + ... + (n-1)
+      = n(n-1)/2
+
+Formula:  (n² - n) / 2
+Simplify: n²  (drop n and /2)
+Big-O:    O(n²)
+Space:    O(1)
+```
+
+**Memory line:** *Arithmetic series → always suspect O(N²).*
+
+---
+
+## Story 4 — Binary search (halving the problem)
+
+**Plot:** Phone book sorted by name. Each step you open the **middle** and discard half.
+
+```java
+public static int binarySearch(int[] sorted, int target) {
+    int lo = 0, hi = sorted.length - 1;
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (sorted[mid] == target) return mid;
+        if (sorted[mid] < target) lo = mid + 1;
+        else hi = mid - 1;
+    }
+    return -1;
+}
+```
+
+**Count executions:**
+
+```text
+N = sorted.length
+
+Each iteration removes half the remaining range
+After k steps: N / 2^k ≤ 1
+Solve: 2^k ≥ N  →  k ≥ log₂ N
+
+Formula:  log₂ N
+Big-O:    O(log N)
+Space:    O(1) iterative
+```
+
+See full derivation: [Binary Search Derived](/complexity/binary-search-derived)
+
+---
+
+## Story 5 — Recursion + extra space (DFS on tree)
+
+**Plot:** You explore a tree branch-by-branch. Each call waits on the stack until its children finish.
+
+```java
+static int height(Node root) {
+    if (root == null) return 0;
+    return 1 + Math.max(height(root.left), height(root.right));
+}
+```
+
+**Count executions:**
+
+```text
+Each node visited once → O(N) time where N = nodes
+
+Recursion stack depth = tree height h
+Best (balanced):  h = log N  → O(log N) space
+Worst (skewed):   h = N      → O(N) space
+```
+
+**Memory line:** *Recursion space = stack depth, not total calls.*
+
+---
+
+## Space complexity — three buckets
+
+| Bucket | Count? | Example |
+|---|---|---|
+| Input storage | Usually **ignore** in "auxiliary space" | the given `int[] nums` |
+| Extra structures | **Yes** | `new int[n]`, `HashMap`, `ArrayList` |
+| Recursion stack | **Yes** | DFS depth, merge sort call stack |
+
+```java
+public static int[] copyDoubled(int[] nums) {
+    int[] out = new int[nums.length];  // ← O(N) extra space
+    for (int i = 0; i < nums.length; i++) {
+        out[i] = nums[i] * 2;
+    }
+    return out;
+}
+```
+
+```text
+Time:  O(N)
+Space: O(N) for the new array
+```
+
+---
+
+## Formula sheet (keep in head)
+
+| Pattern | Executions | Big-O |
+|---|---|---|
+| Single loop over N | N | O(N) |
+| Two nested independent loops | N·M | O(NM) |
+| Triangle inner `j < i` | n(n-1)/2 | O(N²) |
+| Halve each step | log N | O(log N) |
+| Sort then scan | N log N + N | O(N log N) |
+| All subsets | 2^N | O(2^N) |
+| All permutations | N! | O(N!) |
+
+More formulas: [Formula Sheet](/complexity/complexity-formula-sheet)
+
+---
+
+## Interview answer template (copy this shape)
+
+```text
+Let N be ___.
+
+The dominant operation is ___.
+It runs ___ times because ___.
+Formula: ___.
+Simplifying gives time O(___).
+
+Extra space is O(___) because we allocate ___.
+Assumptions: ___.
+```
+
+---
+
+## What to read next
+
+| Goal | Page |
+|---|---|
+| Every data structure with story + table | [Data Structures Story](/complexity/complexity-data-structures-story) |
+| Algorithm patterns (sort, search, DP, graph) | [Algorithms Story](/complexity/complexity-algorithms-story) |
+| More worked examples from code | [Calculate Complexity from Code](/complexity/calculate-complexity-from-code) |
+| Practice deriving answers | [Practice Problems](/complexity/complexity-practice-problems) |
