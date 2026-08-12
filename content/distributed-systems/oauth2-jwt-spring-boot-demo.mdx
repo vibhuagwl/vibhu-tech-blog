@@ -1,0 +1,43 @@
+---
+slug: oauth2-jwt-spring-boot-demo
+title: "OAuth 2.0 + JWT with Spring Boot — Runnable Staff Interview Demo"
+description: "Multi-module Spring Authorization Server, Resource Server, Gateway, and Client with PKCE, client credentials, scopes/roles, tests, and Staff-level explanations."
+category: "Distributed Systems"
+difficulty: Staff
+tags: [OAuth2, JWT, Spring Security, Spring Boot, PKCE, Interview, Security]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+## What this is
+
+A **runnable** OAuth 2.0 + JWT lab lives in the repo at `oauth-jwt-demo/`.
+
+Explain the full lifecycle in a Staff interview:
+
+Who authenticates → who issues the code → who exchanges it → who signs the JWT → where keys live → who validates → scopes/roles → expiry/refresh → AS outage behavior.
+
+## Stack
+
+- Java 21, Spring Boot **3.4.5**, Spring Security 6.x
+- Spring Authorization Server (Boot starter / BOM-managed)
+- Resource Server + API Gateway + confidential client app
+- Flyway user/OAuth JDBC schema; H2 locally, Postgres via Docker Compose
+
+## Start here
+
+1. Read `oauth-jwt-demo/README.md`
+2. `cd oauth-jwt-demo && mvn test`
+3. Run AS + RS + client; walk Authorization Code and Client Credentials
+4. Drill `oauth-jwt-demo/docs/INTERVIEW.md`
+
+## Mental model
+
+```text
+Login → Authorize → Code → Token (JWT RS256) → Gateway → Resource Server
+  → JwtDecoder/JWKS → claims → SCOPE_/ROLE_ → @PreAuthorize → API
+```
+
+## Interview punchline
+
+> The hard part is not wiring `oauth2ResourceServer`. It is key management, audience/scope design, refresh/rotation, and what still works when the Authorization Server is down.

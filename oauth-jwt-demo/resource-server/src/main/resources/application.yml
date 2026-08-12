@@ -1,0 +1,29 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: resource-server
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9000
+      client:
+        registration:
+          payment-service:
+            provider: auth-server
+            client-id: payment-service
+            client-secret: payment-secret
+            authorization-grant-type: client_credentials
+            scope: account.read,payment.write
+        provider:
+          auth-server:
+            token-uri: http://localhost:9000/oauth2/token
+
+app:
+  audience: payment-api
+
+logging:
+  level:
+    org.springframework.security: INFO
