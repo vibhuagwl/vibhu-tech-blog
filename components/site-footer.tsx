@@ -16,6 +16,7 @@ const COLUMNS=[
     links:[
       {href:'/system-design',label:'System design'},
       {href:'/distributed-systems',label:'Distributed systems'},
+      {href:'/design-patterns',label:'Design Patterns'},
       {href:'/realtime-issues',label:'Real-time issues'},
       {href:'/jpmc-experience',label:'JPMC experience'},
       {href:'/spring-security',label:'Spring Security hub'},
