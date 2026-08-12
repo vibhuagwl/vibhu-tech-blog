@@ -1,0 +1,191 @@
+---
+slug: java-migration-compatibility-and-spring
+title: "Java 17 Compatibility Risks and Phased Spring Boot Upgrades"
+description: "Principal-level framing for Java 11 to 17 compatibility: removed APIs, reflection, Hibernate/JDBC risk, stronger JDK encapsulation, and why Spring upgrades should stay separately controlled."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java 17, Compatibility, Spring Boot, Hibernate, Reflection, JAXB, Encapsulation]
+readingTime: 22 min
+publishedAt: "2026-08-12"
+---
+
+## Compatibility is the main risk
+
+One of the biggest risks in legacy applications is **dependency compatibility**.
+
+For example:
+
+```text
+Java 17
+   ↓
+Old Spring Boot
+   ↓
+Old Hibernate
+   ↓
+Old JDBC Driver
+   ↓
+Old third-party library
+```
+
+Even if the application compiles, runtime behavior may break.
+
+That is the sentence interviewers want to hear.
+
+## What I specifically look for
+
+I look for:
+
+- deprecated APIs that become removals across the 11 → 17 window
+- removed JDK functionality and Java EE modules that used to ship with the JDK
+- reflection-based libraries and frameworks
+- bytecode compatibility of agents and enhancers
+- old JAXB / JAX-WS dependencies
+- old logging frameworks and bridges
+- old Hibernate versions
+- old JDBC drivers
+- unsupported application-server versions
+- security library compatibility
+- serialization libraries (Jackson, Kryo, custom Java serialization)
+- native libraries and JNI assumptions
+
+Java 17 also introduced stronger encapsulation around JDK internals, so old libraries relying on internal JDK APIs or deep reflection can become migration problems.
+
+## Syntax vs ecosystem
+
+Interview anti-pattern:
+
+```text
+Java 17 migration = learn records, text blocks, pattern matching
+```
+
+Useful, but secondary.
+
+Senior pattern:
+
+```text
+Java 17 migration = prove the ecosystem still preserves business behavior on a newer runtime
+```
+
+Language features are optional adoption.
+
+Compatibility is mandatory.
+
+## Stronger encapsulation
+
+Libraries that previously reached into `sun.*` or opened JDK modules via habit may now fail with:
+
+- `InaccessibleObjectException`
+- illegal reflective access that becomes hard failure
+- agent attach or bytecode rewrite failures
+
+Temporary `--add-opens` / `--add-exports` flags can unblock a canary.
+
+They should be treated as debt with an owner and an expiry, not as the destination architecture.
+
+In an interview, say:
+
+```text
+I may use --add-opens as a short bridge while replacing the offending library,
+but I would not accept permanent reliance on cracked JDK internals.
+```
+
+## Spring upgrade: related, separately controlled
+
+I treat the Java upgrade and Spring upgrade as **related but separately controlled changes**.
+
+Example phasing:
+
+```text
+Phase 1
+Java 11 → Java 17
+       +
+Compatible Spring version
+
+Phase 2
+Spring Boot upgrade
+
+Phase 3
+Dependency remediation that was deferred
+```
+
+Or, if the current Spring Boot version does not support Java 17, I first determine the **minimum** Spring Boot version required for a supported Java 17 matrix.
+
+Then I decide:
+
+- smallest Spring bump that unlocks Java 17
+- whether that bump forces Hibernate / Jackson jumps
+- whether those jumps force business-code changes
+
+I do not combine multiple major upgrades blindly because if production breaks, it becomes difficult to identify which change caused it.
+
+## Why blind combination fails RCA
+
+Suppose one release contains:
+
+- JDK 11 → 17
+- Spring Boot 2.3 → 3.x
+- Hibernate major
+- Jackson major
+- new base image
+- schema migration
+
+If payment authorization rates drop 2%, you do not know what to roll back first.
+
+Phasing preserves bisectability.
+
+Bisectability is an operational feature.
+
+## Minimum-version thinking
+
+A practical sequence:
+
+1. Identify current Spring Boot.
+2. Check the Spring Boot support matrix for Java 17.
+3. If unsupported, choose the lowest Boot version that supports Java 17 and is acceptable to the org.
+4. Read the Boot migration guide for that jump.
+5. Estimate whether Jakarta namespace migration (`javax.*` → `jakarta.*`) is in scope.
+6. Decide if Java 17 must wait behind a Boot/Jakarta program, or if an intermediate Boot version lets you move Java first.
+
+Sometimes the honest plan is:
+
+```text
+Cannot put Java 17 under the current Boot line.
+First deliver a Boot upgrade on Java 11,
+then move the runtime to 17,
+then continue dependency remediation.
+```
+
+That is still a strong answer because it respects coupling.
+
+## Hibernate, JDBC, and Kafka clients
+
+These are common silent break points:
+
+- Hibernate expecting different bytecode or dirty-checking behavior
+- JDBC drivers not certified on the new JDK
+- connection pool interactions under changed GC/latency
+- Kafka clients with older compression or interceptor assumptions
+- JSON serialization ordering or date/time defaults shifting after Jackson upgrades forced by Spring
+
+Call these out explicitly in interviews.
+
+They show you have imagined production, not only `javac`.
+
+## Application servers and images
+
+If the service is not a simple Spring Boot jar:
+
+- confirm the app server supports Java 17
+- confirm classloading quirks
+- confirm endorsed/lib directories and shared libs
+- confirm the container base image and distroless/runtime choice
+
+A green Maven module on a laptop is not the same artifact that runs in the fleet.
+
+## Interview phrasing for "what could break?"
+
+> "The major risks are usually not Java syntax changes. They're runtime and ecosystem compatibility issues—old Spring or Hibernate versions, libraries using reflection or internal JDK APIs, incompatible bytecode, JDBC drivers, serialization behavior, security libraries, build plugins, container images, and changes in performance or GC behavior. That's why I treat the migration as an application compatibility exercise and validate behavior through regression and production-like testing."
+
+Memorize the shape of that answer.
+
+It is the rebuttal to "weak understanding of upgrade risk."

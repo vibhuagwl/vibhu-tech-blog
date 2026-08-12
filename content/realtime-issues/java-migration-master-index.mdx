@@ -1,0 +1,190 @@
+---
+slug: java-migration-master-index
+title: "Java Migration: Honest Java 11 to 17 Upgrade Framing for Senior Interviews"
+description: "A Staff and Principal hub for discussing Java 11 to 17 upgrades honestly: compatibility, dependency remediation, regression testing, canary rollout, and rollback without claiming a migration you did not lead."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java Migration, Java 17, Java 11, Spring Boot, Dependency Remediation, Canary, Rollback, Principal Interview]
+readingTime: 22 min
+publishedAt: "2026-08-12"
+---
+
+## The interview trap
+
+If the interviewer says:
+
+> "Has used Java 17 but not migrated legacy applications; weak understanding of upgrade risk"
+
+you should **not** invent a story that you personally led a Java 11 → 17 migration.
+
+Claiming ownership you do not have is easy to puncture in follow-ups.
+
+A stronger senior answer is:
+
+> I have hands-on experience developing with Java 17+, although I would distinguish that from claiming that I personally led a legacy Java 11-to-17 migration. For a legacy application, I would treat the upgrade as a controlled compatibility exercise rather than simply changing the Maven compiler version.
+
+That framing is honest.
+
+It still proves depth.
+
+It shows you understand upgrade risk even when you have not owned the full program.
+
+## The one-line takeaway
+
+**Do not say:**
+
+> "I changed Java 11 to Java 17 and fixed compilation errors."
+
+**Say:**
+
+> "I understand the migration as a compatibility, dependency, regression and operational-risk exercise, with baseline testing, dependency remediation, staged rollout and rollback."
+
+That is the senior-level signal.
+
+Compilation is necessary.
+
+It is not sufficient.
+
+## Full Java migration curriculum
+
+| # | Guide | Difficulty | Focus |
+|---:|---|---|---|
+| 01 | [Java migration master index](/realtime-issues/java-migration-master-index) | Principal | Honest framing, lifecycle map, what interviewers listen for |
+| 02 | [Lifecycle and baseline](/realtime-issues/java-migration-lifecycle-and-baseline) | Principal | Inventory, baselines, why `java.version=17` is not the first step |
+| 03 | [Compatibility and Spring](/realtime-issues/java-migration-compatibility-and-spring) | Principal | Runtime risks, JDK encapsulation, phased Spring upgrades |
+| 04 | [Dependencies and build](/realtime-issues/java-migration-dependencies-and-build) | Staff | Dependency trees, conflicts, CI/Docker/runtime alignment |
+| 05 | [Testing and regression](/realtime-issues/java-migration-testing-and-regression) | Principal | Multi-layer tests, before/after behavioral comparison |
+| 06 | [Rollout and rollback](/realtime-issues/java-migration-rollout-and-rollback) | Principal | Canary, metrics, backward-compatible DB, stop-the-roll |
+| 07 | [Interview answers + follow-ups](/realtime-issues/java-migration-interview-answer-and-followups) | Principal | 30s/2m/5m scripts, "what could break?", hard follow-ups |
+
+Related deeper Q&A also exists in [distributed + cache + migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa) (Q82–Q86). Use that bank for punchy answers; use this curriculum for the full spoken narrative.
+
+## Migration lifecycle map
+
+The upgrade typically looks like:
+
+```text
+Current Application
+       ↓
+Inventory dependencies
+       ↓
+Baseline existing behavior
+       ↓
+Upgrade build/toolchain
+       ↓
+Java 17 compatibility
+       ↓
+Dependency remediation
+       ↓
+Compile
+       ↓
+Unit + integration tests
+       ↓
+Performance/regression testing
+       ↓
+Canary / controlled rollout
+       ↓
+Production monitoring
+```
+
+Every box after "Compile" is where senior judgment shows up.
+
+If your answer stops at green CI compile, the interviewer will correctly rate upgrade-risk understanding as weak.
+
+## What interviewers listen for
+
+They are not listening for:
+
+- "I like records and switch expressions"
+- "Java 17 is LTS"
+- "We just bumped the parent POM"
+
+They are listening for:
+
+- honesty about personal ownership vs platform knowledge
+- inventory before change
+- separation of Java, Spring, and dependency major moves
+- awareness that runtime breaks matter more than syntax breaks
+- regression evidence, not start-up smoke alone
+- canary and rollback as first-class design
+- financial/payment sensitivity when relevant
+
+## Honest experience ladder
+
+Use the ladder that matches reality.
+
+```text
+Used Java 17 features in greenfield or new modules
+        ↓
+Participated in dependency upgrades / CI JDK bumps
+        ↓
+Owned a service runtime upgrade with canary
+        ↓
+Led a multi-service legacy Java 11 → 17 program
+```
+
+Only claim the level you actually lived.
+
+For most candidates who have coded on Java 17 but not led a legacy cutover, the correct spoken position is:
+
+```text
+Hands-on Java 17 development + migration lifecycle competence
+≠ personal ownership of a full legacy migration program
+```
+
+That distinction builds trust.
+
+Trust is more valuable than inflated ownership in a Staff interview.
+
+## Core risks in one diagram
+
+```text
+Java 17
+   ↓
+Old Spring Boot
+   ↓
+Old Hibernate
+   ↓
+Old JDBC Driver
+   ↓
+Old third-party library
+```
+
+Even if the application compiles, runtime behavior may break.
+
+The major risks are usually not Java syntax changes.
+
+They are ecosystem and operational compatibility issues:
+
+- old Spring / Hibernate
+- reflection and internal JDK APIs
+- incompatible bytecode / agents
+- JDBC drivers
+- serialization behavior
+- security libraries
+- build plugins
+- container images
+- GC and performance shape changes
+
+## How to study this section
+
+1. Memorize the honest opener.
+2. Walk the lifecycle without notes.
+3. Explain why Spring and Java upgrades should be phased.
+4. Name three concrete "what could break" classes of failure.
+5. Describe canary metrics and a rollback decision.
+6. Practice the 2-minute answer out loud.
+
+If you can do those six, you will not look weak on upgrade risk—even without having led the migration yourself.
+
+## Closing principle
+
+A senior engineer can say:
+
+```text
+I have not personally led that program, and here is exactly how I would run it safely.
+```
+
+That is not a soft answer.
+
+It is an ownership-ready answer.

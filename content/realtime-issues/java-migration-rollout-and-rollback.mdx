@@ -1,0 +1,157 @@
+---
+slug: java-migration-rollout-and-rollback
+title: "Java 17 Rollout, Canary Metrics, and Rollback Strategy"
+description: "How to stage a legacy Java upgrade through environments, canary traffic, production monitoring, and rollback—especially when database migrations complicate coexistence."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java Migration, Canary, Rollback, Observability, Database Migration, Production Readiness]
+readingTime: 18 min
+publishedAt: "2026-08-12"
+---
+
+## Do not flip 100% on day one
+
+I would not normally take a large legacy application and immediately deploy the Java 17 version to 100% of production.
+
+I prefer:
+
+```text
+Development
+    ↓
+Integration
+    ↓
+QA
+    ↓
+Performance
+    ↓
+Staging
+    ↓
+Canary / small production percentage
+    ↓
+Monitor
+    ↓
+Increase traffic
+    ↓
+100%
+```
+
+Each stage answers a different question.
+
+Staging answers "does it work in a production-like topology?"
+
+Canary answers "does real traffic expose what fixtures missed?"
+
+## What I monitor during rollout
+
+During rollout I monitor:
+
+- error rate
+- API latency (p50/p95/p99)
+- CPU and memory
+- GC behavior
+- thread pools
+- DB connection pools
+- Kafka consumer lag
+- business metrics (payment success rate, auth rate, booking completion)
+- application logs and new exception signatures
+
+Technical green with business red still means stop.
+
+## Rollback plan before deploy
+
+Before production deployment I need a clear rollback strategy.
+
+For example:
+
+```text
+Java 17 release
+      ↓
+Unexpected regression
+      ↓
+Stop rollout
+      ↓
+Route traffic to old version
+      ↓
+Investigate
+      ↓
+Fix
+      ↓
+Resume rollout
+```
+
+Rollback is a design input, not a panic document written after failure.
+
+## Database changes complicate rollback
+
+Database changes make this more complicated.
+
+If the Java upgrade also requires a schema change, I prefer **backward-compatible database migrations** so that both old and new application versions can coexist.
+
+Patterns:
+
+- expand/contract migrations
+- additive columns first
+- dual-write or dual-read only when necessary and time-bounded
+- no destructive drops until the old runtime is gone
+- feature flags for behavioral changes that are not strictly required by the JDK move
+
+Ideal release packaging:
+
+```text
+Release A: backward-compatible schema
+Release B: Java 17 app that uses the expanded schema
+Release C: cleanup / contract once Java 11 is gone
+```
+
+If schema and runtime are glued into one irreversible step, your canary is fake.
+
+## Stop conditions
+
+Define stop conditions before canary:
+
+- error-rate delta above threshold vs control
+- business metric breach (for example payment success)
+- GC thrash or memory growth beyond budget
+- Kafka lag growth without recoverability
+- elevated DB pool waits or deadlock rate
+- security or certificate failures
+
+If a stop condition hits:
+
+1. stop increasing traffic
+2. shift traffic back to Java 11
+3. preserve artifacts (logs, dashboards, heap/thread samples if safe)
+4. bisect whether the cause is JDK, dependency, config, or data shape
+
+## Configuration and feature flags
+
+Prefer keeping behavioral changes behind flags when the Java upgrade is not the true cause of the behavior change.
+
+That lets you roll forward the runtime while disabling a risky code path.
+
+Interview line:
+
+```text
+I want the JDK move and optional behavior changes to be independently reversible whenever possible.
+```
+
+## Communication during rollout
+
+For Staff/Principal interviews, mention communication:
+
+- who owns go/no-go
+- what metrics are on the bridge screen
+- how long canary soaks before ramp
+- who can execute rollback without a meeting
+
+Upgrades fail socially when only the technical plan exists.
+
+## Interview phrasing
+
+```text
+I would stage through CI, QA, performance, and staging, then canary a small
+production percentage while watching error rate, latency, GC, pools, Kafka lag,
+and business metrics. I would keep a rollback path to the Java 11 version and
+prefer backward-compatible DB migrations so old and new runtimes can coexist
+during the ramp.
+```

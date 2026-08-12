@@ -1,0 +1,169 @@
+---
+slug: java-migration-lifecycle-and-baseline
+title: "Java 11 to 17: Migration Lifecycle and Baseline Before You Touch the Compiler"
+description: "How a senior Java engineer inventories the stack, baselines behavior, and treats a legacy upgrade as a controlled compatibility exercise—not a one-line POM change."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java Migration, Java 17, Baseline, Dependency Inventory, Maven, Gradle, Spring Boot]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+## How I approach a legacy Java upgrade
+
+In an interview, I would say:
+
+> "I have hands-on experience developing with Java 17+, although I would distinguish that from claiming that I personally led a legacy Java 11-to-17 migration. For a legacy application, I would treat the upgrade as a controlled compatibility exercise rather than simply changing the Maven compiler version."
+
+That sentence does three jobs:
+
+1. It is honest about personal ownership.
+2. It signals Java 17 hands-on fluency.
+3. It reframes the work as risk management, not a POM edit.
+
+## The first change is not the compiler property
+
+The first change is not simply:
+
+```xml
+<java.version>17</java.version>
+```
+
+or:
+
+```groovy
+sourceCompatibility = '17'
+targetCompatibility = '17'
+```
+
+Those lines are late in the story.
+
+Before them, I establish the current baseline.
+
+## Inventory the current application
+
+I first write down the production and build truth:
+
+- current Java version (local, CI, runtime—often not identical)
+- Maven or Gradle version
+- Spring Boot version
+- Spring Framework version
+- application server or runtime (Tomcat embedded, WildFly, WebLogic, custom image)
+- database drivers (PostgreSQL, Oracle, MySQL, and so on)
+- Kafka clients
+- logging libraries (Log4j, Logback, JUL bridges)
+- security libraries (Spring Security, JWT, crypto providers)
+- testing frameworks (JUnit 4 vs 5, Testcontainers, Mockito versions)
+- internal shared libraries and company BOMs
+- agents (APM, coverage, security, bytecode enhancers)
+- build plugins that emit or rewrite bytecode
+
+If you cannot inventory the stack, you cannot estimate upgrade risk.
+
+## Why inventory matters
+
+Legacy applications fail upgrades because of **transitive ecosystems**, not because `var` is missing.
+
+A typical risk chain looks like:
+
+```text
+App code
+  → Spring Boot BOM
+    → Hibernate / Jackson / Netty
+      → JDBC driver / Kafka client
+        → agents and plugins
+```
+
+Any layer can refuse Java 17 at compile time or, worse, fail only in production.
+
+## Baseline existing behavior
+
+Before changing the JDK, I capture a behavioral baseline.
+
+That means more than "the app starts."
+
+Baseline examples:
+
+- critical API request/response fixtures
+- payment calculation golden files
+- Kafka event payloads for key flows
+- DB row states after representative transactions
+- batch job output counts and checksums
+- latency and error-rate SLOs under a known load profile
+- known flaky tests and known debt (so they are not blamed on Java 17 later)
+
+Without a baseline, every post-upgrade defect becomes an argument.
+
+With a baseline, you can say:
+
+```text
+Before: payment result = X, Kafka event = Y, DB state = Z
+After:  payment result = X, Kafka event = Y, DB state = Z
+```
+
+That comparison is the real migration proof.
+
+## Controlled compatibility exercise
+
+Treat the upgrade as:
+
+```text
+Inventory
+  → Baseline
+  → Toolchain readiness
+  → Compatibility analysis
+  → Remediation plan
+  → Compile
+  → Prove behavior
+  → Roll out under control
+```
+
+Do not treat it as:
+
+```text
+Bump java.version
+  → Fix red compilation
+  → Ship
+```
+
+The second sequence is how teams create silent serialization, GC, or security regressions.
+
+## Toolchain readiness before application code
+
+Often the order should be:
+
+1. Confirm a supported JDK 17 distribution for the org (Temurin, Corretto, Oracle, and so on).
+2. Confirm Maven/Gradle versions that understand the toolchain.
+3. Confirm CI images can install JDK 17.
+4. Confirm Docker base images and runtime images exist and are approved.
+5. Confirm IDE and developer onboarding notes are updated.
+6. Only then change application compiler settings on a branch.
+
+If developers compile on 17 while CI still uses 11, you create false confidence.
+
+## What "success" means at this stage
+
+At the end of lifecycle and baseline work, success is not a green build.
+
+Success is:
+
+- a written inventory
+- known incompatible or suspicious dependencies
+- a before-migration behavior pack
+- agreement on whether Spring upgrades are in-phase or out-of-phase
+- a rollback sketch that assumes the first production canary can fail
+
+Those artifacts make the later technical work interviewable and executable.
+
+## Interview phrasing
+
+A crisp way to say this:
+
+```text
+I would not start by changing the compiler version.
+I would inventory Java, Spring, drivers, Kafka clients, agents, and internal libraries,
+baseline critical business behavior, then treat the upgrade as compatibility and
+regression work with a staged rollout—not a one-line POM change.
+```
+
+That is a Staff-quality opening even if you never led the migration program yourself.
