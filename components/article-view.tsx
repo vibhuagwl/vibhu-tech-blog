@@ -8,7 +8,6 @@ import {hrefForPost} from '@/lib/href';
 import {extractHeadings} from '@/lib/headings';
 import {pickQuickNav} from '@/lib/article-meta';
 import {mdxComponents} from '@/components/mdx';
-import ArticleToc from '@/components/article-toc';
 import ArticleQuickNav from '@/components/article-quick-nav';
 import DifficultyBadge from '@/components/difficulty-badge';
 import BackToTop from '@/components/back-to-top';
@@ -115,9 +114,8 @@ export default async function ArticleView({
   const takeawaysHeading=headings.find((h)=>/takeaway/i.test(h.text));
 
   return (
-    <main>
-      <div className={headings.length>=2?'xl:grid xl:grid-cols-[minmax(0,1fr)_15rem] xl:gap-8':''}>
-        <div className="min-w-0">
+    <main className="reading-article">
+      <div className="min-w-0">
           <nav aria-label="Breadcrumb" className="mb-5 text-sm text-slate-500">
             <ol className="flex flex-wrap items-center gap-1.5">
               <li><Link href="/" className="hover:text-blue-700">Home</Link></li>
@@ -181,7 +179,7 @@ export default async function ArticleView({
             <ArticleQuickNav items={quickNav}/>
 
             {headings.length>=2 && (
-              <details className="mobile-toc xl:hidden">
+              <details className="mobile-toc">
                 <summary>On this page</summary>
                 <ul>
                   {headings.map((h)=>(
@@ -238,9 +236,6 @@ export default async function ArticleView({
               </div>
             </section>
           )}
-        </div>
-
-        {headings.length>=2 && <ArticleToc headings={headings}/>}
       </div>
 
       <BackToTop/>
