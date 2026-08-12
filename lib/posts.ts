@@ -91,5 +91,6 @@ export const SECTION_CATEGORIES={
   'redis-interview':['Redis Interview'],
   'realtime-issues':['Real-Time Issues'],
   'jpmc-experience':['JPMC Experience'],
+  performance:['Performance'],
 } as const;
 

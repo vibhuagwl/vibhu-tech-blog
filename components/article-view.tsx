@@ -29,6 +29,7 @@ const SECTION_LABEL:Record<Section,string>={
   'kafka-interview':'Kafka',
   'redis-interview':'Redis Interview',
   'realtime-issues':'Real-Time Issues',
+  performance:'Performance',
   'jpmc-experience':'JPMC Experience',
 };
 
