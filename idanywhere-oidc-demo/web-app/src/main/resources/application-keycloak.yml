@@ -1,0 +1,23 @@
+# Activate: --spring.profiles.active=keycloak
+# Overrides the same registration id "idanywhere" so controllers/templates stay unchanged.
+# Keycloak client: OpenID Connect → confidential, Standard flow ON
+# Valid redirect URI: http://localhost:8088/login/oauth2/code/idanywhere
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          idanywhere:
+            client-id: ${KEYCLOAK_CLIENT_ID:payments-web}
+            client-secret: ${KEYCLOAK_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,profile,email
+            provider: idanywhere
+        provider:
+          idanywhere:
+            # Example: http://localhost:8080/realms/payments
+            issuer-uri: ${KEYCLOAK_ISSUER_URI}
+
+app:
+  resource-base-url: ${PAYMENTS_API_BASE:http://localhost:8089}

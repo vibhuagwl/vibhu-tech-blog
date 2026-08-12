@@ -12,7 +12,7 @@ spring:
           audiences: api://payments-api
 
 ---
-# Real IDAnywhere profile: --spring.profiles.active=idanywhere
+# Real IDAnywhere / ADFS: --spring.profiles.active=idanywhere
 spring:
   config:
     activate:
@@ -23,4 +23,29 @@ spring:
         jwt:
           issuer-uri: ${IDA_ISSUER_URI:https://idanywhere.example.com/adfs}
           audiences: ${IDA_API_AUDIENCE:api://payments-api}
-          # jwk-set-uri: ${IDA_JWKS_URI:}
+
+---
+# Okta: --spring.profiles.active=okta
+spring:
+  config:
+    activate:
+      on-profile: okta
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OKTA_ISSUER_URI}
+          audiences: ${OKTA_API_AUDIENCE:api://payments-api}
+
+---
+# Keycloak: --spring.profiles.active=keycloak
+spring:
+  config:
+    activate:
+      on-profile: keycloak
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          audiences: ${KEYCLOAK_API_AUDIENCE:account}
