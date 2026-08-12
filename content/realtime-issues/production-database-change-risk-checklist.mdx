@@ -17,6 +17,36 @@ Look for: migration scripts, rollback plans, testing, data validation, release p
 
 Below is the checklist I use, then one **concrete payment change** end to end.
 
+## Sequence — risk-reduction steps
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor Eng as Engineer
+    participant Review as Design / RFC
+    participant Test as Clone / CI
+    participant Prod as Production
+    participant Mon as Metrics / On-call
+
+    Eng->>Review: Impact assessment (table, locks, dual-version)
+    Eng->>Review: Expand-contract design + abort criteria
+    Eng->>Review: Forward Flyway + rollback script
+    Review-->>Eng: Approved
+    Eng->>Test: Migrate up on prod-like volume
+    Eng->>Test: Rollback dry-run
+    Eng->>Test: Old JAR + new JAR dual-version test
+    Eng->>Test: Backfill timing + validation SQL gates
+    Test-->>Eng: Gates green
+    Eng->>Prod: Ordered release (expand → flag → backfill → validate)
+    Prod->>Mon: Watch p95, Hikari, lock waits
+    alt Abort criteria hit
+        Mon-->>Eng: Abort
+        Eng->>Prod: Flags off / prior app / rollback DDL if safe
+    else Stable
+        Mon-->>Eng: OK
+        Eng->>Prod: Later CONTRACT (optional NOT NULL)
+    end
+`} />
+
 ---
 
 ## Short answer (interview)
@@ -38,6 +68,69 @@ Below is the checklist I use, then one **concrete payment change** end to end.
 **Wrong approach:** one PR that adds `NOT NULL` column + backfills in the same migration + deploys app that requires the column → lock, long migration, or old pods crash.
 
 **Safe approach:** expand → dual-write → backfill → validate → contract.
+
+## Sequence — production release (`settlement_ref`)
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant Flag as Feature flags
+    participant Flyway as Flyway / DBA
+    participant DB as payment table
+    participant App as Spring pods
+    participant Job as Backfill job
+    participant Val as Validation SQL
+
+    Note over Flag,Val: T-0 change window — expand first, require later
+
+    Flag->>Flag: settlement_ref_write = OFF
+    Flag->>Flag: settlement_ref_required = OFF
+
+    Flyway->>DB: V102 ADD settlement_ref NULL
+    Flyway->>DB: CREATE INDEX (ONLINE / CONCURRENTLY)
+    Note over DB: Old and new pods both safe
+
+    App->>App: Rolling deploy (optional column in entity)
+    App->>DB: OLTP continues (column null OK)
+
+    Flag->>Flag: settlement_ref_write = ON
+    App->>DB: New writes set settlement_ref
+
+    loop Batches of 5000
+        Job->>DB: UPDATE null rows SET settlement_ref
+        Job->>Job: COMMIT per batch
+    end
+
+    Val->>DB: null gates / dupes / settled-with-null = 0
+    Val-->>Flag: Gates green
+    Flag->>Flag: settlement_ref_required = ON
+    App->>DB: Settlement APIs require column
+
+    Note over Flag,Val: T+14d separate RFC — CONTRACT to NOT NULL if needed
+`} />
+
+## Sequence — rollback (by stage)
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor Oncall
+    participant Flag as Feature flags
+    participant App as Spring pods
+    participant DB as payment table
+
+    alt After expand, before dependent writes
+        Oncall->>Flag: All settlement_ref flags OFF
+        Oncall->>App: Redeploy previous JAR
+        Oncall->>DB: Optional DROP INDEX + DROP COLUMN
+    else After dual-write / backfill started
+        Oncall->>Flag: settlement_ref_required OFF
+        Oncall->>Flag: settlement_ref_write OFF (if needed)
+        Oncall->>App: Redeploy previous JAR
+        Note over DB: Keep column — do not drop populated data
+    else After consumers depend on column
+        Oncall->>App: Forward-fix (fix migration)
+        Note over DB: Drop column = data-loss decision, not default rollback
+    end
+`} />
 
 ### 1) Impact assessment (before writing SQL)
 
