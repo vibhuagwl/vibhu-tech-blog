@@ -24,6 +24,12 @@ const banks=[
     blurb:'Hadron Cashlines, CDC, Kafka replay, Deloitte tax, RSU, Terraform, migration.',
   },
   {
+    href:'/oauth-jwt-demo',
+    label:'OAuth + JWT Source',
+    level:'Staff',
+    blurb:'Browse the full Spring Authorization Server / Resource Server demo in the browser.',
+  },
+  {
     href:'/kafka-interview',
     label:'Kafka Interview',
     level:'Staff',
