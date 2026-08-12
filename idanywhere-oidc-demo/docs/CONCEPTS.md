@@ -1,18 +1,36 @@
-# Concepts — IDAnywhere, ADFS, OIDC, OAuth
+# Concepts — IDAnywhere, ADFS, OIDC, Okta, Keycloak
 
-## What IDAnywhere is
-Enterprise SSO gateway in front of **ADFS** (Active Directory Federation Services). Apps integrate with **OIDC discovery** (`issuer-uri`) rather than owning passwords.
+## One-sentence map
 
-## Protocol stack
-- **OAuth 2.0** — authorization code / client credentials → `access_token`
-- **OIDC** — `openid` scope → `id_token` (identity)
-- **ADFS claims** — often `upn`, `unique_name`, `groups`, resource `aud` like `api://...`
+| Term | Layer |
+|---|---|
+| **OAuth 2.0** | Authorization framework (access tokens) |
+| **OIDC** | Identity on top of OAuth (`id_token`, discovery) |
+| **AD** | User/group directory |
+| **ADFS** | Microsoft federation IdP (can speak OIDC) |
+| **IDAnywhere** | Corporate SSO gateway in front of ADFS |
+| **Okta / Keycloak** | Other IdP products that also speak OIDC |
 
-## Your app responsibilities
-1. Register as OIDC client (redirect URI allow-list).
-2. `oauth2Login` for browsers; never collect corp passwords.
-3. Call APIs with Bearer access token.
-4. Resource servers validate JWKS from the IdP and authorize from claims.
+## Relationship
 
-## Stand-in vs production
-`idp-standin` exists only so this repo is runnable without corp network access. Same Spring Security wiring works when `issuer-uri` points at real IDAnywhere.
+```text
+Active Directory  →  ADFS  →  IDAnywhere (OIDC front door)  →  Your Spring app
+                                      ↑
+                         Okta / Keycloak are alternate IdPs
+                         (same OIDC contract, different issuer-uri)
+```
+
+## Spring wiring (unchanged across IdPs)
+
+1. `oauth2Login` client with `issuer-uri`
+2. Resource server JWT with same issuer JWKS
+3. Map IdP group/role claims → `ROLE_*`
+
+Profiles in this repo:
+
+| Profile | File |
+|---|---|
+| (default) | local `idp-standin` |
+| `idanywhere` | `application-idanywhere.yml` |
+| `okta` | `application-okta.yml` |
+| `keycloak` | `application-keycloak.yml` |

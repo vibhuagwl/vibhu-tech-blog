@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .t { font-family: Georgia, 'Times New Roman', serif; }
+      .s { font-family: 'Segoe UI', system-ui, sans-serif; }
+      .title { font-size: 28px; font-weight: 700; fill: #f8fafc; }
+      .sub { font-size: 13px; fill: #94a3b8; }
+      .h { font-size: 13px; font-weight: 700; fill: #0f172a; }
+      .b { font-size: 12px; fill: #1e293b; }
+      .sm { font-size: 11px; fill: #334155; }
+      .tiny { font-size: 10px; fill: #64748b; }
+      .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #0f172a; }
+    ]]></style>
+  </defs>
+  <rect width="1600" height="980" fill="#f1f5f9"/>
+  <rect x="0" y="0" width="1600" height="78" fill="#0f172a"/>
+  <text class="t title" x="36" y="36">OIDC SSO  How IDAnywhere, ADFS, Okta, Keycloak relate</text>
+  <text class="s sub" x="36" y="58">Protocol stack · enterprise IdPs · same Spring Security client wiring  only issuer-uri changes</text>
+
+  <!-- LAYERS -->
+  <text class="s h" x="36" y="110">` Protocol layers (bottom ’ top)</text>
+  <rect x="36" y="122" width="1528" height="70" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+  <text class="s b" x="56" y="150" font-weight="700">OAuth 2.0  authorization framework (code / tokens / scopes)</text>
+  <text class="s sm" x="56" y="172">Gives access_token so APIs can authorize. Does not by itself define user identity (login profile).</text>
+
+  <rect x="36" y="202" width="1528" height="70" rx="10" fill="#ede9fe" stroke="#7c3aed"/>
+  <text class="s b" x="56" y="230" font-weight="700">OpenID Connect (OIDC)  identity layer ON TOP of OAuth 2.0</text>
+  <text class="s sm" x="56" y="252">Adds openid scope + id_token (who logged in) + UserInfo + discovery (/.well-known/openid-configuration).</text>
+
+  <rect x="36" y="282" width="1528" height="70" rx="10" fill="#ecfdf5" stroke="#059669"/>
+  <text class="s b" x="56" y="310" font-weight="700">Your Spring apps  OIDC client (web) + JWT resource server (API)</text>
+  <text class="s sm" x="56" y="332">oauth2Login redirects to IdP · APIs validate JWT via JWKS · map groups/roles for @PreAuthorize.</text>
+
+  <!-- RELATIONSHIP -->
+  <text class="s h" x="36" y="390">a Relationship: IDAnywhere ” ADFS ” OIDC</text>
+  <rect x="36" y="402" width="500" height="200" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="36" y="402" width="500" height="36" rx="12" fill="#0f172a"/>
+  <rect x="36" y="422" width="500" height="16" fill="#0f172a"/>
+  <text class="s h" x="286" y="424" text-anchor="middle" fill="#f8fafc">AD / Active Directory</text>
+  <text class="s sm" x="56" y="460">Users, passwords, groups, MFA policies</text>
+  <text class="s sm" x="56" y="482">Source of truth for corporate identity</text>
+  <text class="s tiny" x="56" y="520">Apps should NOT talk to AD LDAP directly</text>
+  <text class="s tiny" x="56" y="540">for browser SSO in modern designs.</text>
+  <text class="s tiny" x="56" y="570">AD stores people · federation issues tokens.</text>
+
+  <rect x="560" y="402" width="500" height="200" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="560" y="402" width="500" height="36" rx="12" fill="#1e40af"/>
+  <rect x="560" y="422" width="500" height="16" fill="#1e40af"/>
+  <text class="s h" x="810" y="424" text-anchor="middle" fill="#f8fafc">ADFS (+ IDAnywhere)</text>
+  <text class="s sm" x="580" y="460">ADFS = Microsoft federation server</text>
+  <text class="s sm" x="580" y="482">speaks SAML / WS-Fed / OAuth+OIDC</text>
+  <text class="s sm" x="580" y="504">IDAnywhere = enterprise SSO gateway</text>
+  <text class="s sm" x="580" y="526">in front of ADFS (corp branding, routing)</text>
+  <text class="s tiny" x="580" y="560">Your app sees OIDC issuer-uri from IDAnywhere.</text>
+  <text class="s tiny" x="580" y="580">Password stay on IdP  never in your app.</text>
+
+  <rect x="1084" y="402" width="480" height="200" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="1084" y="402" width="480" height="36" rx="12" fill="#047857"/>
+  <rect x="1084" y="422" width="480" height="16" fill="#047857"/>
+  <text class="s h" x="1324" y="424" text-anchor="middle" fill="#f8fafc">OIDC (the contract)</text>
+  <text class="s sm" x="1104" y="460">Standard your Spring app speaks:</text>
+  <text class="mono" x="1104" y="486">/.well-known/openid-configuration</text>
+  <text class="mono" x="1104" y="508">/authorize · /token · /jwks</text>
+  <text class="s sm" x="1104" y="536">Same contract for Okta, Keycloak,</text>
+  <text class="s sm" x="1104" y="556">Auth0, Azure AD, IDAnywhere/ADFS.</text>
+  <text class="s tiny" x="1104" y="580">Swap issuer-uri ’ same app code.</text>
+
+  <!-- IDPs -->
+  <text class="s h" x="36" y="640">b Same OIDC app  many IdP products</text>
+  <rect x="36" y="654" width="360" height="120" rx="10" fill="#fef3c7" stroke="#d97706"/>
+  <text class="s b" x="216" y="684" text-anchor="middle" font-weight="700">IDAnywhere / ADFS</text>
+  <text class="s tiny" x="56" y="710">Corporate Microsoft stack</text>
+  <text class="mono" x="56" y="734" font-size="10">issuer: .../adfs</text>
+  <text class="s tiny" x="56" y="756">groups claim ’ Spring roles</text>
+
+  <rect x="416" y="654" width="360" height="120" rx="10" fill="#fee2e2" stroke="#dc2626"/>
+  <text class="s b" x="596" y="684" text-anchor="middle" font-weight="700">Okta</text>
+  <text class="s tiny" x="436" y="710">SaaS IdP · workforce SSO</text>
+  <text class="mono" x="436" y="734" font-size="10">issuer: https://dev-xxx.okta.com</text>
+  <text class="s tiny" x="436" y="756">groups / custom claims</text>
+
+  <rect x="796" y="654" width="360" height="120" rx="10" fill="#e0e7ff" stroke="#4f46e5"/>
+  <text class="s b" x="976" y="684" text-anchor="middle" font-weight="700">Keycloak</text>
+  <text class="s tiny" x="816" y="710">Self-hosted open-source IdP</text>
+  <text class="mono" x="816" y="734" font-size="10">issuer: .../realms/payments</text>
+  <text class="s tiny" x="816" y="756">realm roles / groups</text>
+
+  <rect x="1176" y="654" width="388" height="120" rx="10" fill="#f1f5f9" stroke="#64748b"/>
+  <text class="s b" x="1370" y="684" text-anchor="middle" font-weight="700">This demo stand-in</text>
+  <text class="s tiny" x="1196" y="710">idp-standin :9080</text>
+  <text class="mono" x="1196" y="734" font-size="10">issuer: http://localhost:9080</text>
+  <text class="s tiny" x="1196" y="756">Mimics IDAnywhere for local run</text>
+
+  <rect x="36" y="796" width="1528" height="156" rx="12" fill="#0f172a"/>
+  <text class="s h" x="56" y="828" fill="#94a3b8">ONE SENTENCE</text>
+  <text class="s sm" x="56" y="860" fill="#e2e8f0">OIDC is the protocol. ADFS is a Microsoft IdP that can speak OIDC. IDAnywhere is the corporate gateway in front of ADFS.</text>
+  <text class="s sm" x="56" y="884" fill="#e2e8f0">Okta and Keycloak are other IdPs that speak the same OIDC. Your Spring app only needs issuer-uri + client-id/secret + redirect URI.</text>
+  <text class="s sm" x="56" y="908" fill="#94a3b8">Locally we use idp-standin. Production: --spring.profiles.active=idanywhere|okta|keycloak</text>
+</svg>

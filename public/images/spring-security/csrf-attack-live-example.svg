@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1180" viewBox="0 0 1600 1180">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .t { font-family: Georgia, 'Times New Roman', serif; }
+      .s { font-family: 'Segoe UI', system-ui, sans-serif; }
+      .title { font-size: 28px; font-weight: 700; fill: #f8fafc; }
+      .sub { font-size: 13px; fill: #94a3b8; }
+      .h { font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .b { font-size: 12px; fill: #1e293b; }
+      .sm { font-size: 11px; fill: #334155; }
+      .tiny { font-size: 10px; fill: #64748b; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .url { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #0f172a; }
+      .arr { stroke: #334155; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .arr-bad { stroke: #dc2626; stroke-width: 2.5; fill: none; marker-end: url(#arrowRed); }
+      .arr-ok { stroke: #059669; stroke-width: 2.5; fill: none; marker-end: url(#arrowGreen); }
+    ]]></style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#dc2626"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="1180" fill="#f1f5f9"/>
+  <rect x="0" y="0" width="1600" height="78" fill="#0f172a"/>
+  <text class="t title" x="36" y="36">CSRF Attack  Live Example (URLs ∑ Request ∑ 403 ∑ Fix)</text>
+  <text class="s sub" x="36" y="58">Bank session cookie is auto-sent ∑ evil site cannot read the CSRF secret ∑ Spring returns 403 Forbidden</text>
+
+  <!-- STEP 1 -->
+  <text class="s h" x="36" y="112">` Victim logs into the real bank</text>
+  <rect x="36" y="124" width="740" height="200" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <!-- browser chrome -->
+  <rect x="52" y="140" width="708" height="34" rx="8" fill="#e2e8f0"/>
+  <circle cx="72" cy="157" r="5" fill="#f87171"/>
+  <circle cx="90" cy="157" r="5" fill="#fbbf24"/>
+  <circle cx="108" cy="157" r="5" fill="#34d399"/>
+  <rect x="130" y="146" width="610" height="22" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text class="url" x="140" y="161">https://bank.example.com/login</text>
+
+  <rect x="52" y="186" width="708" height="120" rx="8" fill="#ecfdf5" stroke="#059669"/>
+  <text class="s b" x="72" y="214" font-weight="700" fill="#065f46">bank.example.com  signed in as alice</text>
+  <text class="s sm" x="72" y="238">Browser stores session cookie:</text>
+  <text class="mono" x="72" y="260" fill="#0f172a">Set-Cookie: JSESSIONID=A1B2C3D4; Path=/; HttpOnly; Secure</text>
+  <text class="s tiny" x="72" y="286">Cookie will be auto-attached to ANY later request to bank.example.com</text>
+
+  <!-- STEP 2 -->
+  <text class="s h" x="824" y="112">a Victim opens attacker website</text>
+  <rect x="824" y="124" width="740" height="200" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="840" y="140" width="708" height="34" rx="8" fill="#e2e8f0"/>
+  <circle cx="860" cy="157" r="5" fill="#f87171"/>
+  <circle cx="878" cy="157" r="5" fill="#fbbf24"/>
+  <circle cx="896" cy="157" r="5" fill="#34d399"/>
+  <rect x="918" y="146" width="610" height="22" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text class="url" x="928" y="161">https://evil-gifts.example/win-prize.html</text>
+
+  <rect x="840" y="186" width="708" height="120" rx="8" fill="#fef2f2" stroke="#dc2626"/>
+  <text class="s b" x="860" y="214" font-weight="700" fill="#991b1b">Hidden auto-submit form (attacker page)</text>
+  <text class="mono" x="860" y="240" fill="#7f1d1d">&lt;form action="https://bank.example.com/transfer" method="POST"&gt;</text>
+  <text class="mono" x="860" y="260" fill="#7f1d1d">  &lt;input name="toAccount" value="ATTACKER"/&gt;</text>
+  <text class="mono" x="860" y="280" fill="#7f1d1d">  &lt;input name="amount" value="9999"/&gt;  &lt;!-- no _csrf --&gt;</text>
+
+  <!-- ARROW -->
+  <path class="arr-bad" d="M800 340 V370"/>
+  <text class="s sm" x="800" y="390" text-anchor="middle" fill="#b91c1c" font-weight="700">Browser auto-POSTs with bank cookie</text>
+
+  <!-- STEP 3 REQUEST -->
+  <text class="s h" x="36" y="430">b Forged request the browser sends (no CSRF token)</text>
+  <rect x="36" y="442" width="1528" height="168" rx="12" fill="#0f172a"/>
+  <text class="mono" x="56" y="472" fill="#f87171">POST https://bank.example.com/transfer HTTP/1.1</text>
+  <text class="mono" x="56" y="496" fill="#e2e8f0">Host: bank.example.com</text>
+  <text class="mono" x="56" y="520" fill="#fbbf24">Origin: https://evil-gifts.example</text>
+  <text class="mono" x="56" y="544" fill="#fbbf24">Referer: https://evil-gifts.example/win-prize.html</text>
+  <text class="mono" x="56" y="568" fill="#fca5a5">Cookie: JSESSIONID=A1B2C3D4     ê victim session auto-attached</text>
+  <text class="mono" x="56" y="592" fill="#94a3b8">Body: toAccount=ATTACKER&amp;amount=9999     ê missing _csrf=...</text>
+
+  <!-- STEP 4 RESPONSE -->
+  <text class="s h" x="36" y="646">c Response when CSRF protection is ON (Spring Security)</text>
+  <rect x="36" y="658" width="740" height="220" rx="12" fill="#fff" stroke="#dc2626" stroke-width="2.5"/>
+  <rect x="36" y="658" width="740" height="40" rx="12" fill="#dc2626"/>
+  <rect x="36" y="682" width="740" height="16" fill="#dc2626"/>
+  <text class="s h" x="56" y="684" fill="#fff">HTTP/1.1 403 Forbidden</text>
+
+  <text class="mono" x="56" y="724" fill="#991b1b">Status: 403 Forbidden</text>
+  <text class="mono" x="56" y="748" fill="#334155">Body: Invalid CSRF token found for</text>
+  <text class="mono" x="56" y="768" fill="#334155">       https://bank.example.com/transfer</text>
+  <text class="s sm" x="56" y="800">Filter: org.springframework.security.web.csrf.CsrfFilter</text>
+  <text class="s sm" x="56" y="822">Meaning: session cookie was present, but secret token was missing/wrong</text>
+  <text class="s b" x="56" y="854" fill="#991b1b" font-weight="700">Transfer NOT executed ∑ ledger unchanged</text>
+
+  <!-- WITHOUT PROTECTION -->
+  <rect x="824" y="658" width="740" height="220" rx="12" fill="#fff" stroke="#94a3b8" stroke-width="2"/>
+  <rect x="824" y="658" width="740" height="40" rx="12" fill="#64748b"/>
+  <rect x="824" y="682" width="740" height="16" fill="#64748b"/>
+  <text class="s h" x="844" y="684" fill="#fff">If CSRF were OFF (broken config)</text>
+  <text class="mono" x="844" y="724" fill="#334155">Status: 302 Found í /transfer</text>
+  <text class="mono" x="844" y="748" fill="#334155">Ledger: Transferred π9999 í ATTACKER</text>
+  <text class="s sm" x="844" y="788">Cookie alone was enough proof for the bank.</text>
+  <text class="s sm" x="844" y="810">Victim never clicked Transfer on bank.example.com.</text>
+  <text class="s b" x="844" y="854" fill="#b91c1c" font-weight="700">This is the actual money-loss failure mode</text>
+
+  <!-- STEP 5 FIX -->
+  <text class="s h" x="36" y="914">d How to fix it (Spring Security + form)</text>
+  <rect x="36" y="926" width="1528" height="230" rx="12" fill="#fff" stroke="#059669" stroke-width="2.5"/>
+  <rect x="36" y="926" width="1528" height="40" rx="12" fill="#059669"/>
+  <rect x="36" y="950" width="1528" height="16" fill="#059669"/>
+  <text class="s h" x="56" y="952" fill="#fff">Defense: secret CSRF token the attacker cannot read (same-origin policy)</text>
+
+  <text class="s b" x="56" y="996" font-weight="700">A) Enable CSRF (default for browser apps)</text>
+  <text class="mono" x="56" y="1018" fill="#065f46">http.csrf(Customizer.withDefaults());  // HttpSessionCsrfTokenRepository</text>
+
+  <text class="s b" x="56" y="1050" font-weight="700">B) Legitimate bank form includes the token</text>
+  <text class="mono" x="56" y="1072" fill="#065f46">&lt;form action="https://bank.example.com/transfer" method="POST"&gt;</text>
+  <text class="mono" x="56" y="1092" fill="#065f46">  &lt;input type="hidden" name="_csrf" value="8f3a&c91e"/&gt;</text>
+  <text class="mono" x="56" y="1112" fill="#065f46">  & toAccount / amount &</text>
+
+  <text class="s b" x="900" y="996" font-weight="700">C) Valid request succeeds</text>
+  <text class="mono" x="900" y="1018" fill="#065f46">POST /transfer</text>
+  <text class="mono" x="900" y="1038" fill="#065f46">Cookie: JSESSIONID=A1B2C3D4</text>
+  <text class="mono" x="900" y="1058" fill="#065f46">Body: &&amp;_csrf=8f3a&c91e</text>
+  <text class="mono" x="900" y="1082" fill="#059669">í HTTP 302 /transfer  (COMPLETED)</text>
+  <text class="s tiny" x="900" y="1112">Evil site cannot read _csrf from bank.example.com HTML/cookies (HttpOnly session).</text>
+</svg>
