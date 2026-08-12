@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Login — CSRF Demo</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+  <main class="card">
+    <h1>Login</h1>
+    <p th:if="${param.error}" class="error">Invalid username or password</p>
+    <p th:if="${param.logout}" class="ok">Logged out</p>
+    <!-- Thymeleaf + Spring Security auto-injects _csrf on form posts to /login -->
+    <form th:action="@{/login}" method="post">
+      <label>Username <input type="text" name="username" value="alice" autocomplete="username" required/></label>
+      <label>Password <input type="password" name="password" value="password" autocomplete="current-password" required/></label>
+      <button type="submit">Sign in</button>
+    </form>
+    <p class="muted"><a th:href="@{/}">Home</a></p>
+  </main>
+</body>
+</html>
