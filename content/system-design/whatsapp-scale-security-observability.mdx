@@ -1,0 +1,107 @@
+---
+slug: whatsapp-scale-security-observability
+title: "WhatsApp — Multi-Region, Security & Observability"
+description: "Global DNS regions, TLS/JWT/device auth, E2EE HLD impact, and the metrics that matter for chat, Kafka lag, and WebSocket fleets."
+category: System Design
+difficulty: Staff
+tags: [WhatsApp, Multi-region, Security, Observability, SRE]
+readingTime: 14 min
+publishedAt: "2026-08-12"
+---
+
+**Hub:** [WhatsApp Curriculum](/system-design/whatsapp-system-design-master-index)
+
+---
+
+## Multi-region
+
+<Mermaid chart={`flowchart TB
+  DNS[Global DNS / GeoDNS]
+  DNS --> A[Region A]
+  DNS --> B[Region B]
+  A --> GA[API + WS + Workers]
+  B --> GB[API + WS + Workers]
+  GA --> KA[Kafka / DB A]
+  GB --> KB[Kafka / DB B]
+  KA <-.->|async replication / bridging| KB`} />
+
+| Mode | When |
+|---|---|
+| Active-active | Users pinned by region; cross-region message bridge |
+| Active-passive | DR standby |
+| User affinity | Home region for profile + message shard map |
+| RPO/RTO | Declare: e.g. RPO minutes async; RTO &lt; 1h failover |
+
+Cross-region chat: produce to home region of conversation or use a global routing layer; accept higher latency.
+
+---
+
+## Security
+
+<Mermaid chart={`flowchart LR
+  C[Client] -->|TLS| WAF[WAF]
+  WAF --> GW[Gateway]
+  GW --> JWT[Access token validate]
+  JWT --> AUTHZ[Conversation membership]
+  AUTHZ --> SVC[Services]
+  SECRETS[KMS / Secrets Manager] --> SVC
+`} />
+
+| Control | Use |
+|---|---|
+| TLS | Everywhere |
+| OTP + device binding | Onboarding |
+| JWT / session | API + WS auth |
+| Rate limit | OTP, send, media |
+| WAF / DDoS | Edge |
+| Media ACL | Signed URLs |
+| Audit | Admin / payment |
+
+### E2EE (HLD only — public model)
+
+```text
+Servers route ciphertext + metadata
+Media keys client-side
+Server search / anti-abuse trade-offs change
+Do not invent private WhatsApp protocol details in interview
+```
+
+Distinguish: **WhatsApp-like industry design** vs **claimed private implementation**.
+
+---
+
+## Observability
+
+<Mermaid chart={`flowchart TD
+  S[Services / WS / Kafka / Redis / DB]
+  S --> MET[Metrics]
+  S --> LOG[Logs]
+  S --> TR[Traces]
+  MET --> OBS[Observability Platform]
+  LOG --> OBS
+  TR --> OBS
+  OBS --> DASH[Dashboards]
+  OBS --> ALT[Alerts / SLO]`} />
+
+**Track:** send latency, deliver latency, WS connections, reconnect rate, Kafka lag, Redis p99, DB p99, media upload p99, push success, call setup time, error rate, CPU/mem/net.
+
+---
+
+## Load balancing reminder
+
+```text
+HTTPS services: stateless → any node
+WebSocket: registry-aware push; optional sticky
+Health checks: separate /health for LB vs /ready for deps
+Autoscaling: WS on connection count; workers on lag
+```
+
+---
+
+## Interview explanation
+
+> Pin users to regions, bridge cross-region events. Secure with TLS, device auth, membership checks. Measure delivery latency and Kafka lag like SLOs, not vanity metrics.
+
+## Next
+
+[Failures, Q&A, Cheat Sheet](/system-design/whatsapp-interview-failures-cheatsheet)

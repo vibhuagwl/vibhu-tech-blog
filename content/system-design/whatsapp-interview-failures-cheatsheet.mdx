@@ -1,0 +1,138 @@
+---
+slug: whatsapp-interview-failures-cheatsheet
+title: "WhatsApp — Failures, Corner Cases, Q&A & One-Page Cheat Sheet"
+description: "Interview what-ifs, corner cases across message/group/presence/media/calls/Kafka, and a one-page cheat sheet with 5/15/30-minute answer scripts."
+category: System Design
+difficulty: Staff
+tags: [WhatsApp, Interview, Failures, Cheat Sheet, Corner Cases]
+readingTime: 18 min
+publishedAt: "2026-08-12"
+---
+
+**Hub:** [WhatsApp Curriculum](/system-design/whatsapp-system-design-master-index)
+
+---
+
+## Whiteboard (memorize)
+
+```text
+CLIENTS → DNS/CDN/WAF → LB → API GATEWAY
+              ├ Auth / User / Group
+              └ Message Service → DB → Kafka
+                    ├ Delivery Workers → WS Gateways → Recipient
+                    └ Notification → FCM/APNS
+REDIS: presence · session · idempotency · locks · registry
+OBJECT STORAGE → CDN (media)
+OBS: metrics · logs · traces
+```
+
+---
+
+## What if… (concise answers)
+
+| # | Question | Answer |
+|---:|---|---|
+| 1 | WS server crashes? | Clients reconnect; registry TTL expires; sync pending by serverSeq |
+| 2 | Kafka down? | Accept/persist may queue/fail closed; don’t silently drop after ACK policy |
+| 3 | Redis down? | Degrade presence → more push; idempotency falls back to DB unique |
+| 4 | Receiver offline? | Persist + push; deliver on sync |
+| 5 | Ordering? | conversationId partition + serverSeq |
+| 6 | Duplicates? | clientMsgId uniqueness + consumer idempotency |
+| 7 | Billions of users? | Shard messages, WS fleet, Kafka, CDN, regionalize |
+| 8 | Scale WS? | Many nodes + connection registry + autoscaling |
+| 9 | Large groups? | Hybrid fan-out; protect hot partitions |
+| 10 | Store billions msgs? | Append store sharded by conversation + cold tiering |
+| 11 | Unread count? | Redis counters + reconcile |
+| 12 | Blue tick? | READ status event with privacy rules |
+| 13 | Typing? | Ephemeral WS; no durable store |
+| 14 | Why Kafka? | Async durable fan-out after persist |
+| 15 | Media on Kafka? | Never — use object storage |
+| 16 | Why Redis? | Hot ephemeral state |
+| 17 | Distributed lock? | Rare; prefer atomic seq / unique indexes |
+| 18 | Avoid locks? | INCR seq, DB constraints, idempotent upserts |
+| 19 | Hot partitions? | Split product / dedicated pools / rate limits |
+| 20 | Multi-device? | Device sessions + fan-out + sync |
+| 21 | Cross-region? | Affinity + bridge; higher latency OK |
+| 22 | Duplicate payments? | Idempotency key + state machine |
+| 23 | Calls vs chat? | WS signalling + WebRTC media |
+| 24 | Status vs chat? | TTL media + metadata; not long chat store |
+| 25 | Broadcast vs group? | Broadcast explodes to many 1:1; group shared history |
+
+---
+
+## Corner cases checklist
+
+### Message
+Duplicate · reorder · delayed · lost WS · offline · sender retry · reconnect · server crash · Kafka retry
+
+### Group
+Removed mid-send · leave · admin change · large N · concurrent membership
+
+### Presence
+App kill · multi-device · WS node death · Redis blip
+
+### Media
+Large file · interrupted upload · duplicate upload · CDN fail · S3 fail
+
+### Calls
+NAT · TURN · network switch · participant churn
+
+### Data / Kafka
+Shard down · replica lag · hot key · poison · lag · broker loss
+
+---
+
+## One-page cheat sheet
+
+```text
+HTTPS     → APIs
+WebSocket → realtime messages/events
+WebRTC    → calls
+Kafka     → internal async only
+Redis     → presence/cache/idempotency/locks/registry
+SQL       → user/group/metadata
+Sharded store → messages
+S3+CDN    → media
+FCM/APNS  → offline wake
+Search index → message search
+
+FLOW: Client → Gateway → Message Service → DB → Kafka
+    → Delivery → WS/Push → ACK → READ
+
+KEYWORDS:
+Ordering=conversation partition+serverSeq
+Duplicates=idempotency
+Presence=Redis+heartbeat+TTL
+Offline=DB+push+sync
+Media=S3+CDN
+Scale=shard+partition+WS fleet
+Failure=retry+DLQ+idempotent consumers
+```
+
+---
+
+## Timed answers
+
+### 5 minutes
+Architecture + Alice→Bob persist/Kafka/presence/WS-or-push/ACK + “Kafka not phone-to-phone” + media via S3.
+
+### 15 minutes
+Add idempotency, serverSeq ordering, multi-device, groups fan-out, Redis roles, failure/retry/DLQ.
+
+### 30 minutes
+Add WS registry, mega-groups, multi-region, E2EE HLD caveat, calls/SFU, status/broadcast/search, payments idempotency, SLOs, every major what-if.
+
+---
+
+## Story expansion path (practice out loud)
+
+```text
+1) Alice → Bob online
+2) Bob offline
+3) Group message
+4) Image
+5) Typing
+6) Video call
+```
+
+Each step adds **one** subsystem — that’s how you stay clear on a whiteboard.

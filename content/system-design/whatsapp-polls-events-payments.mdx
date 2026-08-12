@@ -1,0 +1,94 @@
+---
+slug: whatsapp-polls-events-payments
+title: "WhatsApp — Polls, Event Bus & Payments"
+description: "Poll voting with atomic updates, platform event taxonomy on Kafka, and idempotent payment flows with webhooks — no secrets in logs."
+category: System Design
+difficulty: Staff
+tags: [WhatsApp, Polls, Events, Payments, Idempotency]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+**Hub:** [WhatsApp Curriculum](/system-design/whatsapp-system-design-master-index)
+
+---
+
+## Poll
+
+<Mermaid chart={`flowchart TD
+  A[Create Poll] --> PS[Poll Service]
+  PS --> DB[(Poll DB)]
+  PS --> K[Kafka poll.created]
+  K --> MEM[Participants notify]
+  V[Vote] --> PS
+  PS --> ATOM[Atomic vote upsert unique userId+pollId]
+  ATOM --> UPD[Update counts]
+  UPD --> K2[poll.updated events]`} />
+
+| Risk | Mitigation |
+|---|---|
+| Double vote | Unique `(pollId, userId)` |
+| Concurrent votes | Atomic increment / transactional upsert |
+
+---
+
+## Events taxonomy
+
+| Event | Producer | Consumers |
+|---|---|---|
+| message.created | Message | Delivery, Search, Analytics |
+| message.status | Message | Sender sync |
+| group.member_added | Group | Notify, ACL cache bust |
+| call.started/ended | Call | Notify, billing analytics |
+| status.created | Status | Fan-out viewers |
+| poll.updated | Poll | Live UI |
+| payment.* | Payment | Notify, audit |
+
+Keep payloads small; reference ids, not blobs.
+
+---
+
+## Payment
+
+<Mermaid chart={`sequenceDiagram
+    participant C as Client
+    participant GW as API Gateway
+    participant P as Payment Service
+    participant Prov as Provider
+    participant DB as Payment DB
+    participant K as Kafka
+
+    C->>GW: pay {idempotencyKey, amount}
+    GW->>P: authorize
+    P->>DB: insert INIT uniquely
+    P->>Prov: charge
+    Prov-->>P: accept / webhook later
+    P->>DB: update state
+    P->>K: payment.updated
+    K-->>C: notify
+`} />
+
+### Payment state machine
+
+```text
+INIT → AUTHORIZED → CAPTURED → SETTLED
+  ↘ FAILED
+  ↘ REFUNDED
+```
+
+| Rule | Why |
+|---|---|
+| Idempotency key | Prevent double charge |
+| Webhook verify | Provider authenticity |
+| No PAN in Kafka/logs | PCI / security |
+| Audit table | Disputes |
+
+---
+
+## Interview explanation
+
+> Polls need uniqueness under concurrency. Events are compact Kafka facts. Payments are a separate correctness domain with idempotent state transitions.
+
+## Next
+
+[Database & Sharding](/system-design/whatsapp-database-sharding)

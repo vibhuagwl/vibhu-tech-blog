@@ -1,0 +1,111 @@
+---
+slug: whatsapp-group-messaging
+title: "WhatsApp — Group Messaging Fan-Out"
+description: "Fan-out on write vs read for WhatsApp-like groups, large group strategies, hot partitions, and membership-safe delivery."
+category: System Design
+difficulty: Staff
+tags: [WhatsApp, Group, Fan-out, Kafka, Scale]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+**Hub:** [WhatsApp Curriculum](/system-design/whatsapp-system-design-master-index)
+
+---
+
+## Story
+
+> Alice sends a group message to 256 members.
+
+<Mermaid chart={`flowchart TD
+  S[Sender] --> MS[Message Service]
+  MS --> DB[(Persist 1 group message)]
+  MS --> K[Kafka key=groupId/conversationId]
+  K --> GW[Group Delivery Worker]
+  GW --> MEM[Expand members]
+  MEM --> ON[Online → WS push]
+  MEM --> OFF[Offline → push + pending]`} />
+
+---
+
+## Fan-out on write
+
+```text
+1 message → N per-user inboxes / push tasks
+```
+
+| Pros | Cons |
+|---|---|
+| Fast reads | Write amplification |
+| Easy unread | Painful for huge N |
+
+**Best for:** normal groups (&lt; few hundred / thousand).
+
+---
+
+## Fan-out on read
+
+```text
+Store one copy on group timeline
+Members pull / sync new serverSeq
+```
+
+| Pros | Cons |
+|---|---|
+| Cheap writes | Reads heavier |
+| Scales celebrity | Harder push fan-out |
+
+**Best for:** very large / broadcast-like audiences.
+
+---
+
+## Hybrid recommendation
+
+```text
+Small/medium groups → fan-out on write (async workers)
+Mega groups / channels → fan-out on read + selective push
+```
+
+---
+
+## Hot partitions
+
+Celebrity groupId → one Kafka partition melts.
+
+Mitigations:
+
+```text
+Separate channel product
+Shuffle keys for notify topic (accept weaker order for notifies)
+Dedicated consumer pool
+Rate limit senders
+```
+
+Chat order still enforced by serverSeq in DB even if notify parallelized.
+
+---
+
+## Membership race
+
+<Mermaid chart={`sequenceDiagram
+    participant DW as Delivery Worker
+    participant G as Group Service
+    participant U as User
+
+    DW->>G: still member?
+    alt removed
+        DW-->>DW: skip deliver
+    else member
+        DW->>U: push
+    end
+`} />
+
+---
+
+## Interview explanation
+
+> Persist once, fan-out asynchronously. Use write fan-out for normal groups; read fan-out for huge audiences. Always re-check membership at delivery.
+
+## Next
+
+[Ordering](/system-design/whatsapp-ordering-idempotency) · [Kafka](/system-design/whatsapp-kafka)

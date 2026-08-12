@@ -1,0 +1,125 @@
+---
+slug: whatsapp-kafka
+title: "WhatsApp — Kafka Architecture & Failure Scenarios"
+description: "Kafka topics, conversation partition keys, consumer groups, retries, DLQ, lag, and why Kafka is internal-only in a WhatsApp-like design."
+category: System Design
+difficulty: Staff
+tags: [WhatsApp, Kafka, DLQ, Ordering, Interview]
+readingTime: 16 min
+publishedAt: "2026-08-12"
+---
+
+**Hub:** [WhatsApp Curriculum](/system-design/whatsapp-system-design-master-index)
+
+---
+
+## Reminder
+
+> Kafka is **not** the pipe between Alice’s phone and Bob’s phone. It is the **internal** async backbone after durable persist.
+
+---
+
+## Topology
+
+<Mermaid chart={`flowchart TB
+  MS[Message Service] --> K[Kafka Cluster]
+  GS[Group Service] --> K
+  SS[Status Service] --> K
+  PS[Payment Service] --> K
+
+  K --> B1[Broker 1]
+  K --> B2[Broker 2]
+  K --> B3[Broker 3]
+
+  K --> T1[message.created]
+  K --> T2[message.status]
+  K --> T3[group.events]
+  K --> T4[notification.requested]
+  K --> T5[audit.events]
+
+  T1 --> DW[Delivery CG]
+  T2 --> SW[Status CG]
+  T3 --> GW[Group fan-out CG]
+  T4 --> NW[Notification CG]`} />
+
+### Partition keys
+
+| Topic | Key | Why |
+|---|---|---|
+| message.created | conversationId | Per-chat order |
+| message.status | conversationId or messageId | Localize updates |
+| group.events | groupId | Ordered membership |
+| notification.requested | userId | Per-user notify order |
+
+---
+
+## Consumer settings (mental model)
+
+```text
+enable.auto.commit = false
+ack after side effects + idempotent write
+retries for transient
+non-retryable → DLQ
+```
+
+### Java sketch
+
+```java
+@KafkaListener(topics = "message.created", groupId = "delivery")
+public void onMessage(MessageCreated ev, Acknowledgment ack) {
+    if (deliveryRepo.alreadyDelivered(ev.messageId(), ev.deviceId())) {
+        ack.acknowledge();
+        return;
+    }
+    delivery.push(ev);
+    ack.acknowledge();
+}
+```
+
+---
+
+## Failure scenarios
+
+<Mermaid chart={`sequenceDiagram
+    participant K as Kafka
+    participant C as Consumer
+    participant DB as DB
+
+    K->>C: event
+    C->>DB: process OK
+    Note over C: crash before commit
+    K->>C: redelivery
+    C->>DB: idempotent no-op
+    C->>K: commit offset
+`} />
+
+| Scenario | Outcome |
+|---|---|
+| Crash before process | Redeliver → process |
+| Crash after process before commit | Redeliver → idempotent |
+| Broker fail | ISR elects leader; clients retry |
+| Duplicate event | Idempotency key |
+| Poison message | DLQ after N; unblock partition |
+| Consumer lag | Scale consumers ≤ partitions; optimize handler |
+| DLQ replay | Fix bug → replay with care |
+
+---
+
+## What NOT on Kafka
+
+```text
+Raw image/video bytes
+WebRTC media
+Client heartbeat floods
+Typing fan-out at global scale without rate limits
+```
+
+---
+
+## Interview explanation
+
+> Persist then produce. Partition by conversationId. Consumers are idempotent with manual commits. Lag and poison messages are operational first-class citizens.
+
+## Next
+
+[Media & Realtime Features](/system-design/whatsapp-media-realtime)
