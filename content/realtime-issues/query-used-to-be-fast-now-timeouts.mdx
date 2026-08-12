@@ -33,6 +33,74 @@ FETCH FIRST 50 ROWS ONLY;
 
 Code did not deploy today. Data did grow.
 
+## Sequence — how I investigate
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor Oncall
+    participant App as API / Hikari / threads
+    participant Ora as Oracle v$session / v$sql
+    participant Plan as DISPLAY_CURSOR / stats
+
+    Oncall->>App: Note route, p95, timeout error
+    Oncall->>App: Thread dump in oracle.jdbc?
+    Oncall->>Ora: ACTIVE sessions → event, sql_id, blocking_session
+    Oncall->>Ora: sql_text for that sql_id
+
+    alt blocking_session IS NOT NULL
+        Oncall->>Ora: Path L — lock tree / blocker SQL
+        Oncall->>App: Find FOR UPDATE held across HTTP
+        Oncall->>App: Mitigate kill/flag; fix txn boundary
+    else High wait on same sql_id (IO/CPU)
+        Oncall->>Ora: Path P — avg_ms + buffer_gets in v$sql
+        Oncall->>Plan: DISPLAY_CURSOR ALLSTATS LAST
+        Oncall->>Plan: Skew + last_analyzed + indexes
+        Oncall->>Plan: Stats + targeted index
+        Oncall->>App: Re-check p95 + Hikari pending = 0
+    end
+`} />
+
+## Sequence — Path P (plan / IO) — this incident
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant Oncall
+    participant VSQL as v$sql
+    participant XPLAN as DBMS_XPLAN
+    participant Data as PAYMENT data/stats
+    participant Fix as Index + gather stats
+    participant API as Payment API
+
+    Oncall->>VSQL: avg_ms, gets_per_exec for sql_id
+    Note over VSQL: Was ~12ms / 200 gets → now ~4800ms / 1.8M gets
+    Oncall->>XPLAN: DISPLAY_CURSOR ALLSTATS LAST
+    Note over XPLAN: TABLE ACCESS FULL, buffers ~1.8M
+    Oncall->>Data: status skew + last_analyzed
+    Note over Data: PENDING ~0.4%, histogram stale
+    Oncall->>Fix: Virtual-column index + GATHER_TABLE_STATS
+    Oncall->>XPLAN: Re-check plan
+    Note over XPLAN: INDEX RANGE SCAN, buffers hundreds
+    Oncall->>API: p95 back under 300ms, Hikari pending 0
+`} />
+
+## Sequence — Path L (locks)
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant Oncall
+    participant Blocked as Blocked sessions
+    participant Blocker as Blocker session
+    participant App as Spring @Transactional
+
+    Oncall->>Blocked: v$session where blocking_session not null
+    Oncall->>Blocker: sid/serial#, sql_id, seconds_in_wait
+    Oncall->>App: FOR UPDATE then HTTP inside one txn?
+    alt Business allows
+        Oncall->>Blocker: KILL SESSION (bridge)
+    end
+    Oncall->>App: Commit before remote I/O (permanent)
+`} />
+
 ---
 
 ## Step 0 — Confirm it is *this* SQL (2 minutes)
