@@ -6,13 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "java-compiler-server": "node scripts/java-compiler-server.mjs",
+    "test:java-compiler": "node scripts/java-compiler-server.test.mjs"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
     "lucide-react": "^0.468.0",
     "mermaid": "^11.12.0",
+    "monaco-editor": "^0.56.0",
     "next": "^15.5.7",
     "next-mdx-remote": "^5.0.0",
     "react": "^19.1.0",

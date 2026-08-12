@@ -6,6 +6,7 @@ const COLUMNS=[
     title:'Start',
     links:[
       {href:'/learn',label:'Learning paths'},
+      {href:'/java-compiler',label:'Java Compiler IDE'},
       {href:'/search',label:'Search topics'},
       {href:'/interview-questions',label:'Interview practice'},
       {href:'/about',label:'About'},
