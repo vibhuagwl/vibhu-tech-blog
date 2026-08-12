@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import {useCallback,useEffect,useMemo,useState} from 'react';
+import {Eraser,Loader2,Play,Square,Terminal} from 'lucide-react';
 import {
   compileJavaProject,
   fetchJdkStatus,
@@ -328,38 +329,48 @@ export default function JavaIde(){
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/90 p-2 dark:border-slate-800 dark:bg-slate-900/50">
             <button
               type="button"
               disabled={busy}
               onClick={()=>void onRun()}
-              className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-45 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
             >
+              <Play size={14} fill="currentColor"/>
               Run
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={()=>void onCompile()}
-              className="rounded-lg bg-blue-700 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-900"
             >
+              <Terminal size={14}/>
               Compile
             </button>
             <button
               type="button"
               onClick={()=>void onStop()}
-              className="rounded-lg bg-rose-700 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-800"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-900"
             >
+              <Square size={13} fill="currentColor"/>
               Stop
             </button>
+            <div className="mx-1 hidden h-6 w-px bg-slate-200 sm:block dark:bg-slate-700" aria-hidden/>
             <button
               type="button"
               onClick={clearConsole}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-900"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-950 dark:hover:text-white"
             >
+              <Eraser size={14}/>
               Clear Console
             </button>
-            {busy && <span className="self-center text-xs text-slate-500">Working… UI stays responsive</span>}
+            {busy && (
+              <span className="ml-auto inline-flex items-center gap-1.5 self-center text-xs font-medium text-slate-500">
+                <Loader2 size={12} className="animate-spin"/>
+                Running…
+              </span>
+            )}
           </div>
 
           <div className="h-[220px]">
