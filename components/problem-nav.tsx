@@ -164,6 +164,8 @@ export default function ProblemNav({
         <button
           type="button"
           onClick={()=>setOpen((v)=>!v)}
+          aria-expanded={open}
+          aria-label={open?'Collapse topic navigation':'Expand topic navigation'}
           className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
         >
           <span className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">

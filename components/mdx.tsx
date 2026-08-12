@@ -1,24 +1,60 @@
 import Link from 'next/link';
 import Mermaid from './mermaid';
+import CodeBlock from './code-block';
+import {slugify,textFromChildren} from '@/lib/slugify';
 
-function isInternalHref(href:unknown) {
-  return typeof href === 'string' && href.startsWith('/') && !href.startsWith('//');
+function isInternalHref(href:unknown){
+  return typeof href==='string' && href.startsWith('/') && !href.startsWith('//');
 }
 
-export const mdxComponents = {
-  h2: (p: any) => <h2 {...p} />,
-  h3: (p: any) => <h3 {...p} />,
-  p: (p: any) => <p {...p} />,
-  ul: (p: any) => <ul {...p} />,
-  ol: (p: any) => <ol {...p} />,
-  pre: (p: any) => <pre {...p} />,
-  blockquote: (p: any) => <blockquote {...p} />,
-  code: (p: any) => <code {...p} />,
-  a: (p: any) => {
-    const {href, children, ...rest} = p;
+function Heading({
+  as:Tag,
+  children,
+  ...rest
+}:{
+  as:'h2'|'h3'|'h4';
+  children?:React.ReactNode;
+} & React.HTMLAttributes<HTMLHeadingElement>){
+  const text=textFromChildren(children);
+  const id=rest.id || slugify(text) || undefined;
+  return (
+    <Tag id={id} {...rest}>
+      {children}
+    </Tag>
+  );
+}
 
-    // Internal links must use Next <Link> so basePath (/vibhu-tech-blog) is applied.
-    if (isInternalHref(href)) {
+function Pre(props:any){
+  const child=Array.isArray(props.children)?props.children[0]:props.children;
+  const className=child?.props?.className as string|undefined;
+  const codeChildren=child?.props?.children;
+
+  // Fenced blocks arrive as <pre><code className="language-...">
+  if(child?.type==='code' || child?.props?.className || typeof codeChildren==='string'){
+    return (
+      <CodeBlock className={className}>
+        {codeChildren ?? props.children}
+      </CodeBlock>
+    );
+  }
+
+  return <pre {...props}/>;
+}
+
+export const mdxComponents={
+  h2:(p:any)=><Heading as="h2" {...p}/>,
+  h3:(p:any)=><Heading as="h3" {...p}/>,
+  h4:(p:any)=><Heading as="h4" {...p}/>,
+  p:(p:any)=><p {...p}/>,
+  ul:(p:any)=><ul {...p}/>,
+  ol:(p:any)=><ol {...p}/>,
+  pre:Pre,
+  blockquote:(p:any)=><blockquote {...p}/>,
+  code:(p:any)=><code {...p}/>,
+  a:(p:any)=>{
+    const {href,children,...rest}=p;
+
+    if(isInternalHref(href)){
       return (
         <Link href={href} {...rest}>
           {children}
@@ -26,21 +62,27 @@ export const mdxComponents = {
       );
     }
 
+    const external=typeof href==='string' && /^https?:\/\//i.test(href);
     return (
-      <a href={href} {...rest}>
+      <a
+        href={href}
+        {...rest}
+        {...(external?{target:'_blank',rel:'noopener noreferrer'}:{})}
+      >
         {children}
+        {external && <span className="sr-only"> (opens in a new tab)</span>}
       </a>
     );
   },
-  table: (p: any) => (
+  table:(p:any)=>(
     <div className="table-wrap">
-      <table {...p} />
+      <table {...p}/>
     </div>
   ),
-  thead: (p: any) => <thead {...p} />,
-  tbody: (p: any) => <tbody {...p} />,
-  tr: (p: any) => <tr {...p} />,
-  th: (p: any) => <th {...p} />,
-  td: (p: any) => <td {...p} />,
+  thead:(p:any)=><thead {...p}/>,
+  tbody:(p:any)=><tbody {...p}/>,
+  tr:(p:any)=><tr {...p}/>,
+  th:(p:any)=><th {...p}/>,
+  td:(p:any)=><td {...p}/>,
   Mermaid,
 };

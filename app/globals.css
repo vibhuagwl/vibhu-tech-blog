@@ -3,44 +3,106 @@
 @tailwind utilities;
 
 :root{
-  --bg:#f8fafc;
-  --surface:#fff;
+  --bg:#f4f6f8;
+  --surface:#ffffff;
   --ink:#0f172a;
   --muted:#64748b;
   --line:#e2e8f0;
-  --accent:#2563eb;
+  --accent:#1d4ed8;
+  --accent-soft:#eff6ff;
+  --prose:#334155;
+  --radius:14px;
+  --font-sans:var(--font-source-sans),ui-sans-serif,system-ui,sans-serif;
+  --font-mono:var(--font-ibm-mono),ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
   margin:0;
-  background:var(--bg);
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(29,78,216,.06), transparent 55%),
+    radial-gradient(900px 400px at 100% 0%, rgba(15,23,42,.04), transparent 50%),
+    var(--bg);
   color:var(--ink);
-  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-family:var(--font-sans);
+  font-size:16px;
+  line-height:1.65;
   transition:background .2s,color .2s;
 }
 a{text-decoration:none}
+:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
 
-.prose-design{max-width:none}
-.prose-design h2{font-size:1.7rem;line-height:1.25;margin:2.5rem 0 .9rem;letter-spacing:-.03em}
-.prose-design h3{font-size:1.15rem;margin:1.7rem 0 .65rem}
-.prose-design p,.prose-design li{color:#334155;line-height:1.8}
-.prose-design ul,.prose-design ol{padding-left:1.35rem}
+.sr-only{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  white-space:nowrap;
+  border:0;
+}
 
-/* Fenced code blocks: dark panel, light text */
-.prose-design pre{
+.prose-design{
+  max-width:42rem;
+  font-size:1.02rem;
+}
+.prose-design > :first-child{margin-top:0}
+.prose-design h2{
+  font-size:1.45rem;
+  line-height:1.3;
+  margin:2.4rem 0 .85rem;
+  letter-spacing:-.02em;
+  color:var(--ink);
+  scroll-margin-top:5.5rem;
+}
+.prose-design h3{
+  font-size:1.12rem;
+  margin:1.6rem 0 .55rem;
+  letter-spacing:-.015em;
+  color:var(--ink);
+  scroll-margin-top:5.5rem;
+}
+.prose-design h4{
+  font-size:1rem;
+  margin:1.3rem 0 .45rem;
+  color:var(--ink);
+  scroll-margin-top:5.5rem;
+}
+.prose-design p,
+.prose-design li{
+  color:var(--prose);
+  line-height:1.75;
+}
+.prose-design p{margin:0 0 1rem}
+.prose-design ul,
+.prose-design ol{
+  padding-left:1.25rem;
+  margin:0 0 1rem;
+}
+.prose-design li{margin:.35rem 0}
+.prose-design li > p{margin:.35rem 0}
+
+.prose-design pre,
+.code-block pre{
   overflow:auto;
-  border-radius:12px;
-  background:#0f172a;
+  border-radius:0;
+  background:transparent;
   color:#e2e8f0;
-  padding:18px;
+  padding:0;
+  margin:0;
   line-height:1.65;
   font-size:.85rem;
-  margin:1.25rem 0;
+  font-family:var(--font-mono);
 }
-/* MDX renders ``` as <pre><code> — do NOT apply inline-code chip styles inside pre */
-.prose-design pre code{
+.prose-design .code-block{margin:1.25rem 0}
+.prose-design pre code,
+.code-block pre code{
   display:block;
   background:transparent;
   color:inherit;
@@ -50,38 +112,49 @@ a{text-decoration:none}
   line-height:inherit;
   white-space:inherit;
   word-break:normal;
+  font-family:inherit;
 }
 
-/* Inline `code` chips only */
 .prose-design :not(pre) > code{
   background:#f1f5f9;
   color:#0f172a;
-  padding:.12rem .32rem;
+  padding:.12rem .35rem;
   border-radius:.3rem;
   font-size:.9em;
+  font-family:var(--font-mono);
 }
 
 .prose-design blockquote{
-  margin:1.5rem 0;
-  border-left:4px solid #2563eb;
-  background:#eff6ff;
-  padding:1rem 1.1rem;
-  color:#334155;
+  margin:1.35rem 0;
+  border-left:3px solid var(--accent);
+  background:var(--accent-soft);
+  padding:.9rem 1rem;
+  color:var(--prose);
+  border-radius:0 10px 10px 0;
 }
+.prose-design blockquote p:last-child{margin-bottom:0}
 
 .prose-design a{
-  color:#2563eb;
+  color:var(--accent);
   font-weight:600;
+  text-underline-offset:2px;
 }
 .prose-design a:hover{text-decoration:underline}
 
-/* GFM markdown tables — readable scan, mobile scroll */
+/* Callout helpers for MDX blockquotes that start with emoji labels */
+.prose-design blockquote strong:first-child{
+  display:inline-block;
+  margin-bottom:.25rem;
+  color:var(--ink);
+}
+
 .prose-design .table-wrap{
   overflow-x:auto;
-  margin:1.35rem 0 1.6rem;
-  border:1px solid #e2e8f0;
+  margin:1.25rem 0 1.5rem;
+  border:1px solid var(--line);
   border-radius:12px;
   background:#fff;
+  -webkit-overflow-scrolling:touch;
 }
 .prose-design table{
   width:100%;
@@ -91,40 +164,51 @@ a{text-decoration:none}
   min-width:28rem;
 }
 .prose-design thead th{
-  background:#f1f5f9;
+  background:#f8fafc;
   color:#0f172a;
-  font-weight:800;
+  font-weight:700;
   text-align:left;
-  padding:.75rem .9rem;
-  border-bottom:1px solid #e2e8f0;
+  padding:.7rem .85rem;
+  border-bottom:1px solid var(--line);
   white-space:nowrap;
 }
 .prose-design tbody td{
-  padding:.7rem .9rem;
+  padding:.65rem .85rem;
   border-bottom:1px solid #f1f5f9;
-  color:#334155;
+  color:var(--prose);
   vertical-align:top;
 }
 .prose-design tbody tr:last-child td{border-bottom:none}
-.prose-design tbody tr:nth-child(even) td{background:#f8fafc}
-.prose-design tbody tr:hover td{background:#eff6ff}
+.prose-design tbody tr:nth-child(even) td{background:#fafbfc}
+.prose-design tbody tr:hover td{background:#f8fafc}
 
 .card{
   border:1px solid var(--line);
-  background:white;
-  border-radius:16px;
-  box-shadow:0 8px 30px rgba(15,23,42,.04);
+  background:var(--surface);
+  border-radius:var(--radius);
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
 }
 
-.dark body{background:#020617;color:#e2e8f0}
-.dark .card{background:#0f172a;border-color:#1e293b}
-.dark .prose-design p,.dark .prose-design li{color:#cbd5e1}
+.dark{
+  --bg:#020617;
+  --surface:#0f172a;
+  --ink:#e2e8f0;
+  --muted:#94a3b8;
+  --line:#1e293b;
+  --accent:#60a5fa;
+  --accent-soft:#172554;
+  --prose:#cbd5e1;
+}
+.dark body{
+  background:
+    radial-gradient(1000px 420px at 0% 0%, rgba(37,99,235,.12), transparent 50%),
+    var(--bg);
+}
+.dark .card{background:var(--surface);border-color:var(--line)}
 .dark .prose-design :not(pre) > code{background:#1e293b;color:#e2e8f0}
-.dark .prose-design pre{background:#020617;border:1px solid #1e293b}
-.dark .prose-design blockquote{background:#172554;color:#cbd5e1}
-.dark .prose-design .table-wrap{border-color:#1e293b;background:#0f172a}
+.dark .prose-design .table-wrap{border-color:var(--line);background:#0f172a}
 .dark .prose-design thead th{background:#1e293b;color:#e2e8f0;border-bottom-color:#334155}
-.dark .prose-design tbody td{color:#cbd5e1;border-bottom-color:#1e293b}
+.dark .prose-design tbody td{border-bottom-color:#1e293b}
 .dark .prose-design tbody tr:nth-child(even) td{background:#020617}
 .dark .prose-design tbody tr:hover td{background:#172554}
 
