@@ -1,0 +1,642 @@
+---
+slug: java-migration-production-runbook
+title: "Java 8/11 → 17 → 21 Production Migration Runbook (Spring Boot, Kafka, K8s)"
+description: "Hands-on Principal-level playbook to migrate a payment microservices platform: inventory, Spring Boot 2→3, Jakarta, Security, Hibernate, Kafka, JVM/GC, Docker/K8s, canary, rollback, incidents, Mermaid diagrams, and a 3–5 minute interview answer."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java Migration, Java 17, Java 21, Spring Boot 3, Jakarta, Kafka, Hibernate, Docker, Kubernetes, Canary, JFR, Principal Interview]
+readingTime: 45 min
+publishedAt: "2026-08-12"
+---
+
+## 1. Real-world application scenario
+
+**Payment Processing Platform** (what I migrate):
+
+```text
+payment-api          REST + OAuth2/JWT
+payment-service      domain + Kafka produce
+account-service
+participant-service
+notification-service
+reconciliation-service   Kafka consume + batch
+
+Kafka topics: payment.events, settlement.commands
+PostgreSQL (OLTP) + Redis
+Docker → Kubernetes
+Jenkins / GitHub Actions
+Prometheus + Grafana + Splunk + OpenTelemetry
+Flyway, JUnit/Mockito, WireMock
+```
+
+**Current production truth**
+
+```text
+Java 11
+Spring Boot 2.7.x
+Spring Security 5.x (WebSecurityConfigurerAdapter in older modules)
+Hibernate 5.x / javax.persistence
+spring-kafka + Kafka client aligned to Boot 2.7
+Maven 3.8, openjdk:11 image
+G1GC, -Xmx set in K8s
+```
+
+**Target**
+
+```text
+Java 21 (LTS)
+Spring Boot 3.4.x
+Jakarta EE namespace
+Hibernate 6.x
+Modern Kafka client via Boot BOM
+eclipse-temurin:21-jre
+Same Kafka/Postgres contracts; expand-contract for any schema
+```
+
+**Path I refuse**
+
+```xml
+<!-- NEVER day-one -->
+<java.version>21</java.version>
+```
+
+on Boot 2.x + javax.* + old Kafka/Hibernate without inventory, baseline, and staged Boot upgrade.
+
+Related shorter curriculum: [Java migration master index](/realtime-issues/java-migration-master-index).
+
+---
+
+## 2. Migration strategy
+
+### Dependency chain (one break stops the train)
+
+```text
+Java version
+  → Spring Boot parent BOM
+    → Spring Framework / Security / Kafka / Data
+      → Hibernate / Jakarta APIs
+        → JDBC driver
+          → Micrometer / OTel / logging
+            → Docker base image
+              → K8s CPU/memory + probes
+```
+
+**BEFORE:** Boot 2.7 on Java 11 compiles and runs.  
+**PROBLEM:** Jumping `java.version` to 21 while staying on Boot 2.7 + `javax.*` leaves illegal reflective access, missing modules, and libraries that never tested on 21.  
+**CHANGE:** Stage runtime and framework:
+
+```text
+Java 11 + Boot 2.7
+  → Java 17 + Boot 2.7 (runtime first, small surface)
+  → Java 17 + Boot 3.x (Jakarta + Security/Hibernate/Kafka)
+  → Java 21 + Boot 3.x (runtime bump on already-modern stack)
+```
+
+**AFTER:** Each stage has green CI + canary metrics.  
+**TEST:** compile → unit → IT → contract → perf vs baseline.  
+**MONITOR:** p95/p99, GC, Kafka lag, Hikari, 5xx.  
+**ROLLBACK:** previous image tag; DB must remain backward compatible.
+
+---
+
+## Architecture — canary side-by-side
+
+<Mermaid chart={`flowchart TB
+    Client --> GW[API Gateway]
+    GW --> Canary
+
+    subgraph Canary["Kubernetes payment-service"]
+      direction LR
+      J11["Pods Java 11 / Boot 2.7\n90% traffic"]
+      J21["Pods Java 21 / Boot 3.x\n10% canary"]
+    end
+
+    J11 --> Kafka[(Kafka payment.events)]
+    J21 --> Kafka
+    J11 --> PG[(PostgreSQL)]
+    J21 --> PG
+    J11 --> Obs[Prometheus / Grafana / Splunk / OTel]
+    J21 --> Obs
+    Kafka --> Settle[settlement-service consumers]
+    Settle --> PG
+`} />
+
+---
+
+## Sequence — complete migration journey
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor Dev as Developer
+    participant Git
+    participant CI as CI/CD Maven
+    participant Reg as Container registry
+    participant K8s as Kubernetes
+    participant App as payment-service
+    participant Kafka
+    participant DB as PostgreSQL
+    participant Mon as Prometheus/Grafana/Splunk
+
+    Dev->>Git: migration/java17 then migration/java21 branches
+    Dev->>CI: Inventory jdeps/jdeprscan dependency:tree
+    Dev->>CI: Baseline metrics freeze documented
+    Dev->>CI: Upgrade Boot/deps/Jakarta/Security/Hibernate
+    CI->>CI: Compile + unit + IT + Kafka/DB tests
+    CI->>CI: SCA Sonar BlackDuck SBOM
+    CI->>Reg: Build temurin:21-jre image + scan
+    CI->>K8s: Deploy lower env smoke
+    K8s->>App: Start Java 21
+    App->>DB: Flyway only expand-safe
+    App->>Kafka: Produce/consume same topics
+    App->>Mon: Micrometer / OTel / logs
+    Mon-->>Dev: Compare vs Java 11 baseline
+    Dev->>K8s: Canary 1 pod → 10% → 25% → 50% → 100%
+    alt Rollback trigger
+        Mon-->>Dev: p99/error/lag/OOM
+        Dev->>K8s: Stop roll, scale prior image
+        Dev->>Kafka: Verify offsets / idempotency
+        Dev->>DB: Confirm expand-compatible schema
+    else Healthy
+        Dev->>Git: Merge, retire Java 11 image
+    end
+`} />
+
+---
+
+## 3. Phase-by-phase migration
+
+| Phase | What changes | Exit criteria |
+|---|---|---|
+| 0 Inventory | jdeps, tree, grep javax/sun, lib matrix | Written risk list |
+| 1 Baseline | latency, GC, lag, DB, errors | Signed baseline table |
+| 2 Toolchain | Maven wrapper, plugins, CI JDK | Build on 17/21 agents |
+| 3 Java 17 runtime on Boot 2.7 | Dockerfile/CI only where compatible | Canary green |
+| 4 Boot 3 + Jakarta | code + POM | Compile + IT green |
+| 5 Security / Hibernate / Kafka | config + behavior tests | No contract break |
+| 6 Java 21 runtime | image + JVM flags scrub | Perf ≥ baseline or accepted |
+| 7 Prod canary | traffic split | Rollback triggers unused |
+| 8 Contract DB (later) | drop old columns | After dual-write window |
+
+Commits (small, reversible):
+
+```text
+1. mvnw / pluginManagement
+2. dependency BOM alignment (no Java bump yet)
+3. Spring Boot 2.7 → last 2.7 patch
+4. Dockerfile CI JDK 17 (Boot 2.7 still)
+5. Spring Boot 3.x parent
+6. OpenRewrite/jakarta fixes + SecurityFilterChain
+7. Hibernate 6 / Kafka client fixes
+8. Java 21 image + JVM flag cleanup
+9. K8s probes/resources
+10. Canary + dashboards
+```
+
+Branches: `main` → `migration/java17` → `migration/java21` (or single long-lived migration branch with tags per phase). Feature freeze on payment-service during Boot 3 cut.
+
+---
+
+## 4. Pre-migration inventory
+
+### Commands I actually run
+
+```bash
+java -version
+mvn -version
+./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version
+
+./mvnw -q dependency:tree -Dverbose > /tmp/tree-java11.txt
+./mvnw versions:display-dependency-updates
+./mvnw versions:display-plugin-updates
+
+# Gradle
+./gradlew -q dependencies > /tmp/deps.txt
+./gradlew dependencyUpdates
+```
+
+```bash
+grep -RIn "javax\." src/ --include='*.java' | head
+grep -RIn "sun\." src/ --include='*.java' | head
+grep -RIn "com.sun\." src/ --include='*.java' | head
+grep -RIn "WebSecurityConfigurerAdapter" src/
+grep -RIn "XX:" Dockerfile k8s/ helm/ || true
+grep -RIn "Xmx\|MaxGCPauseMillis\|UseConcMarkSweepGC" . || true
+```
+
+```bash
+# After building current JAR
+jdeps --jdk-internals target/payment-service.jar
+jdeps -summary target/payment-service.jar
+jdeprscan --release 11 target/payment-service.jar
+jdeprscan --release 21 target/payment-service.jar
+```
+
+| Tool | Detects |
+|---|---|
+| `dependency:tree` | Conflicts, duplicate Kafka/Netty/Jackson |
+| `jdeps --jdk-internals` | `sun.misc.Unsafe`, `com.sun.*` |
+| `jdeprscan` | Deprecated APIs for a target release |
+| OpenRewrite | Bulk `javax→jakarta`, Boot 3 recipes (review diffs) |
+| Enforcer / Revapi | Ban banned deps; API breakage |
+| SCA (Black Duck) | CVEs blocking image promotion |
+
+**Unsafe example:** if jdeps flags `sun.misc.Unsafe`, find the library (often old kryo/cache) and upgrade or replace — do not copy Unsafe into app code.
+
+**Mandatory vs optional:** fixing removed APIs / Boot 3 compile errors is mandatory; rewriting every `new Date()` to `Instant` is optional unless security/style gates require it.
+
+### Baseline table (fill before any runtime change)
+
+```text
+Metric                 Java 11 baseline    Gate for Java 21
+-------------------------------------------------------------
+P50 latency
+P95 latency            e.g. 120ms          ≤ baseline + 20%
+P99 latency            e.g. 180ms          ≤ baseline + 20%
+TPS / RPS
+Error rate 5xx         e.g. 0.1%           ≤ 1% absolute abort
+CPU request/limit util
+Heap used / -Xmx
+GC pause p99
+Kafka consumer lag     e.g. < 1k           no sustained climb
+DB p95 / Hikari pending
+Pod restarts / OOMKilled  0
+```
+
+---
+
+## 5. Java 8/11 → 17 changes (runtime-first)
+
+**BEFORE:** `FROM openjdk:11` + CI `JAVA_HOME` 11.  
+**PROBLEM:** App may still be Boot 2.7 — OK on 17 for many apps; illegal-access warnings from old libs.  
+**CHANGE:** CI matrix + image to Temurin 17; keep Boot 2.7 until Jakarta phase.  
+**AFTER:** Same bytecode target temporarily (`release 11`) **or** compile 17 once deps allow.  
+**TEST:** full IT on 17.  
+**MONITOR:** GC, CPU, errors vs baseline.  
+**ROLLBACK:** retag deploy to 11 image.
+
+Strong encapsulation: agents and libraries poking JDK internals fail — fix agent versions (OTel, JMX) before prod.
+
+---
+
+## 6. Java 17 → 21 changes
+
+**BEFORE:** Running Boot 3.x on 17.  
+**PROBLEM:** Blind JVM flag copy (`CMS`, obsolete options) ignored or fatal.  
+**CHANGE:** Temurin 21 JRE; scrub flags; re-validate G1 or evaluate ZGC only with perf proof.  
+**AFTER:** `-XX:+UseG1GC` still default-ish path for many services; container-aware heap.  
+**TEST:** soak + JFR compare allocation.  
+**MONITOR:** p99, GC pause, RSS vs limit.  
+**ROLLBACK:** 17 image (Boot 3 still).
+
+```bash
+java -XX:+PrintFlagsFinal -version | rg -i 'HeapSize|UseG1|UseZGC'
+# Discover ignored flags on 21 by starting with -XX:+UnlockDiagnosticVMOptions and checking logs
+```
+
+---
+
+## 7. Spring Boot 2 → 3
+
+```text
+Java 11 + Boot 2.7
+  → Java 17 + Boot 2.7
+  → Java 17 + Boot 3.4.x   # Jakarta cut here
+  → Java 21 + Boot 3.4.x
+```
+
+```xml
+<!-- Before -->
+<parent>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-parent</artifactId>
+  <version>2.7.18</version>
+</parent>
+<properties><java.version>11</java.version></properties>
+
+<!-- After -->
+<parent>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-parent</artifactId>
+  <version>3.4.5</version>
+</parent>
+<properties><java.version>21</java.version></properties>
+```
+
+Config renames (examples): `spring.redis` → `spring.data.redis`; security matcher APIs; actuator path defaults — diff against [Boot 3 migration guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.0-Migration-Guide) per module.
+
+---
+
+## 8. Jakarta migration
+
+Primarily **Boot 3 / EE 9+**, not “Java 17 magic.”
+
+```java
+// Before
+import javax.persistence.Entity;
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.constraints.NotNull;
+
+// After
+import jakarta.persistence.Entity;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.NotNull;
+```
+
+Also: `javax.transaction`, `javax.annotation`, `javax.xml.bind` (JAXB may need explicit `jakarta.xml.bind` dependency).
+
+**Compile errors:** package does not exist `javax.persistence` → replace imports + ensure `hibernate-core` 6 via Boot 3.
+
+OpenRewrite Boot 3 recipe: run on a branch, **review every diff**, especially security and XML config.
+
+---
+
+## 9. Spring Security migration
+
+```java
+// Before (Boot 2)
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+  @Override
+  protected void configure(HttpSecurity http) throws Exception {
+    http.authorizeRequests().antMatchers("/actuator/health").permitAll()
+        .anyRequest().authenticated();
+  }
+}
+
+// After (Boot 3)
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+  @Bean
+  SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http.authorizeHttpRequests(a -> a
+            .requestMatchers("/actuator/health").permitAll()
+            .anyRequest().authenticated())
+        .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));
+    return http.build();
+  }
+}
+```
+
+**TEST:** WireMock IdP / test JWT; 401/403 contract tests.  
+**MONITOR:** auth failure rate, TLS to IdP.  
+**ROLLBACK:** prior chart; do not mix Security 5 and 6 jars.
+
+---
+
+## 10. Hibernate / JPA migration
+
+Hibernate 5 → 6 with Boot 3.
+
+Watch for: stricter HQL, `OffsetDateTime` mappings, sequence optimizers, `getSingleResult` behavior, pagination, custom `Dialect` class renames.
+
+**BEFORE:** `NativeQuery` relying on implicit types.  
+**PROBLEM:** `QueryException` / wrong bind types on 6.  
+**CHANGE:** explicit `addScalar` / attribute converters; fix named queries in IT.  
+**TEST:** Testcontainers Postgres with Flyway.  
+**MONITOR:** slow query log, error spikes on read APIs.
+
+---
+
+## 11–12. Kafka + real-time dual consumers
+
+```yaml
+# Before (illustrative Boot 2)
+spring.kafka.bootstrap-servers: kafka:9092
+spring.kafka.consumer.group-id: settlement-java11
+spring.kafka.consumer.auto-offset-reset: earliest
+
+# After — prefer same group for rolling replace OR new group only with lag plan
+spring.kafka.consumer.group-id: settlement-java21
+# Keep serializers, TLS, SASL, idempotent producer settings intentional
+```
+
+**Safe rollout:** rolling deploy **same consumer group** so partitions move; handlers **idempotent** (payment_id unique / outbox).
+
+```text
+Old Java 11 consumer ──┐
+                       ├── payment-topic ──► settlement
+New Java 21 canary ────┘
+```
+
+**Problems:** rebalance storms, duplicate settle, serdes mismatch, TLS handshake after JVM/cipher change.  
+**MONITOR:** lag, rebalance count, produce error rate, DLQ depth.  
+**ROLLBACK:** scale down new RS; old group members reclaim partitions.
+
+---
+
+## 13. Database / drivers / Hikari
+
+Align JDBC driver to Boot BOM. Validate:
+
+```text
+Hikari maximumPoolSize * max pods  <  DB max_connections * 0.7
+connectionTimeout, idleTimeout, maxLifetime, connectionTestQuery/validation
+```
+
+Schema during Java rollout: **expand only** (see [prod DB change checklist](/realtime-issues/production-database-change-risk-checklist)).
+
+---
+
+## 14. JVM / GC
+
+```bash
+# Prefer container-aware sizing; validate don't copy CMS
+JAVA_TOOL_OPTIONS="-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xlog:gc*:file=/tmp/gc.log:time,uptime:filecount=5,filesize=20M"
+```
+
+Use carefully in prod: `jcmd <pid> GC.heap_info`, `Thread.print`, `JFR.start` — avoid heavy `jmap -dump` on critical pods without need.
+
+---
+
+## 15–16. Docker + Kubernetes
+
+```dockerfile
+# Before
+FROM openjdk:11
+COPY target/payment-service.jar app.jar
+ENTRYPOINT ["java","-jar","/app.jar"]
+
+# After
+FROM eclipse-temurin:21-jre-jammy
+COPY target/payment-service.jar app.jar
+USER 10001
+ENTRYPOINT ["java","-XX:MaxRAMPercentage=75.0","-jar","/app.jar"]
+```
+
+```yaml
+# Review limits — Java 21 RSS can expose tight limits
+resources:
+  requests: { cpu: "500m", memory: "1Gi" }
+  limits:   { cpu: "2", memory: "2Gi" }
+readinessProbe: { httpGet: { path: /actuator/health/readiness, port: 8080 } }
+livenessProbe:  { httpGet: { path: /actuator/health/liveness, port: 8080 } }
+startupProbe:   { httpGet: { path: /actuator/health, port: 8080 }, failureThreshold: 30 }
+terminationGracePeriodSeconds: 60
+```
+
+**OOMKilled after migrate:** raise limit or lower heap percentage; confirm leak via JFR allocations.
+
+---
+
+## 17. CI/CD
+
+```text
+Before: JDK11 → mvn test → docker → deploy
+After:  JDK21 → mvn verify → Sonar → SCA/SBOM → image build → image scan
+        → deploy dev/stage → smoke → canary prod → promote
+```
+
+---
+
+## 18. Testing layers + failure meanings
+
+| Layer | Failure means |
+|---|---|
+| Compile | Jakarta/API/deps |
+| Unit | Behavior/mock drift |
+| IT / Testcontainers | Hibernate SQL, Flyway, Kafka embedded |
+| Contract | API/OpenAPI break |
+| Security tests | JWT/OAuth config |
+| Perf | GC/alloc/library regression |
+| Prod smoke | Config/secret/TLS |
+
+### Realistic failures (sample)
+
+1. `javax.persistence.PersistenceException` → Jakarta/Hibernate 6 imports/deps  
+2. `NoSuchMethodError` → mixed Spring/Kafka versions → tree + BOM  
+3. `ClassNotFoundException` → transitive dropped → declare explicitly  
+4. `UnsupportedClassVersionError` → bytecode 61/65 on old runtime  
+5. `BeanCreationException` SecurityFilterChain → fix config  
+6. TLS handshake fail → cipher/CA in new image  
+7. Kafka `SerializationException` → Avro/Jackson mismatch  
+8. Hibernate `QuerySyntaxException` → HQL 6  
+9. `IllegalAccessError` → module encapsulation / agent  
+10. `LinkageError` → duplicate classes on classpath  
+
+---
+
+## 19–20. Monitoring + JFR
+
+Stack: Micrometer → Prometheus → Grafana; OTel traces; Splunk logs; JFR for deep dive.
+
+```text
+Deploy canary → Grafana p99 up → JVM GC panel → jcmd JFR.start
+  → allocation hotspot in new lib → pin version / fix config → re-canary
+```
+
+```bash
+jcmd <pid> JFR.start name=migrate settings=profile filename=/tmp/migrate.jfr duration=120s
+```
+
+Example: Java 11 p99 180ms → Java 21 p99 320ms → JFR high allocation in upgraded JSON lib → tune or revert lib → p99 recovers.
+
+---
+
+## 21–22. Canary + rollback
+
+```text
+1 pod → smoke 15–30m → 10% → 25% → 50% → 100%
+```
+
+**Example abort thresholds (configure per SLO):** p99 > baseline+20%; 5xx > 1%; Kafka lag climbing; CPU > 80% sustained; OOMKilled; GC pause breach; DB p95 spike; TLS errors.
+
+Rollback: stop roll → prior image → verify consumer lag/offsets → DB still expand-compatible → API health.
+
+---
+
+## 23. Production incidents (condensed)
+
+**#1 GC:** p99 ↑ after 21 — JFR alloc — lib churn — pin lib.  
+**#2 Kafka:** lag ↑ — rebalance + non-idempotent handler — fix idempotency + same group roll.  
+**#3 DB:** Hikari pending — Hibernate chatty queries — fix N+1.  
+**#4 TLS:** IdP handshake fail — missing CA in slim image — add certs.  
+**#5 Dep conflict:** `NoSuchMethodError` Netty — align Boot BOM.  
+**#6 Hibernate:** settlement batch wrong pages — rewrite query.  
+**#7 K8s memory:** OOMKilled — MaxRAMPercentage + limit.  
+**#8 Security:** actuator exposed — `SecurityFilterChain` miss — deny by default.  
+**#9 Logging:** JSON encoder break — logback upgrade.  
+**#10 Perf:** virtual threads experiment increased DB sessions — revert experiment, resize pool.
+
+---
+
+## 24. Challenges table (excerpt)
+
+| Challenge | Symptom | Detect | Fix | Rollback |
+|---|---|---|---|---|
+| Jakarta leftover | compile | grep javax | imports + deps | prior branch |
+| Boot mix | LinkageError | tree | single BOM | prior POM |
+| Kafka serdes | consume fail | DLQ/logs | align Avro | prior image |
+| Obsolete JVM flag | fail start | container logs | scrub flags | prior chart |
+| Tight mem limit | OOMKilled | k8s events | limits/heap | prior limits |
+
+---
+
+## 25–26. Files + commands checklist
+
+```text
+pom.xml / build.gradle
+.mvn/wrapper/**
+Dockerfile
+Jenkinsfile / .github/workflows/**
+application*.yml
+logback-spring.xml
+k8s/deployment.yaml / helm/**
+src/main/java/** (javax, Security, JPA)
+src/test/java/**
+```
+
+```bash
+./mvnw -q dependency:tree
+jdeps --jdk-internals target/*.jar
+jdeprscan --release 21 target/*.jar
+grep -RIn "javax\." src/
+grep -RIn "WebSecurityConfigurerAdapter" src/
+```
+
+---
+
+## 27. Final production checklist
+
+```text
+[ ] Inventory + lib matrix
+[ ] Baseline metrics signed
+[ ] jdeps / jdeprscan clean enough
+[ ] Boot 3 + Jakarta complete
+[ ] SecurityFilterChain + OAuth/JWT tests
+[ ] Hibernate 6 IT green
+[ ] Kafka lag/idempotency proven on stage
+[ ] JDBC/Hikari math
+[ ] Flyway expand-only for overlap window
+[ ] Temurin 21 image scanned
+[ ] K8s probes/resources validated
+[ ] CI JDK21 + SCA/SBOM
+[ ] Perf vs baseline
+[ ] JFR optional soak
+[ ] Canary plan + abort gates
+[ ] Rollback image rehearsed
+[ ] Dashboards for JVM/Kafka/DB/API
+```
+
+---
+
+## 28. Automated modernization
+
+**Safe-ish with review:** OpenRewrite `javax→jakarta`, trivial Boot property renames.  
+**Manual:** Security DSL, Hibernate queries, Kafka serdes, JVM flags, K8s limits, multi-module BOM conflicts. Never run recipes unreviewed on `main`.
+
+---
+
+## 29. Spoken interview answer (3–5 minutes)
+
+> I would not flip `java.version` to 21 on a Java 11 Spring Boot 2 payment platform in one PR. I inventory with `dependency:tree`, `jdeps`, and `jdeprscan`, and I baseline p95/p99, GC, Kafka lag, and Hikari before changing runtime. Then I stage: Java 17 on Boot 2.7 where compatible, then Boot 3 on Java 17 for Jakarta, SecurityFilterChain, Hibernate 6, and Kafka client alignment, then Java 21 as a runtime bump on an already-modern stack. I keep DB changes expand-contract so rollback is image-based. Kafka consumers stay idempotent and I prefer rolling the same group. I prove each stage in CI and stage, then canary in prod with abort on latency, errors, lag, and OOM. If p99 regresses I use Grafana and JFR—often allocation or GC—not guesswork. Success is meeting baseline gates with a rehearsed rollback, not merely a green compile.
+
+---
+
+## Related
+
+- [Java migration master index](/realtime-issues/java-migration-master-index)  
+- [Lifecycle and baseline](/realtime-issues/java-migration-lifecycle-and-baseline)  
+- [Rollout and rollback](/realtime-issues/java-migration-rollout-and-rollback)  
+- [Prod DB change risk checklist](/realtime-issues/production-database-change-risk-checklist)  
+- [Query was fast, now timeouts](/realtime-issues/query-used-to-be-fast-now-timeouts)  
