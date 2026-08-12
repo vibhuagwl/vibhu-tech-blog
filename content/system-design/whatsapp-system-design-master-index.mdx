@@ -1,0 +1,117 @@
+---
+slug: whatsapp-system-design-master-index
+title: "WhatsApp System Design — Interview Curriculum (Staff/Lead)"
+description: "Production-grade WhatsApp-like HLD: WebSocket, Kafka, Redis, sharding, media, calls, multi-device — story-first with Mermaid diagrams for 5/15/30-minute interviews."
+category: System Design
+difficulty: Staff
+tags: [WhatsApp, Messaging, WebSocket, Kafka, Redis, System Design, Interview]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+**Scope note:** This is an **industry-standard WhatsApp-like architecture** for Senior/Staff interviews — not a claim of WhatsApp’s private internals.
+
+**Primary story:** *Alice sends Bob a message* → then expand to offline, group, media, typing, call.
+
+```text
+Alice → WebSocket → Gateway → Message Service → DB → Kafka
+  → Presence → Bob WebSocket (or Push) → ACK → Read → Blue tick
+```
+
+---
+
+## Interview answer lengths
+
+### 5-minute answer
+
+> Clients connect over WebSocket for realtime. HTTPS for login/history/media. Message Service validates, generates message ID, persists, publishes to Kafka partitioned by conversationId. Delivery workers check Redis presence: online → push on the right WebSocket node; offline → FCM/APNS and keep pending in Message DB. ACKs drive SENT/DELIVERED/READ. Media uses object storage + CDN, never Kafka. Calls use WebRTC with signalling over WebSocket. Scale with sharded message store, connection gateways, and Kafka partitions.
+
+### 15-minute answer
+
+Add: idempotency keys, ordering via conversation partition + server sequence, multi-device fan-out, group fan-out-on-write for small groups / hybrid for large, Redis for presence/session/idempotency/locks, Redis failure fallbacks, Kafka retries + DLQ, whiteboard architecture.
+
+### 30-minute deep-dive
+
+Add: WebSocket registry, sticky vs non-sticky, multi-region, E2E encryption impact at HLD, hot partitions, broadcast vs group, status TTL, payments webhook idempotency, observability SLOs, every “what if” failure.
+
+---
+
+## Curriculum navigation
+
+| # | Page | Covers |
+|---:|---|---|
+| 01 | [Requirements & High-Level Architecture](/system-design/whatsapp-requirements-architecture) | Requirements, big architecture, protocols, whiteboard diagram |
+| 02 | [Message Flow (Alice → Bob)](/system-design/whatsapp-message-flow) | End-to-end story, state machine, ticks |
+| 03 | [User, Contact, Chat, Group](/system-design/whatsapp-user-contact-group) | Auth, contacts, conversationId, group admin |
+| 04 | [One-to-One Messaging Deep Dive](/system-design/whatsapp-one-to-one-messaging) | Sequence, ACK, retry, multi-device |
+| 05 | [Group Messaging Fan-Out](/system-design/whatsapp-group-messaging) | Write vs read fan-out, mega-groups, hot partitions |
+| 06 | [Ordering & Idempotency](/system-design/whatsapp-ordering-idempotency) | Partition key, sequence, duplicates |
+| 07 | [Offline, Presence, WebSocket](/system-design/whatsapp-offline-presence-websocket) | Offline delivery, Redis presence, WS fleet |
+| 08 | [Redis & Distributed Lock](/system-design/whatsapp-redis-distributed-lock) | Presence/cache/lock — when NOT to lock |
+| 09 | [Kafka Architecture & Failures](/system-design/whatsapp-kafka) | Topics, partitions, lag, DLQ, poison |
+| 10 | [Media, Voice, Location, Typing](/system-design/whatsapp-media-realtime) | Images/video/docs, voice, live location, typing |
+| 11 | [Calls (Audio / Video / Group)](/system-design/whatsapp-calls) | WebRTC, STUN/TURN, SFU |
+| 12 | [Status, Broadcast, Search, Devices, Profile](/system-design/whatsapp-status-broadcast-search-devices) | Status, broadcast, search, linked devices |
+| 13 | [Polls, Events, Payments](/system-design/whatsapp-polls-events-payments) | Votes, event bus, payment safety |
+| 14 | [Database & Sharding](/system-design/whatsapp-database-sharding) | Entities, store choices, message shards |
+| 15 | [Multi-Region, Security, Observability](/system-design/whatsapp-scale-security-observability) | Regions, TLS/JWT/E2EE HLD, metrics |
+| 16 | [Failures, Corner Cases, Q&A, Cheat Sheet](/system-design/whatsapp-interview-failures-cheatsheet) | What-ifs, corner cases, one-pager |
+| ★ | [Diagram Memory Map](/system-design/whatsapp-diagrams-memory-map) | **Maximum Mermaid visuals** for last-minute recall |
+
+Legacy short page: [Design WhatsApp (overview)](/system-design/design-whatsapp)
+
+---
+
+## Whiteboard you must memorize
+
+<Mermaid chart={`flowchart TB
+  C[Clients]
+  C --> E[DNS / CDN / WAF / LB]
+  E --> GW[API Gateway]
+  C --> WS[WebSocket Fleet]
+  GW --> MSG[Message Service]
+  MSG --> DB[(Sharded Message DB)]
+  MSG --> K[Kafka]
+  K --> DW[Delivery]
+  DW --> WS
+  DW --> PUSH[FCM/APNS]
+  WS --> R[(Redis presence)]
+  MSG --> R
+`} />
+
+```text
+CLIENTS (Mobile / Web / Linked Devices)
+        |
+   DNS / CDN / WAF → Load Balancer → API Gateway
+        |
+   AUTH | USER/GROUP | MESSAGE SERVICE
+                          |
+                     KAFKA CLUSTER
+                          |
+        DELIVERY WORKERS → WEBSOCKET GATEWAYS → Recipient
+        NOTIFICATION → FCM/APNS
+                          |
+   REDIS (presence/session/idempotency/locks)
+   MESSAGE DB (sharded) · OBJECT STORAGE → CDN
+   OBSERVABILITY (metrics/logs/traces)
+```
+
+**All diagrams in one place:** [Diagram Memory Map](/system-design/whatsapp-diagrams-memory-map)
+---
+
+## Protocol cheat (say this early)
+
+| Protocol | Use |
+|---|---|
+| HTTPS / REST | Login, profile, history, group admin, media metadata, search |
+| WebSocket | Chat, typing, presence, ACK, group events |
+| WebRTC | Audio/video media path |
+| Kafka | **Internal** async pipeline only — not phone-to-phone |
+
+> Kafka is **not** the direct channel between two mobile users.
+
+---
+
+## Next
+
+Open [Requirements & High-Level Architecture](/system-design/whatsapp-requirements-architecture) and keep the Alice→Bob story in your head for every diagram.

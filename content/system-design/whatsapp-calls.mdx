@@ -1,0 +1,84 @@
+---
+slug: whatsapp-calls
+title: "WhatsApp — Audio, Video & Group Calls (WebRTC)"
+description: "Call signalling over WebSocket, WebRTC media path, STUN/TURN, and SFU-based group calls for Staff system design interviews."
+category: System Design
+difficulty: Staff
+tags: [WhatsApp, WebRTC, Calls, SFU, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+**Hub:** [WhatsApp Curriculum](/system-design/whatsapp-system-design-master-index)
+
+---
+
+## 1:1 audio / video
+
+<Mermaid chart={`sequenceDiagram
+    participant A as Caller
+    participant SIG as Call Signalling
+    participant B as Receiver
+    participant STUN as STUN
+    participant TURN as TURN
+
+    A->>SIG: call offer (SDP)
+    SIG->>B: ring (WS / push)
+    B->>SIG: answer (SDP)
+    A->>STUN: ICE candidates
+    B->>STUN: ICE candidates
+    alt direct path fails
+      A->>TURN: relay media
+      B->>TURN: relay media
+    end
+    A<<->>B: WebRTC media
+`} />
+
+| Piece | Role |
+|---|---|
+| WebSocket signalling | Offer/answer, ICE, hangup |
+| WebRTC | Actual audio/video |
+| STUN | Discover public ICE |
+| TURN | Relay when NAT blocks P2P |
+
+**Why not Kafka for media:** latency + throughput wrong tool.
+
+---
+
+## Group call
+
+<Mermaid chart={`flowchart TB
+  SIG[Signalling Service]
+  SIG --> A[User A]
+  SIG --> B[User B]
+  SIG --> C[User C]
+  A --> SFU[SFU Media Server]
+  B --> SFU
+  C --> SFU`} />
+
+| Topology | Idea | Scale |
+|---|---|---|
+| Mesh | Everyone sends to everyone | Tiny calls only |
+| MCU | Server mixes into one stream | CPU heavy |
+| **SFU** | Server forwards selected streams | Preferred |
+
+---
+
+## Call corner cases
+
+| Case | Handling |
+|---|---|
+| Network switch WiFi→LTE | ICE restart |
+| Caller drop | Signalling hangup; timeout |
+| Receiver never answers | Ring timeout → missed call event |
+| TURN overload | Regional TURN pools |
+
+---
+
+## Interview explanation
+
+> Messaging ≠ calling. Signalling rides WS; media is WebRTC. Group calls use SFU. STUN first, TURN fallback.
+
+## Next
+
+[Status, Broadcast, Search, Devices](/system-design/whatsapp-status-broadcast-search-devices)

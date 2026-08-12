@@ -1,0 +1,303 @@
+---
+slug: whatsapp-diagrams-memory-map
+title: "WhatsApp — Diagram Memory Map (Interview Visuals)"
+description: "Maximum Mermaid diagrams to memorize WhatsApp-like HLD fast: architecture, Alice→Bob, offline, group, media, calls, Kafka, Redis, sharding, whiteboard."
+category: System Design
+difficulty: Staff
+tags: [WhatsApp, Mermaid, Diagrams, Memory, Interview, Whiteboard]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+**Use this page before the interview.** Look at each diagram for 20 seconds. Say the Alice→Bob story out loud.
+
+Full curriculum: [WhatsApp Master Index](/system-design/whatsapp-system-design-master-index)
+
+---
+
+## 1. Whiteboard architecture (memorize first)
+
+<Mermaid chart={`flowchart TB
+  C[Mobile / Web / Linked Devices]
+  C --> EDGE[DNS / CDN / WAF / LB]
+  EDGE --> GW[API Gateway]
+  C --> WS[WebSocket Gateway Fleet]
+
+  GW --> AUTH[Auth]
+  GW --> USER[User / Contact / Group]
+  GW --> MSG[Message Service]
+  GW --> MEDIA[Media]
+  GW --> CALL[Call Signalling]
+
+  MSG --> DB[(Message DB sharded)]
+  MSG --> K[Kafka]
+  K --> DW[Delivery Workers]
+  K --> NW[Notification Workers]
+  DW --> WS
+  NW --> PUSH[FCM / APNS]
+  WS --> PRES[(Redis Presence + Registry)]
+  MEDIA --> S3[(Object Storage)]
+  S3 --> CDN[CDN]
+  CALL --> RTC[WebRTC / SFU]
+`} />
+
+---
+
+## 2. Alice → Bob (primary story)
+
+<Mermaid chart={`flowchart TD
+  A[Alice] --> WS1[WebSocket]
+  WS1 --> MS[Message Service]
+  MS --> V[Validate + Idempotency]
+  MS --> P[Persist DB]
+  MS --> K[Kafka]
+  K --> DW[Delivery Worker]
+  DW --> Q{Bob online?}
+  Q -->|Yes| B[Bob WebSocket]
+  Q -->|No| N[Push FCM/APNS]
+  B --> ACK[DELIVERED ACK]
+  ACK --> R[READ / Blue tick]
+`} />
+
+---
+
+## 3. Online sequence
+
+<Mermaid chart={`sequenceDiagram
+    participant A as Alice
+    participant MS as Message Service
+    participant DB as DB
+    participant K as Kafka
+    participant R as Redis
+    participant B as Bob
+    A->>MS: send + clientMsgId
+    MS->>DB: persist + serverSeq
+    MS->>K: MessageCreated
+    MS-->>A: SENT
+    K->>R: presence?
+    R-->>K: online
+    K->>B: push message
+    B-->>MS: DELIVERED
+    B-->>MS: READ
+`} />
+
+---
+
+## 4. Offline path
+
+<Mermaid chart={`flowchart TD
+  DW[Delivery Worker] --> OFF[Bob offline]
+  OFF --> PUSH[Push notification]
+  OFF --> HOLD[Message stays in DB]
+  HOLD --> ON[Bob reconnects WS]
+  ON --> SYNC[Sync since lastSeq]
+  SYNC --> DEL[Deliver backlog]
+  DEL --> ACK[ACK]
+`} />
+
+---
+
+## 5. Message state / ticks
+
+<Mermaid chart={`stateDiagram-v2
+    [*] --> CREATED
+    CREATED --> PERSISTED
+    PERSISTED --> SENT: single tick
+    SENT --> DELIVERED: double tick
+    DELIVERED --> READ: blue tick
+    PERSISTED --> RETRYING
+    RETRYING --> FAILED
+    FAILED --> DLQ
+`} />
+
+---
+
+## 6. Ordering
+
+<Mermaid chart={`flowchart LR
+  CID[conversationId] --> KEY[Kafka partition key]
+  KEY --> PART[One partition]
+  PART --> SEQ[serverSeq 1,2,3]
+  SEQ --> UI[UI shows M1 → M2 → M3]
+`} />
+
+---
+
+## 7. Idempotency
+
+<Mermaid chart={`flowchart TD
+  C[clientMsgId] --> MS[Message Service]
+  MS --> E{Already seen?}
+  E -->|Yes| REPLAY[Return same messageId]
+  E -->|No| NEW[Persist + Kafka + store key]
+`} />
+
+---
+
+## 8. Presence + WebSocket fleet
+
+<Mermaid chart={`flowchart TB
+  LB[Load Balancer] --> N1[WS Node 1]
+  LB --> N2[WS Node 2]
+  LB --> N3[WS Node 3]
+  N1 --> R[(Redis registry)]
+  N2 --> R
+  N3 --> R
+  DW[Delivery Worker] --> R
+  R --> N2
+`} />
+
+---
+
+## 9. Redis roles
+
+<Mermaid chart={`flowchart LR
+  R[Redis] --> P[Presence]
+  R --> REG[Connection registry]
+  R --> IDEM[Idempotency]
+  R --> RL[Rate limit]
+  R --> LOCK[Short locks]
+  R --> CACHE[Short cache]
+`} />
+
+---
+
+## 10. Kafka internal pipeline
+
+<Mermaid chart={`flowchart TD
+  MS[Message Service] --> K[Kafka]
+  K --> T1[message.created]
+  K --> T2[message.status]
+  K --> T3[group.events]
+  K --> T4[notification.requested]
+  T1 --> DW[Delivery CG]
+  T4 --> NW[Notify CG]
+`} />
+
+---
+
+## 11. Group fan-out
+
+<Mermaid chart={`flowchart TD
+  S[1 group message] --> DB[Persist once]
+  DB --> K[Kafka]
+  K --> W[Workers]
+  W --> M1[Member 1]
+  W --> M2[Member 2]
+  W --> MN[Member N]
+`} />
+
+---
+
+## 12. Media (not Kafka)
+
+<Mermaid chart={`flowchart LR
+  C[Client] --> MS[Media Service]
+  MS --> URL[Pre-signed URL]
+  C --> S3[PUT Object Storage]
+  C --> CHAT[Chat metadata mediaId]
+  S3 --> CDN[CDN]
+  CDN --> R[Receiver]
+`} />
+
+---
+
+## 13. Typing (ephemeral)
+
+<Mermaid chart={`flowchart LR
+  A[Alice typing] --> WS[WebSocket]
+  WS --> B[Bob]
+  WS -.-> X[No DB write]
+`} />
+
+---
+
+## 14. Calls (WebRTC)
+
+<Mermaid chart={`flowchart TD
+  A[Caller] --> SIG[Signalling WS]
+  SIG --> B[Receiver]
+  A --> STUN[STUN]
+  B --> STUN
+  A --> TURN[TURN fallback]
+  B --> TURN
+  A <--> B[WebRTC media]
+`} />
+
+---
+
+## 15. Group call SFU
+
+<Mermaid chart={`flowchart TB
+  SIG[Signalling]
+  SIG --> A
+  SIG --> B
+  SIG --> C
+  A --> SFU[SFU]
+  B --> SFU
+  C --> SFU
+`} />
+
+---
+
+## 16. Message DB shards
+
+<Mermaid chart={`flowchart TB
+  DB[Message Store]
+  DB --> S1[Shard 1]
+  DB --> S2[Shard 2]
+  DB --> S3[Shard 3]
+  S1 --> C1[conversationIds]
+  S2 --> C2[conversationIds]
+  S3 --> C3[conversationIds]
+`} />
+
+---
+
+## 17. Multi-region
+
+<Mermaid chart={`flowchart TB
+  DNS[Geo DNS]
+  DNS --> RA[Region A]
+  DNS --> RB[Region B]
+  RA --> KA[Kafka/DB A]
+  RB --> KB[Kafka/DB B]
+  KA <-.-> KB
+`} />
+
+---
+
+## 18. Protocol chooser
+
+<Mermaid chart={`flowchart LR
+  NEED{Need?}
+  NEED -->|Login / history / admin| HTTPS[HTTPS REST]
+  NEED -->|Chat / typing / ACK| WS[WebSocket]
+  NEED -->|Audio / video| RTC[WebRTC]
+  NEED -->|Internal async| KAFKA[Kafka]
+`} />
+
+---
+
+## 20-second memory lines
+
+```text
+HTTPS = APIs
+WebSocket = realtime
+WebRTC = calls
+Kafka = internal only
+Redis = presence + registry + idempotency
+S3+CDN = media
+Shard key = conversationId
+Order = partition + serverSeq
+Duplicate = clientMsgId
+Offline = DB + push + sync
+```
+
+## Practice order
+
+1. Diagram 1 (architecture)  
+2. Diagram 2–5 (message story)  
+3. Diagram 8–10 (WS / Redis / Kafka)  
+4. Diagram 12 + 14 (media + calls)  
+5. Say the 5-minute answer from the [cheat sheet](/system-design/whatsapp-interview-failures-cheatsheet)

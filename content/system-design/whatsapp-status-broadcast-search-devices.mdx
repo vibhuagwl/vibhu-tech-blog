@@ -1,0 +1,116 @@
+---
+slug: whatsapp-status-broadcast-search-devices
+title: "WhatsApp — Status, Broadcast, Search, Linked Devices & Profile"
+description: "24h status, broadcast vs group fan-out, message search index, linked devices sync, and profile picture CDN flow."
+category: System Design
+difficulty: Staff
+tags: [WhatsApp, Status, Broadcast, Search, Multi-device]
+readingTime: 14 min
+publishedAt: "2026-08-12"
+---
+
+**Hub:** [WhatsApp Curriculum](/system-design/whatsapp-system-design-master-index)
+
+---
+
+## Status (Stories)
+
+### Put status
+
+<Mermaid chart={`flowchart LR
+  U[User] --> SS[Status Service]
+  SS --> S3[Object Storage]
+  S3 --> CDN[CDN]
+  SS --> DB[(Status metadata TTL 24h)]`} />
+
+### View status
+
+<Mermaid chart={`flowchart LR
+  V[Viewer] --> SS[Status Service]
+  SS --> META[Allowed statuses]
+  META --> CDN[Media CDN]
+  SS --> VIEW[(viewer ack optional)]`} />
+
+| Topic | Design |
+|---|---|
+| Expiry | TTL job / object lifecycle 24h |
+| Privacy | Contacts / allow / deny lists |
+| Viewers | Separate counters/events; not in media path |
+
+---
+
+## Broadcast vs group
+
+<Mermaid chart={`flowchart TD
+  S[Sender] --> BC[Broadcast Service]
+  BC --> LIST[Recipient list]
+  LIST --> Q[Per-user message enqueue]
+  Q --> U1[User 1 chat]
+  Q --> U2[User 2 chat]
+  Q --> UN[User N chat]`} />
+
+| | Group | Broadcast |
+|---|---|---|
+| Shared history | Yes | No — separate 1:1 copies |
+| Recipients see each other | Yes | No |
+| Fan-out | Membership-based | Explicit list explode |
+
+Large lists → chunked workers; rate limit; avoid one giant Kafka message.
+
+---
+
+## Search
+
+<Mermaid chart={`flowchart LR
+  C[Client] --> API[Search API]
+  API --> S[Search Service]
+  S --> IDX[(Search Index)]
+  IDX --> IDS[messageIds]
+  IDS --> MDB[(Message DB fetch)]`} />
+
+| Concern | Note |
+|---|---|
+| Indexing | Async from message.created |
+| Consistency | Near-realtime eventual |
+| Delete | Tombstone in index |
+| Privacy | Filter by participant ACL |
+| E2EE | Server search limited if ciphertext only; often device-local |
+
+---
+
+## Linked devices
+
+<Mermaid chart={`flowchart TD
+  P[Primary phone] --> DS[Device Service]
+  DS --> QR[QR pairing]
+  DS --> DDB[(Device DB)]
+  DS --> SESS[Session store]
+  DS --> WS[WS sessions per device]
+  WS --> L[Linked desktop]`} />
+
+| Topic | Design |
+|---|---|
+| Pairing | QR / code binds deviceId |
+| Sync | serverSeq backlog + live events |
+| Revoke | Invalidate sessions; drop registry |
+| Encryption | Device keys; companion sessions |
+
+---
+
+## Profile picture
+
+<Mermaid chart={`flowchart LR
+  C[Client] --> PROF[Profile Service]
+  PROF --> S3[Object Storage]
+  S3 --> CDN[CDN]
+  PROF --> UDB[User profile URL metadata]`} />
+
+---
+
+## Interview explanation
+
+> Status is ephemeral media+TTL. Broadcast explodes into 1:1 sends. Search is async index + ACL. Linked devices are first-class sessions synced by serverSeq.
+
+## Next
+
+[Polls, Events, Payments](/system-design/whatsapp-polls-events-payments)
