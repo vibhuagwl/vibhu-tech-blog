@@ -15,6 +15,19 @@ publishedAt: "2026-08-12"
 
 ## Whiteboard (memorize)
 
+<Mermaid chart={`flowchart TB
+  C[Clients] --> EDGE[DNS/CDN/WAF/LB]
+  EDGE --> GW[API Gateway]
+  C --> WS[WS Gateways]
+  GW --> MSG[Message Service]
+  MSG --> DB[(Message DB)]
+  MSG --> K[Kafka]
+  K --> DW[Delivery]
+  DW --> WS
+  DW --> PUSH[FCM/APNS]
+  WS --> REDIS[(Redis)]
+`} />
+
 ```text
 CLIENTS → DNS/CDN/WAF → LB → API GATEWAY
               ├ Auth / User / Group
@@ -26,6 +39,7 @@ OBJECT STORAGE → CDN (media)
 OBS: metrics · logs · traces
 ```
 
+**More visuals:** [18-diagram Memory Map](/system-design/whatsapp-diagrams-memory-map)
 ---
 
 ## What if… (concise answers)

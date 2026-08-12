@@ -26,6 +26,17 @@ This page is the **short entry**. The full Staff/Lead curriculum (architecture, 
 
 ## Memorize this box
 
+<Mermaid chart={`flowchart LR
+  C[Client] --> G[Gateway]
+  G --> MS[Message Service]
+  MS --> DB[DB]
+  DB --> K[Kafka]
+  K --> D[Delivery]
+  D --> P{Online?}
+  P -->|Yes| WS[WebSocket]
+  P -->|No| Push[Push]
+`} />
+
 ```text
 Client → WS/API Gateway → Message Service → DB → Kafka
   → Delivery → Presence(Redis) → WS or Push → ACK
@@ -33,6 +44,7 @@ Media → S3 → CDN
 Calls → Signal(WS) + WebRTC
 ```
 
+**All diagrams:** [Diagram Memory Map](/system-design/whatsapp-diagrams-memory-map)
 ---
 
 ## Timed drills

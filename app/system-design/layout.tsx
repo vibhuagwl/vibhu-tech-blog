@@ -3,6 +3,7 @@ import CatalogLayout from '@/components/catalog-layout';
 const SYSTEM_DESIGN_SLUG_ORDER=[
   'system-design-master-index',
   'whatsapp-system-design-master-index',
+  'whatsapp-diagrams-memory-map',
   'design-whatsapp',
   'whatsapp-requirements-architecture',
   'whatsapp-message-flow',

@@ -10,9 +10,9 @@ const WHATSAPP_PATH=[
     blurb:'Staff/Lead HLD: WebSocket, Kafka, Redis, sharding, media, calls, failures — story-first with Mermaid.',
   },
   {
-    href:'/system-design/whatsapp-message-flow',
-    title:'Alice → Bob Message Flow',
-    blurb:'The primary interview story: persist, Kafka, presence, WS/push, ticks.',
+    href:'/system-design/whatsapp-diagrams-memory-map',
+    title:'WhatsApp Diagram Memory Map',
+    blurb:'Maximum Mermaid diagrams for last-minute whiteboard recall.',
   },
   {
     href:'/system-design/whatsapp-interview-failures-cheatsheet',

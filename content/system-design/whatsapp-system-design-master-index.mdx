@@ -56,12 +56,28 @@ Add: WebSocket registry, sticky vs non-sticky, multi-region, E2E encryption impa
 | 14 | [Database & Sharding](/system-design/whatsapp-database-sharding) | Entities, store choices, message shards |
 | 15 | [Multi-Region, Security, Observability](/system-design/whatsapp-scale-security-observability) | Regions, TLS/JWT/E2EE HLD, metrics |
 | 16 | [Failures, Corner Cases, Q&A, Cheat Sheet](/system-design/whatsapp-interview-failures-cheatsheet) | What-ifs, corner cases, one-pager |
+| ★ | [Diagram Memory Map](/system-design/whatsapp-diagrams-memory-map) | **Maximum Mermaid visuals** for last-minute recall |
 
 Legacy short page: [Design WhatsApp (overview)](/system-design/design-whatsapp)
 
 ---
 
 ## Whiteboard you must memorize
+
+<Mermaid chart={`flowchart TB
+  C[Clients]
+  C --> E[DNS / CDN / WAF / LB]
+  E --> GW[API Gateway]
+  C --> WS[WebSocket Fleet]
+  GW --> MSG[Message Service]
+  MSG --> DB[(Sharded Message DB)]
+  MSG --> K[Kafka]
+  K --> DW[Delivery]
+  DW --> WS
+  DW --> PUSH[FCM/APNS]
+  WS --> R[(Redis presence)]
+  MSG --> R
+`} />
 
 ```text
 CLIENTS (Mobile / Web / Linked Devices)
@@ -80,6 +96,7 @@ CLIENTS (Mobile / Web / Linked Devices)
    OBSERVABILITY (metrics/logs/traces)
 ```
 
+**All diagrams in one place:** [Diagram Memory Map](/system-design/whatsapp-diagrams-memory-map)
 ---
 
 ## Protocol cheat (say this early)
