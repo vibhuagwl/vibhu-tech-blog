@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Mermaid from './mermaid';
 import CodeBlock from './code-block';
+import ZoomableImage from './zoomable-image';
 import {slugify,textFromChildren} from '@/lib/slugify';
 import {headingKind} from '@/lib/article-meta';
 
@@ -90,5 +91,6 @@ export const mdxComponents={
   tr:(p:any)=><tr {...p}/>,
   th:(p:any)=><th {...p}/>,
   td:(p:any)=><td {...p}/>,
+  img:(p:any)=><ZoomableImage {...p}/>,
   Mermaid,
 };

@@ -374,6 +374,124 @@ a{text-decoration:none}
   border-radius:var(--radius-md);
 }
 
+.zoomable-image{
+  position:relative;
+  display:block;
+  margin:1.25rem 0;
+  border-radius:var(--radius-md);
+  overflow:hidden;
+  border:1px solid var(--line);
+  background:var(--surface);
+}
+
+.zoomable-image img{
+  display:block;
+  width:100%;
+  max-width:100%;
+  height:auto;
+  margin:0;
+  border-radius:0;
+}
+
+.zoomable-image__btn{
+  position:absolute;
+  top:.65rem;
+  right:.65rem;
+  z-index:2;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:2.25rem;
+  height:2.25rem;
+  border:1px solid rgba(15,23,42,.12);
+  border-radius:8px;
+  background:rgba(255,255,255,.92);
+  color:#0f172a;
+  box-shadow:0 1px 3px rgba(15,23,42,.12);
+  cursor:pointer;
+  transition:background .15s, transform .15s, box-shadow .15s;
+}
+
+.zoomable-image__btn:hover{
+  background:#fff;
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(15,23,42,.16);
+}
+
+.zoomable-image__btn:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+.dark .zoomable-image__btn{
+  background:rgba(15,23,42,.88);
+  border-color:rgba(148,163,184,.35);
+  color:#e2e8f0;
+}
+
+.dark .zoomable-image__btn:hover{
+  background:#0f172a;
+}
+
+.zoomable-image__lightbox{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  display:flex;
+  flex-direction:column;
+  background:rgba(2,6,23,.88);
+  padding:1rem;
+}
+
+.zoomable-image__lightbox-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:1rem;
+  margin-bottom:.75rem;
+  color:#e2e8f0;
+}
+
+.zoomable-image__lightbox-title{
+  font-size:.875rem;
+  font-weight:600;
+  line-height:1.4;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.zoomable-image__lightbox-close{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:2.5rem;
+  height:2.5rem;
+  border:1px solid rgba(148,163,184,.35);
+  border-radius:8px;
+  background:rgba(15,23,42,.7);
+  color:#f8fafc;
+  cursor:pointer;
+  flex-shrink:0;
+}
+
+.zoomable-image__lightbox-close:hover{
+  background:rgba(15,23,42,.95);
+}
+
+.zoomable-image__lightbox-img{
+  display:block;
+  margin:0 auto;
+  max-width:min(100%,1600px);
+  max-height:calc(100vh - 5rem);
+  width:auto;
+  height:auto;
+  object-fit:contain;
+  border-radius:8px;
+  background:#fff;
+  box-shadow:0 20px 60px rgba(0,0,0,.45);
+}
+
 .prose-design .mermaid-wrap svg{
   max-width:100%;
   height:auto;
