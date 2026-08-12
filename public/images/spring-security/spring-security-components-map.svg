@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="720" viewBox="0 0 1400 720" role="img" aria-labelledby="title desc">
+  <title id="title">Spring Security interview map  who calls whom</title>
+  <desc id="desc">Browser talks to a login app. Login app talks to an IdP for tokens. Login app or clients call APIs with Bearer JWT, session cookie, or Basic auth.</desc>
+  <defs>
+    <style type="text/css"><![CDATA[
+      .bg { fill: #f8fafc; }
+      .card { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .card-idp { fill: #eff6ff; stroke: #3b82f6; }
+      .card-api { fill: #ecfdf5; stroke: #10b981; }
+      .card-app { fill: #fff7ed; stroke: #f59e0b; }
+      .card-br { fill: #f1f5f9; stroke: #64748b; }
+      .t { font-family: Georgia, 'Times New Roman', serif; fill: #0f172a; }
+      .s { font-family: ui-sans-serif, system-ui, sans-serif; fill: #334155; }
+      .m { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; fill: #0f172a; }
+      .muted { fill: #64748b; }
+      .arrow { stroke: #0f172a; stroke-width: 2.5; fill: none; marker-end: url(#ah); }
+      .arrow-soft { stroke: #64748b; stroke-width: 2; fill: none; stroke-dasharray: 6 4; marker-end: url(#ah2); }
+      .pill { fill: #0f172a; }
+      .pill-t { font-family: ui-sans-serif, system-ui, sans-serif; fill: #fff; font-size: 13px; font-weight: 700; }
+    ]]></style>
+    <marker id="ah" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#0f172a"/>
+    </marker>
+    <marker id="ah2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1400" height="720" rx="16"/>
+
+  <text class="t" x="48" y="56" font-size="28" font-weight="700">Interview map: 4 boxes, 3 glues</text>
+  <text class="s muted" x="48" y="86" font-size="16">Say this out loud: Browser ’ Login App ’ IdP ’ API. Glue is cookie, Basic, or Bearer JWT.</text>
+
+  <!-- Browser -->
+  <rect class="card card-br" x="48" y="140" width="240" height="200" rx="14"/>
+  <text class="t" x="68" y="178" font-size="22" font-weight="700">1. Browser</text>
+  <text class="s" x="68" y="210" font-size="15">User clicks / types</text>
+  <text class="m" x="68" y="248" font-size="13">sends Origin, Cookie,</text>
+  <text class="m" x="68" y="268" font-size="13">or Authorization</text>
+  <text class="s muted" x="68" y="308" font-size="13">Never holds client secret</text>
+
+  <!-- Login App -->
+  <rect class="card card-app" x="400" y="140" width="260" height="200" rx="14"/>
+  <text class="t" x="420" y="178" font-size="22" font-weight="700">2. Login App</text>
+  <text class="s" x="420" y="210" font-size="15">Spring oauth2Login / form</text>
+  <text class="m" x="420" y="248" font-size="13">GET /</text>
+  <text class="m" x="420" y="268" font-size="13">GET /payments</text>
+  <text class="m" x="420" y="288" font-size="13">/login/oauth2/code/&</text>
+  <text class="s muted" x="420" y="318" font-size="13">Holds session or tokens</text>
+
+  <!-- IdP -->
+  <rect class="card card-idp" x="780" y="140" width="260" height="200" rx="14"/>
+  <text class="t" x="800" y="178" font-size="22" font-weight="700">3. IdP / AS</text>
+  <text class="s" x="800" y="210" font-size="15">Issues identity + tokens</text>
+  <text class="m" x="800" y="248" font-size="13">/oauth2/authorize</text>
+  <text class="m" x="800" y="268" font-size="13">/oauth2/token</text>
+  <text class="m" x="800" y="288" font-size="13">/oauth2/jwks</text>
+  <text class="s muted" x="800" y="318" font-size="13">Password stays here</text>
+
+  <!-- API -->
+  <rect class="card card-api" x="1100" y="140" width="252" height="200" rx="14"/>
+  <text class="t" x="1120" y="178" font-size="22" font-weight="700">4. API / RS</text>
+  <text class="s" x="1120" y="210" font-size="15">Checks token / roles</text>
+  <text class="m" x="1120" y="248" font-size="13">GET /api/payments</text>
+  <text class="m" x="1120" y="268" font-size="13">POST /api/&</text>
+  <text class="m" x="1120" y="288" font-size="13">GET /api/admin/&</text>
+  <text class="s muted" x="1120" y="318" font-size="13">Authz lives here</text>
+
+  <!-- Arrows top -->
+  <path class="arrow" d="M288,220 H392"/>
+  <path class="arrow" d="M660,220 H772"/>
+  <path class="arrow" d="M1040,220 H1092"/>
+
+  <text class="s" x="300" y="210" font-size="12">HTML / redirect</text>
+  <text class="s" x="670" y="210" font-size="12">OIDC code</text>
+  <text class="s" x="1045" y="210" font-size="12">Bearer</text>
+
+  <!-- Bottom return path: API validates via JWKS -->
+  <path class="arrow-soft" d="M1226,340 V400 H910 V340"/>
+  <text class="s muted" x="960" y="390" font-size="13">API fetches JWKS from IdP to verify JWT signature</text>
+
+  <!-- Glue strip -->
+  <text class="t" x="48" y="460" font-size="22" font-weight="700">3 glues (pick one per call)</text>
+
+  <rect class="card" x="48" y="490" width="420" height="180" rx="14"/>
+  <rect class="pill" x="68" y="512" width="120" height="28" rx="14"/>
+  <text class="pill-t" x="88" y="531">SESSION</text>
+  <text class="s" x="68" y="568" font-size="15">Form login / CSRF demos</text>
+  <text class="m" x="68" y="598" font-size="13">Cookie: JSESSIONID</text>
+  <text class="m" x="68" y="620" font-size="13">POST needs _csrf or X-XSRF-TOKEN</text>
+  <text class="s muted" x="68" y="650" font-size="13">Browser auto-sends cookie ’ CSRF risk</text>
+
+  <rect class="card" x="490" y="490" width="420" height="180" rx="14"/>
+  <rect class="pill" x="510" y="512" width="100" height="28" rx="14"/>
+  <text class="pill-t" x="532" y="531">BASIC</text>
+  <text class="s" x="510" y="568" font-size="15">Authn API / CORS lab</text>
+  <text class="m" x="510" y="598" font-size="13">Authorization: Basic base64</text>
+  <text class="m" x="510" y="620" font-size="13">Stateless · CSRF usually OFF</text>
+  <text class="s muted" x="510" y="650" font-size="13">Good for simple APIs / tools</text>
+
+  <rect class="card" x="932" y="490" width="420" height="180" rx="14"/>
+  <rect class="pill" x="952" y="512" width="100" height="28" rx="14"/>
+  <text class="pill-t" x="970" y="531">BEARER</text>
+  <text class="s" x="952" y="568" font-size="15">OAuth + JWT / IDAnywhere</text>
+  <text class="m" x="952" y="598" font-size="13">Authorization: Bearer &lt;jwt&gt;</text>
+  <text class="m" x="952" y="620" font-size="13">Check iss · aud · exp · sig · roles</text>
+  <text class="s muted" x="952" y="650" font-size="13">CSRF usually OFF on pure JWT APIs</text>
+</svg>
