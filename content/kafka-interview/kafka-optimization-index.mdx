@@ -1,43 +1,179 @@
 ---
 slug: kafka-optimization-index
-title: "Kafka Optimization & Performance"
-description: "Tune producer, consumer, broker, and cluster for throughput and latency — without treating configs as isolated knobs."
+title: "Kafka Optimization"
+description: "One payment story for producer, consumer, and broker tuning — with diagrams and real Spring Kafka settings, not theory."
 category: "Kafka Interview"
 difficulty: Senior
-tags: [Kafka, Optimization, Performance, Producer, Consumer]
-readingTime: 6 min
+tags: [Kafka, Optimization, Producer, Consumer, Performance, Spring Kafka]
+readingTime: 12 min
 publishedAt: "2026-08-12"
 ---
 
-# Kafka Optimization & Performance
+**Story:** checkout floods `payment-api`. Settlement lags. You tune **one layer at a time** using the same Spring demo.
 
-## Memory formula
+**Code:** [Browse spring-kafka-payments-demo →](/spring-kafka-payments-demo) · **Realtime case:** [payment → DLQ →](/kafka-interview/kafka-realtime-case)
+
+---
+
+## Box — remember this first
 
 ```text
-BATCH → COMPRESS → SEND → RETRY     (producer)
-POLL → PROCESS → COMMIT             (consumer)
-CPU · DISK · NET · PAGE CACHE       (broker)
-PARTITIONS · RF · LEADERS · RACK    (cluster)
+Producer:  BATCH → COMPRESS → SEND → RETRY
+Consumer:  POLL → PROCESS → COMMIT
+Broker:    DISK · NET · PAGE CACHE · PARTITIONS
+Rule:      find the bottleneck → change one layer → measure
 ```
 
-## Tracks
+<Mermaid chart={`flowchart TD
+    A[Slow payment settlement?] --> B{Where is time?}
+    B -->|produce p99 high| P[Tune producer batching]
+    B -->|consumer lag rising| C[Tune poll + processing]
+    B -->|broker disk / ISR| K[Tune broker + partitions]
+    P --> M[Measure again]
+    C --> M
+    K --> M`} />
 
-| Track | Start here | Deep links |
-| --- | --- | --- |
-| **Producer** | [Producer optimization](/kafka-interview/kafka-optimization-producer) | [batch.size](/kafka-interview/kafka-config-batch-size), [Producer interview](/kafka-interview/kafka-producer-interview) |
-| **Consumer** | [Consumer optimization](/kafka-interview/kafka-optimization-consumer) | [max.poll.records](/kafka-interview/kafka-config-max-poll-records), [lag](/kafka-interview/kafka-experience-consumer-lag) |
-| **Broker** | Disk, network, replica fetchers, page cache | [Architecture](/kafka-interview/kafka-architecture-interview) |
-| **Cluster** | Partition count, RF, ISR, leader balance | [Performance & scaling](/kafka-interview/kafka-performance-scaling-interview) |
+---
 
-## How to use this section
+## Sequence — where latency hides
 
-1. **Identify the bottleneck** (producer CPU, consumer lag, broker disk, network).
-2. **Change one layer** with a hypothesis.
-3. **Measure** before claiming victory.
-4. **Read the config detail** for the property — not a second copy of the same essay in Knowledge.
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant API as payment-api
+    participant Acc as Producer accumulator
+    participant Broker as Kafka
+    participant W as settlement-worker
+    participant Bank as Bank API
 
-## Related
+    API->>Acc: send event
+    Note over Acc: linger.ms + batch.size + zstd
+    Acc->>Broker: flush batch
+    Broker-->>W: deliver
+    W->>Bank: settle
+    Note over W: poll budget vs bank latency
+    W->>W: manual commit`} />
 
-- [Configuration reference](/kafka-interview/kafka-configuration-index)
-- [Troubleshooting](/kafka-interview/kafka-troubleshooting-index)
-- [Cheat sheet](/kafka-interview/kafka-cheat-sheet)
+---
+
+## Producer optimization — one story
+
+Checkout sends many tiny payments. Without batching, the producer sprays one request per message.
+
+**From the demo (`payment-api`):**
+
+```yaml
+spring:
+  kafka:
+    producer:
+      acks: all
+      retries: 10
+      transaction-id-prefix: payment-api-tx-
+      properties:
+        enable.idempotence: true
+        compression.type: zstd
+        linger.ms: 25
+        batch.size: 65536
+        buffer.memory: 33554432
+        max.in.flight.requests.per.connection: 5
+```
+
+### Memory table
+
+| Goal | Turn this | Trade-off |
+|---|---|---|
+| More throughput | raise `linger.ms` + `batch.size`, keep `zstd` | latency ↑ |
+| Lower latency | lower `linger.ms`, smaller batches | throughput ↓ |
+| Safer writes | `acks=all` + idempotence | slightly slower |
+| Order under retry | keep `max.in.flight` ≤ 5 with idempotence | less parallel in-flight |
+
+### Interview line (30s)
+
+> I decide throughput vs latency first. For payments capture I keep `acks=all` and idempotence, then let the accumulator batch with `linger.ms` and `batch.size`, and compress with `zstd`. I never max every knob without measuring produce p99.
+
+---
+
+## Consumer optimization — one story
+
+Lag climbs because the worker talks to a slow bank and polls too many records.
+
+**From the demo (`settlement-worker`):**
+
+```yaml
+spring:
+  kafka:
+    consumer:
+      enable-auto-commit: false
+      properties:
+        max.poll.records: 50
+        max.poll.interval.ms: 300000
+        session.timeout.ms: 45000
+        heartbeat.interval.ms: 15000
+        partition.assignment.strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
+```
+
+```text
+1. Processing time per record
+2. max.poll.records
+3. max.poll.interval.ms
+4. Partition count
+5. Consumer count (≤ partitions)
+6. Downstream bank latency
+7. Rebalance rate
+```
+
+### Memory table
+
+| Symptom | First move |
+|---|---|
+| Lag rising, CPU low | check bank latency / timeouts |
+| Rebalances during slow settle | lower `max.poll.records`, raise poll interval carefully |
+| More pods, same lag | partitions already saturated — add partitions only then |
+| Duplicates after crash | keep manual commit + processed table |
+
+### Interview line (30s)
+
+> Consumer tuning is finishing work between polls. I measure processing time and lag, then `max.poll.records` / poll interval, then partitions vs consumer count. Kafka knobs do not fix a slow bank by themselves.
+
+---
+
+## Broker / cluster — keep it practical
+
+From `docker-compose.yml` in the demo:
+
+```yaml
+KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+KAFKA_CFG_NUM_PARTITIONS: "6"
+KAFKA_CFG_MESSAGE_MAX_BYTES: "2097152"
+```
+
+| Knob | Story |
+|---|---|
+| partitions = 6 | up to 6 parallel settlement workers |
+| auto-create off | no typo topics in prod |
+| message max | stop giant payload incidents |
+| RF / min ISR (prod) | durability with `acks=all` |
+
+---
+
+## Corner cases (memorize)
+
+| Failure | Layer | What this story does |
+|---|---|---|
+| Chatty producer | producer | batch + linger + compression |
+| Duplicate send on retry | producer | idempotence |
+| Slow bank | consumer | smaller poll + retries + DLQ |
+| Poison JSON | consumer | non-retryable → DLT |
+| Hot account | keying | `accountId:paymentId` orders, may concentrate load |
+| Rolling deploy rebalances | assignment | CooperativeStickyAssignor |
+
+---
+
+## GO checklist before you claim “optimized”
+
+- [ ] Measured produce p99 and consumer lag **before** changes  
+- [ ] Changed **one** layer (producer **or** consumer **or** broker)  
+- [ ] Verified poison + transient paths still hit DLQ correctly  
+- [ ] Consumer count ≤ partition count  
+- [ ] Idempotence + manual commit + processed-table dedupe still on  
+
+**Next:** [Properties page](/kafka-interview/kafka-properties) · [Realtime case](/kafka-interview/kafka-realtime-case) · [Cheatsheet & interview](/kafka-interview/kafka-cheat-sheet)

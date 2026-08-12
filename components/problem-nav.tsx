@@ -16,6 +16,8 @@ export type ProblemNavConfig={
   groupOrder?:string[];
   /** Prefer this slug order within a category; remaining titles sort alphabetically. */
   slugOrder?:string[];
+  /** When true, only show posts whose slug is listed in slugOrder. */
+  onlySlugOrder?:boolean;
 };
 
 const DEFAULT_GROUP_ORDER=[
@@ -82,18 +84,29 @@ export default function ProblemNav({
   const [open,setOpen]=useState(false);
   const groupOrder=config.groupOrder ?? DEFAULT_GROUP_ORDER;
   const slugOrder=config.slugOrder;
+  const onlySlugOrder=config.onlySlugOrder;
 
   const groups=useMemo(()=>{
     const q=query.trim().toLowerCase();
+    const scoped=onlySlugOrder && slugOrder?.length
+      ? posts.filter((p)=>slugOrder.includes(p.slug))
+      : posts;
     const filtered=q
-      ? posts.filter((p)=>
+      ? scoped.filter((p)=>
           p.title.toLowerCase().includes(q)
           || p.category.toLowerCase().includes(q)
           || p.difficulty.toLowerCase().includes(q)
         )
-      : posts;
+      : scoped;
     return groupPosts(filtered,groupOrder,slugOrder);
-  },[posts,query,groupOrder,slugOrder]);
+  },[posts,query,groupOrder,slugOrder,onlySlugOrder]);
+
+  const visibleCount=useMemo(()=>{
+    if(onlySlugOrder && slugOrder?.length){
+      return posts.filter((p)=>slugOrder.includes(p.slug)).length;
+    }
+    return posts.length;
+  },[posts,onlySlugOrder,slugOrder]);
 
   const activeSlug=pathname?.startsWith(config.basePath + '/')
     ? pathname.slice(config.basePath.length + 1).split('/')[0]
@@ -112,7 +125,7 @@ export default function ProblemNav({
           </div>
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          {posts.length} guides · {config.description}
+          {visibleCount} guides · {config.description}
         </p>
         <label className="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
           <Search size={14} className="shrink-0 text-slate-400"/>

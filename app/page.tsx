@@ -25,7 +25,7 @@ const paths=[
   {title:'Real-Time Issues',href:'/realtime-issues',blurb:'Stuck threads, Aurora, Oracle SQL, Java migration, Lead Experience.'},
   {title:'JPMC Experience',href:'/jpmc-experience',blurb:'Hadron Cashlines, Kafka replay, tax, RSU, Terraform.'},
   {title:'Spring Security',href:'/spring-security',blurb:'OAuth + JWT, Authn + Authz, and IDAnywhere OIDC grouped under one hub.'},
-  {title:'Kafka & Redis',href:'/kafka-interview',blurb:'Messaging and caching failure banks for Principal rounds.'},
+  {title:'Kafka & Redis',href:'/kafka-interview',blurb:'Five practical Kafka pages: code, optimization, properties, cheatsheet, realtime case.'},
   {title:'Java Complexity',href:'/complexity',blurb:'Derive Big-O from Java code with interview framing.'},
   {title:'Behavioral & LPs',href:'/behavioral-interview',blurb:'STAR answers and Amazon Leadership Principles.'},
 ];

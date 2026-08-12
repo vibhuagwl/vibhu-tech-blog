@@ -13,33 +13,16 @@ export type HubTopic={
   blurb?:string;
 };
 
-/** Sidebar / prev-next friendly order: hub indexes and entry guides first. */
+/** Kafka hub: only the five practical pages (plus code outside this list). */
 export const KAFKA_SIDEBAR_ORDER=[
-  'kafka-knowledge-index',
-  'kafka-knowledge-what-is-kafka',
-  'kafka-knowledge-consumer-groups',
-  'kafka-experience-index',
-  'kafka-experience-consumer-lag',
-  'kafka-experience-rebalance',
+  'kafka-realtime-case',
   'kafka-optimization-index',
-  'kafka-optimization-producer',
-  'kafka-optimization-consumer',
-  'kafka-configuration-index',
-  'kafka-config-batch-size',
-  'kafka-config-max-poll-records',
-  'kafka-troubleshooting-index',
-  'kafka-troubleshooting-consumer-lag',
-  'kafka-upgrades-index',
-  'kafka-upgrades-client',
-  'kafka-staff-principal-interview-index',
+  'kafka-properties',
   'kafka-cheat-sheet',
-  'kafka-one-minute-revision',
-  'kafka-five-minute-revision',
 ];
 
 /**
- * Reusable technology-hub template.
- * Kafka is the reference implementation; other technologies can reuse the same section shape.
+ * Reusable technology-hub template (kept for other tech hubs).
  */
 export const TECHNOLOGY_SECTION_TEMPLATE=[
   {id:'knowledge',number:'01',titleSuffix:'Knowledge',mode:'learn' as const},
@@ -66,74 +49,50 @@ export const KNOWLEDGE_TYPE_FILTERS=[
 export const KAFKA_HUB={
   slug:'kafka',
   title:'Kafka',
-  subtitle:'Distributed event streaming',
+  subtitle:'Practical Spring Kafka',
   description:
-    'Learn how Kafka works, how it behaves in production, how to optimize and configure it, how to troubleshoot and upgrade it, and how to explain it in a senior interview.',
+    'Five pages only: code, optimization, properties, cheatsheet & interview, and a realtime payment case with diagrams.',
   basePath:'/kafka-interview',
   sections:[
     {
-      id:'knowledge',
+      id:'code',
       number:'01',
-      title:'Kafka Knowledge',
-      blurb:'Understand architecture, partitions, consumers, offsets, replication, and delivery semantics.',
-      href:'/kafka-interview/kafka-knowledge-index',
+      title:'Kafka Code',
+      blurb:'Spring payment-api + settlement-worker source explorer.',
+      href:'/spring-kafka-payments-demo',
       mode:'learn' as const,
     },
     {
-      id:'experience',
-      number:'02',
-      title:'Real-World Experience',
-      blurb:'Production incidents: lag, rebalances, duplication, disk pressure, and recovery decisions.',
-      href:'/kafka-interview/kafka-experience-index',
-      mode:'experience' as const,
-    },
-    {
       id:'optimization',
-      number:'03',
-      title:'Optimization & Performance',
-      blurb:'Producer, consumer, broker, and cluster tuning with trade-offs—not random property lists.',
+      number:'02',
+      title:'Optimization',
+      blurb:'Producer, consumer, and broker tuning in one storytelling page.',
       href:'/kafka-interview/kafka-optimization-index',
       mode:'learn' as const,
     },
     {
-      id:'configuration',
-      number:'04',
-      title:'Configuration Reference',
-      blurb:'Producer, consumer, broker, and controller settings with when-to-change guidance.',
-      href:'/kafka-interview/kafka-configuration-index',
+      id:'properties',
+      number:'03',
+      title:'Properties',
+      blurb:'Must-set producer, consumer, and broker properties with GO/NO-GO.',
+      href:'/kafka-interview/kafka-properties',
       mode:'learn' as const,
     },
     {
-      id:'troubleshooting',
-      number:'05',
-      title:'Troubleshooting',
-      blurb:'Symptom → metrics → root cause → fix → prevention for lag, ISR, DLQ, and failures.',
-      href:'/kafka-interview/kafka-troubleshooting-index',
-      mode:'experience' as const,
-    },
-    {
-      id:'upgrades',
-      number:'06',
-      title:'Upgrades & Compatibility',
-      blurb:'Kafka, Java, Spring Kafka, clients, schemas, canary, and rollback.',
-      href:'/kafka-interview/kafka-upgrades-index',
-      mode:'experience' as const,
-    },
-    {
-      id:'interview',
-      number:'07',
-      title:'Interview Preparation',
-      blurb:'130+ Staff+/Principal questions, scenarios, and spoken answers.',
-      href:'/kafka-interview/kafka-staff-principal-interview-index',
-      mode:'recall' as const,
-    },
-    {
       id:'cheatsheet',
-      number:'08',
-      title:'Cheat Sheet & Revision',
-      blurb:'One-page recall, 1-minute revision, and 5-minute interview revision.',
+      number:'04',
+      title:'Cheatsheet & Interview',
+      blurb:'Memory formulas plus 30s/90s answers from the payment story.',
       href:'/kafka-interview/kafka-cheat-sheet',
       mode:'recall' as const,
+    },
+    {
+      id:'realtime',
+      number:'05',
+      title:'Realtime Case',
+      blurb:'Controller → producer → consumer → DLQ with diagrams and curl.',
+      href:'/kafka-interview/kafka-realtime-case',
+      mode:'experience' as const,
     },
   ] satisfies HubSection[],
 };

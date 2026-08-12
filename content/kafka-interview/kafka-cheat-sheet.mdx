@@ -1,85 +1,139 @@
 ---
 slug: kafka-cheat-sheet
-title: "Kafka Cheat Sheet"
-description: "One-page Kafka recall: architecture, producer, consumer, broker, performance, troubleshooting, reliability, and interview hooks — memory-first formulas."
+title: "Kafka Cheatsheet & Interview"
+description: "One-page Kafka memory formulas plus a single interview story from the Spring payments demo — 30s, 90s, and follow-ups."
 category: "Kafka Interview"
 difficulty: Senior
-tags: [Kafka, Cheat Sheet, Revision, Interview, Recall]
-readingTime: 5 min
+tags: [Kafka, Cheat Sheet, Interview, Revision, Spring Kafka, DLQ]
+readingTime: 10 min
 publishedAt: "2026-08-12"
 ---
 
-## Architecture
+**Code:** [spring-kafka-payments-demo](/spring-kafka-payments-demo) · **Realtime case:** [payment → DLQ](/kafka-interview/kafka-realtime-case)
+
+---
+
+## The one story (say this in every Kafka interview)
+
+> I explain Kafka with a payment capture flow. `payment-api` receives `POST /api/payments`, builds key `accountId:paymentId`, and publishes JSON with idempotence, batching, compression, and a producer transaction. `settlement-worker` consumes with manual offset commit, retries transient bank failures, sends poison messages to a DLQ, dedupes by `payment_id`, and publishes a result event.
+
+If you can say that cleanly, follow-ups become easy.
+
+---
+
+## End-to-end visual
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor Client
+    participant API as payment-api
+    participant Broker as Kafka
+    participant Cons as settlement-worker
+    participant Bank as Bank
+    participant DLT as DLT
+
+    Client->>API: POST /api/payments
+    API->>Broker: key + event
+    Broker-->>Cons: deliver
+    Cons->>Bank: settle
+    alt success
+        Cons->>Cons: commit offset
+    else transient
+        Cons->>Cons: retry
+    else poison
+        Cons->>DLT: DLQ
+    end`} />
+
+---
+
+## Memory formulas
 
 ```text
-Broker → Topic → Partition → Replica
-Leader serves reads/writes · Followers replicate · ISR = caught-up set
+Architecture:  Broker → Topic → Partition → Replica (ISR)
+Producer:      BATCH → COMPRESS → SEND → RETRY
+Consumer:      POLL → PROCESS → COMMIT
+Reliability:   REPLICATE → ACK → RECOVER
+Perf trade:    Throughput ↔ Latency
+Troubleshoot:  METRIC → LOG → ROOT CAUSE → FIX
+Optimize:      find bottleneck → change ONE layer → measure
 ```
 
-## Producer
+---
 
-```text
-BATCH → COMPRESS → SEND → RETRY
-```
+## Box — interview memory map
 
-- `acks` · `batch.size` · `linger.ms` · compression · retries · idempotence
+<Mermaid chart={`flowchart TD
+    A[Controller] --> B[Producer]
+    B --> C[Broker]
+    C --> D[Consumer]
+    D --> E{Outcome}
+    E -->|OK| F[Commit + result]
+    E -->|Retryable| G[Retry]
+    E -->|Poison| H[DLQ]
+    B --> I[Batch + zstd + key]
+    D --> J[Idempotency table]`} />
 
-Detail: [batch.size](/kafka-interview/kafka-config-batch-size) · [Producer opt](/kafka-interview/kafka-optimization-producer)
+---
 
-## Consumer
+## 30-second answer
 
-```text
-POLL → PROCESS → COMMIT
-```
+> In my Spring Kafka example, the controller publishes with key `accountId:paymentId`. Producer uses `acks=all`, idempotence, compression, batching, and a transaction prefix. Consumer disables auto-commit and acks only after settlement. Transient bank errors retry; poison goes to a same-partition DLQ. A processed table prevents double settlement on replay.
 
-- group · offset · `max.poll.records` · `max.poll.interval.ms` · session timeout
+---
 
-Detail: [max.poll.records](/kafka-interview/kafka-config-max-poll-records) · [Consumer groups](/kafka-interview/kafka-knowledge-consumer-groups)
+## 90-second answer
 
-## Broker / cluster
+> Client hits `payment-api`, which publishes `PaymentRequestedEvent` to `payment.requested.v1` with business key `accountId:paymentId` for per-account ordering. Producer side: idempotence, `acks=all`, `linger.ms`, `batch.size`, `compression.type=zstd` so the accumulator batches instead of spraying tiny sends.  
+>
+> Consumer side: `enable-auto-commit=false` and `MANUAL_IMMEDIATE`. Offsets move only after business logic. Transient bank timeout → `DefaultErrorHandler` retries. Poison → `DeadLetterPublishingRecoverer` to DLT. `processed_payments` keyed by `payment_id` blocks double charge. That is controller → broker → consumer → DLQ with real controls.
 
-- replication · ISR · leader · controller / KRaft · disk · network · page cache
+---
 
-## Performance
+## Follow-ups (short answers)
 
-```text
-Throughput ↔ Latency
-Batching · Compression · Partitioning · Consumer count ≤ partitions
-```
+| Question | Say this |
+|---|---|
+| Why this key? | Same-account ordering; watch hot partitions |
+| How do offsets work? | Manual ack after success; crash → redelivery + dedupe table |
+| Exactly-once? | Idempotent producer + transactional produce where needed + consumer dedupe; EOS alone does not replace DB truth |
+| Lag rising? | Processing time, `max.poll.records`, partitions vs consumers, bank latency |
+| Poison message? | Non-retryable exception → same-partition DLT → inspect → replay safely |
+| Scale consumers? | Helps only up to partition count |
 
-## Troubleshooting
+---
 
-```text
-METRIC → LOG → ROOT CAUSE → FIX
-```
+## Property flash cards
 
-Lag · Rebalance · ISR · Disk · CPU · Network
+| Layer | Flash |
+|---|---|
+| Producer | `acks` · `linger` · `batch.size` · `zstd` · idempotence · `max.in.flight` |
+| Consumer | auto-commit off · `max.poll.*` · heartbeat · CooperativeSticky · trusted packages |
+| Broker | no auto-create · partitions · min ISR · message max · unclean leader off |
 
-Playbook: [Lag](/kafka-interview/kafka-troubleshooting-consumer-lag)
+Detail: [Properties page](/kafka-interview/kafka-properties)
 
-## Reliability
+---
 
-```text
-REPLICATE → ACK → RECOVER
-```
+## Failure flash cards
 
-Replication · `acks` · idempotence · transactions (when needed)
+| Failure | Move |
+|---|---|
+| Lag | poll budget + downstream |
+| Rebalance storm | poll interval + sticky assignor |
+| Duplicates | idempotence + processed table |
+| Disk / ISR | broker capacity + unclean leader off |
+| Hot key | split key strategy or isolate noisy accounts |
 
-## Upgrade
+---
 
-```text
-DEPENDENCY → CODE → TEST → CANARY → ROLLBACK
-```
+## 5-minute spoken order
 
-## Interview hooks
+1. Entry — controller  
+2. Producer — key, batch, compress, acks  
+3. Broker — topics, partitions, limits  
+4. Consumer — manual commit, assignment  
+5. Failure — retry vs DLQ  
+6. Safety — producer idempotence + consumer dedupe  
+7. Ops — lag / poison / duplicate checks  
 
-- Architecture trade-offs
-- Failure scenarios
-- Scaling partitions vs consumers
-- Exactly-once realities
-
-## Revision modes
-
-- [1-minute revision](/kafka-interview/kafka-one-minute-revision)
-- [5-minute interview revision](/kafka-interview/kafka-five-minute-revision)
-- Full banks: [Staff+ index](/kafka-interview/kafka-staff-principal-interview-index)
+**Practice path:** [Realtime case](/kafka-interview/kafka-realtime-case) → [Optimization](/kafka-interview/kafka-optimization-index) → [Code](/spring-kafka-payments-demo)

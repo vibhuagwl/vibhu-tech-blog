@@ -1,0 +1,137 @@
+---
+slug: kafka-properties
+title: "Kafka Properties"
+description: "Producer, consumer, and broker properties explained with one Spring payment story — must-set values, diagrams, and GO/NO-GO before prod."
+category: "Kafka Interview"
+difficulty: Principal
+tags: [Kafka, Properties, Producer, Consumer, Broker, Spring Boot]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+**Templates:** `spring-kafka-payments-demo/config-templates/` · **Code:** [source explorer](/spring-kafka-payments-demo) · **Full checklist:** [realtime pack](/realtime-issues/spring-kafka-full-properties-checklist)
+
+---
+
+## Box — set order before production
+
+<Mermaid chart={`flowchart TD
+    A[Producer baseline] --> B[Consumer baseline]
+    B --> C[DLQ + retry policy]
+    C --> D[Broker guardrails]
+    D --> E[Security SASL/SSL]
+    E --> F[Load + failure tests]
+    F --> G[GO / NO-GO]`} />
+
+---
+
+## Sequence — which property fires when
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant API as payment-api
+    participant P as Producer props
+    participant K as Broker props
+    participant C as Consumer props
+    participant DLT as DLT
+
+    API->>P: acks=all, idempotence, linger, batch, zstd
+    P->>K: payment.requested.v1
+    Note over K: partitions, message.max.bytes, no auto-create
+    K-->>C: deliver
+    Note over C: auto-commit off, max.poll.*, CooperativeSticky
+    alt poison
+        C->>DLT: DeadLetterPublishingRecoverer
+    else success
+        C->>C: MANUAL_IMMEDIATE ack
+    end`} />
+
+---
+
+## Producer — must set (demo values)
+
+| Property | Demo / target | Remember as |
+|---|---|---|
+| `acks` | `all` | wait for ISR |
+| `enable.idempotence` | `true` | safe retries |
+| `retries` | `10` | transient broker blips |
+| `linger.ms` | `25` | wait a little → bigger batches |
+| `batch.size` | `65536` | accumulator fill target |
+| `compression.type` | `zstd` | fewer network bytes |
+| `buffer.memory` | `33554432` | accumulator RAM |
+| `max.in.flight.requests.per.connection` | `5` | throughput + order with idempotence |
+| `transaction-id-prefix` | `payment-api-tx-` | producer transactions |
+| key / value serializer | String + JsonSerializer | stable contracts |
+
+**Story line:** *accumulator waits (`linger`) → fills batch → compresses → sends with acks=all.*
+
+---
+
+## Consumer — must set (demo values)
+
+| Property | Demo / target | Remember as |
+|---|---|---|
+| `enable.auto.commit` | `false` | commit only after business success |
+| `auto.offset.reset` | explicit | predictable first start |
+| `isolation.level` | `read_committed` | if producer is transactional |
+| `max.poll.records` | `50` | bounded work per poll |
+| `max.poll.interval.ms` | tuned to bank call | avoid “stuck” rebalances |
+| `session.timeout.ms` | tuned | liveness |
+| `heartbeat.interval.ms` | `&lt; session/3` | stay in group |
+| `partition.assignment.strategy` | CooperativeStickyAssignor | smoother rollouts |
+| `spring.json.trusted.packages` | narrow | safe deserialization |
+| `allow.auto.create.topics` | `false` | no typo topics |
+
+**Story line:** *poll → process bank → ack. If process throws, offset stays.*
+
+---
+
+## Broker — must set
+
+| Property | Target | Remember as |
+|---|---|---|
+| `auto.create.topics.enable` | `false` | control topics |
+| `num.partitions` | intentional (demo `6`) | parallelism ceiling |
+| `default.replication.factor` / `min.insync.replicas` | prod policy | durability with `acks=all` |
+| `unclean.leader.election.enable` | `false` | no silent loss |
+| `message.max.bytes` | bounded | stop giant events |
+| `replica.fetch.max.bytes` | ≥ message max | replica sync |
+| `log.retention.*` | business window | replay horizon |
+| `transaction.state.log.*` | valid | needed for producer tx |
+
+---
+
+## Corner-case map
+
+| Symptom | Likely property | Fix |
+|---|---|---|
+| High produce latency | `linger.ms` too high | lower linger |
+| Tiny requests flood | linger 0 / tiny batch | batch more |
+| Duplicates on retry | idempotence off | turn on |
+| Lag + rebalances | poll interval vs processing | smaller `max.poll.records` |
+| Poison forever | no DLQ classification | non-retryable → DLT |
+| Random topics | auto-create on | disable |
+| Data loss on failover | unclean leader on | turn off |
+
+---
+
+## Security (prod — must not skip)
+
+| Layer | Properties |
+|---|---|
+| Producer / Consumer | `security.protocol`, `sasl.mechanism`, `sasl.jaas.config`, truststore/keystore |
+| Broker | listener security map, inter-broker protocol, authorizer, ACLs |
+
+Local Docker without SASL is fine for learning. Prod without these is **NO-GO**.
+
+---
+
+## GO / NO-GO
+
+- [ ] Producer: idempotence + batching + compression verified  
+- [ ] Consumer: manual commit + retry/DLQ tested with poison  
+- [ ] Broker: auto-create off, ISR + retention set  
+- [ ] Security: SASL/SSL from app pods  
+- [ ] Replay: earlier offset without double settlement  
+
+**Next:** [Optimization](/kafka-interview/kafka-optimization-index) · [Realtime case](/kafka-interview/kafka-realtime-case) · [Cheatsheet & interview](/kafka-interview/kafka-cheat-sheet)
