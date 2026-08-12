@@ -22,6 +22,45 @@ If you can say that cleanly, most Kafka interview follow-ups become easy.
 
 ---
 
+## End-to-end visual (quick revision)
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor Client
+    participant API as payment-api
+    participant Prod as Producer
+    participant Broker as Kafka
+    participant Cons as settlement-worker
+    participant Bank as Bank API
+    participant DLT as payment.requested.v1.DLT
+    participant Result as payment.results.v1
+
+    Client->>API: POST /api/payments
+    API->>Prod: Build key + event
+    Prod->>Broker: Publish request event
+    Broker-->>Cons: Deliver record
+    Cons->>Bank: settle attempt
+    alt success
+        Bank-->>Cons: ok
+        Cons->>Result: status=SETTLED
+        Cons->>Cons: manual offset commit
+    else transient timeout
+        Bank-->>Cons: timeout
+        Cons->>Cons: retry with backoff
+        alt retry succeeds
+            Cons->>Result: status=SETTLED
+            Cons->>Cons: commit
+        else retry exhausted
+            Cons->>DLT: publish to DLT
+            Cons->>Result: status=FAILED
+        end
+    else poison payload
+        Cons->>DLT: direct DLT
+        Cons->>Result: status=FAILED
+    end`} />
+
+---
+
 ## Box — interview memory map
 
 <Mermaid chart={`flowchart TD
