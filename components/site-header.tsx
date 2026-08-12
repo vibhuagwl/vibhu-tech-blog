@@ -12,6 +12,7 @@ const TOPICS=[
   {href:'/design-patterns',label:'Design Patterns',blurb:'23 GoF patterns · source · revision · mock interview'},
   {href:'/java-compiler',label:'Java Compiler',blurb:'Monaco IDE · local JDK compile & run'},
   {href:'/realtime-issues',label:'Real-Time Issues',blurb:'Production incidents & on-call'},
+  {href:'/performance',label:'Performance',blurb:'Latency, scale, cache, JVM, backpressure — Spring'},
   {href:'/jpmc-experience',label:'JPMC Experience',blurb:'Hadron · Tax · RSU · Platform'},
   {href:'/spring-security',label:'Spring Security',blurb:'OAuth + JWT, Authn + Authz, and IDAnywhere OIDC'},
   {href:'/kafka-interview',label:'Kafka',blurb:'Knowledge · Experience · Interview'},

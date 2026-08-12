@@ -1,0 +1,411 @@
+---
+slug: performance-identify-bottlenecks
+title: "Identify Bottlenecks in Java/Spring Boot Services"
+description: "A practical bottleneck-finding playbook using the USE method, Micrometer, Prometheus, JFR, async-profiler, HikariCP metrics, database EXPLAIN, and RestClient dependency waterfalls."
+category: Performance
+difficulty: Staff
+tags: [Performance, Spring Boot, Java, Bottlenecks, Micrometer, Prometheus, JFR, HikariCP]
+readingTime: 18 min
+publishedAt: "2026-08-12"
+---
+
+## Interview answer
+
+> I identify bottlenecks by checking Utilization, Saturation, and Errors at each layer, then proving where request time is spent with metrics, traces, profiler samples, and thread dumps. In a Spring Boot service that means HTTP timers, Tomcat threads, Hikari pending connections, database query plans, RestClient dependency latency, JVM GC/CPU, Redis/Kafka metrics, and code-level profiling with JFR or async-profiler.
+
+The bottleneck is not always the slowest component.
+
+The bottleneck is usually the component that saturates first and causes queues behind it.
+
+## USE method for a Spring service
+
+USE means:
+
+- Utilization: how busy the resource is
+- Saturation: how much work is queued
+- Errors: failed operations or timeouts
+
+| Layer | Utilization | Saturation | Errors |
+|---|---|---|---|
+| CPU | CPU percent, runnable threads | run queue, throttling | container CPU throttling |
+| JVM heap | heap used, allocation rate | GC pause, old-gen pressure | OOM, promotion failure |
+| Tomcat | busy threads | accept queue, request latency | 5xx, rejected connections |
+| HikariCP | active connections | pending connections | connection timeout |
+| Database | CPU, IOPS, active sessions | lock waits, slow queries | deadlocks, timeouts |
+| RestClient | request rate | p95/p99 latency | connect/read timeout |
+| Redis | ops/sec, CPU | command latency | timeout, evictions |
+| Kafka | consumer throughput | lag | rebalance, send failure |
+
+## First dashboard pass
+
+Ask:
+
+```text
+Did latency rise before errors?
+Did errors rise before latency?
+Did saturation rise before latency?
+Was there a deploy, traffic spike, cache flush, or DB migration?
+```
+
+That order avoids guessing.
+
+## Prometheus queries
+
+HTTP p99 by endpoint:
+
+```promql
+histogram_quantile(
+  0.99,
+  sum by (le, uri, method) (
+    rate(http_server_requests_seconds_bucket{application="checkout-api"}[5m])
+  )
+)
+```
+
+HTTP error rate:
+
+```promql
+sum by (uri, status) (
+  rate(http_server_requests_seconds_count{application="checkout-api", status=~"5.."}[5m])
+)
+/
+sum by (uri) (
+  rate(http_server_requests_seconds_count{application="checkout-api"}[5m])
+)
+```
+
+Hikari pending connections:
+
+```promql
+max_over_time(hikaricp_connections_pending{pool="HikariPool-1"}[5m])
+```
+
+Tomcat busy thread ratio:
+
+```promql
+tomcat_threads_busy_threads{application="checkout-api"}
+/
+tomcat_threads_config_max_threads{application="checkout-api"}
+```
+
+JVM GC pause p99:
+
+```promql
+histogram_quantile(
+  0.99,
+  sum by (le) (rate(jvm_gc_pause_seconds_bucket{application="checkout-api"}[5m]))
+)
+```
+
+Outbound dependency p99:
+
+```promql
+histogram_quantile(
+  0.99,
+  sum by (le, client_name) (
+    rate(http_client_requests_seconds_bucket{application="checkout-api"}[5m])
+  )
+)
+```
+
+## Spring Boot metrics setup
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
+        payment.checkout: true
+  observations:
+    http:
+      server:
+        requests:
+          name: http.server.requests
+```
+
+## Micrometer timer around business code
+
+```java
+package com.example.checkout;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import org.springframework.stereotype.Service;
+
+@Service
+class CheckoutService {
+    private final FraudClient fraudClient;
+    private final PaymentGateway paymentGateway;
+    private final Timer checkoutTimer;
+
+    CheckoutService(FraudClient fraudClient,
+                    PaymentGateway paymentGateway,
+                    MeterRegistry registry) {
+        this.fraudClient = fraudClient;
+        this.paymentGateway = paymentGateway;
+        this.checkoutTimer = Timer.builder("payment.checkout")
+                .publishPercentileHistogram()
+                .tag("flow", "card")
+                .register(registry);
+    }
+
+    CheckoutResult checkout(CheckoutCommand command) {
+        return checkoutTimer.record(() -> {
+            FraudDecision decision = fraudClient.score(command);
+            if (decision.blocked()) {
+                return CheckoutResult.rejected("FRAUD");
+            }
+            return paymentGateway.authorize(command);
+        });
+    }
+}
+```
+
+Now compare:
+
+- `http.server.requests`
+- `payment.checkout`
+- `http.client.requests` for fraud and payment gateway
+
+If `payment.checkout` is low but HTTP is high, suspect Tomcat queueing or filter/security overhead.
+
+If `payment.checkout` matches HTTP, inspect inside the method.
+
+## Dependency waterfall with RestClient Observation
+
+```java
+package com.example.checkout;
+
+import io.micrometer.observation.ObservationRegistry;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
+
+@Configuration
+class ClientConfig {
+    @Bean
+    RestClient paymentGatewayClient(RestClient.Builder builder,
+                                    ObservationRegistry observationRegistry) {
+        return builder
+                .baseUrl("https://payments.internal")
+                .observationRegistry(observationRegistry)
+                .build();
+    }
+}
+```
+
+```java
+package com.example.checkout;
+
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+@Component
+class PaymentGateway {
+    private final RestClient client;
+
+    PaymentGateway(RestClient paymentGatewayClient) {
+        this.client = paymentGatewayClient;
+    }
+
+    CheckoutResult authorize(CheckoutCommand command) {
+        return client.post()
+                .uri("/v1/authorizations")
+                .body(command)
+                .retrieve()
+                .body(CheckoutResult.class);
+    }
+}
+```
+
+In a trace or metrics waterfall, I want:
+
+```text
+checkout controller: 820ms
+  fraud RestClient: 35ms
+  DB idempotency check: 12ms
+  payment gateway RestClient: 730ms
+  response mapping: 2ms
+```
+
+That points to payment gateway, not CPU tuning.
+
+## DB bottleneck checks
+
+Start with Hikari:
+
+```text
+hikaricp.connections.active
+hikaricp.connections.pending
+hikaricp.connections.timeout
+hikaricp.connections.max
+```
+
+Then check the database:
+
+```sql
+explain analyze
+select id, status, amount
+from payments
+where merchant_id = 'm-123'
+  and created_at >= now() - interval '1 day'
+order by created_at desc
+limit 100;
+```
+
+Look for:
+
+- sequential scan on a large table
+- wrong index order
+- sort spilling to disk
+- row lock waits
+- query plan changed after statistics drift
+- too many connections causing context switching
+
+If Hikari pending is high but DB CPU is low, the problem can be a small pool or leaked/held connections.
+
+If DB CPU is high and active queries are slow, increasing pool size will usually make it worse.
+
+## JFR one-liners
+
+Start a short recording in a running container:
+
+```bash
+jcmd 1 JFR.start name=perf duration=120s filename=/tmp/perf.jfr settings=profile
+```
+
+Dump an ongoing recording:
+
+```bash
+jcmd 1 JFR.dump name=perf filename=/tmp/perf-dump.jfr
+```
+
+Stop it:
+
+```bash
+jcmd 1 JFR.stop name=perf
+```
+
+I use JFR to inspect:
+
+- CPU hot methods
+- allocation hotspots
+- lock contention
+- socket read latency
+- file I/O
+- GC pauses
+- thread states
+
+## async-profiler one-liners
+
+CPU profile:
+
+```bash
+./profiler.sh -d 60 -e cpu -f /tmp/cpu.html 1
+```
+
+Allocation profile:
+
+```bash
+./profiler.sh -d 60 -e alloc -f /tmp/alloc.html 1
+```
+
+Lock profile:
+
+```bash
+./profiler.sh -d 60 -e lock -f /tmp/lock.html 1
+```
+
+Do not profile randomly.
+
+Profile during the latency window or under reproduced load.
+
+## Code hotspot: synchronized on hot path
+
+Before:
+
+```java
+package com.example.pricing;
+
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+
+@Component
+class BadDiscountCalculator {
+    private final Map<String, BigDecimal> cache = new HashMap<>();
+
+    synchronized BigDecimal discountFor(String productId) {
+        BigDecimal cached = cache.get(productId);
+        if (cached != null) {
+            return cached;
+        }
+
+        BigDecimal discount = loadDiscount(productId);
+        cache.put(productId, discount);
+        return discount;
+    }
+
+    private BigDecimal loadDiscount(String productId) {
+        return BigDecimal.TEN;
+    }
+}
+```
+
+Every request competes for one monitor.
+
+After:
+
+```java
+package com.example.pricing;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.time.Duration;
+
+@Component
+class DiscountCalculator {
+    private final Cache<String, BigDecimal> cache = Caffeine.newBuilder()
+            .maximumSize(100_000)
+            .expireAfterWrite(Duration.ofMinutes(10))
+            .build();
+
+    BigDecimal discountFor(String productId) {
+        return cache.get(productId, this::loadDiscount);
+    }
+
+    private BigDecimal loadDiscount(String productId) {
+        return BigDecimal.TEN;
+    }
+}
+```
+
+The improved version removes a global lock and uses per-key loading.
+
+## Bottleneck-to-fix table
+
+| Evidence | Likely bottleneck | Fix |
+|---|---|---|
+| CPU 95%, no dependency latency | CPU/code hot path | Profile, optimize algorithm, reduce serialization, cache expensive computation. |
+| GC pauses high, allocation profile hot | Object churn | Reduce allocations, stream large payloads, tune heap, avoid unnecessary DTO copies. |
+| Hikari pending high | DB connection wait | Shorten transactions, tune pool to DB capacity, optimize slow queries. |
+| DB locks high | Transaction contention | Reduce lock scope, change isolation, partition hot rows, retry deadlocks safely. |
+| RestClient p99 high | Downstream latency | Timeout, bulkhead, retry budget, fallback, cache. |
+| Kafka lag high | Consumer throughput | Add partitions/consumers, batch, reduce handler latency, pause upstream if needed. |
+| Tomcat busy near max | Request thread saturation | Lower latency, shed, scale pods, reduce blocking in request path. |
+| Redis command latency high | Cache hot key/large value | Shard key, local cache, compress carefully, reduce payload size. |
+
+## Interview close
+
+> I would name the bottleneck only after I can show a metric or profile that points to it. My answer is not "CPU is high" or "DB is slow"; it is "Hikari pending rose first because the checkout transaction held connections while waiting on a remote fraud call, so request threads queued and p99 hit 2s. The fix is moving the remote call outside the transaction, adding a timeout/bulkhead, and alerting on pending connections."
