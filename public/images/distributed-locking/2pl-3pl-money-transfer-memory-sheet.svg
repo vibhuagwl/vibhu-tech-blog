@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .t { font-family: Georgia, 'Times New Roman', serif; }
+      .s { font-family: 'Segoe UI', system-ui, sans-serif; }
+      .title { font-size: 30px; font-weight: 700; }
+      .sub { font-size: 14px; }
+      .h { font-size: 13px; font-weight: 700; }
+      .b { font-size: 12px; fill: #1e293b; }
+      .sm { font-size: 11px; fill: #334155; }
+      .tiny { font-size: 10px; fill: #64748b; }
+      .arr { stroke: #334155; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #64748b; stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; marker-end: url(#arrow); }
+    ]]></style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="980" fill="#f8fafc"/>
+  <rect x="0" y="0" width="1600" height="82" fill="#0f172a"/>
+  <text class="t title" x="36" y="38" fill="#f8fafc">2PL + 3PL Money Transfer  Interview Memory Sheet</text>
+  <text class="s sub" x="36" y="62" fill="#94a3b8">Concurrent bank transfer · Redis lease · fencing · PostgreSQL FOR UPDATE · recovery</text>
+  <text class="s tiny" x="1564" y="48" text-anchor="end" fill="#94a3b8">Staff recall · 60s</text>
+
+  <!-- PROBLEM -->
+  <rect x="24" y="102" width="300" height="210" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="102" width="300" height="34" rx="12" fill="#0f172a"/>
+  <rect x="24" y="120" width="300" height="16" fill="#0f172a"/>
+  <text class="s h" x="174" y="124" text-anchor="middle" fill="#f8fafc">THE PROBLEM</text>
+  <text class="s b" x="44" y="158" font-weight="700">Account A = ¹10,000</text>
+  <text class="s sm" x="44" y="180">T1: A ’ B = ¹7,000</text>
+  <text class="s sm" x="44" y="200">T2: A ’ C = ¹6,000</text>
+  <rect x="44" y="218" width="260" height="72" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+  <text class="s b" x="174" y="244" text-anchor="middle" font-weight="700" fill="#065f46">Only one can succeed</text>
+  <text class="s tiny" x="174" y="264" text-anchor="middle">Balance never negative</text>
+  <text class="s tiny" x="174" y="280" text-anchor="middle">A ends at ¹3,000 or ¹4,000</text>
+
+  <!-- ARCHITECTURE -->
+  <rect x="344" y="102" width="900" height="210" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="344" y="102" width="900" height="34" rx="12" fill="#0f172a"/>
+  <rect x="344" y="120" width="900" height="16" fill="#0f172a"/>
+  <text class="s h" x="794" y="124" text-anchor="middle" fill="#f8fafc">SYNC PATH (locks live here) · Kafka is async only</text>
+
+  <rect x="368" y="160" width="100" height="52" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="418" y="190" text-anchor="middle" font-weight="700">Client</text>
+  <path class="arr" d="M478 186 H508"/>
+  <rect x="510" y="160" width="90" height="52" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="555" y="190" text-anchor="middle" font-weight="700">API</text>
+  <path class="arr" d="M610 186 H640"/>
+  <rect x="642" y="152" width="130" height="68" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text class="s b" x="707" y="180" text-anchor="middle" font-weight="700">Transfer</text>
+  <text class="s tiny" x="707" y="198" text-anchor="middle">2PL / 3PL owner</text>
+
+  <path class="arr" d="M782 170 H820"/>
+  <rect x="822" y="140" width="120" height="50" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text class="s b" x="882" y="160" text-anchor="middle" font-weight="700">Lock Svc</text>
+  <text class="s tiny" x="882" y="178" text-anchor="middle">Redis SET NX PX</text>
+  <path class="arr" d="M952 165 H980"/>
+  <rect x="982" y="140" width="100" height="50" rx="8" fill="#fce7f3" stroke="#db2777" stroke-width="1.5"/>
+  <text class="s b" x="1032" y="170" text-anchor="middle" font-weight="700">Redis</text>
+
+  <path class="arr" d="M772 210 H820"/>
+  <rect x="822" y="200" width="120" height="50" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+  <text class="s b" x="882" y="220" text-anchor="middle" font-weight="700">Account</text>
+  <text class="s tiny" x="882" y="238" text-anchor="middle">FOR UPDATE</text>
+  <path class="arr" d="M952 225 H980"/>
+  <rect x="982" y="200" width="100" height="50" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text class="s b" x="1032" y="230" text-anchor="middle" font-weight="700">Postgres</text>
+
+  <path class="dash" d="M707 220 V268 H1120 V186"/>
+  <rect x="1124" y="160" width="100" height="52" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text class="s b" x="1174" y="182" text-anchor="middle" font-weight="700">Kafka</text>
+  <text class="s tiny" x="1174" y="200" text-anchor="middle">lifecycle only</text>
+
+  <!-- FLOW STEPS -->
+  <rect x="1264" y="102" width="312" height="210" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="1264" y="102" width="312" height="34" rx="12" fill="#0f172a"/>
+  <rect x="1264" y="120" width="312" height="16" fill="#0f172a"/>
+  <text class="s h" x="1420" y="124" text-anchor="middle" fill="#f8fafc">STRICT 2PL STEPS</text>
+  <text class="s sm" x="1284" y="160">1. Claim idempotency key</text>
+  <text class="s sm" x="1284" y="182">2. Acquire Redis locks (sorted)</text>
+  <text class="s sm" x="1284" y="204">3. SELECT & FOR UPDATE</text>
+  <text class="s sm" x="1284" y="226">4. Debit / credit + COMMIT</text>
+  <text class="s sm" x="1284" y="248">5. Safe unlock (token Lua)</text>
+  <text class="s tiny" x="1284" y="280">Hold locks until commit/rollback</text>
+
+  <!-- CONCURRENT -->
+  <rect x="24" y="334" width="760" height="280" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="334" width="760" height="34" rx="12" fill="#0f172a"/>
+  <rect x="24" y="352" width="760" height="16" fill="#0f172a"/>
+  <text class="s h" x="404" y="356" text-anchor="middle" fill="#f8fafc">CONCURRENT SCENARIO (say this aloud)</text>
+
+  <rect x="48" y="388" width="340" height="200" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text class="s b" x="218" y="414" text-anchor="middle" font-weight="700" fill="#166534">T1 wins lock on A</text>
+  <text class="s sm" x="68" y="444">Lock A ’ FOR UPDATE</text>
+  <text class="s sm" x="68" y="466">Debit ¹7,000 ’ COMMIT</text>
+  <text class="s sm" x="68" y="488">A = ¹3,000 · unlock</text>
+  <text class="s b" x="218" y="528" text-anchor="middle" font-weight="700">COMPLETED</text>
+  <text class="s tiny" x="218" y="552" text-anchor="middle">First writer under exclusive lease</text>
+
+  <rect x="420" y="388" width="340" height="200" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text class="s b" x="590" y="414" text-anchor="middle" font-weight="700" fill="#991b1b">T2 waits, then fails</text>
+  <text class="s sm" x="440" y="444">Waits for Lock A</text>
+  <text class="s sm" x="440" y="466">Acquires after T1 release</text>
+  <text class="s sm" x="440" y="488">Funds check fails ’ ROLLBACK</text>
+  <text class="s b" x="590" y="528" text-anchor="middle" font-weight="700">FAILED · insufficient</text>
+  <text class="s tiny" x="590" y="552" text-anchor="middle">No corruption · no negative balance</text>
+
+  <!-- 3PL -->
+  <rect x="804" y="334" width="772" height="280" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="804" y="334" width="772" height="34" rx="12" fill="#0f172a"/>
+  <rect x="804" y="352" width="772" height="16" fill="#0f172a"/>
+  <text class="s h" x="1190" y="356" text-anchor="middle" fill="#f8fafc">3PL STATE MACHINE (persisted)</text>
+
+  <rect x="828" y="392" width="100" height="40" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text class="s tiny" x="878" y="416" text-anchor="middle" font-weight="700">ACTIVE</text>
+  <path class="arr" d="M938 412 H958"/>
+  <rect x="960" y="392" width="100" height="40" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text class="s tiny" x="1010" y="416" text-anchor="middle" font-weight="700">LOCKING</text>
+  <path class="arr" d="M1070 412 H1090"/>
+  <rect x="1092" y="392" width="110" height="40" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text class="s tiny" x="1147" y="416" text-anchor="middle" font-weight="700">PRE_COMMIT</text>
+  <path class="arr" d="M1212 412 H1232"/>
+  <rect x="1234" y="392" width="120" height="40" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text class="s tiny" x="1294" y="416" text-anchor="middle" font-weight="700">COMMIT_READY</text>
+  <path class="arr" d="M1364 412 H1384"/>
+  <rect x="1386" y="392" width="110" height="40" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text class="s tiny" x="1441" y="416" text-anchor="middle" font-weight="700">COMMITTED</text>
+  <path class="arr" d="M1441 432 V458"/>
+  <rect x="1386" y="460" width="110" height="40" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+  <text class="s tiny" x="1441" y="484" text-anchor="middle" font-weight="700">RELEASED</text>
+
+  <rect x="828" y="470" width="520" height="120" rx="10" fill="#f8fafc" stroke="#94a3b8"/>
+  <text class="s b" x="848" y="498" font-weight="700">Failure path</text>
+  <text class="s sm" x="848" y="524">Any step before COMMITTED ’ ABORTING ’ ABORTED ’ RELEASED</text>
+  <text class="s sm" x="848" y="546">Crash at COMMIT_READY ’ recovery finishes or aborts</text>
+  <text class="s sm" x="848" y="568">Stale lease ’ fencing token rejects zombie write</text>
+
+  <!-- LAYERS -->
+  <rect x="24" y="636" width="1552" height="160" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="636" width="1552" height="34" rx="12" fill="#0f172a"/>
+  <rect x="24" y="654" width="1552" height="16" fill="#0f172a"/>
+  <text class="s h" x="800" y="658" text-anchor="middle" fill="#f8fafc">DEFENSE IN DEPTH  WHY EACH LAYER EXISTS</text>
+
+  <rect x="48" y="692" width="360" height="80" rx="10" fill="#ede9fe" stroke="#7c3aed"/>
+  <text class="s b" x="228" y="720" text-anchor="middle" font-weight="700">Redis exclusive lease</text>
+  <text class="s tiny" x="228" y="742" text-anchor="middle">Cross-instance mutual exclusion</text>
+  <text class="s tiny" x="228" y="758" text-anchor="middle">Wait · timeout · ordered keys</text>
+
+  <rect x="428" y="692" width="360" height="80" rx="10" fill="#fce7f3" stroke="#db2777"/>
+  <text class="s b" x="608" y="720" text-anchor="middle" font-weight="700">Fencing token</text>
+  <text class="s tiny" x="608" y="742" text-anchor="middle">Stops stale holder after TTL expiry</text>
+  <text class="s tiny" x="608" y="758" text-anchor="middle">Resource rejects old token</text>
+
+  <rect x="808" y="692" width="360" height="80" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+  <text class="s b" x="988" y="720" text-anchor="middle" font-weight="700">PostgreSQL FOR UPDATE</text>
+  <text class="s tiny" x="988" y="742" text-anchor="middle">Final balance invariant</text>
+  <text class="s tiny" x="988" y="758" text-anchor="middle">Atomic debit + credit</text>
+
+  <rect x="1188" y="692" width="360" height="80" rx="10" fill="#ecfdf5" stroke="#059669"/>
+  <text class="s b" x="1368" y="720" text-anchor="middle" font-weight="700">Idempotency key</text>
+  <text class="s tiny" x="1368" y="742" text-anchor="middle">Retries do not double-debit</text>
+  <text class="s tiny" x="1368" y="758" text-anchor="middle">Unique constraint in DB</text>
+
+  <!-- SPOKEN -->
+  <rect x="24" y="816" width="1552" height="140" rx="12" fill="#0f172a"/>
+  <text class="s h" x="48" y="848" fill="#94a3b8">30-SECOND SPOKEN ANSWER</text>
+  <text class="s sm" x="48" y="880" fill="#e2e8f0">I serialize account writes with a Redis exclusive lease (strict 2PL), fence with monotonic tokens, and make PostgreSQL SELECT & FOR UPDATE the final balance guardian.</text>
+  <text class="s sm" x="48" y="904" fill="#e2e8f0">Idempotency stops double debit on retry. Kafka is lifecycle only. Crash recovery continues or aborts from persisted 3PL state  never from a zombie lock holder.</text>
+  <text class="s tiny" x="48" y="936" fill="#94a3b8">Invariants: no negative balance · at-most-once debit per key · locks released after commit/rollback · fence rejects stale writers</text>
+</svg>
