@@ -1,0 +1,536 @@
+---
+slug: aurora-postgresql-query-tuning-indexes
+title: "Aurora PostgreSQL Query Tuning and Indexes for Spring Boot"
+description: "Staff-level guide to EXPLAIN ANALYZE BUFFERS, scans, joins, row estimates, buffers, sorts, sequential scans, composite indexes, partial indexes, and PostgreSQL index types."
+category: "Real-Time Issues"
+difficulty: Staff
+tags: ["Real-Time Issues", "Aurora PostgreSQL", "PostgreSQL", "Query Tuning", "Indexes", "EXPLAIN", "Spring Boot"]
+readingTime: 28 min
+publishedAt: "2026-08-12"
+---
+
+## Interview framing
+
+The most common query-tuning mistake is jumping directly to "add an index".
+
+That answer is too small for a Principal or Staff interview.
+
+Indexes are important.
+
+But they are the result of diagnosis, not the opening move.
+
+For a Java and Spring Boot service on Aurora PostgreSQL, a slow endpoint may be caused by SQL shape, stale statistics, bad cardinality estimates, lock waits, connection pool saturation, reader lag, network calls inside transactions, or a deployment that changed traffic mix.
+
+The tuning posture is:
+
+1. capture the exact SQL
+2. capture bind values or representative parameter ranges
+3. run `EXPLAIN (ANALYZE, BUFFERS)`
+4. compare estimated rows with actual rows
+5. identify scan, join, sort, and buffer behavior
+6. decide whether schema, SQL, index, stats, or concurrency must change
+
+## The tuning path in a Spring Boot service
+
+Start from the endpoint.
+
+```text
+HTTP endpoint
+  -> controller
+  -> service method
+  -> transaction boundary
+  -> repository method
+  -> generated or handwritten SQL
+  -> HikariCP
+  -> RDS Proxy
+  -> Aurora PostgreSQL
+```
+
+Do not tune the query without knowing how often it runs and where it runs.
+
+A query that is fine once per minute may be disastrous inside a loop that runs 10,000 times per request.
+
+A query that is fine on the writer may be stale or inconsistent on a reader.
+
+A query that is fine alone may collapse when Kafka replay runs beside live traffic.
+
+## Do not jump to an index
+
+Before creating an index, ask:
+
+- Is this the query that actually dominates latency?
+- Is it slow in execution or waiting on a lock?
+- Is it slow because the application is waiting for a pool connection?
+- Are bind values representative?
+- Did row counts grow or did query shape change?
+- Are statistics fresh?
+- Is the predicate selective?
+- Will the index help the ORDER BY or join?
+- What write cost will the index add?
+- Can a partial index solve the hot subset?
+
+An index that does not match the workload is just write overhead.
+
+## Capture SQL from Java correctly
+
+In Spring Data JPA, the method name is not enough.
+
+You need the SQL that reached PostgreSQL.
+
+For Hibernate-based services, capture:
+
+- generated SQL
+- bind values
+- execution count
+- endpoint correlation id
+- transaction duration
+- result row count
+- Hikari acquisition time
+
+For JDBC or jOOQ services, capture the statement and bind values from application logs or tracing.
+
+In production, prefer safe query observability and normalized SQL fingerprints over dumping sensitive payloads.
+
+## The essential command
+
+Use:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, status, amount_cents
+FROM payment
+WHERE tenant_id = $1
+  AND status = 'PENDING'
+ORDER BY created_at DESC
+LIMIT 100;
+```
+
+`EXPLAIN` shows the plan.
+
+`ANALYZE` executes the query and shows actual behavior.
+
+`BUFFERS` shows memory and I/O interaction.
+
+In an incident, do not run destructive or huge queries casually.
+
+Use representative staging data or constrain the query if production risk is high.
+
+## What to read first in a plan
+
+Read these fields before debating indexes:
+
+| Plan signal | Meaning |
+|---|---|
+| estimated rows | what the planner expected |
+| actual rows | what really happened |
+| loops | how many times a node ran |
+| actual time | time spent at that node |
+| shared hit blocks | data found in buffer cache |
+| shared read blocks | data read from storage |
+| sort method | memory sort or disk spill |
+| join type | nested loop, hash join, merge join |
+| filter rows removed | work done after scanning |
+
+The plan is a story.
+
+Follow the row flow from bottom to top.
+
+## Estimated rows versus actual rows
+
+Bad estimates cause bad plans.
+
+If PostgreSQL estimates 100 rows and actually processes 5,000,000 rows, it may choose a nested loop or index strategy that is terrible at runtime.
+
+If it estimates millions and actually returns 10, it may choose a sequential scan when an index would be better.
+
+Common causes:
+
+- stale statistics
+- correlated columns
+- skewed tenant data
+- status columns with poor distribution
+- expressions not represented by statistics
+- predicates hidden behind functions
+- parameters that vary widely by tenant
+
+Run `ANALYZE` when statistics are stale.
+
+Design better indexes or extended statistics when correlation matters.
+
+## Sequential scan
+
+A sequential scan reads the table or a large part of it.
+
+It is not automatically bad.
+
+Sequential scan can be correct when:
+
+- the table is small
+- the query returns a large percentage of rows
+- the predicate is not selective
+- the planner expects random index access to be more expensive
+- a reporting query intentionally scans a large range
+- the data is already in cache and the scan is cheap
+
+Bad interview answer:
+
+"Seq scan means missing index."
+
+Better answer:
+
+"I would check actual rows, percentage of table touched, buffers, timing, and whether an index would reduce work enough to justify write cost."
+
+## Index scan
+
+An index scan uses an index to find matching rows and then may visit the table.
+
+It is useful when the predicate is selective or the index also supports ordering.
+
+Example:
+
+```sql
+CREATE INDEX idx_payment_tenant_status_created
+ON payment (tenant_id, status, created_at DESC);
+```
+
+This helps:
+
+```sql
+SELECT id, status, created_at
+FROM payment
+WHERE tenant_id = $1
+  AND status = 'PENDING'
+ORDER BY created_at DESC
+LIMIT 100;
+```
+
+The equality columns narrow the search.
+
+The ordered column can avoid a separate sort.
+
+## Bitmap scan
+
+A bitmap scan often appears when PostgreSQL combines many matching row locations before visiting the table.
+
+It can be useful when a predicate is moderately selective.
+
+It may combine multiple indexes with bitmap operations.
+
+Example plan shape:
+
+```text
+Bitmap Heap Scan on payment
+  Recheck Cond: (status = 'PENDING')
+  -> Bitmap Index Scan on idx_payment_status
+```
+
+Do not treat bitmap scans as failure.
+
+Ask whether the number of heap blocks and rechecks is reasonable.
+
+## Join strategies
+
+PostgreSQL commonly uses nested loop, hash join, and merge join.
+
+| Join | Good for | Watch out for |
+|---|---|---|
+| nested loop | small outer side with indexed inner lookup | terrible when outer side is much larger than estimated |
+| hash join | larger equality joins | memory use and hash build cost |
+| merge join | sorted inputs and range-friendly patterns | sort cost if inputs are not already ordered |
+
+Nested loops are not bad by themselves.
+
+They are bad when a misestimate makes a loop run hundreds of thousands of times.
+
+Hash joins are not magic.
+
+They can spill or use too much memory if the input is large.
+
+## Sorts
+
+Sorts show up for `ORDER BY`, `DISTINCT`, grouping, merge joins, and window functions.
+
+The plan may show:
+
+```text
+Sort Method: quicksort  Memory: 2048kB
+```
+
+or:
+
+```text
+Sort Method: external merge  Disk: 512000kB
+```
+
+Disk sort is a warning sign for hot OLTP paths.
+
+It can be acceptable in governed reporting.
+
+For a hot endpoint, ask whether an index can provide the order or whether the query should be paginated differently.
+
+## Buffers
+
+`BUFFERS` shows whether the query is mostly hitting memory or reading from storage.
+
+Example:
+
+```text
+Buffers: shared hit=1250 read=840 dirtied=0
+```
+
+High reads can mean the working set is not cached, the query scans too much, or recent workload changed.
+
+High hits with slow time can still happen if CPU, sorting, joins, locks, or loops dominate.
+
+Do not reduce tuning to I/O alone.
+
+## Composite index column order
+
+Composite index order matters.
+
+Start by mapping the query:
+
+```sql
+SELECT id, amount_cents, created_at
+FROM payment
+WHERE tenant_id = $1
+  AND status = 'PENDING'
+  AND created_at >= $2
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+Candidate:
+
+```sql
+CREATE INDEX idx_payment_tenant_status_created
+ON payment (tenant_id, status, created_at DESC);
+```
+
+Why this order?
+
+`tenant_id` is an equality filter and part of most access paths.
+
+`status` is an equality filter in this query.
+
+`created_at` supports the range and ordering.
+
+But if almost every row is `PENDING`, status may not add much selectivity.
+
+If one tenant owns most rows, tenant skew matters.
+
+Use data distribution, not folklore.
+
+## Selectivity
+
+Selectivity means how much a predicate narrows the result.
+
+High selectivity returns a small fraction of rows.
+
+Low selectivity returns a large fraction.
+
+An index on a low-cardinality column is often weak by itself.
+
+For example, `status` with values `PENDING`, `CAPTURED`, and `FAILED` may not be selective if most rows are `CAPTURED`.
+
+An index on only `status` may not help a tenant-scoped query enough.
+
+A composite or partial index may be better.
+
+## Bad cardinality example
+
+Imagine a `payment` table with 200 million rows.
+
+The application adds this index:
+
+```sql
+CREATE INDEX idx_payment_status
+ON payment (status);
+```
+
+Then it runs:
+
+```sql
+SELECT id
+FROM payment
+WHERE status = 'CAPTURED';
+```
+
+If 96 percent of rows are `CAPTURED`, this index has poor standalone value.
+
+PostgreSQL may prefer a sequential scan because the query returns most of the table.
+
+The better design is usually to ask the real access pattern:
+
+- Is the query tenant-scoped?
+- Is it time-bounded?
+- Is it only looking for open work?
+- Is it ordered by creation time?
+- Is it paginated?
+
+Then index that workload.
+
+## Partial index for pending payments
+
+Partial indexes are powerful for hot subsets.
+
+If workers only claim pending payments, index the pending subset:
+
+```sql
+CREATE INDEX idx_payment_pending_tenant_created
+ON payment (tenant_id, created_at)
+WHERE status = 'PENDING';
+```
+
+Worker query:
+
+```sql
+SELECT id
+FROM payment
+WHERE tenant_id = $1
+  AND status = 'PENDING'
+ORDER BY created_at
+LIMIT 100
+FOR UPDATE SKIP LOCKED;
+```
+
+The index is smaller than a full status index.
+
+It focuses on the operationally hot rows.
+
+It also reduces write overhead compared with indexing every status equally.
+
+## B-tree indexes
+
+B-tree is the default and most common PostgreSQL index type.
+
+Use it for:
+
+- equality
+- ranges
+- ordering
+- uniqueness
+- composite OLTP access paths
+
+Most Java service queries are B-tree problems.
+
+Reach for B-tree first unless the data type or operator says otherwise.
+
+## GIN indexes
+
+GIN indexes are useful for composite values such as arrays, full-text search, and `jsonb` containment.
+
+Example:
+
+```sql
+CREATE INDEX idx_payment_payload_gin
+ON payment_event
+USING gin (payload jsonb_path_ops);
+```
+
+GIN can be powerful, but it has write cost.
+
+Do not use JSON search as an excuse to avoid modeling core relational fields.
+
+If the field is a core predicate, consider making it a typed column.
+
+## GiST indexes
+
+GiST supports generalized search patterns.
+
+It is common for geometric types, ranges, and exclusion constraints.
+
+Example use cases:
+
+- time range overlap
+- room booking conflicts
+- geospatial-like predicates with extensions
+- custom operator classes
+
+In interviews, mention GiST when the access pattern is not simple equality or range on scalar columns.
+
+Do not pretend every service needs GiST.
+
+## BRIN indexes
+
+BRIN indexes summarize physical block ranges.
+
+They are useful for very large tables where physical order correlates with the indexed value.
+
+Time-series tables often fit.
+
+Example:
+
+```sql
+CREATE INDEX idx_payment_created_brin
+ON payment
+USING brin (created_at);
+```
+
+BRIN is small and cheap compared with B-tree.
+
+It is not a replacement for selective OLTP lookups.
+
+It can help large append-heavy history tables where queries scan time ranges.
+
+## Covering indexes and included columns
+
+PostgreSQL supports included columns:
+
+```sql
+CREATE INDEX idx_payment_lookup
+ON payment (tenant_id, id)
+INCLUDE (status, amount_cents);
+```
+
+This can reduce heap visits when the visibility map allows index-only scans.
+
+But index-only scan is not guaranteed just because columns are included.
+
+Vacuum and visibility matter.
+
+Included columns also increase index size.
+
+## Practical tuning checklist
+
+1. Identify the endpoint and business operation.
+2. Capture normalized SQL and bind shape.
+3. Measure call frequency and row counts.
+4. Run `EXPLAIN (ANALYZE, BUFFERS)` safely.
+5. Compare estimates with actuals.
+6. Inspect scan type.
+7. Inspect join type and loops.
+8. Inspect sort memory or disk spill.
+9. Inspect buffers.
+10. Check statistics age.
+11. Check locks and wait events.
+12. Check Hikari acquisition time.
+13. Decide whether SQL, index, stats, pool, or routing should change.
+
+## Related guides
+
+Use [Aurora PostgreSQL SQL and architecture](/realtime-issues/aurora-postgresql-sql-and-architecture) for schema, transactions, isolation, and reader routing.
+
+Use [Aurora PostgreSQL vacuum, locks, and pools](/realtime-issues/aurora-postgresql-vacuum-locks-pools) when a slow query is really a lock wait, dead tuple problem, or pool exhaustion.
+
+Use [Aurora PostgreSQL master index](/realtime-issues/aurora-postgresql-master-index) for the full study path.
+
+For broader production incident context, review [stuck threads from DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools) and [Java 30 YOE Kafka, database, and batch Q&A](/realtime-issues/java-30yoe-kafka-database-qa).
+
+For locking specifics, use [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive).
+
+## Final takeaway
+
+Query tuning is evidence-driven systems work.
+
+The plan tells you what PostgreSQL did.
+
+The buffers tell you how much memory and storage work happened.
+
+The row estimates tell you what the planner believed.
+
+Hikari metrics tell you whether the app reached the database promptly.
+
+Lock views tell you whether the query was blocked.
+
+A strong Staff or Principal engineer connects all of those before changing indexes in production.
