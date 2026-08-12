@@ -1,129 +1,191 @@
 ---
 slug: 2pl-3pl-money-transfer-interview
 title: "2PL + 3PL Money Transfer — Interview Diagrams + Basic Code"
-description: "Staff interview sheet for concurrent bank transfers: end-to-end Mermaid flows for 2PL/3PL, Redis lock, PostgreSQL FOR UPDATE, deadlock, timeout, crash recovery — with a short basic implementation."
+description: "Staff interview sheet for concurrent bank transfers: polished end-to-end Mermaid flows for 2PL/3PL, Redis lock, PostgreSQL FOR UPDATE, deadlock, timeout, crash recovery — plus a short basic implementation."
 category: Distributed Systems
 difficulty: Staff
 tags: [2PL, 3PL, Distributed Locking, Redis, PostgreSQL, Money Transfer, Interview, Mermaid]
-readingTime: 12 min
+readingTime: 10 min
 publishedAt: "2026-08-12"
 updatedAt: "2026-08-12"
 ---
 
-## How to use (5 / 10 min)
+## How to use this page
 
-Interview problem: **Account A = ₹10,000**. Two requests hit at once — A→B ₹7,000 and A→C ₹6,000. Only one can succeed; balance never goes negative.
+Design a **concurrent money transfer** that never goes negative — not a theory lecture on locking acronyms.
 
-| Time | Read | Goal |
+Two requests arrive together:
+
+| Account | Opening balance |
+|---|---:|
+| **A** | ₹10,000 |
+| **B** | ₹5,000 |
+| **C** | ₹2,000 |
+
+| Tx | Transfer | Amount |
+|---|---|---:|
+| **T1** | A → B | ₹7,000 |
+| **T2** | A → C | ₹6,000 |
+
+Combined demand is ₹13,000. Only **one** transfer can succeed. Say that outcome before drawing boxes.
+
+### Pick your mode
+
+| If you have | Read | Goal |
 |---|---|---|
-| 5 min | Problem → architecture → concurrent sequence → spoken answer | Clear the round |
-| 10 min | Add crash / timeout / deadlock / 3PL states + basic code | Handle follow-ups |
+| **5 minutes** | Memory sheet → spoken answer → concurrent sequence | Clear the round |
+| **10 minutes** | Add happy path, timeout, deadlock, crash recovery, 3PL states | Handle follow-ups |
+| **15 minutes** | Add the four code snippets + defense-in-depth table | Drive the whiteboard |
 
-Related deep dives (optional): [Distributed locking hub](/distributed-systems/distributed-locking-master-index) · [Redis lock](/distributed-systems/redis-distributed-lock-deep-dive) · [PostgreSQL locking](/distributed-systems/postgresql-locking-deep-dive) · [2PC / 3PC / Saga](/distributed-systems/transactions-2pc-3pc-saga)
+Deep dives (optional later): [Locking hub](/distributed-systems/distributed-locking-master-index) · [Redis lock](/distributed-systems/redis-distributed-lock-deep-dive) · [PostgreSQL locking](/distributed-systems/postgresql-locking-deep-dive) · [2PC / 3PC / Saga](/distributed-systems/transactions-2pc-3pc-saga)
+
+---
+
+## Memory sheet (60 seconds)
+
+Trace left → right: Client → Transfer → Redis lock **and** Postgres ledger. Kafka is dashed (async only).
+
+![2PL 3PL money transfer memory sheet: problem, architecture, concurrent scenario, 3PL states, defense layers, spoken answer](/images/distributed-locking/2pl-3pl-money-transfer-memory-sheet.svg)
+
+---
+
+## Mental model
+
+```text
+Request → idempotency claim → Redis exclusive leases (sorted)
+       → PostgreSQL FOR UPDATE → debit/credit → COMMIT
+       → safe unlock → COMPLETED
+```
+
+| | |
+|---|---|
+| **WHAT** | Serialize concurrent transfers so the ledger stays correct |
+| **HOW** | Strict 2PL on Redis + row locks in Postgres + fencing + idempotency |
+| **WHY** | Multiple app instances; retries; lease expiry; crash mid-flight |
+
+### Invariants to defend
+
+| Invariant | Why interviewers care |
+|---|---|
+| Balance never negative | Core money correctness |
+| At-most-once debit per idempotency key | Mobile / gateway retries are normal |
+| Locks held until commit or rollback | Strict 2PL — no early release |
+| Stale lock holder cannot write | Fencing after lease expiry |
+| Kafka off the sync path | Events must not delay locking |
 
 ---
 
 ## Spoken answer (30 seconds)
 
-```text
-I serialize account writes with a Redis exclusive lease (strict 2PL: hold until commit/rollback),
-use fencing tokens so a stale holder cannot write after lease expiry,
-and make PostgreSQL SELECT … FOR UPDATE the final balance guardian.
-Idempotency key stops double debit on retry. Kafka is for lifecycle events only — not on the lock path.
-If the app crashes mid-flight, recovery continues or aborts from persisted 3PL state.
-```
+> I serialize account writes with a **Redis exclusive lease** (strict 2PL: hold until commit or rollback), attach a **fencing token** so a stale holder cannot write after lease expiry, and make **PostgreSQL `SELECT … FOR UPDATE`** the final balance guardian. An **idempotency key** stops double debit on retry. **Kafka is lifecycle only** — never inside acquire→commit. If the app crashes mid-flight, recovery continues or aborts from **persisted 3PL state**.
+
+Practice once out loud before the interview.
 
 ---
 
-## Architecture (one picture)
+## 1. Architecture
+
+Sync path carries locks and money. Kafka is dashed — audit / lifecycle only.
 
 <Mermaid chart={`flowchart LR
-  C[Client] --> G[API]
-  G --> T[Transfer Service]
-  T --> L[Lock Service]
-  L --> R[(Redis)]
-  T --> A[Account Service]
-  A --> P[(PostgreSQL)]
-  T -. lifecycle .-> K[(Kafka)]
+  subgraph Sync["Synchronous money path"]
+    C[Client] --> G[API Gateway]
+    G --> T[Transfer Service]
+    T --> L[Lock Service]
+    L --> R[(Redis)]
+    T --> A[Account Service]
+    A --> P[(PostgreSQL)]
+  end
+  T -. lifecycle events .-> K[(Kafka)]
 `} />
 
-```text
-Sync path:  Client → Transfer → Redis lock → PG FOR UPDATE → commit → unlock
-Async path: Kafka events only (Started / Locked / Committed / RolledBack)
-```
+| Path | Steps |
+|---|---|
+| **Sync** | Client → Transfer → Redis lock → PG `FOR UPDATE` → commit → unlock |
+| **Async** | `Started` / `Locked` / `Committed` / `RolledBack` on Kafka |
 
 ---
 
-## End-to-end happy path (2PL + DB)
+## 2. Happy path — strict 2PL
+
+Acquire **all** locks → mutate → commit/rollback → **then** release.
 
 <Mermaid chart={`sequenceDiagram
+  autonumber
   participant C as Client
   participant T as Transfer
   participant R as Redis
   participant P as PostgreSQL
 
-  C->>T: POST /transfers A→B 7000 + Idempotency-Key
-  T->>T: claim idempotency key unique
+  C->>T: POST /transfers A→B ₹7000 + Idempotency-Key
+  T->>T: Claim unique idempotency key
   T->>R: SET lock:A token NX PX
-  R-->>T: OK + fencing=n
+  R-->>T: OK · fencing = n
   T->>R: SET lock:B token NX PX
-  R-->>T: OK + fencing=m
+  R-->>T: OK · fencing = m
   T->>P: BEGIN
   T->>P: SELECT A,B FOR UPDATE
-  T->>P: debit A / credit B if balance ok
+  T->>P: Debit A / credit B
   T->>P: COMMIT
-  T->>R: Lua DEL only if token owner
-  T-->>C: COMPLETED
+  T->>R: Lua DEL only if token matches
+  T-->>C: status = COMPLETED
 `} />
 
-**Strict 2PL:** acquire all locks → read/write → commit/rollback → **then** release.
+**Say this:** “Locks stay held through the DB transaction. Unlock is compare-and-delete on the token — never a blind `DEL`.”
 
 ---
 
-## Concurrent transfers (the interview scenario)
+## 3. Concurrent transfers — the interview scenario
 
-A=10000. T1 wants 7000, T2 wants 6000. Combined 13000 > 10000.
+T1 wants ₹7,000. T2 wants ₹6,000. Combined ₹13,000 > ₹10,000.
 
 <Mermaid chart={`sequenceDiagram
-  participant T1 as T1 A→B 7000
-  participant T2 as T2 A→C 6000
+  autonumber
+  participant T1 as T1 · A→B ₹7000
+  participant T2 as T2 · A→C ₹6000
   participant R as Redis
   participant P as PostgreSQL
 
   T1->>R: Lock A acquired
-  T2->>R: Lock A wait
-  T1->>P: FOR UPDATE + debit 7000
-  T1->>P: COMMIT A=3000
-  T1->>R: unlock A
+  T2->>R: Lock A — waiting
+  T1->>P: FOR UPDATE · debit ₹7000
+  T1->>P: COMMIT · A = ₹3000
+  T1->>R: Unlock A
   R-->>T2: Lock A acquired
-  T2->>P: FOR UPDATE balance check
-  P-->>T2: insufficient funds
+  T2->>P: FOR UPDATE · funds check
+  P-->>T2: Insufficient funds
   T2->>T2: ROLLBACK
-  T2->>R: unlock A
+  T2->>R: Unlock A
 `} />
 
-**Outcome:** one COMPLETED, one FAILED. A is 3000 or 4000 — never negative.
+| Result | Detail |
+|---|---|
+| Winner | One of T1 / T2 → `COMPLETED` |
+| Loser | The other → `FAILED` (insufficient funds) |
+| Final A | ₹3,000 **or** ₹4,000 — never negative |
 
 ---
 
-## Lock timeout
+## 4. Lock timeout
+
+Second waiter must fail **without touching balances**.
 
 <Mermaid chart={`sequenceDiagram
-  participant T1 as Owner
+  participant T1 as Lock owner
   participant T2 as Waiter
   participant R as Redis
 
-  T1->>R: holds lock:A
-  T2->>R: wait until timeout
+  T1->>R: Holds lock:A
+  T2->>R: Waits until wait-timeout
   R-->>T2: LOCK_TIMEOUT
-  Note over T2: no DB write happened
+  Note over T2: No PostgreSQL write occurred
 `} />
 
 ---
 
-## Deadlock
+## 5. Deadlock
 
-Lock accounts in **sorted id order** to reduce this. Detector aborts one waiter if a wait-for cycle appears.
+Always lock account ids in **sorted order** to reduce cycles. If a wait-for cycle still appears, abort one waiter.
 
 <Mermaid chart={`sequenceDiagram
   participant T1 as Tx1
@@ -132,16 +194,18 @@ Lock accounts in **sorted id order** to reduce this. Detector aborts one waiter 
 
   T1->>R: Lock A
   T2->>R: Lock B
-  T1->>R: wait B
-  T2->>R: wait A
-  R-->>T2: DEADLOCK → abort T2
-  T2->>R: release B
-  T1->>R: get B → continue
+  T1->>R: Wait for B
+  T2->>R: Wait for A
+  R-->>T2: DEADLOCK — abort Tx2
+  T2->>R: Release B
+  T1->>R: Acquire B · continue
 `} />
 
 ---
 
-## Crash + recovery (why 3PL state helps)
+## 6. Crash + recovery
+
+Persisted 3PL state lets recovery finish or abort safely after a pod death.
 
 <Mermaid chart={`sequenceDiagram
   participant T as Transfer
@@ -149,32 +213,32 @@ Lock accounts in **sorted id order** to reduce this. Detector aborts one waiter 
   participant P as PG txn state
   participant Rec as Recovery
 
-  T->>R: acquire locks
+  T->>R: Acquire locks
   T->>P: state = COMMIT_READY
-  Note over T: process dies
-  Rec->>P: find stale incomplete rows
-  alt can finish
-    Rec->>T: apply transfer + COMMITTED + unlock
-  else cannot
-    Rec->>T: ABORT + unlock
+  Note over T: Process dies
+  Rec->>P: Load stale incomplete rows
+  alt Can finish safely
+    Rec->>T: Apply transfer · COMMITTED · unlock
+  else Cannot finish
+    Rec->>T: ABORT · unlock
   end
-  Note over Rec: fencing rejects stale writer if lease already reused
+  Note over Rec: Fencing rejects zombie writer if lease was reused
 `} />
 
 ---
 
-## 3PL states (persisted)
+## 7. 3PL states
 
 <Mermaid chart={`stateDiagram-v2
   [*] --> ACTIVE
-  ACTIVE --> LOCKING
-  LOCKING --> PRE_COMMIT
-  PRE_COMMIT --> COMMIT_READY
-  COMMIT_READY --> COMMITTED
-  COMMITTED --> RELEASED
+  ACTIVE --> LOCKING: acquireLocks
+  LOCKING --> PRE_COMMIT: prepare
+  PRE_COMMIT --> COMMIT_READY: preCommit
+  COMMIT_READY --> COMMITTED: commit
+  COMMITTED --> RELEASED: releaseLocks
   RELEASED --> [*]
 
-  LOCKING --> TIMED_OUT
+  LOCKING --> TIMED_OUT: wait expired
   ACTIVE --> ABORTING
   LOCKING --> ABORTING
   PRE_COMMIT --> ABORTING
@@ -185,29 +249,34 @@ Lock accounts in **sorted id order** to reduce this. Detector aborts one waiter 
 `} />
 
 ```text
-ACTIVE → LOCKING → PRE_COMMIT → COMMIT_READY → COMMITTED → RELEASED
-Failure anywhere before COMMITTED → ABORTING → ABORTED → RELEASED
+Happy:   ACTIVE → LOCKING → PRE_COMMIT → COMMIT_READY → COMMITTED → RELEASED
+Failure: … → ABORTING → ABORTED → RELEASED
 ```
 
 ---
 
 ## Basic implementation (interview-sized)
 
-### 1) Redis exclusive lock + safe unlock
+Four snippets. Enough for the whiteboard — not a multi-module repo dump.
+
+### Redis exclusive lock + safe unlock
 
 ```java
-// acquire
-Boolean ok = redis.setIfAbsent("lock:" + accountId, token, Duration.ofSeconds(30));
+// Acquire
+Boolean ok = redis.setIfAbsent(
+    "lock:" + accountId, token, Duration.ofSeconds(30));
 
-// unlock — only owner may delete (Lua)
+// Unlock — only the owner may delete
 String lua = """
   if redis.call('get', KEYS[1]) == ARGV[1] then
     return redis.call('del', KEYS[1])
-  else return 0 end
+  else
+    return 0
+  end
   """;
 ```
 
-### 2) PostgreSQL final guardian
+### PostgreSQL final guardian
 
 ```java
 @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -216,31 +285,35 @@ Optional<Account> findByIdForUpdate(@Param("id") String id);
 
 @Transactional
 public void apply(String src, String dst, BigDecimal amount) {
-  Account a = repo.findByIdForUpdate(min(src, dst)).orElseThrow();
-  Account b = repo.findByIdForUpdate(max(src, dst)).orElseThrow();
-  // map a/b back to src/dst, then:
-  if (source.getBalance().compareTo(amount) < 0) throw new InsufficientFunds();
+  // Lock in sorted id order to reduce deadlocks
+  Account first  = repo.findByIdForUpdate(min(src, dst)).orElseThrow();
+  Account second = repo.findByIdForUpdate(max(src, dst)).orElseThrow();
+  Account source = src.equals(first.getId()) ? first : second;
+  Account dest   = source == first ? second : first;
+
+  if (source.getBalance().compareTo(amount) < 0) {
+    throw new InsufficientFunds();
+  }
   source.debit(amount);
   dest.credit(amount);
 }
 ```
 
-### 3) Transfer flow (strict 2PL)
+### Transfer flow (strict 2PL)
 
 ```java
-public TransferResult transfer(req) {
-  if (idempotency.exists(req.key())) return idempotency.get(req.key());
+public TransferResult transfer(TransferRequest req) {
+  if (idempotency.exists(req.key())) {
+    return idempotency.get(req.key());
+  }
 
-  String[] keys = sorted(req.from(), req.to()); // deadlock avoidance
+  String[] keys = sorted(req.from(), req.to());
   LockToken t1 = locks.acquire(keys[0]);
   LockToken t2 = locks.acquire(keys[1]);
   try {
-    accounts.apply(req.from(), req.to(), req.amount()); // FOR UPDATE inside
+    accounts.apply(req.from(), req.to(), req.amount());
     idempotency.save(req.key(), COMPLETED);
     return COMPLETED;
-  } catch (RuntimeException e) {
-    // DB rolled back; still release Redis
-    throw e;
   } finally {
     locks.release(t2);
     locks.release(t1);
@@ -248,29 +321,30 @@ public TransferResult transfer(req) {
 }
 ```
 
-### 4) Why both Redis and PG?
+### Why both Redis and Postgres?
 
-| Layer | Job |
+| Layer | Job in the design |
 |---|---|
-| Redis lock | Cross-instance mutual exclusion + wait/timeout |
-| Fencing token | Stop stale holder after lease expiry |
-| `FOR UPDATE` | Atomic balance invariant in the ledger |
-| Idempotency key | Retries do not double-debit |
+| Redis exclusive lease | Cross-instance mutual exclusion, wait, timeout |
+| Fencing token | Block stale holders after lease expiry |
+| `SELECT … FOR UPDATE` | Atomic balance invariant in the ledger |
+| Idempotency key | Retries must not double-debit |
 
 ---
 
-## Follow-up cheat answers
+## Follow-up cheat sheet
 
-| Question | Answer |
+| Question | Crisp answer |
 |---|---|
-| Why not Redis alone? | Lease can expire mid-work; ledger must enforce balance |
-| Why not PG alone? | Works for one DB; Redis helps coordinate multi-service / multi-row prep |
-| Where is Kafka? | Async audit/lifecycle only — never inside acquire→commit |
-| Double submit? | Unique `idempotency_keys` row |
+| Why not Redis alone? | Lease can expire mid-work; the ledger must enforce balance |
+| Why not Postgres alone? | Fine for one DB; Redis helps coordinate multi-instance / multi-row prep |
+| Where does Kafka sit? | Async audit only — never inside acquire → commit |
+| Same request twice? | Unique `idempotency_keys` row returns the first result |
 | Pod killed holding lock? | TTL expires → recovery reads 3PL state → abort or finish → fence protects |
+| How do you avoid deadlock? | Lock account ids in sorted order; abort one side if a cycle remains |
 
 ---
 
-## Optional full demo
+## Optional deeper practice
 
-A larger runnable multi-module Spring sample lives in the repo under `distributed-locking/` (gateway, lock, account, transaction, recovery, compose). **For interviews, diagrams + the snippets above are enough** — do not memorize the whole module tree.
+A larger runnable Spring multi-module sample lives under `distributed-locking/` in the repo. **For the interview, this page is enough** — diagrams, invariants, and the four snippets above.
