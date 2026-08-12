@@ -1,24 +1,107 @@
 import Link from 'next/link';
-import {ArrowRight, BookOpen, Layers3, Server, Database, MessageSquare, Zap} from 'lucide-react';
+import {ArrowRight} from 'lucide-react';
 import {getAllPosts} from '@/lib/posts';
 import {hrefForPost} from '@/lib/href';
-const starts=[
-  ['Master Index','FAANG Staff/Principal curriculum map, study order and design portfolio.','/system-design/system-design-master-index'],
-  ['Interview Preparation','Step-by-step framework for requirements, HLD, LLD, trade-offs and common designs.','/system-design/system-design-interview-preparation'],
-  ['30-Day Plan','Focused month of designs, failure drills and estimation practice.','/system-design/30-day-system-design-plan'],
-  ['Distributed Systems','Locking curriculum (Redis/Postgres/fencing) + replication, messaging, resilience.','/distributed-systems'],
-  ['FinTech','Payments and correctness under retries and uncertainty.','/fintech'],
-  ['Behavior','Ownership, conflict, leadership and stakeholder stories.','/behavior'],
-  ['Behavioral Interview','Staff+/Principal STAR bank — leadership & business impact.','/behavioral-interview'],
-  ['Leadership Principles','All 16 Amazon LPs with STAR answers and Kafka follow-ups.','/leadership-principles'],
-  ['Complexity','Master guide: derive Big-O from Java code — DS, graphs, DP, practice.','/complexity'],
-  ['Kafka Interview','Staff+/Principal Kafka — 130+ failure & design questions.','/kafka-interview'],
-  ['Redis Interview','Staff+/Principal Redis — internals, HA, cache failures, locks.','/redis-interview'],
-  ['Real-Time Issues','Stuck threads, dumps, DB locks, API hangs — Principal on-call playbooks.','/realtime-issues'],
+
+const paths=[
+  {title:'System Design',href:'/system-design',blurb:'Architecture problems, trade-offs, and Staff follow-ups.'},
+  {title:'Real-Time Issues',href:'/realtime-issues',blurb:'Stuck threads, dumps, pools — production incident playbooks.'},
+  {title:'Kafka & Redis',href:'/kafka-interview',blurb:'Interview banks for messaging and caching failure modes.'},
+  {title:'Behavioral & LPs',href:'/behavioral-interview',blurb:'STAR answers for Staff+ leadership and Amazon LPs.'},
 ];
-const startIcons=[BookOpen,Layers3,Server,Zap,Database,MessageSquare,MessageSquare,Layers3,BookOpen,Server,Database,Zap];
+
 export default function Home(){
   const all=getAllPosts();
-  const prep=all.find(p=>p.slug==='system-design-interview-preparation');
-  const posts=[...(prep?[prep]:[]),...all.filter(p=>p.slug!=='system-design-interview-preparation')];
-  return <main><section className="border-b bg-white"><div className="mx-auto max-w-7xl px-5 py-20 md:py-24"><div className="max-w-4xl"><div className="mb-4 text-xs font-black uppercase tracking-[.18em] text-blue-600">System Design Interview Hub</div><h1 className="text-5xl font-black tracking-[-.055em] md:text-7xl">Learn system design through real-world architecture, stories & diagrams.</h1><p className="mt-7 max-w-3xl text-lg leading-8 text-slate-600">Understand how experienced engineers approach scalable, reliable and distributed systems — from requirements and estimation to bottlenecks, trade-offs and Staff-level follow-ups.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/learn" className="rounded-lg bg-slate-900 px-5 py-3 text-sm font-bold text-white">Start Learning <ArrowRight className="ml-2 inline" size={16}/></Link><Link href="/system-design" className="rounded-lg border px-5 py-3 text-sm font-bold">Explore System Designs</Link></div></div><div className="mt-10 flex flex-wrap gap-5 text-sm text-slate-500"><span><b className="text-slate-900">Vibhu Agarwal</b> · Senior Software Engineer</span><span>Java · Distributed Systems · Microservices · FinTech</span></div></div></section><section className="mx-auto max-w-7xl px-5 py-16"><div className="mb-8"><div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Start Here</div><h2 className="mt-2 text-3xl font-black tracking-tight">Build your system-design foundation</h2></div><div className="grid gap-4 md:grid-cols-3">{starts.map(([t,d,u],i)=>{const Icon=startIcons[i]??BookOpen;return <Link href={u} key={t} className="card p-6 transition hover:-translate-y-1"><div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700"><Icon size={19}/></div><h3 className="font-bold">{t}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{d}</p></Link>})}</div></section><section className="mx-auto max-w-7xl px-5 pb-16"><div className="mb-8 flex items-end justify-between"><div><div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Featured</div><h2 className="mt-2 text-3xl font-black tracking-tight">Popular system-design problems</h2></div><Link href="/system-design" className="hidden text-sm font-bold text-blue-600 md:block">View all →</Link></div><div className="grid gap-4 md:grid-cols-3">{posts.slice(0,6).map(p=><Link href={hrefForPost(p.category,p.slug)} key={p.slug} className="card p-6"><div className="text-[10px] font-black uppercase tracking-wider text-blue-600">{p.category} · {p.difficulty}</div><h3 className="mt-3 text-xl font-bold">{p.title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{p.description}</p><div className="mt-4 text-xs text-slate-400">{p.readingTime} · {p.tags.slice(0,3).join(' · ')}</div></Link>)}</div></section></main>}
+  const prep=all.find((p)=>p.slug==='system-design-interview-preparation');
+  const featured=[
+    ...(prep?[prep]:[]),
+    ...all.filter((p)=>p.slug!=='system-design-interview-preparation'),
+  ].slice(0,3);
+
+  return (
+    <main>
+      <section className="border-b border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/60">
+        <div className="mx-auto max-w-7xl px-5 py-16 md:py-24">
+          <div className="max-w-3xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[.16em] text-blue-700 dark:text-blue-400">
+              Senior Engineering Interview Hub
+            </p>
+            <h1 className="mt-4 text-4xl font-bold tracking-[-.035em] text-slate-900 md:text-6xl dark:text-white">
+              Engineering knowledge for senior developers.
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
+              Real-world Java, Spring Boot, microservices, Kafka, system design, and production engineering.
+              Learn the problem. Understand the trade-offs. Tell the story. Answer the interview.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/learn"
+                className="inline-flex items-center rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500"
+              >
+                Start learning <ArrowRight className="ml-2" size={16}/>
+              </Link>
+              <Link
+                href="/search"
+                className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                Search topics
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 py-14">
+        <div className="max-w-2xl">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Choose a path</h2>
+          <p className="mt-2 text-slate-500">Four focused entry points — not a wall of cards.</p>
+        </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          {paths.map((p)=>(
+            <Link
+              key={p.href}
+              href={p.href}
+              className="rounded-xl border border-slate-200 bg-white p-6 transition hover:border-blue-200 dark:border-slate-800 dark:bg-slate-950"
+            >
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{p.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500">{p.blurb}</p>
+            </Link>
+          ))}
+        </div>
+        <div className="mt-6">
+          <Link href="/learn" className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400">
+            View the full learning curriculum →
+          </Link>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 pb-16">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Featured guides</h2>
+            <p className="mt-2 text-slate-500">Start with high-signal interview preparation.</p>
+          </div>
+          <Link href="/system-design" className="hidden text-sm font-semibold text-blue-700 md:block dark:text-blue-400">
+            Browse system design →
+          </Link>
+        </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {featured.map((p)=>(
+            <Link
+              href={hrefForPost(p.category,p.slug)}
+              key={p.slug}
+              className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950"
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">
+                {p.category} · {p.difficulty}
+              </div>
+              <h3 className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{p.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500">{p.description}</p>
+              <div className="mt-4 text-xs text-slate-400">{p.readingTime}</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}

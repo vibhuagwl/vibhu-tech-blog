@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import {getAllPosts,getPost} from '@/lib/posts';
+import {hrefForPost} from '@/lib/href';
 
 const qs=[
   ['What happens if Kafka goes down?','Discuss producer behavior, buffering, retries, backpressure and durability.'],
@@ -23,7 +24,7 @@ export default function Interview(){
 
       {prep && (
         <section className="mt-10 grid gap-4 md:grid-cols-2">
-          <Link href={`/system-design/${prep.slug}`} className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
+          <Link href={hrefForPost(prep.category,prep.slug)} className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
             <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">{prep.category} · {prep.difficulty}</div>
             <h2 className="mt-3 text-xl font-black tracking-tight">{prep.title}</h2>
             <p className="mt-3 text-sm leading-7 text-slate-500">{prep.description}</p>
@@ -81,9 +82,10 @@ export default function Interview(){
         <h2 className="text-2xl font-black">Read a full design</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {posts.filter(p=>p.slug!=='system-design-interview-preparation').slice(0,6).map(p=>(
-            <Link className="card p-5" href={`/system-design/${p.slug}`} key={p.slug}>
-              <div className="font-bold">{p.title}</div>
-              <div className="mt-2 text-xs text-slate-500">{p.tags.join(' · ')}</div>
+            <Link className="card p-5" href={hrefForPost(p.category,p.slug)} key={p.slug}>
+              <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-700">{p.category}</div>
+              <div className="mt-2 font-bold">{p.title}</div>
+              <div className="mt-2 text-xs text-slate-500">{p.tags.slice(0,4).join(' · ')}</div>
             </Link>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import {getAllPosts} from '@/lib/posts';
+import {hrefForPost} from '@/lib/href';
 
 export const metadata={title:'Learning Path'};
 
@@ -48,7 +49,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">0 — Curriculum & plans</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {plans.map((p)=>(
-              <Link key={p.slug} href={`/system-design/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -61,7 +62,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">1 — Fundamentals & frameworks</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {fundamentals.filter((p)=>!plans.includes(p)).map((p)=>(
-              <Link key={p.slug} href={`/system-design/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -74,7 +75,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">2 — Building blocks</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {building.map((p)=>(
-              <Link key={p.slug} href={`/system-design/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.category}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -87,7 +88,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">3 — Distributed systems & reliability</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {distributed.map((p)=>(
-              <Link key={p.slug} href={`/system-design/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.category}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -100,7 +101,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">4 — System design problems</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {designs.map((p)=>(
-              <Link key={p.slug} href={`/system-design/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -113,7 +114,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">5 — FinTech</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {fintech.map((p)=>(
-              <Link key={p.slug} href={`/fintech/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -126,7 +127,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">6 — Behavior</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {behavior.map((p)=>(
-              <Link key={p.slug} href={`/behavior/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -139,7 +140,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">7 — Behavioral Interview (Staff+ / Principal)</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {behavioralInterview.map((p)=>(
-              <Link key={p.slug} href={`/behavioral-interview/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -152,7 +153,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">8 — Amazon Leadership Principles</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {leadership.map((p)=>(
-              <Link key={p.slug} href={`/leadership-principles/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -165,7 +166,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">9 — Time & space complexity</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {complexity.map((p)=>(
-              <Link key={p.slug} href={`/complexity/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -178,7 +179,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">10 — Kafka Interview (Staff+ / Principal)</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {kafkaInterview.map((p)=>(
-              <Link key={p.slug} href={`/kafka-interview/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -191,7 +192,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">11 — Redis Interview (Staff+ / Principal)</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {redisInterview.map((p)=>(
-              <Link key={p.slug} href={`/redis-interview/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -204,7 +205,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">12 — Real-Time Issues (Staff+ / Principal)</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {realtimeIssues.map((p)=>(
-              <Link key={p.slug} href={`/realtime-issues/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
@@ -217,7 +218,7 @@ export default function Learn(){
           <h2 className="text-2xl font-black">13 — Cheat sheets</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {sheets.map((p)=>(
-              <Link key={p.slug} href={`/system-design/${p.slug}`} className="card p-5">
+              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
                 <div className="text-xs font-bold text-blue-600">Revision</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
