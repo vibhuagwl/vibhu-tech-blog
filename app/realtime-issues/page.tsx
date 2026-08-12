@@ -66,6 +66,7 @@ const ORDER=[
   'oracle-database-incident-case-study',
   'query-used-to-be-fast-now-timeouts',
   'production-database-change-risk-checklist',
+  'spring-secrets-pii-handling',
 ];
 
 export default function RealtimeIssues(){

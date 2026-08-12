@@ -1,0 +1,4 @@
+# Local dev — still use env vars; defaults below are demo-only, not for prod
+logging:
+  level:
+    PII_AUDIT: INFO
