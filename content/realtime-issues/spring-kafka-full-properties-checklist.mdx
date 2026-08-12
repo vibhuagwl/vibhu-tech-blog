@@ -92,6 +92,31 @@ Templates live in:
 
 ---
 
+## Producer properties — description table
+
+| Property | Description |
+|---|---|
+| `bootstrap.servers` | Kafka broker endpoints producer connects to. |
+| `key.serializer` | Converts message key (for partition routing) to bytes. |
+| `value.serializer` | Converts event payload to bytes (JSON/Avro/Proto). |
+| `acks` | How many replicas must confirm write before success response. |
+| `enable.idempotence` | Prevents duplicate records from producer retries. |
+| `retries` | Number of resend attempts for transient send failures. |
+| `max.in.flight.requests.per.connection` | Max unacked requests per broker connection; affects ordering on retry. |
+| `delivery.timeout.ms` | Total allowed time for send to succeed (including retries). |
+| `request.timeout.ms` | Max wait time for broker response per request. |
+| `retry.backoff.ms` | Delay before retry attempt after a send failure. |
+| `linger.ms` | Wait time to accumulate records before sending a batch. |
+| `batch.size` | Byte target per batch in producer accumulator. |
+| `buffer.memory` | Total memory for unsent records in producer buffer. |
+| `compression.type` | Compression codec used for produced batches. |
+| `max.request.size` | Max size of single produce request. |
+| `transactional.id` | Enables transactional producer identity for EOS writes. |
+| `transaction.timeout.ms` | Max time broker allows an open producer transaction. |
+| `client.id` | Logical producer client name for logging/metrics. |
+
+---
+
 ## Consumer properties — must set
 
 | Property | Set | Why |
@@ -111,6 +136,33 @@ Templates live in:
 
 ---
 
+## Consumer properties — description table
+
+| Property | Description |
+|---|---|
+| `bootstrap.servers` | Kafka broker endpoints consumer connects to. |
+| `group.id` | Consumer group identity for partition sharing and offsets. |
+| `client.id` | Logical consumer name used in logs and metrics. |
+| `key.deserializer` | Converts key bytes back to application key type. |
+| `value.deserializer` | Converts payload bytes back to event object. |
+| `spring.json.trusted.packages` | Allowed package list for JSON deserialization safety. |
+| `spring.json.value.default.type` | Default Java class used when type header is absent. |
+| `enable.auto.commit` | Whether offsets are committed automatically in background. |
+| `auto.offset.reset` | Start position when no committed offset exists. |
+| `isolation.level` | `read_committed` hides uncommitted transactional records. |
+| `max.poll.records` | Max records returned per poll cycle. |
+| `max.poll.interval.ms` | Max processing time before broker considers consumer stuck. |
+| `session.timeout.ms` | Time until coordinator marks consumer dead without heartbeat. |
+| `heartbeat.interval.ms` | Heartbeat cadence to keep group membership alive. |
+| `partition.assignment.strategy` | Algorithm used to assign partitions in group rebalances. |
+| `fetch.min.bytes` | Minimum data broker should return per fetch. |
+| `fetch.max.wait.ms` | Max broker wait to fill `fetch.min.bytes`. |
+| `max.partition.fetch.bytes` | Per-partition max bytes returned in one fetch. |
+| `fetch.max.bytes` | Total fetch response size limit across partitions. |
+| `allow.auto.create.topics` | Controls accidental topic creation by consumer reads. |
+
+---
+
 ## Broker properties — must set
 
 | Property | Set | Why |
@@ -127,6 +179,33 @@ Templates live in:
 | `transaction.state.log.*` | valid values | transactional producer support |
 | `offsets.topic.*` | capacity tuned | stable consumer-group operations |
 | `group.initial.rebalance.delay.ms` | tuned | rebalance stability |
+
+---
+
+## Broker properties — description table
+
+| Property | Description |
+|---|---|
+| `listeners` | Network interfaces/protocols broker listens on. |
+| `advertised.listeners` | Host:port clients use to connect to broker. |
+| `listener.security.protocol.map` | Maps listener names to security protocol types. |
+| `num.partitions` | Default partition count for newly created topics. |
+| `default.replication.factor` | Default replica count for topic durability. |
+| `min.insync.replicas` | Minimum in-sync replicas required for `acks=all` success. |
+| `auto.create.topics.enable` | Enables/disables implicit topic creation on first write/read. |
+| `message.max.bytes` | Max record batch size broker accepts. |
+| `replica.fetch.max.bytes` | Max fetch size replica follower can pull from leader. |
+| `log.retention.hours` | How long log segments are retained before cleanup. |
+| `log.retention.bytes` | Total log size threshold for retention enforcement. |
+| `log.segment.bytes` | Segment file size before rolling to new log segment. |
+| `log.cleanup.policy` | `delete` or `compact` cleanup behavior per log. |
+| `offsets.topic.num.partitions` | Partition count for internal consumer offset topic. |
+| `offsets.topic.replication.factor` | Replica count for internal offsets topic. |
+| `group.initial.rebalance.delay.ms` | Wait period before first rebalance to gather joiners. |
+| `transaction.state.log.replication.factor` | Replication factor for transaction state topic. |
+| `transaction.state.log.min.isr` | Min ISR for transaction state writes. |
+| `unclean.leader.election.enable` | Allows/disallows out-of-sync replica leader election. |
+| `connections.max.idle.ms` | Idle connection close timeout to control socket lifecycle. |
 
 ---
 
