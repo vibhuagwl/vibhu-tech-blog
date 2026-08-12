@@ -30,22 +30,10 @@ const banks=[
     blurb:'One hub for all 23 GoF patterns: source repo, revision cards, memory formula, poster, and mock interview.',
   },
   {
-    href:'/oauth-jwt-demo',
-    label:'OAuth + JWT Source',
+    href:'/spring-security',
+    label:'Spring Security',
     level:'Staff',
-    blurb:'Browse the full Spring Authorization Server / Resource Server demo in the browser.',
-  },
-  {
-    href:'/spring-auth-demo',
-    label:'Authn + Authz Source',
-    level:'Staff',
-    blurb:'Form login and HTTP Basic Spring Security without OAuth — roles and method security.',
-  },
-  {
-    href:'/idanywhere-demo',
-    label:'IDAnywhere OIDC Source',
-    level:'Staff',
-    blurb:'Enterprise SSO via OIDC/ADFS stand-in — JWT resource API with AD group mapping.',
+    blurb:'One hub for OAuth + JWT, Authn + Authz, and IDAnywhere OIDC source demos.',
   },
   {
     href:'/kafka-interview',
