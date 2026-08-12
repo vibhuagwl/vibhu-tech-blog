@@ -11,6 +11,7 @@ const TOPICS=[
   {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking, messaging, resilience'},
   {href:'/realtime-issues',label:'Real-Time Issues',blurb:'Production incidents & on-call'},
   {href:'/jpmc-experience',label:'JPMC Experience',blurb:'Hadron · Tax · RSU · Platform'},
+  {href:'/oauth-jwt-demo',label:'OAuth + JWT Code',blurb:'Browse full Spring Security source'},
   {href:'/kafka-interview',label:'Kafka',blurb:'Knowledge · Experience · Interview'},
   {href:'/redis-interview',label:'Redis Interview',blurb:'Caching, HA, locks'},
   {href:'/complexity',label:'Complexity',blurb:'Big-O from Java code'},
