@@ -26,6 +26,7 @@ const paths=[
   {title:'JPMC Experience',href:'/jpmc-experience',blurb:'Hadron Cashlines, Kafka replay, tax, RSU, Terraform.'},
   {title:'OAuth + JWT Source',href:'/oauth-jwt-demo',blurb:'Browse the full Spring Security demo in the browser.'},
   {title:'Authn + Authz Source',href:'/spring-auth-demo',blurb:'Spring Security form login & HTTP Basic — no OAuth.'},
+  {title:'IDAnywhere OIDC',href:'/idanywhere-demo',blurb:'ADFS/OIDC SSO client + JWT API with group claims.'},
   {title:'Kafka & Redis',href:'/kafka-interview',blurb:'Messaging and caching failure banks for Principal rounds.'},
   {title:'Java Complexity',href:'/complexity',blurb:'Derive Big-O from Java code with interview framing.'},
   {title:'Behavioral & LPs',href:'/behavioral-interview',blurb:'STAR answers and Amazon Leadership Principles.'},

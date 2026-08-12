@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Me</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<main>
+  <h1>OIDC user</h1>
+  <p>Subject: <code th:text="${user.subject}">sub</code></p>
+  <p>Preferred username: <code th:text="${user.preferredUsername}">user</code></p>
+  <h2>Claims</h2>
+  <pre th:text="${claims}">{}</pre>
+  <p><a th:href="@{/}">Home</a></p>
+</main>
+</body>
+</html>

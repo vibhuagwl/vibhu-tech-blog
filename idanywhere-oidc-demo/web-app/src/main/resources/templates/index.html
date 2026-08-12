@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>IDAnywhere OIDC Demo</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<main>
+  <h1>IDAnywhere / ADFS / OIDC</h1>
+  <p>This web app is an OIDC client. Login redirects to the IdP (local stand-in or real IDAnywhere).</p>
+  <ul>
+    <li><a th:href="@{/oauth2/authorization/idanywhere}">Login via IDAnywhere</a></li>
+    <li><a th:href="@{/me}">/me (OIDC claims)</a></li>
+    <li><a th:href="@{/payments}">/payments (Bearer JWT → API)</a></li>
+    <li><a th:href="@{/token-debug}">/token-debug</a></li>
+  </ul>
+</main>
+</body>
+</html>

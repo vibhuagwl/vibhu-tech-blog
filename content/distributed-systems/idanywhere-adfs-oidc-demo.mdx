@@ -1,0 +1,79 @@
+---
+slug: idanywhere-adfs-oidc-demo
+title: "IDAnywhere / ADFS / OIDC — Spring Security Integration Lab"
+description: "Runnable OAuth2 + OIDC client and JWT resource server wired like IDAnywhere/ADFS, with a local IdP stand-in, group claim mapping, and production profile."
+category: "Distributed Systems"
+difficulty: Staff
+tags: [IDAnywhere, ADFS, OIDC, OAuth2, JWT, Spring Security, SSO, Interview]
+readingTime: 16 min
+publishedAt: "2026-08-12"
+---
+
+## Browse the full source
+
+**[IDAnywhere OIDC — full source →](/idanywhere-demo)**
+
+Related labs: [OAuth + JWT](/oauth-jwt-demo) · [Authn + Authz without OAuth](/spring-auth-demo)
+
+## What this is
+
+`idanywhere-oidc-demo/` shows **real-time Spring Security integration** for enterprise SSO:
+
+1. **OIDC login** (Authorization Code) against an IdP
+2. **Access token** (JWT) calling APIs
+3. **Authorization** from AD-style `groups` claims
+
+Corporate IDAnywhere is not reachable from this public repo, so **`idp-standin`** mimics IDAnywhere/ADFS locally. Swap `issuer-uri` for production (`application-idanywhere.yml`).
+
+## Stack
+
+| Module | Port | Role |
+|---|---|---|
+| `idp-standin` | 9080 | Local OIDC AS (stand-in for IDAnywhere) |
+| `web-app` | 8088 | `oauth2Login` OIDC client |
+| `resource-api` | 8089 | JWT resource server + group→role map |
+
+## End-to-end flow
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor User
+    participant App as web-app
+    participant IDA as IDAnywhere stand-in
+    participant API as resource-api
+
+    User->>App: Open protected page
+    App->>IDA: /oauth2/authorize
+    IDA->>User: Login
+    IDA->>App: authorization code
+    App->>IDA: /oauth2/token
+    IDA-->>App: id_token + access_token
+    App->>API: Bearer JWT
+    API->>API: Validate + map groups
+    API-->>App: 200
+`} />
+
+## Authn vs Authz
+
+| Concern | Owner |
+|---|---|
+| Password / MFA / SSO | IDAnywhere + ADFS |
+| Issue tokens (OAuth + OIDC) | IDAnywhere |
+| Validate JWT | Your resource API |
+| `groups` → `@PreAuthorize` | Your resource API |
+
+## Run locally
+
+```bash
+cd idanywhere-oidc-demo
+mvn test
+mvn -pl idp-standin spring-boot:run
+mvn -pl resource-api spring-boot:run
+mvn -pl web-app spring-boot:run
+```
+
+Open http://127.0.0.1:8088 — users `alice` / `admin`, password `password`.
+
+## Interview punchline
+
+> We authenticate with IDAnywhere via OIDC. OAuth gives us the access token. Our APIs still own authorization by mapping AD group claims to Spring roles.

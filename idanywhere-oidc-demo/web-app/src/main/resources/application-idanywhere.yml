@@ -1,0 +1,25 @@
+# Activate with: --spring.profiles.active=idanywhere
+# Replace placeholders with values from your IDAnywhere / ADFS app registration.
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          idanywhere:
+            client-id: ${IDA_CLIENT_ID}
+            client-secret: ${IDA_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,profile
+            provider: idanywhere
+        provider:
+          idanywhere:
+            issuer-uri: ${IDA_ISSUER_URI:https://idanywhere.example.com/adfs}
+            # If discovery is incomplete, set explicitly:
+            # authorization-uri: https://idanywhere.example.com/adfs/oauth2/authorize
+            # token-uri: https://idanywhere.example.com/adfs/oauth2/token
+            # jwk-set-uri: https://idanywhere.example.com/adfs/discovery/keys
+            # user-name-attribute: upn
+
+app:
+  resource-base-url: ${PAYMENTS_API_BASE:https://payments-api.example.com}

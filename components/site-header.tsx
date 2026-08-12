@@ -13,6 +13,7 @@ const TOPICS=[
   {href:'/jpmc-experience',label:'JPMC Experience',blurb:'Hadron · Tax · RSU · Platform'},
   {href:'/oauth-jwt-demo',label:'OAuth + JWT Code',blurb:'Browse full Spring Security source'},
   {href:'/spring-auth-demo',label:'Authn + Authz Code',blurb:'Spring Security without OAuth'},
+  {href:'/idanywhere-demo',label:'IDAnywhere OIDC',blurb:'ADFS/OIDC SSO Spring wiring'},
   {href:'/kafka-interview',label:'Kafka',blurb:'Knowledge · Experience · Interview'},
   {href:'/redis-interview',label:'Redis Interview',blurb:'Caching, HA, locks'},
   {href:'/complexity',label:'Complexity',blurb:'Big-O from Java code'},

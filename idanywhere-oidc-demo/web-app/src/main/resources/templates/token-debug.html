@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Token debug</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<main>
+  <h1>Access token (preview)</h1>
+  <ul>
+    <li>Type: <code th:text="${tokenType}">Bearer</code></li>
+    <li>Scopes: <code th:text="${scopes}">scopes</code></li>
+    <li>Expires: <code th:text="${expiresAt}">exp</code></li>
+    <li>Preview: <code th:text="${accessTokenPreview}">jwt</code></li>
+  </ul>
+  <p>Full JWT is not printed — copy from debugger in non-prod only.</p>
+  <p><a th:href="@{/}">Home</a></p>
+</main>
+</body>
+</html>

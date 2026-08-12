@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Payments</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<main>
+  <h1>Payments API via access token</h1>
+  <p>User: <strong th:text="${username}">user</strong></p>
+  <pre th:text="${payments}">[]</pre>
+  <p><a th:href="@{/}">Home</a></p>
+</main>
+</body>
+</html>

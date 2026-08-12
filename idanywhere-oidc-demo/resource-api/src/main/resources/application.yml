@@ -1,0 +1,26 @@
+server:
+  port: 8089
+
+spring:
+  application:
+    name: idanywhere-resource-api
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9080
+          audiences: api://payments-api
+
+---
+# Real IDAnywhere profile: --spring.profiles.active=idanywhere
+spring:
+  config:
+    activate:
+      on-profile: idanywhere
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${IDA_ISSUER_URI:https://idanywhere.example.com/adfs}
+          audiences: ${IDA_API_AUDIENCE:api://payments-api}
+          # jwk-set-uri: ${IDA_JWKS_URI:}

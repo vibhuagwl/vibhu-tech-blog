@@ -45,6 +45,7 @@ export default function Learn(){
           <Link href="/jpmc-experience" className="rounded-lg border px-4 py-2 text-sm font-bold">JPMC Experience</Link>
           <Link href="/oauth-jwt-demo" className="rounded-lg border px-4 py-2 text-sm font-bold">OAuth + JWT Source</Link>
           <Link href="/spring-auth-demo" className="rounded-lg border px-4 py-2 text-sm font-bold">Authn + Authz Source</Link>
+          <Link href="/idanywhere-demo" className="rounded-lg border px-4 py-2 text-sm font-bold">IDAnywhere OIDC</Link>
         </div>
       </div>
 

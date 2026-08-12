@@ -20,6 +20,7 @@ const COLUMNS=[
       {href:'/jpmc-experience',label:'JPMC experience'},
       {href:'/oauth-jwt-demo',label:'OAuth + JWT source'},
       {href:'/spring-auth-demo',label:'Authn + Authz source'},
+      {href:'/idanywhere-demo',label:'IDAnywhere OIDC source'},
       {href:'/complexity',label:'Complexity'},
     ],
   },

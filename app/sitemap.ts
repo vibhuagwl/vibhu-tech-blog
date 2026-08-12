@@ -26,6 +26,7 @@ export default function sitemap():MetadataRoute.Sitemap{
     {url:`${base}/about`, lastModified:new Date()},
     {url:`${base}/oauth-jwt-demo`, lastModified:new Date()},
     {url:`${base}/spring-auth-demo`, lastModified:new Date()},
+    {url:`${base}/idanywhere-demo`, lastModified:new Date()},
     ...sections.flatMap(({path,key})=>[
       {url:`${base}${path}`, lastModified:new Date()},
       ...getPostsByCategories([...SECTION_CATEGORIES[key]]).map((p)=>({

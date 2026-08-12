@@ -36,6 +36,12 @@ const banks=[
     blurb:'Form login and HTTP Basic Spring Security without OAuth — roles and method security.',
   },
   {
+    href:'/idanywhere-demo',
+    label:'IDAnywhere OIDC Source',
+    level:'Staff',
+    blurb:'Enterprise SSO via OIDC/ADFS stand-in — JWT resource API with AD group mapping.',
+  },
+  {
     href:'/kafka-interview',
     label:'Kafka Interview',
     level:'Staff',

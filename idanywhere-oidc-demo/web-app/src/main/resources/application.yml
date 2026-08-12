@@ -1,0 +1,25 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: idanywhere-web-app
+  security:
+    oauth2:
+      client:
+        registration:
+          idanywhere:
+            provider: idanywhere
+            client-id: payments-web
+            client-secret: payments-web-secret
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,profile,api://payments-api/.default
+        provider:
+          idanywhere:
+            # Local stand-in. For real IDAnywhere, set issuer-uri to the corp discovery issuer
+            # (see application-idanywhere.yml).
+            issuer-uri: http://localhost:9080
+
+app:
+  resource-base-url: http://localhost:8089
