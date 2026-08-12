@@ -354,6 +354,30 @@ a{text-decoration:none}
   max-width:var(--content-width);
   font-size:1.02rem;
 }
+
+.reading-layout .prose-design,
+.reading-article .prose-design{
+  max-width:none;
+}
+
+.reading-layout .article-dek,
+.reading-article .article-dek{
+  max-width:none;
+}
+
+.prose-design img{
+  display:block;
+  width:100%;
+  max-width:100%;
+  height:auto;
+  margin:1.25rem 0;
+  border-radius:var(--radius-md);
+}
+
+.prose-design .mermaid-wrap svg{
+  max-width:100%;
+  height:auto;
+}
 .prose-design > :first-child{margin-top:0}
 .prose-design h2{
   font-size:1.4rem;

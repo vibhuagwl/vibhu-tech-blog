@@ -29,7 +29,7 @@ export default function Mermaid({chart}:{chart:string}){
   return (
     <div
       ref={ref}
-      className="my-6 overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+      className="mermaid-wrap my-6 overflow-x-auto rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
     />
   );
 }
