@@ -1,0 +1,549 @@
+---
+slug: aurora-postgresql-cloudwatch-writer-reader
+title: "Aurora PostgreSQL Writer and Reader Observability: CloudWatch, Performance Insights, and Spring"
+description: "Principal-level guide for correlating Java Spring API latency with HikariCP, Aurora PostgreSQL CloudWatch metrics, Performance Insights DB load, wait events, top SQL, EXPLAIN plans, writer and reader routing, replica lag, and read-after-write behavior."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Aurora PostgreSQL, CloudWatch, Performance Insights, Spring Boot, HikariCP, Read Replica, Incident Response]
+readingTime: 28 min
+publishedAt: "2026-08-12"
+---
+
+## The Principal framing
+
+An Aurora PostgreSQL latency incident is rarely solved by staring at one dashboard.
+
+The useful evidence path is cross-layer:
+
+```text
+API latency
+  -> Hikari wait
+  -> Aurora sessions
+  -> DB load
+  -> wait events
+  -> top SQL
+  -> EXPLAIN
+  -> fix or rollback
+```
+
+The Principal-level move is to avoid jumping from "the API is slow" to "the database is slow."
+
+Instead, prove which layer is the owner and which layers are victims.
+
+## The service shape
+
+Assume a Java 17 Spring Boot payment service:
+
+- Tomcat or Jetty handles synchronous HTTP requests.
+- Spring MVC routes to a service method.
+- The service uses Spring transactions.
+- JDBC access goes through HikariCP.
+- The database is Amazon Aurora PostgreSQL.
+- The cluster has one writer and one or more readers.
+- Read traffic may be routed to a reader endpoint.
+- Payment reads sometimes require read-after-write consistency.
+
+This shape creates two common confusion points:
+
+1. A request can wait in Hikari before PostgreSQL sees it.
+2. A read can be fast but stale if it is routed to a lagging reader.
+
+## Evidence before action
+
+When payment latency jumps, collect evidence in this order:
+
+| Layer | First signal | What it tells you |
+|---|---|---|
+| API | p95, p99, error rate by route | Which user path is hurt |
+| Thread pool | busy request threads | Whether the app is saturated |
+| Hikari | pending threads and acquisition time | Whether callers wait for connections |
+| Aurora sessions | active sessions and wait states | Whether the database sees the work |
+| CloudWatch | CPU, connections, IOPS, network, storage | Whether the instance or volume is saturated |
+| Performance Insights | DB load, waits, top SQL | Which SQL consumes database time |
+| PostgreSQL plan | `EXPLAIN ANALYZE` | Why the query became expensive |
+
+## API latency
+
+Start with route-level latency, not host averages.
+
+Useful Spring metrics:
+
+- `http.server.requests` p95 and p99 by URI template
+- request count by status
+- exception count by route
+- Tomcat busy threads
+- executor queue depth if custom executors are used
+- timeout count from clients and gateways
+
+The first question is:
+
+> Is every route slow, or only routes that touch Aurora?
+
+If only database-backed routes are slow, continue down the database evidence path.
+
+If static health checks and non-DB routes are also slow, inspect CPU, GC, load balancer, network, and pod scheduling first.
+
+## Hikari wait
+
+Hikari is the first hard boundary between Java and Aurora.
+
+Key metrics:
+
+- active connections
+- idle connections
+- pending threads
+- connection acquisition time
+- connection timeout count
+- max pool size
+- connection usage time
+
+Interpretation:
+
+| Hikari pattern | Likely meaning |
+|---|---|
+| pending threads high, active at max | callers are waiting for pool slots |
+| active high, database sessions active | database work is slow |
+| active high, database sessions idle in transaction | application is holding connections too long |
+| pending high, database connections low | pool misconfiguration, network, DNS, proxy, or credentials path |
+| acquisition time high only on one pod | local leak, stuck worker, or pod-specific network issue |
+
+Do not call every Hikari wait a database problem.
+
+Hikari wait can be caused by application code holding a connection while it calls an external REST API.
+
+## Map Hikari to Aurora sessions
+
+Once Hikari is saturated, prove where active connections are spending time.
+
+Useful PostgreSQL session query:
+
+```sql
+select
+  pid,
+  usename,
+  application_name,
+  client_addr,
+  state,
+  wait_event_type,
+  wait_event,
+  now() - query_start as query_age,
+  left(query, 160) as query_sample
+from pg_stat_activity
+where datname = current_database()
+  and state != 'idle'
+order by query_start;
+```
+
+Add a meaningful `application_name` from the Spring service.
+
+For example:
+
+```properties
+spring.datasource.hikari.data-source-properties.ApplicationName=payment-api
+```
+
+If you run separate writer and reader pools, use distinct names:
+
+```properties
+payment.writer.hikari.data-source-properties.ApplicationName=payment-api-writer
+payment.reader.hikari.data-source-properties.ApplicationName=payment-api-reader
+```
+
+That small naming choice makes incidents much easier to read.
+
+## CloudWatch metrics to correlate
+
+Aurora CloudWatch metrics give instance and storage-level pressure.
+
+For the writer, check:
+
+- `CPUUtilization`
+- `DatabaseConnections`
+- `FreeableMemory`
+- `ReadIOPS`
+- `WriteIOPS`
+- `ReadLatency`
+- `WriteLatency`
+- `NetworkReceiveThroughput`
+- `NetworkTransmitThroughput`
+- `VolumeReadIOPs`
+- `VolumeWriteIOPs`
+- `VolumeBytesUsed`
+- `Deadlocks`
+- `CommitLatency`
+- `DMLLatency`
+
+For readers, also check:
+
+- `AuroraReplicaLag`
+- reader `CPUUtilization`
+- reader `DatabaseConnections`
+- reader `ReadIOPS`
+- reader `ReadLatency`
+- reader network throughput
+
+The goal is not to memorize metric names.
+
+The goal is to align the time axis.
+
+If p99 API latency jumps at 14:02, the database evidence should explain what changed at 14:02.
+
+## CPU high
+
+High database CPU usually means PostgreSQL is spending time executing work, parsing work, or managing contention.
+
+Common causes:
+
+- sequential scans after table growth
+- missing or unused indexes
+- large sorts or hashes
+- too many concurrent queries
+- JIT overhead for complex queries
+- repeated plan churn
+- hot rows updated by many transactions
+- expensive JSONB predicates
+
+High CPU plus Performance Insights top SQL is actionable.
+
+High CPU without top SQL often means the window is wrong, the load is spread across many statements, or the bottleneck is not the database instance.
+
+## Connections high
+
+Aurora PostgreSQL does not become healthier because every pod opens a large pool.
+
+Too many connections increase memory pressure, context switching, lock competition, and failover recovery time.
+
+A practical first check:
+
+```text
+total_possible_connections = pod_count * pool_size_per_pod * number_of_pools
+```
+
+If each pod has a writer pool and a reader pool, include both.
+
+If a service has 40 pods, a writer pool of 30, and a reader pool of 30, that service can attempt 2400 database connections.
+
+That is usually a design problem, not a tuning victory.
+
+## IOPS and latency
+
+Read and write IOPS show storage pressure, but interpret them with query evidence.
+
+High read IOPS can mean:
+
+- new sequential scans
+- index scans with poor locality
+- cache misses after working set growth
+- analytical queries on the OLTP cluster
+- reader endpoint receiving unexpected traffic
+
+High write IOPS can mean:
+
+- bulk updates
+- migration backfill
+- index creation
+- WAL-heavy transactions
+- write amplification from indexes
+
+If storage latency rises while DB load rises, the database is waiting on IO.
+
+If API latency rises while storage metrics are flat, the culprit may be locks, connections, CPU, or application code.
+
+## Network and storage
+
+Network metrics matter when the query returns too much data.
+
+Watch for:
+
+- large result sets from unbounded queries
+- N plus one ORM loading
+- missing pagination
+- wide JSON payloads
+- batch jobs reading from the writer
+- cross-AZ traffic surprises
+
+Storage used matters during incidents because low free space changes risk.
+
+A migration or backfill that is safe on a small table can be dangerous when the cluster is close to storage alarms.
+
+## Performance Insights: DB load
+
+Performance Insights turns database time into a readable stack.
+
+The most important graph is DB load measured in average active sessions.
+
+Compare DB load to vCPU count.
+
+If DB load is far above available CPU and the dominant wait is CPU, the instance is overloaded with runnable database work.
+
+If DB load is high but the dominant wait is lock or IO, scaling CPU may not help.
+
+## Wait events
+
+Wait events tell you what sessions are waiting for.
+
+Common Aurora PostgreSQL wait categories:
+
+| Wait category | What it often means |
+|---|---|
+| CPU | active execution pressure |
+| IO | data or index pages not in cache |
+| Lock | row, table, or advisory lock contention |
+| LWLock | internal lightweight lock contention |
+| Client | database waiting for client read or write |
+| BufferPin | cursor or long reader interaction |
+| WAL | commit or replication-related pressure |
+
+Do not stop at the wait category.
+
+Use it to choose the next query.
+
+If the top wait is lock, inspect blockers.
+
+If the top wait is IO, inspect plans and table growth.
+
+If the top wait is client, inspect application fetch size, network, and slow consumers.
+
+## Top SQL
+
+Top SQL is the bridge from symptom to code owner.
+
+Look for:
+
+- a query that suddenly appears at the top
+- the same query with far higher calls
+- same calls but higher mean time
+- same mean time but many more concurrent sessions
+- query text coming from an unexpected application name
+- ORM-generated SQL with missing predicates
+
+Capture:
+
+- query id
+- normalized SQL
+- calls
+- total time
+- average time
+- rows returned
+- wait breakdown
+- application name
+- host or pod if available
+
+Then map it back to the repository method.
+
+## EXPLAIN closes the loop
+
+Performance Insights tells you which query burns time.
+
+`EXPLAIN` tells you why.
+
+Use the production-shaped query with realistic bind values.
+
+```sql
+explain (analyze, buffers)
+select id, status, amount_cents, created_at
+from payment
+where merchant_id = $1
+  and status = $2
+order by created_at desc
+limit 50;
+```
+
+Look for:
+
+- sequential scan on a large table
+- rows removed by filter
+- index scan reading far too many rows
+- sort spilling to disk
+- nested loop with huge inner loops
+- stale row estimates
+- missing composite index
+- predicate not matching a partial index
+
+An index is not correct because it exists.
+
+It is correct when the plan uses it for the actual production predicate.
+
+## Writer versus reader routing
+
+Aurora exposes a writer endpoint and a reader endpoint.
+
+The writer endpoint is required for writes.
+
+The reader endpoint can spread read traffic across readers.
+
+A common Spring setup uses two data sources:
+
+- writer datasource for commands and consistent reads
+- reader datasource for safe read-only queries
+
+The routing decision is not only `readOnly = true`.
+
+It is a consistency decision.
+
+## Spring routing rule
+
+Reasonable default:
+
+| Operation | Route |
+|---|---|
+| create payment | writer |
+| update payment | writer |
+| read immediately after create | writer |
+| user refresh within consistency window | writer or sticky writer |
+| historical payment list | reader |
+| admin report | reader or analytics store |
+| idempotency lookup during write | writer |
+
+Avoid routing an idempotency check to a reader.
+
+A lagging reader can miss the record and let a duplicate payment through.
+
+## Read-after-write
+
+Read-after-write bugs are correctness bugs disguised as latency bugs.
+
+Example:
+
+1. `POST /payments` writes payment `P123` to the writer.
+2. The API returns success.
+3. The client immediately calls `GET /payments/P123`.
+4. The read is routed to a reader.
+5. Replica lag means the row is not visible yet.
+6. The client sees `404`.
+7. The client retries or opens a support case.
+
+The database was healthy.
+
+The routing policy was wrong.
+
+## Replica lag
+
+Track replica lag on every reader.
+
+Interpret lag by user promise:
+
+| Lag | Possible impact |
+|---|---|
+| milliseconds | usually safe for historical reads |
+| seconds | visible stale reads for recent writes |
+| tens of seconds | user confusion and duplicate workflows |
+| minutes | incident for consistency-sensitive APIs |
+
+Replica lag can increase because:
+
+- writer write volume spikes
+- reader CPU is saturated
+- long queries on reader consume resources
+- network or storage pressure appears
+- maintenance or failover is in progress
+- readers are undersized compared to read load
+
+## Reader overload
+
+Reader endpoint traffic can hide uneven load.
+
+Check each reader instance separately.
+
+If one reader has high CPU and another does not, inspect:
+
+- connection distribution
+- long-lived connections pinned to one reader
+- RDS Proxy or driver behavior
+- batch jobs targeting a specific endpoint
+- reader instance class mismatch
+
+For Spring apps with long-lived pools, DNS-level reader distribution may not rebalance quickly.
+
+Connection lifetime settings can help rotate connections, but do not use them as a substitute for capacity planning.
+
+## Writer overload from reads
+
+Sometimes the writer is overloaded because the app silently sends reads to it.
+
+Causes:
+
+- only one datasource was configured
+- transaction read-only flag is ignored by routing code
+- repository method is called inside a write transaction
+- report endpoint uses writer for convenience
+- idempotency and payment summary query are coupled
+
+During an incident, compare writer and reader query samples by `application_name`.
+
+If read-heavy SQL appears on the writer, routing is part of the fix.
+
+## Runbook: API latency to top SQL
+
+Use this sequence:
+
+1. Identify the impacted endpoint and status codes.
+2. Check if p99 latency aligns with Hikari pending threads.
+3. Check whether Hikari active connections are at maximum.
+4. Query `pg_stat_activity` for active sessions.
+5. Confirm writer versus reader application names.
+6. Open Performance Insights for the same five-minute window.
+7. Compare DB load to vCPU.
+8. Identify the dominant wait event.
+9. Open top SQL for the dominant wait.
+10. Map SQL to Spring repository or ORM path.
+11. Run `EXPLAIN` with realistic bind values.
+12. Decide mitigation before permanent fix.
+
+## Mitigation choices
+
+Possible mitigations:
+
+- roll back the release that changed SQL shape
+- disable the expensive endpoint
+- reduce concurrency for a batch job
+- route safe reads to readers
+- route consistency-sensitive reads to writer
+- add a short-term statement timeout
+- kill one proven blocker session
+- pause a consumer that is flooding the database
+- scale reader capacity for read-only pressure
+
+Do not create an index blindly during the incident unless you understand lock and IO impact.
+
+## Permanent fixes
+
+Durable fixes are usually one or more of:
+
+- better composite index
+- partial index for hot predicate
+- query rewrite
+- pagination limit
+- denormalized read model
+- transaction boundary correction
+- pool sizing correction
+- reader routing policy
+- read-after-write consistency rule
+- dashboard linking app and Aurora evidence
+- regression benchmark for the top SQL
+
+## What to say in an interview
+
+"I would correlate the service and Aurora timelines.
+
+If the payment API p99 jumps, I first check whether Tomcat threads are busy and whether Hikari has pending connection requests.
+
+If Hikari is waiting, I verify whether the active connections are doing real database work or are idle in transaction.
+
+Then I look at Aurora CloudWatch for writer and reader CPU, connections, IOPS, network, storage, and replica lag.
+
+Performance Insights gives me DB load, wait events, and top SQL.
+
+Once I have the top SQL, I run `EXPLAIN ANALYZE` with realistic parameters to prove whether the plan changed, stats are stale, the index is missing, or the query shape is wrong.
+
+For writer-reader routing, I do not route every read to a reader.
+
+Payment read-after-write, idempotency checks, and command validation stay on the writer or use a sticky consistency policy.
+
+Historical reads can go to readers, but I watch replica lag and per-reader saturation."
+
+## Related guides
+
+- [Aurora transactions and migrations](/realtime-issues/aurora-postgresql-transactions-migrations)
+- [Aurora payment incident case study](/realtime-issues/aurora-postgresql-incident-case-study)
+- [Aurora interview answer and follow-ups](/realtime-issues/aurora-postgresql-interview-answer-and-followups)

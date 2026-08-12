@@ -1,0 +1,538 @@
+---
+slug: aurora-postgresql-transactions-migrations
+title: "Aurora PostgreSQL Transactions and Migrations: Short Transactions, Outbox, Saga, and Expand-Contract"
+description: "Principal-level Java Spring and Aurora PostgreSQL guide for transaction boundaries, avoiding external REST inside database transactions, outbox, Saga, idempotency, distributed transaction tradeoffs, CREATE INDEX CONCURRENTLY, backfills, rollback, and expand-contract migrations."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Aurora PostgreSQL, Spring Boot, Transactions, Outbox, Saga, Idempotency, Database Migration]
+readingTime: 30 min
+publishedAt: "2026-08-12"
+---
+
+## The Principal framing
+
+A database transaction is a scarce coordination boundary.
+
+It should protect the smallest unit of data correctness.
+
+It should not protect a remote REST call, a Kafka publish wait, a file upload, a user email, or a payment processor round trip.
+
+The most important rule:
+
+> Never hold an Aurora PostgreSQL transaction open while waiting for an external REST dependency.
+
+That rule protects:
+
+- row locks
+- connection pool capacity
+- vacuum progress
+- replication health
+- failover recovery
+- user-facing latency
+
+## The bad pattern
+
+This pattern looks simple in code and dangerous in production:
+
+```java
+@Transactional
+public PaymentResult createPayment(CreatePaymentCommand command) {
+    Payment payment = paymentRepository.save(command.toPayment());
+    FraudDecision decision = fraudClient.check(command);
+    payment.applyFraudDecision(decision);
+    return paymentRepository.save(payment).toResult();
+}
+```
+
+The database transaction stays open during the fraud REST call.
+
+If the fraud service takes five seconds, the database connection and row locks are held for five seconds.
+
+If the fraud service hangs, Hikari eventually fills with callers waiting behind transactions that are doing no database work.
+
+## The better shape
+
+Use a short transaction to record intent.
+
+Then process external work outside the transaction.
+
+```java
+public PaymentResult createPayment(CreatePaymentCommand command) {
+    PaymentCreated created = createPaymentIntent(command);
+    fraudWorkflow.requestFraudCheck(created.paymentId());
+    return PaymentResult.accepted(created.paymentId());
+}
+
+@Transactional
+PaymentCreated createPaymentIntent(CreatePaymentCommand command) {
+    Payment payment = paymentRepository.insertPending(command);
+    outboxRepository.insert(payment.id(), "PAYMENT_CREATED");
+    return new PaymentCreated(payment.id());
+}
+```
+
+The transaction only writes local durable facts.
+
+The external REST call is moved to a workflow step that can retry safely.
+
+## Why this matters in Aurora
+
+Long transactions in Aurora PostgreSQL can cause:
+
+- row lock chains
+- high `DatabaseConnections`
+- Hikari pending threads
+- blocked `CREATE INDEX`
+- slow autovacuum cleanup
+- table and index bloat
+- stale snapshots
+- long failover recovery
+- replica lag pressure
+
+An idle Java thread can still own a database transaction.
+
+That is why `idle in transaction` is a serious production smell.
+
+## Short transaction principle
+
+A strong transaction boundary has these properties:
+
+- one local database
+- one consistency purpose
+- bounded statement time
+- bounded lock time
+- no external network call
+- no user think time
+- no waiting for Kafka broker acknowledgement unless designed as local outbox insert
+- no blocking on another thread pool
+
+If a method needs a remote decision, split the workflow.
+
+## Transaction checklist
+
+Before approving a Spring `@Transactional` method, ask:
+
+1. Does it call REST, gRPC, SOAP, S3, Kafka, email, or another database?
+2. Does it call code that might do so indirectly?
+3. Does it loop over many rows?
+4. Does it perform user-visible slow work?
+5. Does it hold locks while calculating a response body?
+6. Does it read from a replica and write to the writer in the same logical decision?
+7. Does retry cause duplicate external side effects?
+8. Does rollback mean the external world also rolled back?
+
+If the answer to the last question is "no", the transaction is not a distributed truth boundary.
+
+## Outbox pattern
+
+The outbox pattern records a local state change and a message to publish in the same database transaction.
+
+```sql
+create table payment_outbox (
+  id uuid primary key,
+  aggregate_id uuid not null,
+  event_type text not null,
+  payload jsonb not null,
+  status text not null,
+  created_at timestamptz not null,
+  published_at timestamptz
+);
+```
+
+The local write and outbox insert commit together.
+
+Then a relay publishes the event to Kafka, SNS, SQS, or another integration.
+
+If the relay crashes, it resumes from durable outbox rows.
+
+## Outbox relay
+
+A Spring relay should be idempotent and bounded:
+
+```sql
+select id, aggregate_id, event_type, payload
+from payment_outbox
+where status = 'NEW'
+order by created_at
+limit 100
+for update skip locked;
+```
+
+The relay can process batches without multiple workers fighting for the same rows.
+
+`FOR UPDATE SKIP LOCKED` is useful when each row is a unit of work and skipping locked rows is acceptable.
+
+It is not a general-purpose correctness escape hatch.
+
+## Saga pattern
+
+A Saga coordinates a business workflow through local transactions and compensating actions.
+
+Payment example:
+
+1. Create payment intent locally.
+2. Reserve inventory locally in inventory service.
+3. Request fraud decision.
+4. Authorize payment with processor.
+5. Capture payment after order confirmation.
+6. Compensate reservation if payment fails.
+
+Each step commits independently.
+
+The workflow state records what happened and what should happen next.
+
+## Idempotency is mandatory
+
+Outbox and Saga designs rely on idempotency.
+
+For payment APIs, use an idempotency table:
+
+```sql
+create table payment_idempotency (
+  merchant_id uuid not null,
+  idempotency_key text not null,
+  payment_id uuid not null,
+  request_hash text not null,
+  response_body jsonb not null,
+  created_at timestamptz not null,
+  primary key (merchant_id, idempotency_key)
+);
+```
+
+The first request creates the record.
+
+Retries return the same result when the request hash matches.
+
+Conflicting retries fail safely.
+
+## Distributed DB transactions
+
+Distributed database transactions promise atomic commit across resources.
+
+They are rarely the right default for microservices because they add:
+
+- coordinator availability risk
+- lock duration across services
+- operational complexity
+- weak fit with external APIs
+- hard recovery paths
+- tight coupling between teams
+
+Use a distributed transaction only when all participants are designed for it, operational ownership is clear, and latency impact is acceptable.
+
+For most Spring payment systems, use local transactions plus outbox, Saga state, idempotency, and reconciliation.
+
+## The production migration mindset
+
+A schema migration is a deployment.
+
+It competes with live traffic for locks, CPU, IOPS, WAL, cache, and replication capacity.
+
+Before running a migration on Aurora PostgreSQL, assess:
+
+- table size
+- index size
+- row count
+- write rate
+- read rate
+- peak traffic window
+- lock type
+- lock duration
+- backfill cost
+- rollback path
+- replica lag impact
+- storage growth
+- autovacuum health
+- application compatibility
+
+The SQL is only one part of the release.
+
+## Expand and contract
+
+The safe migration pattern is expand and contract:
+
+1. Expand the schema in a backward-compatible way.
+2. Deploy code that can write old and new shapes if needed.
+3. Backfill old data into the new shape.
+4. Switch reads to the new shape.
+5. Stop writing the old shape.
+6. Remove old schema after confidence.
+
+This is sometimes called:
+
+```text
+dual-write
+  -> backfill
+  -> switch
+  -> remove
+```
+
+The key is that each step is separately reversible or at least safely pausable.
+
+## Example: add normalized payment status
+
+Suppose payments currently store a loose text status.
+
+You want to add a normalized status id.
+
+Do not deploy one big bang migration that rewrites every row and flips code at once.
+
+Use this sequence:
+
+1. Add nullable `status_id`.
+2. Deploy code that writes both `status_text` and `status_id`.
+3. Backfill `status_id` in small batches.
+4. Validate counts and mismatches.
+5. Switch reads to `status_id`.
+6. Enforce constraints later.
+7. Remove `status_text` after old code is gone.
+
+## Additive DDL first
+
+Additive changes are usually safest:
+
+```sql
+alter table payment
+add column status_id integer;
+```
+
+Adding a nullable column is typically low risk compared to rewriting a table.
+
+Still check the PostgreSQL version, table characteristics, and Aurora behavior before assuming zero impact.
+
+## Backfill in batches
+
+Backfills should be bounded.
+
+```sql
+update payment
+set status_id = case status_text
+  when 'PENDING' then 1
+  when 'AUTHORIZED' then 2
+  when 'CAPTURED' then 3
+  when 'FAILED' then 4
+end
+where status_id is null
+  and id in (
+    select id
+    from payment
+    where status_id is null
+    order by id
+    limit 5000
+  );
+```
+
+Run the batch repeatedly with sleeps, metrics, and a stop switch.
+
+Do not let a backfill become the largest transaction in the history of the service.
+
+## Backfill controls
+
+Every production backfill needs:
+
+- batch size
+- sleep interval
+- maximum runtime per window
+- lock timeout
+- statement timeout
+- progress metric
+- lag metric
+- error counter
+- pause flag
+- rollback or compensation plan
+
+For Aurora, watch writer IOPS, replica lag, WAL pressure, and CPU during the backfill.
+
+## CREATE INDEX CONCURRENTLY
+
+For large live PostgreSQL tables, prefer:
+
+```sql
+create index concurrently idx_payment_merchant_status_created
+on payment (merchant_id, status_id, created_at desc);
+```
+
+`CREATE INDEX CONCURRENTLY` avoids blocking normal reads and writes for most of the build.
+
+It still consumes CPU, IO, and time.
+
+It also cannot run inside a transaction block.
+
+If it fails, it may leave an invalid index that must be dropped.
+
+## Concurrent index precautions
+
+Before running a concurrent index:
+
+1. Confirm the index supports a real query plan.
+2. Estimate table and index size.
+3. Check write volume.
+4. Check maintenance work memory settings.
+5. Check storage headroom.
+6. Check replica lag sensitivity.
+7. Set a lock timeout.
+8. Run outside a transaction block.
+9. Monitor progress.
+10. Prepare drop command for invalid index cleanup.
+
+Example cleanup:
+
+```sql
+drop index concurrently if exists idx_payment_merchant_status_created;
+```
+
+## Lock duration
+
+Most dangerous migrations are dangerous because of locks, not syntax.
+
+Examples to review carefully:
+
+- adding a non-null column with a volatile default
+- changing column type on a large table
+- adding a constraint that validates immediately
+- dropping a heavily used index too early
+- rewriting a large table
+- running bulk update in one transaction
+
+Use lock timeouts so migration scripts fail instead of waiting behind traffic and surprising the system later.
+
+```sql
+set lock_timeout = '5s';
+set statement_timeout = '30min';
+```
+
+## Constraint rollout
+
+For constraints on existing data, use a staged approach when PostgreSQL supports it.
+
+Example:
+
+```sql
+alter table payment
+add constraint payment_status_id_present
+check (status_id is not null) not valid;
+
+alter table payment
+validate constraint payment_status_id_present;
+```
+
+This separates definition from validation.
+
+Validation still costs work, so schedule and monitor it.
+
+## Rollback thinking
+
+A rollback plan is not "restore the database."
+
+Restoring the database usually means downtime, data loss risk, or complex reconciliation.
+
+A good migration rollback asks:
+
+- Can old code run against the expanded schema?
+- Can new code be disabled by a flag?
+- Can backfill be paused?
+- Can dual-write continue safely?
+- Can read switch be reversed?
+- Can invalid index be dropped?
+- Can extra column remain temporarily?
+- Can downstream consumers tolerate both formats?
+
+Prefer roll-forward and compatibility over destructive rollback.
+
+## Traffic shaping
+
+Migration risk depends on live traffic.
+
+Avoid running heavy DDL and backfill during:
+
+- payment peak hours
+- marketing events
+- batch settlement windows
+- month-end finance jobs
+- incident recovery
+- Aurora maintenance
+- replica rebuild
+
+If the table is central to checkout, use smaller batches and longer rollout.
+
+The goal is user safety, not migration speed.
+
+## Spring transaction settings
+
+Set protective defaults:
+
+```properties
+spring.datasource.hikari.maximum-pool-size=20
+spring.datasource.hikari.connection-timeout=2000
+spring.transaction.default-timeout=5
+```
+
+Use database-side timeouts too:
+
+```sql
+alter role payment_app set statement_timeout = '5s';
+alter role payment_app set idle_in_transaction_session_timeout = '30s';
+```
+
+Tune numbers to the service SLO and query profile.
+
+The important principle is bounded waiting.
+
+## Incident smell: idle in transaction
+
+Query:
+
+```sql
+select
+  pid,
+  application_name,
+  state,
+  now() - xact_start as transaction_age,
+  wait_event_type,
+  wait_event,
+  left(query, 160) as query_sample
+from pg_stat_activity
+where state = 'idle in transaction'
+order by xact_start;
+```
+
+If you see long idle transactions from the payment API, inspect Spring methods that open transactions too early or return lazy-loaded entities after the service method.
+
+## Principal migration review template
+
+Ask for these fields before approval:
+
+| Field | Question |
+|---|---|
+| Table | Which table and how large |
+| Traffic | Reads and writes per second |
+| Lock | What lock is needed and when |
+| Duration | Expected runtime and timeout |
+| Backfill | Batch size and pause control |
+| Rollback | How old code remains compatible |
+| Lag | Expected replica lag impact |
+| Storage | Extra table, index, and WAL growth |
+| Verification | Counts, checksums, and query plans |
+| Owner | Who watches and who stops it |
+
+## What to say in an interview
+
+"I do not hold a Spring transaction open across REST.
+
+I commit the local state quickly, often with an outbox row in the same transaction, then let a workflow or relay perform the external side effect with retries and idempotency.
+
+For multi-step business processes, I prefer Saga state and compensation over distributed database transactions unless the environment is explicitly designed for distributed commit.
+
+For Aurora PostgreSQL migrations, I use expand and contract.
+
+I add backward-compatible schema first, dual-write when needed, backfill in bounded batches, switch reads after validation, and remove the old shape later.
+
+For large indexes I use `CREATE INDEX CONCURRENTLY`, monitor CPU, IOPS, storage, locks, and replica lag, and I keep a cleanup plan for failed invalid indexes.
+
+Before approval, I want table size, lock behavior, backfill plan, rollback plan, and traffic window."
+
+## Related guides
+
+- [Aurora writer and reader observability](/realtime-issues/aurora-postgresql-cloudwatch-writer-reader)
+- [Aurora payment incident case study](/realtime-issues/aurora-postgresql-incident-case-study)
+- [Aurora interview answer and follow-ups](/realtime-issues/aurora-postgresql-interview-answer-and-followups)
