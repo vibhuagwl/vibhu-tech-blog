@@ -67,6 +67,7 @@ const ORDER=[
   'query-used-to-be-fast-now-timeouts',
   'production-database-change-risk-checklist',
   'spring-secrets-pii-handling',
+  'spring-kafka-dlq-payments',
 ];
 
 export default function RealtimeIssues(){
