@@ -1,0 +1,177 @@
+---
+slug: java-migration-testing-and-regression
+title: "Java Migration Testing: From Compile Green to Behavioral Parity"
+description: "Why compilation is not proof, how to structure unit through performance tests for a Java 11 to 17 upgrade, and how to compare payment and Kafka behavior before vs after."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java Migration, Regression Testing, Integration Tests, Performance Testing, Kafka, Payments]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+## Compilation is not proof
+
+Compilation only proves:
+
+> "The code can compile."
+
+It does not prove:
+
+> "The application behaves exactly as before."
+
+That distinction is the heart of upgrade-risk literacy.
+
+If an interviewer suspects you only bump versions and fix `javac` errors, answer this section carefully.
+
+## Multi-level testing
+
+I test at multiple levels:
+
+```text
+Unit Tests
+     ↓
+Integration Tests
+     ↓
+API/Contract Tests
+     ↓
+Database Tests
+     ↓
+Kafka/Event Tests
+     ↓
+End-to-End Tests
+     ↓
+Performance Tests
+     ↓
+Security Tests
+```
+
+Each layer catches a different migration failure class.
+
+- Unit: pure logic and date/time edge cases
+- Integration: Spring context, beans, transactions
+- Contract: request/response compatibility for clients
+- Database: JDBC/Hibernate SQL and transactional boundaries
+- Kafka: serialization, headers, idempotent consumers
+- E2E: full business path
+- Performance: GC, allocations, p99 latency
+- Security: authn/authz, crypto providers, TLS defaults
+
+## Financial / payment focus areas
+
+For financial applications, I would particularly test:
+
+- payment calculations
+- transaction processing
+- date/time behavior
+- serialization/deserialization
+- database interactions
+- Kafka messages
+- authentication
+- external integrations
+- batch processing
+- error handling and compensating paths
+
+Money and time are where "almost the same" becomes an incident.
+
+## Regression comparison, not just start-up
+
+Suppose the legacy system processes:
+
+```text
+Payment → Calculate → Persist → Publish Kafka Event
+```
+
+After upgrading Java/Spring, I would compare:
+
+```text
+Before migration
+Payment result = X
+Kafka event = Y
+DB state = Z
+
+After migration
+Payment result = X
+Kafka event = Y
+DB state = Z
+```
+
+This is much more valuable than simply checking whether the application starts.
+
+## How to build a regression pack
+
+Practical approach:
+
+1. Select the top N business-critical flows by volume and blast radius.
+2. Capture fixtures: inputs, expected outputs, side effects.
+3. Automate replay against the Java 11 baseline environment.
+4. Replay the same fixtures against the Java 17 candidate.
+5. Diff business results, events, and DB states.
+6. Investigate every intentional difference; fail the migration on unintentional ones.
+
+If you cannot automate everything, still document a manual scripted regression for the hottest paths.
+
+In interviews, saying "we compared business outputs before and after" beats "all unit tests passed."
+
+## Performance and GC regressions
+
+Java 17 may change:
+
+- default GC behavior depending on runtime settings and container support
+- allocation patterns after library upgrades
+- warm-up characteristics
+- thread and pin behavior under containers
+
+So I include:
+
+- load tests at realistic concurrency
+- heap/GC dashboards compared to baseline
+- CPU and allocation profiles for hot endpoints
+- Kafka consumer lag under the same produce rate
+- DB pool wait times under the same query mix
+
+A migration that is functionally correct but 30% slower on authorization can still be a failed release.
+
+## Flaky tests and hidden debt
+
+Legacy suites often hide:
+
+- order-dependent tests
+- real-time sleeps
+- timezone-dependent assertions
+- unordered JSON comparisons
+
+Upgrade work surfaces them.
+
+In an interview, say you would quarantine or fix flaky tests deliberately so they are not misread as Java 17 regressions—and you would not silently delete assertions to go green.
+
+## Security testing during migration
+
+Re-validate:
+
+- TLS defaults and cipher availability
+- password encoders and crypto providers
+- JWT parsing libraries
+- XML parsers (XXE posture) if XML remains
+- SAML/SSO libraries on the new JDK
+
+Security libraries are frequent Java 17 casualties because they touch providers and reflection.
+
+## Definition of done for test phase
+
+I would not call the candidate "ready for canary" until:
+
+- critical regression pack is green vs baseline
+- known differences are documented and accepted
+- performance is within agreed budgets
+- security scans and smoke auth paths pass
+- runbooks note new JVM flags or removed temporary opens
+
+## Interview phrasing
+
+```text
+Compile green is necessary but not sufficient.
+I would prove behavioral parity with unit, integration, contract, database, Kafka,
+end-to-end, performance, and security tests—especially payment calculation,
+serialization, and date/time paths—and compare before/after business outputs,
+not just whether the process starts.
+```

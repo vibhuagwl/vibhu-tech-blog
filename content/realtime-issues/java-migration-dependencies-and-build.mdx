@@ -1,0 +1,200 @@
+---
+slug: java-migration-dependencies-and-build
+title: "Java Migration: Dependency Remediation and Build/Runtime Alignment"
+description: "How to analyze Maven/Gradle trees, resolve version conflicts intentionally, scan for vulnerabilities, and align developer JDK, CI, Docker, and production runtimes for Java 17."
+category: "Real-Time Issues"
+difficulty: Staff
+tags: [Java Migration, Maven, Gradle, Dependency Tree, Docker, CI/CD, Snyk, OWASP]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+## Dependency remediation
+
+I use Maven or Gradle dependency analysis to identify the dependency tree.
+
+For Maven:
+
+```bash
+mvn dependency:tree
+```
+
+For Gradle:
+
+```bash
+./gradlew dependencies
+./gradlew dependencyInsight --dependency jackson-databind
+```
+
+I look for:
+
+- multiple versions of the same library
+- vulnerable dependencies
+- transitive dependencies pulled by stale starters
+- libraries that do not support Java 17
+- abandoned artifacts with no Java 17 commits or issues
+- agents and plugins that rewrite bytecode
+
+## Conflict example
+
+One path may require:
+
+```text
+Application
+   |
+Spring
+   |
+Library A
+   |
+Old Jackson
+```
+
+while another dependency requires:
+
+```text
+New Jackson
+```
+
+I resolve these conflicts intentionally rather than simply forcing the newest version.
+
+Forcing newest can compile and still break serialization contracts, polymorphic typing, or date formats.
+
+Intentional resolution means:
+
+1. identify who needs which version and why
+2. prefer the platform BOM (Spring Boot) when safe
+3. upgrade the consumer that is stuck on the old major
+4. only then use enforced platform versions / alignment rules
+5. add a regression test around the risky serialize/deserialize path
+
+## Security scanners as migration inputs
+
+Security scanners such as Snyk, Black Duck, OWASP dependency checking, or organizational SCA tooling help identify vulnerable libraries.
+
+During a Java upgrade, scanners are useful because:
+
+- they surface libraries you must leave behind anyway
+- they prevent "upgrade JDK, keep known-bad crypto/XML parsers"
+- they create a prioritized remediation backlog with CVEs attached
+
+Do not confuse a clean CVE report with behavioral compatibility.
+
+Both are required.
+
+## Internal libraries and BOMs
+
+Company-internal jars are often the real blocker:
+
+- shared domain models compiled on ancient bytecode assumptions
+- internal security starters pinning old Spring Security
+- logging or metrics wrappers shading old Guava / Netty
+
+In interviews, mention that you would inventory **internal** artifacts with the same seriousness as public Maven Central coordinates.
+
+If an internal library has no Java 17 owner, that is a program risk, not a service risk.
+
+## Build and runtime alignment
+
+I also verify the build pipeline.
+
+For example:
+
+```text
+Developer JDK
+       ↓
+Maven/Gradle
+       ↓
+CI/CD JDK
+       ↓
+Docker base image
+       ↓
+Runtime JDK
+```
+
+All of these need to be aligned.
+
+A common mistake is:
+
+```text
+Local → Java 17
+CI → Java 11
+Docker → Java 11
+Production → Java 11
+```
+
+That mistake produces "works on my machine" migrations.
+
+## What I update together
+
+I would update:
+
+- Maven compiler configuration / toolchain plugin
+- Maven or Gradle plugin versions that must understand JDK 17
+- CI/CD JDK image or setup-java version
+- Docker base image
+- application runtime (orchestrator image, VM package, function runtime)
+- local development configuration and `.sdkmanrc` / asdf / IDE settings
+- Testcontainers images where the container JDK matters
+- release packaging assumptions (multi-release jars, module path, if used)
+
+Then verify:
+
+```bash
+mvn clean verify
+```
+
+or the Gradle equivalent on the **same JDK major** CI will use.
+
+## Toolchain plugin pattern
+
+A strong engineering practice is pinning the toolchain so the build fails if the wrong JDK is used, rather than silently compiling with whatever is on `PATH`.
+
+In an interview, you do not need perfect XML from memory.
+
+You need the idea:
+
+```text
+The build should request JDK 17 explicitly.
+CI should provision JDK 17 explicitly.
+The runtime image should contain JDK 17 explicitly.
+Those three must match.
+```
+
+## Plugin and annotation processing traps
+
+Watch for:
+
+- old `maven-compiler-plugin`
+- old MapStruct / Lombok / Error Prone versions
+- old Checkstyle/PMD/SpotBugs that fail on new language syntax
+- old Shade plugin configurations
+- old Spring Boot repackage plugin lines after Boot upgrades
+
+Static analysis and annotation processing often break before business code does.
+
+Fixing them early unblocks the team.
+
+## Practical remediation order
+
+A workable order:
+
+```text
+1. Align JDK across local/CI/image
+2. Raise build plugins to Java 17-capable versions
+3. Move to a Spring Boot line that supports Java 17 (if required)
+4. Replace or upgrade libraries failing jdeps / tests / reflective access
+5. Remove temporary JVM open flags as libraries are fixed
+6. Re-run SCA and fix newly visible vulnerable transitive deps
+7. Freeze a dependency bill of materials for the release candidate
+```
+
+## Interview phrasing
+
+```text
+I would not force the newest versions blindly.
+I would read the dependency tree, resolve conflicts against the Spring BOM where possible,
+upgrade or replace libraries that cannot run on Java 17, and make sure developer JDK,
+CI JDK, Docker base image, and production runtime all move together.
+```
+
+That answer demonstrates migration competence without claiming you already ran the full legacy program.
