@@ -27,6 +27,10 @@ export default function DesignPatternsRevisionPage(){
             Browse full source repo →
           </Link>
           <span className="text-slate-300">·</span>
+          <Link href="/design-patterns-memory-formula" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+            Memory formula →
+          </Link>
+          <span className="text-slate-300">·</span>
           <Link href="/java-design-patterns-real-world?path=docs%2Fpattern-comparisons.md" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
             Comparison docs →
           </Link>
