@@ -1,0 +1,315 @@
+---
+slug: jpmc-top-100-questions
+title: "Top 100 JPMC Experience Interview Questions"
+description: "One hundred experience-specific questions with concise model answers and placeholders for real metrics."
+category: "JPMC Experience"
+difficulty: Principal
+tags: [JPMC, Interview, Questions, Staff, Principal]
+readingTime: 25 min
+publishedAt: "2026-08-12"
+---
+
+## Rules
+Answer with ownership. Replace every `{NEED}`. Prefer metrics you can defend.
+
+## Top 100
+
+### 1. How did Cashlines work end to end?
+**Model:** API→validate→DB→Kafka→consumer→status; dual-write aware.
+
+### 2. DB committed, Kafka publish failed — then what?
+**Model:** Outbox/CDC/retry publish; never ignore orphan states.
+
+### 3. How do you make Kafka consumers idempotent?
+**Model:** Business key / event id + unique constraints + state checks.
+
+### 4. Retryable vs non-retryable?
+**Model:** Timeouts/503 retry; invalid payload/schema to DLQ.
+
+### 5. What does DefaultErrorHandler do?
+**Model:** Retries with backoff then recoverer (often DLQ) then move on.
+
+### 6. Explain your replay tool.
+**Model:** Select DLQ msgs, validate, rate-limit republish, audit, report categories.
+
+### 7. Replay causes duplicates — how safe?
+**Model:** Idempotent consumers; duplicates become no-ops.
+
+### 8. Ordering after replay?
+**Model:** Replay in partition order; guard state transitions.
+
+### 9. Why CDC?
+**Model:** Committed DB as event source; reduce dual writes.
+
+### 10. CDC duplicate events?
+**Model:** At-least-once; idempotent apply by entity version/LSN.
+
+### 11. Schema evolution strategy?
+**Model:** Additive optional fields; registry compatibility.
+
+### 12. Why Avro?
+**Model:** Contract + evolution; confirm per-topic `{NEED}`.
+
+### 13. Participant onboarding idempotency?
+**Model:** Idempotency-Key or natural unique key.
+
+### 14. Swagger value?
+**Model:** Explicit contract; DTO boundary; fewer integration surprises.
+
+### 15. Deloitte tax architecture?
+**Model:** REST→Camunda→Drools→external→S3/SQS→tracker.
+
+### 16. Why Camunda?
+**Model:** Long-running visible state, timers, incidents, human tasks.
+
+### 17. Why Drools vs if/else?
+**Model:** Rule churn, testable decisions, business separation.
+
+### 18. GraphQL vs REST here?
+**Model:** Vendor API shape; still wrap with timeouts/retries.
+
+### 19. S3 role?
+**Model:** Store payloads/artifacts with IAM + encryption.
+
+### 20. SQS crash before delete?
+**Model:** Redelivery; idempotent processing required.
+
+### 21. Async tracker fields?
+**Model:** requestId, correlationId, status, workflowId, errors, refs.
+
+### 22. Callback duplicate?
+**Model:** Idempotent update by correlation + state machine.
+
+### 23. Spring Batch chunk tradeoff?
+**Model:** Commit size vs transaction duration/restart granularity.
+
+### 24. Large RSU file approach?
+**Model:** Stream/chunk, checkpoint, validate, audit bad rows.
+
+### 25. Maker-checker why workflow?
+**Model:** SoD, audit, escalation, rework loops.
+
+### 26. Terraform plan vs apply?
+**Model:** Preview vs mutate; respect state on partial failure.
+
+### 27. SG design?
+**Model:** ALB 443 only public; app private; least privilege.
+
+### 28. Cert expiry handling?
+**Model:** Monitor expiry; rotate; fail closed on TLS.
+
+### 29. Harness rollback trigger?
+**Model:** Business validation fail even if healthy pods.
+
+### 30. How find dependency conflict?
+**Model:** mvn dependency:tree + BOM + convergence.
+
+### 31. javax to jakarta?
+**Model:** Namespace migration with Boot 3 / EE 9+ — `{NEED}` if you did it.
+
+### 32. Biggest production incident?
+**Model:** `{NEED}` only real story.
+
+### 33. What did YOU build?
+**Model:** `{NEED}` precise ownership bullets.
+
+### 34. Kafka vs SQS choice?
+**Model:** Fan-out, ordering, replay, retention needs — context-specific.
+
+### 35. How prove optimization?
+**Model:** Before/after metrics: lag, p99, error rate.
+
+### 36. How test DLQ path?
+**Model:** Force non-retryable; assert DLQ + offset progress.
+
+### 37. How monitor Cashlines?
+**Model:** Status mix, lag, DLQ, dependency SLOs.
+
+### 38. Stuck workflow triage?
+**Model:** Process instance + incidents + tracker + deps.
+
+### 39. PR review focus?
+**Model:** Correctness, failure modes, tests, compat, observability.
+
+### 40. Env config rule?
+**Model:** No secrets in repo; profiles + secret manager.
+
+### 41. How prevent recurrence?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 42. Feature flag usage?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 43. Canary metrics?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 44. Rollback decision criteria?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 45. Serialization failure handling?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 46. Deserialization to DLQ?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 47. Manual ack when?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 48. Rebalance storm causes?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 49. Hot partition fix options?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 50. Multi-region considerations?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 51. Security of replay API?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 52. PII in logs policy?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 53. How test ordering?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 54. How test retries?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 55. How test timeout?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 56. How test rollback?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 57. Batch restart semantics?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 58. Skip vs fail job?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 59. File duplicate detection?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 60. Partial file failure policy?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 61. OpenAPI error model?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 62. Why not expose entities?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 63. Backward compatible API change?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 64. Breaking API change process?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 65. Partition key strategy?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 66. Consumer group design?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 67. Lag alert threshold rationale?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 68. How backfill CDC consumer?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 69. How rate-limit replay?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 70. Dry-run replay?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 71. Who can authorize replay?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 72. Audit fields on replay?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 73. How handle poison message?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 74. What is effectively-once?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 75. Outbox vs CDC?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 76. How detect missing CDC events?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 77. API versioning approach?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 78. Contract testing tool?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 79. How mock GraphQL?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 80. How assert Playwright on Kafka side effect?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 81. Visibility timeout tuning?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 82. FIFO when needed?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 83. How store large tax request?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 84. Presigned URL or server upload?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 85. Camunda external task?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 86. Compensation handlers?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 87. Drools versioning?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 88. Rule conflict detection?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 89. How escalate maker-checker?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 90. Rejection/rework path?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 91. Blue/green or rolling?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 92. Smoke vs regression in Harness?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 93. How separate DEV/PROD state?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 94. Terraform modules boundaries?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 95. ALB target health checks?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 96. IAM for S3 least privilege?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 97. JWT validation steps?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 98. Service-to-service auth?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 99. Connection pool exhaustion signs?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.
+
+### 100. GC/memory triage steps?
+**Model:** Speak from your system: `[NEEDS MY REAL PROJECT DETAIL]` — structure: problem → design → failure → proof.

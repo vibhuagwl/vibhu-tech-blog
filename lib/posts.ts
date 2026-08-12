@@ -90,5 +90,6 @@ export const SECTION_CATEGORIES={
   'kafka-interview':['Kafka Interview'],
   'redis-interview':['Redis Interview'],
   'realtime-issues':['Real-Time Issues'],
+  'jpmc-experience':['JPMC Experience'],
 } as const;
 

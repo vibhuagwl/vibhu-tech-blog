@@ -1,0 +1,35 @@
+---
+slug: jpmc-production-support
+title: "Production Support Methodology"
+description: "Detect→scope→correlate→mitigate→recover→RCA for lag, latency, duplicates, stuck workflows, cert expiry, memory."
+category: "JPMC Experience"
+difficulty: Principal
+tags: [JPMC, Production Support, Incident, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+
+## Methodology
+
+1. Detect  
+2. Scope  
+3. Correlate (requestId, workflowId, offset, tracker)  
+4. Investigate  
+5. Mitigate  
+6. Recover  
+7. Validate  
+8. RCA  
+9. Permanent fix  
+10. Prevent recurrence  
+
+## Symptom → first checks
+- API latency ↑ → deps, DB pool, GC, downstream  
+- Kafka lag ↑ → processing vs cluster  
+- Duplicates → idempotency gaps / double publish / redelivery  
+- Wrong tax → rules version + input facts + external response  
+- Stuck workflow → Camunda incidents/timers  
+- Cert expiry → ALB/TLS errors spike  
+
+## Spoken line
+> I correlate one transaction across API logs, tracker row, workflow id, and Kafka partition/offset before changing anything in prod.

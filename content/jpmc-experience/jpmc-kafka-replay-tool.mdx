@@ -1,0 +1,66 @@
+---
+slug: jpmc-kafka-replay-tool
+title: "Kafka Replay Tool — Production Interview Story"
+description: "Why replay existed, DLQ selection, republish safety, duplicates, ordering, rate limits, audit, and reporting categories."
+category: "JPMC Experience"
+difficulty: Principal
+tags: [JPMC, Kafka, Replay, DLQ, Idempotency, Interview, Experience]
+readingTime: 18 min
+publishedAt: "2026-08-12"
+---
+
+
+## Why the replay tool was required
+
+Failed messages landed in DLQ/error topics. Ops/engineering needed a **controlled** way to reprocess without ad-hoc scripts in production.
+
+Production problem: `[NEEDS MY REAL PROJECT DETAIL]` (e.g. poison surge after bad deploy / dependency outage).
+
+## What I built / owned
+`[NEEDS MY REAL PROJECT DETAIL]` — be precise: UI vs API vs CLI, who could authorize replay, which topics.
+
+## Flow
+
+```text
+DLQ / error topic
+  → select messages (filter by time, error type, id)
+  → validate payload / schema / business preconditions
+  → optional dry-run
+  → republish to original or replay topic (rate limited)
+  → audit log
+  → report success / duplicate / validation / dependency failures
+```
+
+## Duplicate messages
+
+If replayed message and a delayed original both arrive:
+
+> We prevent duplicate **business** processing with idempotency keys / event ids / unique constraints / state checks. Replay is at-least-once delivery; exactly-once business effect is an application property.
+
+## Ordering
+
+Kafka guarantees order **within a partition**. Replaying B before A across a dependency chain can break business sequencing.
+
+Controls:
+- Replay in offset order within partition
+- Prefer same partition key
+- Gate on state machine (reject out-of-order transitions)
+
+## Replay frequency
+
+Prefer **manual / controlled batches** over hot loops. Scheduled replay only with rate limits and ownership.
+
+## Example report categories (illustrative pattern, not your real counts)
+
+```text
+1000 selected
+ → success
+ → duplicates skipped
+ → validation failures
+ → dependency failures
+```
+
+Replace with `[NEEDS MY REAL PROJECT DETAIL]` real incident numbers only if accurate.
+
+### 30 seconds
+> I built/operated a Kafka replay path for DLQ messages with validation, rate limiting, audit, and idempotent consumers so we could recover without unsafe manual republishing.

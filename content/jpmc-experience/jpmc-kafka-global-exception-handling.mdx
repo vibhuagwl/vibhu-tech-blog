@@ -1,0 +1,48 @@
+---
+slug: jpmc-kafka-global-exception-handling
+title: "Spring Kafka Global Exception Handling"
+description: "DefaultErrorHandler, DeadLetterPublishingRecoverer, backoff, AckMode, seek, offset commit — full lifecycle answers."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, Kafka, Spring Kafka, DefaultErrorHandler, Interview]
+readingTime: 14 min
+publishedAt: "2026-08-12"
+---
+
+
+## Components to know cold
+
+- `CommonErrorHandler` / `DefaultErrorHandler`
+- `DeadLetterPublishingRecoverer`
+- `FixedBackOff` / `ExponentialBackOff`
+- Ack modes and when offsets commit
+- Seek behavior after failures
+
+## Lifecycle
+
+```text
+ConsumerRecord
+  → listener
+  → exception
+  → DefaultErrorHandler
+  → retry with backoff
+  → recovery (DLQ publish)
+  → offset can advance after recovery
+```
+
+## Spoken answers
+
+**What happens to the offset when an exception occurs?**  
+Depends on ack mode and whether the error handler recovers. With DefaultErrorHandler + recoverer, after retries the record is recovered (e.g. DLQ) and the consumer can move past it.
+
+**Same message keeps failing?**  
+Retry budget then DLQ. If misconfigured to retry forever, you block progress and inflate lag.
+
+**Consumer restarts?**  
+Resumes from last committed offsets; uncommitted work may redeliver → idempotency required.
+
+**During rebalance?**  
+Partitions revoked/assigned; in-flight processing must not assume exclusive ownership forever; commit carefully.
+
+## Config story
+`[NEEDS MY REAL PROJECT DETAIL]`: paste sanitized config values you used (retry interval, max attempts, DLQ topic naming).

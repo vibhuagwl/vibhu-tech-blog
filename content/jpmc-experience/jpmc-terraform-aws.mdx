@@ -1,0 +1,42 @@
+---
+slug: jpmc-terraform-aws
+title: "Terraform + AWS Cluster Provisioning"
+description: "Modules, plan/apply, VPC/ALB/SG/certs, least privilege, env separation, halfway failure recovery."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, Terraform, AWS, ALB, Interview, Platform]
+readingTime: 15 min
+publishedAt: "2026-08-12"
+---
+
+
+## Story
+
+```text
+Terraform
+  → modules / variables / locals / outputs
+  → security groups
+  → ALB + target groups
+  → cluster / compute
+  → certificates / TLS
+  → app deploy hook
+```
+
+## Security group least privilege
+
+```text
+Internet → ALB :443 → app tier → internal services → DB
+```
+
+No wide-open 0.0.0.0/0 to app ports.
+
+## terraform plan vs apply
+Plan is preview; apply mutates. Halfway failure: state may be partial — inspect state, refresh, targeted recover, never “guess apply” blindly.
+
+## Certificates
+Create/store/attach · TLS termination on ALB · rotation · expiry monitoring
+
+## Env separation
+Workspaces or separate state + var files for DEV/UAT/STAGING/PROD. No prod secrets in code.
+
+`[NEEDS MY REAL PROJECT DETAIL]`: exact AWS services in your cluster story.

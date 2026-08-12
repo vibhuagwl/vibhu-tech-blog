@@ -1,0 +1,24 @@
+---
+slug: jpmc-graphql-s3-sqs
+title: "GraphQL, S3, and SQS — Integration Building Blocks"
+description: "External GraphQL tax API, S3 payload storage, SQS events — failures, idempotency, and timeouts."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, GraphQL, S3, SQS, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+
+## GraphQL external API
+Query/mutation as provided by vendor. Handle auth, timeout, partial errors, retries for transient faults only.
+
+REST vs GraphQL: vendor chose GraphQL for flexible queries; we still wrap with timeouts and typed clients.
+
+## S3 uploads
+Object key strategy, encryption, IAM least privilege, metadata, lifecycle. Large files: multipart / size validation (`[NEEDS MY REAL PROJECT DETAIL]`).
+
+## SQS
+Visibility timeout, delete-after-success, DLQ, standard vs FIFO.
+
+**Crash after process before delete?** Message returns → duplicate processing → idempotency required.

@@ -1,0 +1,24 @@
+---
+slug: jpmc-swagger-openapi
+title: "Swagger / OpenAPI — Contract-First Interview Notes"
+description: "API contracts, status codes, versioning, compatibility, and how docs support integration and support."
+category: "JPMC Experience"
+difficulty: Senior
+tags: [JPMC, OpenAPI, Swagger, REST, Interview]
+readingTime: 8 min
+publishedAt: "2026-08-12"
+---
+
+
+## Why it mattered
+
+Swagger/OpenAPI made the **contract** explicit: DTOs, required fields, error shapes, auth — so consumers and testers weren’t reverse-engineering controllers.
+
+## What good looks like
+- Request/response models (not raw domain entities)
+- Documented 4xx/5xx
+- Auth scheme documented
+- Versioning strategy (`[NEEDS MY REAL PROJECT DETAIL]`)
+
+## Interview angle
+> We didn’t expose internal entities. DTOs protected the domain model and let us evolve persistence without breaking clients.

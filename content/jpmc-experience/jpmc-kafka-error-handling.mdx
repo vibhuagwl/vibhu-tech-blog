@@ -1,0 +1,54 @@
+---
+slug: jpmc-kafka-error-handling
+title: "Kafka Error Handling — Senior Production Chapter"
+description: "Retryable vs non-retryable failures, DLQ, poison messages, offsets, rebalance, lag — spoken like production ownership."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, Kafka, DLQ, Error Handling, Interview]
+readingTime: 16 min
+publishedAt: "2026-08-12"
+---
+
+
+## Framing
+
+> In our system, Kafka was primarily used to decouple transaction/Cashline/onboarding processing from downstream consumers. The important production concern wasn’t publishing the message; it was what happened when the consumer failed after work had already started.
+
+## Failure classes
+
+| Class | Examples | Action |
+|---|---|---|
+| Transient / retryable | Network timeout, DB blip, API 503 | Retry with backoff |
+| Permanent / non-retryable | Invalid payload, schema mismatch, illegal business state | DLQ / error topic + alert |
+| Poison | Keeps failing after retries | Isolate; do not block partition forever without policy |
+
+## Lifecycle
+
+```text
+Kafka message
+  → Consumer
+  → Business logic
+  → Exception?
+       → Retryable → backoff → retry budget
+       → Exhausted / non-retryable → DLQ + recover
+  → Offset handling
+```
+
+## Offset question (must nail)
+
+If you throw before commit and use a handler that seeks/retries, the record can be redelivered. If you publish to DLQ and recover, offset advances so the poison does not block forever.
+
+`[NEEDS MY REAL PROJECT DETAIL]`: AckMode and exact Spring Kafka error handler used in each service.
+
+## Decision: where does the message go?
+
+```text
+Classify exception
+  → retryable? yes → retry
+  → retries left? no → DLQ
+  → business validation fail? → DLQ (usually no infinite retry)
+```
+
+## Related
+- [Global Spring Kafka handler](/jpmc-experience/jpmc-kafka-global-exception-handling)
+- [Replay tool](/jpmc-experience/jpmc-kafka-replay-tool)

@@ -1,0 +1,32 @@
+---
+slug: jpmc-system-design
+title: "System Design Questions From JPMC Experience"
+description: "Twelve senior designs: payment events, Kafka replay, async tax, maker-checker, CDC, file processing — with tradeoff skeletons."
+category: "JPMC Experience"
+difficulty: Principal
+tags: [JPMC, System Design, Interview]
+readingTime: 16 min
+publishedAt: "2026-08-12"
+---
+
+
+For each design, cover: requirements → APIs → data model → components → Kafka/DB → failure → scale → security → monitoring → tradeoffs.
+
+1. Payment / cash transaction platform  
+2. Kafka transaction processing  
+3. Kafka replay platform  
+4. Async tax calculation  
+5. Maker-checker workflow  
+6. Participant onboarding  
+7. Operational account platform  
+8. CDC architecture  
+9. Distributed request tracking  
+10. High-volume file processing (RSU-like)  
+11. Resilient external API integration  
+12. Production-grade Kafka platform  
+
+### Example skeleton — Kafka replay platform
+Requirements: controlled reprocess, authz, audit, rate limit, dry-run, reports.  
+Components: selector API, validator, publisher, audit store, metrics.  
+Risks: duplicates, ordering, overload.  
+Tradeoff: replay to original topic vs dedicated replay topic.

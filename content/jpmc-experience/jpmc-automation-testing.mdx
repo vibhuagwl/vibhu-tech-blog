@@ -1,0 +1,24 @@
+---
+slug: jpmc-automation-testing
+title: "Automation Testing Strategy — JPMC Stack"
+description: "Unit, integration, contract, Kafka failure tests, DLQ, duplicates, ordering, timeouts — what to mock vs real."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, Testing, Interview, Quality]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+
+## Pyramid (spoken)
+
+Unit for rules/validators · Integration for DB/Kafka adapters · Contract for APIs · Selective E2E for critical journeys · Failure tests for retries/DLQ
+
+## What to mock vs real
+Mock unstable external tax/GraphQL in CI with WireMock. Prefer real embedded/local Kafka or testcontainers when failure semantics matter (`[NEEDS MY REAL PROJECT DETAIL]` what you used).
+
+## Must-test Kafka behaviors
+Duplicate delivery · retry then DLQ · ordering within partition · consumer restart · poison message isolation
+
+## DB rollback
+Assert transactional boundaries: failed processing does not leave partial business state without compensation.

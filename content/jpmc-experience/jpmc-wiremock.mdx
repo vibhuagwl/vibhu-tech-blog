@@ -1,0 +1,19 @@
+---
+slug: jpmc-wiremock
+title: "WireMock — External API Failure Simulation"
+description: "Stubs for 200/4xx/5xx/timeouts/slow/malformed responses to prove retry and DLQ behavior."
+category: "JPMC Experience"
+difficulty: Senior
+tags: [JPMC, WireMock, Testing, Interview]
+readingTime: 9 min
+publishedAt: "2026-08-12"
+---
+
+
+## Why WireMock
+External tax/partner APIs are not reliable CI dependencies. We stub success and failure shapes.
+
+## Scenarios to demo in interview
+Success · timeout · 500 · 400 · invalid body · slow response · duplicate callbacks
+
+Prove: retry only on retryable; permanent errors go to fail/DLQ path; timeouts don’t hang threads unboundedly.

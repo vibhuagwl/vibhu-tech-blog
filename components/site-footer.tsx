@@ -17,6 +17,7 @@ const COLUMNS=[
       {href:'/system-design',label:'System design'},
       {href:'/distributed-systems',label:'Distributed systems'},
       {href:'/realtime-issues',label:'Real-time issues'},
+      {href:'/jpmc-experience',label:'JPMC experience'},
       {href:'/complexity',label:'Complexity'},
     ],
   },

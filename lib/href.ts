@@ -4,6 +4,7 @@ export function hrefForPost(category:string, slug:string){
   if(category==='Kafka Interview') return `/kafka-interview/${slug}`;
   if(category==='Redis Interview') return `/redis-interview/${slug}`;
   if(category==='Real-Time Issues') return `/realtime-issues/${slug}`;
+  if(category==='JPMC Experience') return `/jpmc-experience/${slug}`;
   if(category==='Complexity') return `/complexity/${slug}`;
   if(category==='Behavior') return `/behavior/${slug}`;
   if(category==='FinTech') return `/fintech/${slug}`;

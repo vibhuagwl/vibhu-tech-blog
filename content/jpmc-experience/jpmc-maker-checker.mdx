@@ -1,0 +1,28 @@
+---
+slug: jpmc-maker-checker
+title: "Maker-Checker with Camunda / Flowable"
+description: "Segregation of duties, approval workflow, audit, rejection/rework, escalation — why workflow engines fit."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, Camunda, Flowable, Maker Checker, Interview]
+readingTime: 10 min
+publishedAt: "2026-08-12"
+---
+
+
+## Flow
+
+```text
+Maker creates request
+  → Validation
+  → Pending approval
+  → Checker reviews
+  → Approve / Reject
+  → Execute
+  → Audit
+```
+
+## Why not only Java flags?
+Need SoD, audit trail, timers/escalation, rework loops — workflow engines encode that state explicitly.
+
+`[NEEDS MY REAL PROJECT DETAIL]`: Camunda vs Flowable usage in which project.

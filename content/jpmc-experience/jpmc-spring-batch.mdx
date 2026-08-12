@@ -1,0 +1,21 @@
+---
+slug: jpmc-spring-batch
+title: "Spring Batch Chunk Processing"
+description: "Job/step/reader/processor/writer, commit interval, skip/retry/restart — tradeoffs for large file loads."
+category: "JPMC Experience"
+difficulty: Senior
+tags: [JPMC, Spring Batch, Interview]
+readingTime: 10 min
+publishedAt: "2026-08-12"
+---
+
+
+## Model
+
+Job → Step → ItemReader → ItemProcessor → ItemWriter · chunk commit interval · JobRepository
+
+## Tradeoff
+100k records with chunk 10 vs 10k: smaller chunks = more commits/overhead; larger = longer transactions / bigger rollback units.
+
+## Failure
+Restart from checkpoint; skip policy for bad records with audit; never silently drop financial rows without policy.

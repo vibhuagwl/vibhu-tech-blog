@@ -1,0 +1,20 @@
+---
+slug: jpmc-harness-deployment
+title: "Harness Deployment Across Environments"
+description: "DEV→UAT→STAGING→PROD pipelines, approvals, smoke tests, rollback when business validation fails."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, Harness, Deployment, Interview, Platform]
+readingTime: 10 min
+publishedAt: "2026-08-12"
+---
+
+
+## Pipeline
+
+Build → artifact → deploy → config/secrets → smoke → approval gates → prod → monitor
+
+## Technical success, business fail
+Health checks green but tax calc wrong / Cashline stuck → rollback or forward-fix with feature flag; do not equate “pods healthy” with “business correct.”
+
+`[NEEDS MY REAL PROJECT DETAIL]`: canary/blue-green if used.

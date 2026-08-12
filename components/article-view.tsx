@@ -12,7 +12,9 @@ import ArticleToc from '@/components/article-toc';
 import ArticleQuickNav from '@/components/article-quick-nav';
 import DifficultyBadge from '@/components/difficulty-badge';
 import BackToTop from '@/components/back-to-top';
+import JpmcSectionStrip from '@/components/jpmc-section-strip';
 import TechnologySectionStrip from '@/components/technology-section-strip';
+import {JPMC_SIDEBAR_ORDER} from '@/lib/jpmc-hub';
 import {KAFKA_SIDEBAR_ORDER} from '@/lib/technology-hub';
 
 type Section=keyof typeof SECTION_CATEGORIES;
@@ -28,12 +30,17 @@ const SECTION_LABEL:Record<Section,string>={
   'kafka-interview':'Kafka',
   'redis-interview':'Redis Interview',
   'realtime-issues':'Real-Time Issues',
+  'jpmc-experience':'JPMC Experience',
 };
 
 function sortSectionPosts<T extends {slug:string;title:string}>(posts:T[],section:Section){
   const list=posts.slice();
-  if(section==='kafka-interview'){
-    const rank=new Map(KAFKA_SIDEBAR_ORDER.map((slug,i)=>[slug,i]));
+  const order=
+    section==='jpmc-experience'?JPMC_SIDEBAR_ORDER
+    :section==='kafka-interview'?KAFKA_SIDEBAR_ORDER
+    :null;
+  if(order){
+    const rank=new Map(order.map((slug,i)=>[slug,i]));
     return list.sort((a,b)=>{
       const ai=rank.has(a.slug)?rank.get(a.slug)!:Number.MAX_SAFE_INTEGER;
       const bi=rank.has(b.slug)?rank.get(b.slug)!:Number.MAX_SAFE_INTEGER;
@@ -123,6 +130,7 @@ export default async function ArticleView({
             </ol>
           </nav>
 
+          {section==='jpmc-experience' && <JpmcSectionStrip/>}
           {section==='kafka-interview' && <TechnologySectionStrip technology="kafka"/>}
 
           <article className="article-shell">

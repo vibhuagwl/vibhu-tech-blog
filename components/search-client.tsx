@@ -10,6 +10,7 @@ const LEVELS=['Beginner','Intermediate','Senior','Staff','Principal'] as const;
 
 const TECH_HINTS=[
   {label:'Kafka',match:'kafka'},
+  {label:'JPMC',match:'jpmc'},
   {label:'Redis',match:'redis'},
   {label:'System Design',match:'system design'},
   {label:'Real-Time Issues',match:'real-time'},
@@ -99,7 +100,7 @@ export default function SearchClient({
           id="site-search-input"
           value={q}
           onChange={(e)=>onChange(e.target.value)}
-          placeholder="Kafka lag, batch.size, consumer groups, system design..."
+          placeholder="JPMC Cashlines, Kafka lag, consumer groups, system design..."
           className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           aria-label="Search articles"
         />

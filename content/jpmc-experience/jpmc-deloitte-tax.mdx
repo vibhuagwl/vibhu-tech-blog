@@ -1,0 +1,53 @@
+---
+slug: jpmc-deloitte-tax
+title: "Deloitte Tax Integration — End-to-End Story"
+description: "Tax calculation platform story: REST, Camunda, Drools, GraphQL, S3, SQS, async tracker, callbacks, and failure design."
+category: "JPMC Experience"
+difficulty: Principal
+tags: [JPMC, Deloitte, Tax, Camunda, Drools, Interview, Experience]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+
+## Business problem
+
+Calculate tax using external tax services and business rules — asynchronously when external calls and workflows take time.
+
+## Architecture
+
+```text
+Client
+  → REST API
+  → Tax Service
+  → Camunda Workflow
+  → Drools (rules / bands / rates)
+  → External Tax API (GraphQL and/or REST — [NEEDS MY REAL PROJECT DETAIL])
+  → S3 (payload/artifacts)
+  → SQS (events)
+  → Response Listener
+  → Database + Async API Tracker
+  → Final response / status
+```
+
+## My ownership
+`[NEEDS MY REAL PROJECT DETAIL]`: which components you personally built.
+
+## Why this design
+Long-running external dependency + rule engine + auditability → workflow + async tracker beats a single blocking HTTP call.
+
+## Alternatives
+- Fully sync REST to tax provider (timeouts, poor UX under load)
+- Pure code if/else instead of Drools (harder for business rule churn)
+- Only queues without workflow visibility (harder ops tracing)
+
+## Failure highlights
+- External tax timeout → retry policy / park workflow / timer
+- Drools misrule → wrong calculation → need rule tests + audit
+- Lost callback → tracker stays PENDING → reconciliation
+- SQS redelivery → idempotent listener
+
+## 2-minute answer
+Walk the diagram, emphasize correlation IDs + tracker, then one failure mode you handled.
+
+Deep links: [Camunda](/jpmc-experience/jpmc-camunda-workflow) · [Drools](/jpmc-experience/jpmc-drools) · [Async tracker](/jpmc-experience/jpmc-async-tracker-callback) · [S3/SQS/GraphQL](/jpmc-experience/jpmc-graphql-s3-sqs)
