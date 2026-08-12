@@ -1,0 +1,480 @@
+---
+slug: api-service-to-service-communication
+title: "Service-to-Service API Communication in Spring Boot"
+description: "Principal-level guide to REST, gRPC, Kafka, mTLS, timeouts, retries, circuit breakers, correlation ids, metrics, bulkheads, discovery, gateways, readiness, and cascading failure."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, Microservices, Spring Boot, REST, gRPC, Kafka, mTLS, Resilience]
+readingTime: 32 min
+publishedAt: "2026-08-12"
+---
+
+## The Principal framing
+
+Service-to-service communication is not just choosing REST, gRPC, or Kafka.
+
+It is choosing failure semantics.
+
+A Principal answer should describe:
+
+- request contract
+- latency budget
+- ownership boundary
+- retry safety
+- authentication and authorization
+- observability
+- overload behavior
+- recovery path
+
+The dangerous interview answer is "we call another microservice."
+
+The production answer is "we call another service through a bounded, observable, authenticated, rate-limited path with clear ownership when it fails."
+
+## The core rule
+
+Every service-to-service call needs a timeout.
+
+No exception.
+
+No "internal network is reliable" exception.
+
+No "it is just another Spring Boot service" exception.
+
+No timeout means a caller thread can wait forever.
+
+If enough caller threads wait, the service becomes unavailable even if its own CPU is idle.
+
+That exact pattern appears in [stuck threads from DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools).
+
+## Basic synchronous path
+
+```text
+Order Service
+  -> HTTPS or mTLS
+  -> Inventory Service
+  -> PostgreSQL
+```
+
+This looks simple.
+
+The real production path is larger:
+
+```text
+Order Service
+  -> outbound bulkhead
+  -> timeout budget
+  -> retry policy
+  -> circuit breaker
+  -> auth token or client cert
+  -> correlation id
+  -> metrics and tracing
+  -> HTTPS or mTLS
+  -> service discovery or gateway
+  -> Inventory Service readiness gate
+  -> Inventory authorization
+  -> Inventory dependency budgets
+```
+
+The second version is what keeps incidents bounded.
+
+## Required diagram
+
+```text
+Caller Spring Boot Service
+  |
+  |  HTTPS or mTLS
+  |  timeout: connect + response + total budget
+  |  retry: bounded, backoff, jitter, idempotent only
+  |  circuit breaker: fail fast after threshold
+  |  correlation: X-Correlation-Id and traceparent
+  |  auth: OAuth2 JWT, workload identity, or client cert
+  |  metrics: latency, errors, attempts, circuit state
+  v
+Service Discovery / Internal Gateway
+  |
+  |  routing, load balancing, policy, rate limit
+  v
+Callee Spring Boot Service
+  |
+  |  readiness true only when critical dependencies are usable
+  |  domain authorization enforced locally
+  v
+Database / Broker / External API
+```
+
+If one of those labels is missing in a design review, I ask why.
+
+## REST
+
+REST over HTTP is a good default for many service calls.
+
+Strengths:
+
+- human-readable contracts
+- mature tooling
+- easy gateway integration
+- simple debugging with logs and traces
+- good browser and mobile compatibility
+- straightforward caching for safe reads
+- status codes are broadly understood
+
+Weaknesses:
+
+- JSON serialization overhead
+- schema drift if contracts are informal
+- chatty APIs can become slow
+- clients may misuse status codes
+- no built-in streaming contract unless specifically designed
+
+Use REST when:
+
+- the resource model is natural
+- clients are diverse
+- debugging simplicity matters
+- latency requirements are moderate
+- compatibility and rollout matter more than raw efficiency
+
+In Spring Boot, REST plus OpenAPI and contract tests is often the most maintainable choice.
+
+## gRPC
+
+gRPC is useful for high-throughput, strongly typed internal communication.
+
+Strengths:
+
+- schema-first contracts with protobuf
+- efficient binary serialization
+- HTTP/2 multiplexing
+- streaming support
+- generated clients
+- explicit deadlines
+
+Weaknesses:
+
+- harder ad hoc debugging
+- browser support requires extra layers
+- operational tooling must understand gRPC
+- error mapping needs discipline
+- protobuf evolution rules must be followed carefully
+
+Use gRPC when:
+
+- both sides are controlled by the platform
+- low latency and high throughput matter
+- streaming is important
+- contract generation is valuable
+- polyglot internal clients need a strong IDL
+
+In interviews, I avoid saying gRPC is "better."
+
+It is better for some constraints and worse for others.
+
+## REST vs gRPC decision
+
+Ask:
+
+- Is this public or internal?
+- Are clients owned by us?
+- Do we need browser compatibility?
+- Is schema generation important?
+- Is payload size or latency a bottleneck?
+- Do we need streaming?
+- Can our gateway, tracing, and load balancers observe it?
+- Can on-call engineers debug it at 3 AM?
+
+REST is usually easier to evolve for broad external APIs.
+
+gRPC is usually stronger for controlled, high-volume internal APIs.
+
+Both need timeouts, authentication, authorization, metrics, and backpressure.
+
+## Kafka for async communication
+
+Kafka is not a faster REST call.
+
+It changes the coupling model.
+
+Use Kafka when:
+
+- producer should not block on consumer availability
+- fan-out is needed
+- events are useful for multiple consumers
+- ordering by key matters
+- replay is valuable
+- eventual consistency is acceptable
+- throughput exceeds practical synchronous coupling
+
+Avoid Kafka when:
+
+- caller requires an immediate answer
+- user experience depends on synchronous validation
+- the business process cannot tolerate eventual consistency
+- no one owns schema evolution
+- no one owns DLQ and replay
+
+Kafka is excellent for "this happened."
+
+It is risky for "please do this right now and tell me the exact result."
+
+## Timeouts in Spring clients
+
+For synchronous calls, configure timeouts at the client.
+
+Example with `RestClient` backed by a request factory:
+
+```java
+@Bean
+RestClient inventoryRestClient(RestClient.Builder builder) {
+    ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.DEFAULTS
+        .withConnectTimeout(Duration.ofMillis(300))
+        .withReadTimeout(Duration.ofMillis(800));
+
+    ClientHttpRequestFactory factory = ClientHttpRequestFactories.get(settings);
+
+    return builder
+        .baseUrl("https://inventory.internal")
+        .requestFactory(factory)
+        .build();
+}
+```
+
+Exact APIs vary by Spring version and HTTP client.
+
+The invariant does not vary: every outbound call has bounded waiting.
+
+## Deadline propagation
+
+A timeout on each hop is not enough.
+
+If the user request budget is 2 seconds, service A cannot spend 2 seconds calling service B, which spends 2 seconds calling service C.
+
+Propagate a deadline or remaining budget.
+
+```text
+client budget: 2000 ms
+gateway overhead: 100 ms
+order service budget: 1600 ms
+inventory call budget: 500 ms
+payment risk call budget: 500 ms
+response assembly: 200 ms
+buffer: 200 ms
+```
+
+Without a total budget, tail latency compounds across the graph.
+
+## Retry discipline
+
+Retry only when:
+
+- the operation is idempotent
+- the failure is likely transient
+- the retry fits the caller deadline
+- downstream can absorb retry traffic
+- there is jitter
+- there is a maximum attempt count
+- metrics expose retry attempts separately
+
+Do not retry non-idempotent commands by default.
+
+Do not stack retries at gateway, service, SDK, and database driver without a shared budget.
+
+That creates retry storms.
+
+## Circuit breaker
+
+The circuit breaker protects the caller and the callee.
+
+It should open when a dependency is unhealthy enough that continuing to call it wastes resources.
+
+For required dependencies, an open circuit often maps to 503.
+
+For optional dependencies, the service may return a degraded response.
+
+Example:
+
+```text
+recommendation service unavailable
+  -> return product page without recommendations
+
+payment authorization unavailable
+  -> do not pretend payment succeeded
+  -> return pending or unavailable state
+```
+
+Circuit breakers must be visible in dashboards.
+
+An invisible open circuit is an invisible outage.
+
+## Bulkheads
+
+Bulkheads isolate failure domains.
+
+Do not let a slow analytics dependency consume the same thread or connection resources needed for checkout.
+
+Useful bulkheads:
+
+- separate HTTP connection pools per dependency
+- separate executor pools for expensive outbound calls
+- bounded queues
+- separate Kafka listener concurrency by topic
+- separate database pools only when ownership is clear
+- rate limits per caller or route
+
+Bulkheads are how one bad dependency does not freeze the whole service.
+
+## Rate limiting
+
+Rate limits can live at multiple layers:
+
+- edge gateway
+- internal gateway
+- service endpoint
+- caller client
+- queue consumer
+
+Use them to protect:
+
+- shared dependencies
+- expensive endpoints
+- tenant fairness
+- third-party quotas
+- incident containment
+
+Return 429 for caller-specific limits.
+
+Return 503 when the service is generally unable to serve due to overload or dependency failure.
+
+That distinction helps clients choose behavior.
+
+## Service discovery
+
+Service discovery answers "where is the callee."
+
+Options:
+
+- Kubernetes service DNS
+- service mesh
+- internal gateway
+- Spring Cloud discovery
+- cloud load balancer
+
+The specific mechanism matters less than the behavior:
+
+- remove unhealthy instances
+- respect readiness
+- balance across instances
+- avoid stale endpoints
+- surface routing failures
+
+Do not send traffic to pods that have not passed readiness.
+
+## Gateway responsibilities
+
+An internal gateway may provide:
+
+- routing
+- authentication
+- rate limiting
+- protocol translation
+- request normalization
+- coarse authorization
+- observability
+- policy enforcement
+
+But the gateway should not own every domain rule.
+
+The callee service still owns resource-level authorization and business invariants.
+
+That same principle appears in [Spring Boot and microservices incidents](/realtime-issues/java-30yoe-spring-microservices-qa).
+
+## Readiness
+
+Readiness means "send me traffic now."
+
+It is not the same as process liveness.
+
+A Spring Boot service should be not ready when:
+
+- required database pool cannot connect
+- required message broker dependency is unavailable
+- migrations are incomplete
+- critical cache has not loaded and no fallback exists
+- downstream client configuration is invalid
+
+It may still be live while not ready.
+
+That lets the platform keep the process running but stop routing new traffic.
+
+## Cascading failure without timeout
+
+The classic cascade:
+
+```text
+Inventory DB slows down
+  -> Inventory API calls wait
+  -> Order Service threads wait on Inventory
+  -> Order Service Tomcat pool fills
+  -> Gateway sees slow Order responses
+  -> clients retry
+  -> more Order threads wait
+  -> Payment Service receives delayed duplicate attempts
+  -> incident expands
+```
+
+The root cause may be one slow database query.
+
+The customer-facing outage becomes checkout unavailable.
+
+The missing control was not only database tuning.
+
+It was no bounded timeout, no circuit breaker, no bulkhead, and no retry budget.
+
+## Correlation and tracing
+
+Every service-to-service call should propagate:
+
+- correlation id
+- trace context
+- caller identity
+- tenant id if part of the contract
+- idempotency key for command operations
+
+The callee should log and trace the same values.
+
+When an incident crosses five services, correlation ids separate evidence from guessing.
+
+## Metrics I expect
+
+For each dependency:
+
+- request rate
+- success rate
+- error rate by status
+- latency histogram
+- timeout count
+- retry attempt count
+- circuit breaker state
+- bulkhead rejections
+- connection pool usage
+- rate-limit decisions
+- dependency saturation
+
+Aggregate "HTTP client errors" is not enough.
+
+I need dependency, route, status, and outcome.
+
+## Principal interview answer
+
+"I choose service-to-service communication based on contract and failure semantics, not fashion. REST is a strong default for resource-oriented APIs and broad compatibility. gRPC is useful for controlled internal traffic where schema generation, streaming, and efficiency matter. Kafka is for asynchronous decoupling, fan-out, replay, and eventual consistency, not for pretending a remote command is instant.
+
+Regardless of protocol, every call must be bounded and observable. I want HTTPS or mTLS, authentication, authorization, correlation ids, metrics, tracing, connect and response timeouts, retry only for idempotent operations, backoff with jitter, circuit breakers, bulkheads, and clear readiness behavior.
+
+The production failure I watch for is cascading latency. One slow dependency without timeouts consumes caller threads, clients retry, pools saturate, and unrelated routes fail. The prevention is a timeout budget per hop, propagated deadlines, isolated pools, rate limits, open-circuit behavior, and dashboards that show dependency health by route and status."
+
+## Related Real-Time Issues guides
+
+- [Stuck threads from DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools)
+- [Spring Boot and microservices incidents](/realtime-issues/java-30yoe-spring-microservices-qa)
+- [API error handling and resilience](/realtime-issues/api-error-handling-resilience)
+- [API authentication, authorization, and security](/realtime-issues/api-authn-authz-security)
+

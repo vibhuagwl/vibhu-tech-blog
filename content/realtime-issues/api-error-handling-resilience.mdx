@@ -1,0 +1,495 @@
+---
+slug: api-error-handling-resilience
+title: "API Error Handling and Resilience in Spring Boot"
+description: "Principal-level guide to consistent API error JSON, HTTP status mapping, RFC7807, retry strategy, backoff, circuit breakers, fallbacks, DLQs, and safe Spring Boot exception handling."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, API Design, Spring Boot, Error Handling, Resilience, Circuit Breaker, Retries]
+readingTime: 30 min
+publishedAt: "2026-08-12"
+---
+
+## The Principal framing
+
+Error handling is part of the API contract.
+
+Resilience is part of the failure contract.
+
+At Principal level, I want callers and operators to know:
+
+- what failed
+- whether retry is safe
+- how to correlate the failure
+- which system owns recovery
+- whether the user should see a business message or a generic message
+
+The API should never expose implementation details just because something failed.
+
+It should expose enough structure for clients, dashboards, and support workflows to behave correctly.
+
+## A consistent error JSON shape
+
+A simple shape works well for most internal and external APIs:
+
+```json
+{
+  "code": "ORDER_NOT_FOUND",
+  "message": "Order was not found.",
+  "timestamp": "2026-08-12T03:17:45Z",
+  "correlationId": "7f80c6d7bb2b4a7b9b6d1df2b9f1fb0a"
+}
+```
+
+The fields have distinct purposes.
+
+`code` is stable and machine-readable.
+
+`message` is safe for humans and clients.
+
+`timestamp` tells when this service produced the error.
+
+`correlationId` connects logs, traces, metrics, gateway events, and client reports.
+
+Do not make clients parse English text.
+
+Do not change error codes casually.
+
+## What not to expose
+
+Never expose:
+
+- Java stack traces
+- SQL strings
+- table names
+- package names
+- hostnames
+- internal IPs
+- secrets
+- tokens
+- raw upstream responses containing PII
+- framework exception messages that were not reviewed
+
+The client does not need to know that `NullPointerException` happened in `PaymentCaptureService`.
+
+The client needs a safe error code and a correlation id.
+
+The operator needs the stack trace in protected logs.
+
+## HTTP status mapping
+
+Status codes are coarse transport semantics.
+
+The error `code` carries domain detail.
+
+A practical mapping:
+
+- 400 means malformed input or validation failure.
+- 401 means caller is unauthenticated or token is invalid.
+- 403 means caller is authenticated but not authorized.
+- 404 means resource not found or intentionally hidden.
+- 409 means state conflict, duplicate idempotency key conflict, or optimistic lock conflict.
+- 429 means caller exceeded a rate or quota limit.
+- 500 means this service failed unexpectedly.
+- 503 means this service is temporarily unable to serve, often due to dependency failure, overload, maintenance, or open circuit.
+
+Avoid turning every failure into 500.
+
+That makes clients retry the wrong things and hides ownership.
+
+## Example mapping table
+
+```text
+VALIDATION_FAILED          -> 400
+INVALID_TOKEN              -> 401
+MISSING_SCOPE              -> 403
+ORDER_NOT_FOUND            -> 404
+DUPLICATE_PAYMENT_REQUEST  -> 409
+RATE_LIMITED               -> 429
+UNEXPECTED_ERROR           -> 500
+PAYMENT_PROVIDER_DOWN      -> 503
+```
+
+The exact names are less important than stability and documentation.
+
+## Problem Details and RFC7807
+
+RFC7807 defines `application/problem+json`.
+
+It standardizes fields such as:
+
+- `type`
+- `title`
+- `status`
+- `detail`
+- `instance`
+
+Spring Framework includes `ProblemDetail` support.
+
+That can be a good default for standards-oriented APIs.
+
+Many companies still wrap errors in their own shape to preserve `code` and `correlationId`.
+
+Either is acceptable if the contract is stable, documented, and consistent.
+
+The anti-pattern is using RFC7807 for some endpoints, ad hoc JSON for others, and raw HTML errors during outages.
+
+## Spring error response model
+
+```java
+public record ApiError(
+    String code,
+    String message,
+    Instant timestamp,
+    String correlationId,
+    List<FieldViolation> details
+) {
+    static ApiError of(String code, String message, String correlationId) {
+        return new ApiError(code, message, Instant.now(), correlationId, List.of());
+    }
+}
+
+public record FieldViolation(String field, String reason) {
+}
+```
+
+Keep the outward model small.
+
+Do not return exception class names.
+
+## Spring `@ControllerAdvice` sketch
+
+```java
+@RestControllerAdvice
+class ApiExceptionHandler {
+
+    @ExceptionHandler(ApiException.class)
+    ResponseEntity<ApiError> handleApiException(ApiException ex, HttpServletRequest request) {
+        String correlationId = correlationId(request);
+        ApiError body = ApiError.of(ex.code(), ex.getMessage(), correlationId);
+        return ResponseEntity.status(ex.status()).body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex,
+                                              HttpServletRequest request) {
+        String correlationId = correlationId(request);
+        List<FieldViolation> details = ex.getBindingResult().getFieldErrors().stream()
+            .map(error -> new FieldViolation(error.getField(), safeReason(error)))
+            .toList();
+
+        ApiError body = new ApiError(
+            "VALIDATION_FAILED",
+            "Request validation failed.",
+            Instant.now(),
+            correlationId,
+            details
+        );
+
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ApiError> handleUnexpected(Exception ex, HttpServletRequest request) {
+        String correlationId = correlationId(request);
+        log.error("unexpected_api_error correlationId={}", correlationId, ex);
+        ApiError body = ApiError.of(
+            "UNEXPECTED_ERROR",
+            "Unexpected error.",
+            correlationId
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
+    private String correlationId(HttpServletRequest request) {
+        String header = request.getHeader("X-Correlation-Id");
+        return header == null || header.isBlank() ? UUID.randomUUID().toString() : header;
+    }
+
+    private String safeReason(FieldError error) {
+        return "invalid value";
+    }
+}
+```
+
+The catch-all handler logs the stack internally and returns a sanitized response.
+
+That is the boundary.
+
+## Correlation id
+
+Every API error should include a correlation id.
+
+The same id should appear in:
+
+- gateway logs
+- service logs
+- traces
+- downstream calls
+- async messages
+- DLQ records
+- support tickets
+
+If a client reports "I got `PAYMENT_PROVIDER_DOWN` with correlation id X," the on-call should be able to search that id and reconstruct the path.
+
+Without this, debugging becomes timestamp archaeology.
+
+## Retry is not a reflex
+
+Retries are load multipliers.
+
+They can save a transient request.
+
+They can also turn a partial outage into a full outage.
+
+The safe sequence is:
+
+```text
+timeout
+  -> retry only if safe
+  -> exponential backoff
+  -> jitter
+  -> retry budget
+  -> circuit breaker
+  -> fallback or DLQ
+```
+
+If any of those steps is missing, the resilience pattern may become the incident.
+
+## Timeouts first
+
+Never retry a call that has no timeout.
+
+Without a timeout, the caller can wait forever.
+
+Then retries create more waiting work.
+
+Every outbound call needs:
+
+- connection timeout
+- read or response timeout
+- total request budget
+- cancellation behavior
+- metrics by outcome
+
+This applies to HTTP clients, database calls, Redis, Kafka admin clients, and cloud SDKs.
+
+## Backoff and jitter
+
+Retrying immediately is usually wrong.
+
+A better shape:
+
+```text
+attempt 1: immediate
+attempt 2: wait 100 ms plus jitter
+attempt 3: wait 300 ms plus jitter
+attempt 4: wait 900 ms plus jitter
+then stop
+```
+
+Jitter prevents every client from retrying at the same time.
+
+Backoff gives the dependency room to recover.
+
+The retry budget prevents infinite amplification.
+
+## Circuit breaker
+
+A circuit breaker stops calls to a failing dependency after a threshold.
+
+States:
+
+- closed means calls flow normally
+- open means calls fail fast
+- half-open means limited probes test recovery
+
+The goal is not to hide the outage.
+
+The goal is to protect caller threads, connection pools, and downstream systems.
+
+Open circuits should produce metrics and alerts.
+
+They should usually map to 503 when the dependency is required for the request.
+
+## Fallback
+
+A fallback is useful only if it is honest.
+
+Good fallbacks:
+
+- return cached product catalog
+- accept command for later processing
+- show last known account settings
+- degrade recommendation quality
+
+Bad fallbacks:
+
+- pretend payment succeeded
+- silently drop an order
+- return stale authorization data for a money movement
+- hide data loss behind a success response
+
+Fallbacks must preserve business invariants.
+
+## DLQ
+
+For asynchronous workflows, a DLQ is often better than endless retry.
+
+Use a DLQ for:
+
+- poison messages
+- schema failures
+- permanent validation failures
+- dependency outage after bounded attempts
+- records that require operator review
+
+The DLQ record should include:
+
+- original payload reference
+- error code
+- correlation id
+- attempt count
+- failure timestamp
+- owning service
+- replay safety notes
+
+Do not create a DLQ with no owner and no replay process.
+
+That is delayed data loss.
+
+## When not to retry
+
+Do not retry blindly when the operation is non-idempotent.
+
+The classic case is payment capture.
+
+```text
+client sends payment capture
+  -> service calls provider
+  -> provider captures money
+  -> network times out before response
+  -> caller retries without idempotency key
+  -> possible duplicate capture
+```
+
+The correct design is not "retry harder."
+
+It is:
+
+- idempotency key
+- provider reference
+- durable local command state
+- reconciliation
+- bounded retry only for known-safe transitions
+- operator-visible pending state
+
+If you cannot prove retry safety, do not retry the side effect.
+
+## Retry policy by status
+
+A common HTTP policy:
+
+- 400: do not retry until request changes
+- 401: refresh credentials if appropriate, then retry once
+- 403: do not retry
+- 404: do not retry unless eventual consistency is explicitly documented
+- 409: fetch current state or use idempotency semantics
+- 429: retry after the indicated delay if budget allows
+- 500: retry only if operation is idempotent and failure is likely transient
+- 503: retry with backoff if idempotent and budget allows
+
+The policy should be documented in the client library or API contract.
+
+Do not leave every caller to guess.
+
+## Spring resilience sketch
+
+```java
+@Service
+class InventoryClient {
+
+    private final RestClient restClient;
+
+    InventoryClient(RestClient.Builder builder) {
+        this.restClient = builder
+            .baseUrl("https://inventory.internal")
+            .build();
+    }
+
+    @CircuitBreaker(name = "inventory", fallbackMethod = "inventoryUnavailable")
+    @Retry(name = "inventory")
+    InventoryAvailability getAvailability(String sku, String correlationId) {
+        return restClient.get()
+            .uri("/api/inventory/{sku}", sku)
+            .header("X-Correlation-Id", correlationId)
+            .retrieve()
+            .body(InventoryAvailability.class);
+    }
+
+    InventoryAvailability inventoryUnavailable(String sku, String correlationId, Throwable failure) {
+        log.warn("inventory_unavailable sku={} correlationId={}", sku, correlationId);
+        return InventoryAvailability.unknown(sku);
+    }
+}
+```
+
+The annotations are not the important part.
+
+The important part is the explicit policy:
+
+- bounded call
+- retry only if safe
+- circuit opens on real failure rates
+- fallback preserves truth
+- correlation id travels downstream
+
+## Production failure: retry storm
+
+Symptom:
+
+- dependency p95 increases
+- callers time out
+- retry traffic exceeds original traffic
+- connection pools saturate
+- circuit breakers open too late
+
+Cause:
+
+- no retry budget
+- no jitter
+- timeouts exceed user request budget
+- many services retry the same dependency
+- gateway retries plus service retries plus SDK retries
+
+Immediate response:
+
+- disable or lower retries
+- open circuit or shed low-priority traffic
+- increase backoff
+- protect the dependency
+- preserve metrics by attempt count
+
+Prevention:
+
+- organization-wide retry standards
+- one owner for client defaults
+- attempt-count metrics
+- chaos tests for dependency slowness
+- timeouts below upstream request budget
+
+## Interview answer
+
+"I treat error handling as an API contract. Every error response should have a stable code, safe message, timestamp, and correlation id. HTTP status is the coarse signal: 400 for validation, 401 for authentication, 403 for authorization, 404 for not found, 409 for state conflict, 429 for rate limit, 500 for unexpected service bugs, and 503 for temporary unavailability or dependency failure.
+
+I never expose stack traces, SQL, secrets, tokens, or internal class names to clients. In Spring Boot I use a central `@ControllerAdvice` that maps domain exceptions to safe responses, logs unexpected exceptions with the correlation id, and returns a generic 500 body.
+
+For resilience, I start with timeouts, then retry only if the operation is safe. Retries need exponential backoff, jitter, and a retry budget. If failures continue, a circuit breaker protects caller resources and downstream systems. For async processing, poison or exhausted messages go to a DLQ with enough metadata to replay safely.
+
+The key judgment is knowing when not to retry. Non-idempotent payment captures should not be blindly retried after an ambiguous timeout. They need idempotency keys, durable state, provider references, reconciliation, and operator-visible pending states."
+
+## Related Real-Time Issues guides
+
+- [Stuck threads from DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools)
+- [Spring Boot and microservices incidents](/realtime-issues/java-30yoe-spring-microservices-qa)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+
