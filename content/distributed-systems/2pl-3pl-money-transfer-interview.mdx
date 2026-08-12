@@ -1,11 +1,11 @@
 ---
 slug: 2pl-3pl-money-transfer-interview
-title: "2PL + 3PL Money Transfer — Interview Diagrams + Basic Code"
-description: "Staff interview sheet for concurrent bank transfers: polished end-to-end Mermaid flows for 2PL/3PL, Redis lock, PostgreSQL FOR UPDATE, deadlock, timeout, crash recovery — plus a short basic implementation."
+title: "2PL + 3PL Money Transfer — Interview Diagrams + Full Code"
+description: "Staff interview sheet for concurrent bank transfers: why it is called 2-phase and 3-phase locking, Mermaid flows, Redis + PostgreSQL, crash recovery — plus the full distributed-locking/ Spring source on this page."
 category: Distributed Systems
 difficulty: Staff
-tags: [2PL, 3PL, Distributed Locking, Redis, PostgreSQL, Money Transfer, Interview, Mermaid]
-readingTime: 10 min
+tags: [2PL, 3PL, Distributed Locking, Redis, PostgreSQL, Money Transfer, Interview, Mermaid, Spring Boot]
+readingTime: 14 min
 publishedAt: "2026-08-12"
 updatedAt: "2026-08-12"
 ---
@@ -13,6 +13,8 @@ updatedAt: "2026-08-12"
 ## How to use this page
 
 Design a **concurrent money transfer** that never goes negative — not a theory lecture on locking acronyms.
+
+Runnable Spring code from `distributed-locking/` is embedded at the bottom ([jump to source](#source)).
 
 Two requests arrive together:
 
@@ -33,9 +35,9 @@ Combined demand is ₹13,000. Only **one** transfer can succeed. Say that outcom
 
 | If you have | Read | Goal |
 |---|---|---|
-| **5 minutes** | Memory sheet → spoken answer → concurrent sequence | Clear the round |
+| **5 minutes** | Memory sheet → [why 2PL / 3PL](#why-called-2pl-and-3pl) → spoken answer | Clear the round |
 | **10 minutes** | Add happy path, timeout, deadlock, crash recovery, 3PL states | Handle follow-ups |
-| **15 minutes** | Add the four code snippets + defense-in-depth table | Drive the whiteboard |
+| **15 minutes** | Add code snippets + open [source explorer](#source) (`TwoPhaseLockingManager`) | Drive the whiteboard |
 
 Deep dives (optional later): [Locking hub](/distributed-systems/distributed-locking-master-index) · [Redis lock](/distributed-systems/redis-distributed-lock-deep-dive) · [PostgreSQL locking](/distributed-systems/postgresql-locking-deep-dive) · [2PC / 3PC / Saga](/distributed-systems/transactions-2pc-3pc-saga)
 
@@ -72,6 +74,63 @@ Request → idempotency claim → Redis exclusive leases (sorted)
 | Locks held until commit or rollback | Strict 2PL — no early release |
 | Stale lock holder cannot write | Fencing after lease expiry |
 | Kafka off the sync path | Events must not delay locking |
+
+---
+
+## Why called 2PL and 3PL?
+
+These names describe **two different layers**. Do not mix them in the interview.
+
+### 2-phase locking (2PL) — how locks are held
+
+Named for **two phases of lock lifetime**, not “two locks”:
+
+| Phase | What happens | In this design |
+|---|---|---|
+| **1. Growing** | Only acquire locks — never release | Redis exclusive leases on accounts (sorted ids) |
+| **2. Shrinking** | Only release locks — never acquire | After COMMIT or ABORT — safe unlock |
+
+```text
+Growing  ──►  [hold all locks while money moves]  ──►  Shrinking
+ acquire                   mutate / commit                    release
+```
+
+**Strict 2PL** = no early unlock before the DB commit/rollback finishes. That is why the class is `TwoPhaseLockingManager`: `acquireLocks` then later `releaseLocks` — nothing in between returns a lock.
+
+**Say this:** “Two-phase locking means grow then shrink. I never unlock mid-transfer, so another tx cannot see a half-updated ledger.”
+
+### 3-phase locking / 3PL transfer protocol — how the tx progresses
+
+Here “3-phase” means the **persisted transfer state machine** used for crash recovery (inspired by 3PC-style prepare → ready → commit), not a third lock mode:
+
+| Phase | State(s) | Job |
+|---|---|---|
+| **1. Lock / prepare** | `ACTIVE` → `LOCKING` → `PRE_COMMIT` | Claim idempotency, acquire Redis leases, validate balances |
+| **2. Pre-commit (ready)** | `COMMIT_READY` | Durable “I am ready to apply” — recovery can finish or abort |
+| **3. Commit + release** | `COMMITTED` → `RELEASED` | Apply ledger write, then unlock (2PL shrinking phase) |
+
+```text
+Phase 1              Phase 2                 Phase 3
+LOCKING/PRE_COMMIT → COMMIT_READY → COMMITTED → RELEASED
+```
+
+Mapped to code in [source](#source):
+
+| Name | Class |
+|---|---|
+| 2PL | `TwoPhaseLockingManager` |
+| 3PL orchestration | `ThreePhaseTransactionManager` |
+| HTTP entry | `TransferService.transfer` → begin → acquireLocks → prepare → preCommit → commit → releaseLocks |
+
+**Say this:** “2PL is the lock discipline. 3PL is the durable transfer steps so a crashed pod can recover from `COMMIT_READY` without double-debit.”
+
+### 2PL vs 2PC vs 3PL (do not confuse)
+
+| Acronym | About | This money-transfer page |
+|---|---|---|
+| **2PL** | Lock acquire/release phases | Yes — Redis leases |
+| **2PC** | Distributed commit (prepare/commit across participants) | Related idea at ledger apply; not classic XA |
+| **3PL / 3PC-style states** | Extra ready/recovery step | Yes — `PRE_COMMIT` / `COMMIT_READY` |
 
 ---
 
@@ -345,6 +404,16 @@ public TransferResult transfer(TransferRequest req) {
 
 ---
 
-## Optional deeper practice
+## Full Spring source on this page
 
-A larger runnable Spring multi-module sample lives under `distributed-locking/` in the repo. **For the interview, this page is enough** — diagrams, invariants, and the four snippets above.
+The multi-module lab `distributed-locking/` is embedded below — same URL, no separate repo hunt.
+
+| Module | Role |
+|---|---|
+| `api-gateway` | Edge entry |
+| `transaction-service` | 2PL + 3PL orchestration (`TwoPhaseLockingManager`, `ThreePhaseTransactionManager`) |
+| `lock-service` | Redis exclusive leases + fencing tokens |
+| `account-service` | PostgreSQL ledger + `FOR UPDATE` |
+| `recovery-service` | Polls incomplete 3PL states after crashes |
+
+Open [source explorer](#source) → start at `TwoPhaseLockingManager.java`, then `ThreePhaseTransactionManager.java`, then `TransferService.java`.

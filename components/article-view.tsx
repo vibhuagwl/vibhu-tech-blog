@@ -15,6 +15,7 @@ import JpmcSectionStrip from '@/components/jpmc-section-strip';
 import TechnologySectionStrip from '@/components/technology-section-strip';
 import {JPMC_SIDEBAR_ORDER} from '@/lib/jpmc-hub';
 import {KAFKA_SIDEBAR_ORDER} from '@/lib/technology-hub';
+import DistributedLockingSourceSection from '@/components/distributed-locking-source-section';
 
 type Section=keyof typeof SECTION_CATEGORIES;
 
@@ -193,6 +194,10 @@ export default async function ArticleView({
             )}
 
             <div className="prose-design article-body">{content}</div>
+
+            {slug==='2pl-3pl-money-transfer-interview' && (
+              <DistributedLockingSourceSection />
+            )}
           </article>
 
           <nav aria-label="Adjacent articles" className="article-adjacent">
