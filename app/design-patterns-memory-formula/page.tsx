@@ -61,6 +61,11 @@ export default function DesignPatternsMemoryFormulaPage(){
           Do not memorize definitions. Memorize this sequence instead: <strong>problem → pressure → pattern → code skeleton → interview sentence</strong>.
           Use the cards below like flash cards before interviews.
         </p>
+        <div className="mt-5 text-sm">
+          <a href="/vibhu-tech-blog/design-patterns-poster" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+            Open visual poster →
+          </a>
+        </div>
       </header>
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
