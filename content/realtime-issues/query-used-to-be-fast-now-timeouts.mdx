@@ -1,0 +1,274 @@
+---
+slug: query-used-to-be-fast-now-timeouts
+title: "Query Used to Be Fast, Now Times Out — Practical Investigation"
+description: "Interview and on-call playbook: a SQL that used to finish in ms now times out. Exact Oracle (and Postgres) queries to run, what each result means, and the fix from a real payment API incident."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Oracle, SQL, Query Timeout, Troubleshooting, Real-Time Issues, Spring Boot, EXPLAIN, DISPLAY_CURSOR]
+readingTime: 14 min
+publishedAt: "2026-08-12"
+---
+
+## The question
+
+> A query that used to run quickly is now causing timeouts. How would you investigate?
+
+Below is what I actually do — not a theory list.
+
+## Concrete scenario
+
+- Endpoint: `GET /api/v1/payments?merchantId=M-8891&status=PENDING`
+- Used to: ~80–150ms
+- Now: client timeout 5s / Hikari acquire timeout / gateway 504
+- SQL (unchanged for months):
+
+```sql
+SELECT payment_id, merchant_id, status, amount, created_at
+FROM   payment
+WHERE  merchant_id = :1
+AND    status = :2
+ORDER  BY created_at DESC
+FETCH FIRST 50 ROWS ONLY;
+```
+
+Code did not deploy today. Data did grow.
+
+---
+
+## Step 0 — Confirm it is *this* SQL (2 minutes)
+
+**App**
+
+- Note API route, p95, error text (`SocketTimeout`, Hikari timeout, `ORA-01013` cancel).
+- One thread dump: are threads in `oracle.jdbc` / `executeQuery`?
+
+**Oracle — is the session still on that statement?**
+
+```sql
+SELECT sid, serial#, status, event, wait_class,
+       seconds_in_wait, sql_id, blocking_session,
+       ROUND(last_call_et/60,1) AS mins_in_call
+FROM   v$session
+WHERE  username = 'PAYMENTS_APP'
+AND    status = 'ACTIVE'
+ORDER  BY seconds_in_wait DESC NULLS LAST;
+```
+
+```sql
+SELECT sql_id, SUBSTR(sql_text,1,200) AS sql_text
+FROM   v$sql
+WHERE  sql_id = :sql_id_from_session;
+```
+
+If `blocking_session` is **not** null → go to **path L (locks)** below.  
+If same `sql_id` burns time with `db file scattered read` / CPU → **path P (plan/IO)**.
+
+---
+
+## Path P — Plan / IO regression (most common “used to be fast”)
+
+### P1 — Prove elapsed and buffer gets exploded
+
+```sql
+SELECT sql_id,
+       plan_hash_value,
+       executions,
+       ROUND(elapsed_time/NULLIF(executions,0)/1e3,2) AS avg_ms,
+       ROUND(cpu_time/NULLIF(executions,0)/1e3,2)     AS avg_cpu_ms,
+       ROUND(buffer_gets/NULLIF(executions,0))         AS gets_per_exec,
+       disk_reads,
+       rows_processed
+FROM   v$sql
+WHERE  sql_id = :sql_id;
+```
+
+**What “bad” looks like in this incident**
+
+| Metric | Before (memory) | During incident |
+|---|---:|---:|
+| avg_ms | ~12 | ~4800 |
+| gets_per_exec | ~200 | ~1,800,000 |
+
+Same SQL text. Cost per execution blew up → plan or data access path changed.
+
+### P2 — Show the current plan
+
+```sql
+SELECT * FROM TABLE(
+  DBMS_XPLAN.DISPLAY_CURSOR(:sql_id, NULL, 'ALLSTATS LAST +PEEKED_BINDS')
+);
+```
+
+**Incident output (simplified)**
+
+```text
+TABLE ACCESS FULL on PAYMENT
+A-Rows ~ 12M filtered down to 50
+Buffers ~ 1.8M
+```
+
+That is enough to explain a 5s timeout.
+
+### P3 — Did the plan hash change recently?
+
+```sql
+SELECT plan_hash_value,
+       COUNT(*) AS snaps,
+       ROUND(AVG(elapsed_time_delta/NULLIF(executions_delta,0)/1e3),2) AS avg_ms
+FROM   dba_hist_sqlstat
+WHERE  sql_id = :sql_id
+AND    snap_id > (SELECT MAX(snap_id) - 48 FROM dba_hist_snapshot)
+GROUP  BY plan_hash_value
+ORDER  BY snaps DESC;
+```
+
+Two `plan_hash_value`s → optimizer flipped. One hash was fast; new one is full scan.
+
+### P4 — Why now? Data skew + stale stats
+
+```sql
+SELECT status, COUNT(*) AS cnt
+FROM   payment
+GROUP  BY status
+ORDER  BY cnt DESC;
+-- PENDING ~ 0.4%, COMPLETED ~ 95%
+
+SELECT num_rows, last_analyzed
+FROM   user_tables
+WHERE  table_name = 'PAYMENT';
+
+SELECT column_name, num_distinct, histogram, last_analyzed
+FROM   user_tab_col_statistics
+WHERE  table_name = 'PAYMENT'
+AND    column_name IN ('STATUS','MERCHANT_ID','CREATED_AT');
+```
+
+**Finding:** table 40M → 400M rows; `STATUS` histogram stale; optimizer thought `PENDING` was common → full scan looked “cheap.”
+
+### P5 — Fix that matched this case
+
+```sql
+ALTER TABLE payment ADD (
+  pending_merchant_id GENERATED ALWAYS AS
+    (CASE WHEN status = 'PENDING' THEN merchant_id END) VIRTUAL
+);
+
+CREATE INDEX payment_pending_mrc_created_i
+ON payment (pending_merchant_id, created_at DESC);
+
+BEGIN
+  DBMS_STATS.GATHER_TABLE_STATS(
+    ownname => USER,
+    tabname => 'PAYMENT',
+    method_opt => 'FOR COLUMNS SIZE 254 STATUS MERCHANT_ID',
+    cascade => TRUE
+  );
+END;
+/
+```
+
+Re-run the API query once, then:
+
+```sql
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST'));
+```
+
+**Good plan:** `INDEX RANGE SCAN PAYMENT_PENDING_MRC_CREATED_I`, buffers hundreds, avg_ms ~10–20.
+
+### P6 — Close the loop on the app
+
+- Hikari pending → 0  
+- API p95 back under 300ms  
+- Alert on that `sql_id` avg_ms + gets_per_exec so the next plan flip is visible before timeouts
+
+---
+
+## Path L — It is waiting on a lock (also “timeouts,” different SQL evidence)
+
+```sql
+SELECT blocked.sid, blocked.event, blocked.sql_id,
+       blocker.sid AS blocker_sid, blocker.serial# AS blocker_serial,
+       blocker.sql_id AS blocker_sql, blocker.seconds_in_wait
+FROM   v$session blocked
+JOIN   v$session blocker ON blocker.sid = blocked.blocking_session
+WHERE  blocked.blocking_session IS NOT NULL;
+```
+
+```sql
+SELECT lo.session_id, o.object_name, lo.locked_mode
+FROM   v$locked_object lo
+JOIN   dba_objects o ON o.object_id = lo.object_id;
+```
+
+**Practical cause I have fixed:** Spring `@Transactional` + `SELECT … FOR UPDATE` then HTTP call to payment gateway — row lock held for seconds; list/update queries pile up and time out.
+
+**Mitigation:** kill blocker only with business OK:
+
+```sql
+ALTER SYSTEM KILL SESSION 'sid,serial#' IMMEDIATE;
+```
+
+**Permanent:** commit before remote I/O; use `FOR UPDATE WAIT 5` / `NOWAIT` in the app so you fail fast instead of sitting until timeout.
+
+---
+
+## Path C — Commit / redo wait (writes only)
+
+```sql
+SELECT event, total_waits, ROUND(time_waited_micro/1e6,2) AS time_s
+FROM   v$system_event
+WHERE  event LIKE 'log file sync%'
+OR     event LIKE 'log file parallel write%';
+```
+
+If `log file sync` dominates and the “fast query” is actually a chatty write loop: batch commits (500–1000 rows), do not commit per row.
+
+---
+
+## 10-minute war-room script (copy)
+
+```text
+1. Capture failing route + exact SQL text / sql_id
+2. v$session: ACTIVE → event + blocking_session + sql_id
+3. If blocked → lock tree → find Spring txn / kill if approved
+4. Else v$sql: avg_ms + gets_per_exec for that sql_id
+5. DISPLAY_CURSOR ALLSTATS LAST
+6. If FULL TABLE SCAN: status skew + last_analyzed + indexes
+7. Stats + targeted index (or restore known good plan_hash)
+8. Re-measure avg_ms, buffers, API p95, Hikari pending
+```
+
+---
+
+## Same question on PostgreSQL / Aurora (one screen)
+
+```sql
+-- who is slow now
+SELECT pid, now()-query_start AS runtime, wait_event_type, wait_event, state, LEFT(query,120)
+FROM pg_stat_activity
+WHERE state <> 'idle'
+ORDER BY query_start;
+
+-- plan proof
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT id, merchant_id, status, amount, created_at
+FROM payment
+WHERE merchant_id = $1 AND status = 'PENDING'
+ORDER BY created_at DESC
+LIMIT 50;
+
+-- skew
+SELECT status, COUNT(*) FROM payment GROUP BY status;
+```
+
+If `Seq Scan` + huge `shared read` / buffers → same story as Oracle full scan: stats + selective index (partial index on `status='PENDING'` works well on Postgres).
+
+Full Aurora walkthrough: [Aurora payment latency case study](/realtime-issues/aurora-postgresql-incident-case-study).
+
+---
+
+## Interview answer (say this)
+
+> I confirm the SQL_ID from the timed-out session, then split lock wait vs plan/IO. For plan/IO I compare avg elapsed and buffer gets in `v$sql`, pull `DISPLAY_CURSOR`, and almost always find a full scan after growth with skewed status and stale stats. I fix with histograms plus an index that matches merchant + pending + created_at, then prove buffers and API p95. If it is `enq: TX`, I fix the transaction boundary that holds `FOR UPDATE` across HTTP — killing the session is only a bridge.
+
+Related kit: [Oracle realtime SQL troubleshooting](/realtime-issues/oracle-database-realtime-troubleshooting) · [Oracle incident case study](/realtime-issues/oracle-database-incident-case-study)

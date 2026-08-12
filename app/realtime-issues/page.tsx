@@ -62,6 +62,7 @@ const ORDER=[
   'java-migration-interview-answer-and-followups',
   'oracle-database-realtime-troubleshooting',
   'oracle-database-incident-case-study',
+  'query-used-to-be-fast-now-timeouts',
 ];
 
 export default function RealtimeIssues(){
