@@ -13,6 +13,7 @@ import com.example.designpatterns.structural.decorator.PaymentDecoratorDemo;
 import com.example.designpatterns.structural.facade.PaymentFacadeDemo;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DesignPatternDemo {
     public static void main(String[] args) {
@@ -20,7 +21,9 @@ public class DesignPatternDemo {
         System.out.println("1. Payment Factory -> " + new PaymentGatewayFactoryDemo.PaymentGatewayFactory().create(PaymentGatewayFactoryDemo.Provider.STRIPE).charge(100));
         System.out.println("2. Payment Strategy -> " + new PaymentStrategyDemo.PaymentService().pay("UPI", 500));
         List<String> audit = new ArrayList<>();
-        var decorated = new PaymentDecoratorDemo.LoggingDecorator(new PaymentDecoratorDemo.MetricsDecorator(new PaymentDecoratorDemo.BasicPayment()), audit);
+        var decorated = new PaymentDecoratorDemo.LoggingDecorator(
+                new PaymentDecoratorDemo.MetricsDecorator(new PaymentDecoratorDemo.BasicPayment(), new AtomicInteger()),
+                audit);
         System.out.println("3. Payment Decorator -> " + decorated.process(120));
         var auth = new PaymentValidationChainDemo.AuthenticationValidator();
         auth.linkWith(new PaymentValidationChainDemo.AmountValidator()).linkWith(new PaymentValidationChainDemo.FraudValidator());

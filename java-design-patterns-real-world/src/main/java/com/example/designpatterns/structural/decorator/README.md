@@ -49,6 +49,11 @@ Because the competing pattern either solves creation instead of behavior, behavi
 
 Senior backend systems use patterns inside orchestration, integrations, validation pipelines, eventing, and domain workflows.
 
+## Richer Example Upgrade
+
+The richer example now shows layered logging, metrics, fraud checks, and retry behavior around a flaky processor.
+
+
 ## Common Mistake
 
 Using the pattern before the real pressure exists.

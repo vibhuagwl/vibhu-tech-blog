@@ -1,6 +1,10 @@
 package com.example.designpatterns.structural.facade;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PaymentFacadeDemo {
+    public record PaymentOutcome(String status, String reference, List<String> steps) {}
     public static final class FraudService { boolean ok(int amount){ return amount < 5000; } }
     public static final class AccountService { boolean hasBalance(String account){ return !account.isBlank(); } }
     public static final class PaymentService { String charge(String account, int amount){ return "charged:" + account + ":" + amount; } }
@@ -12,13 +16,18 @@ public class PaymentFacadeDemo {
         private final PaymentService payment = new PaymentService();
         private final NotificationService notification = new NotificationService();
         private final AuditService audit = new AuditService();
-        public String processPayment(String accountId, int amount) {
-            if (!fraud.ok(amount)) return "rejected:fraud";
-            if (!account.hasBalance(accountId)) return "rejected:account";
-            payment.charge(accountId, amount);
-            notification.notifyCustomer(accountId);
-            audit.audit(accountId);
-            return "success";
+        public String processPayment(String accountId, int amount) { return processDetailed(accountId, amount).status(); }
+        public PaymentOutcome processDetailed(String accountId, int amount) {
+            List<String> steps = new ArrayList<>();
+            steps.add("fraud-check");
+            if (!fraud.ok(amount)) return new PaymentOutcome("rejected:fraud", "", steps);
+            steps.add("account-check");
+            if (!account.hasBalance(accountId)) return new PaymentOutcome("rejected:account", "", steps);
+            steps.add("charge");
+            String reference = payment.charge(accountId, amount);
+            steps.add(notification.notifyCustomer(accountId));
+            steps.add(audit.audit(accountId));
+            return new PaymentOutcome("success", reference, steps);
         }
     }
 }

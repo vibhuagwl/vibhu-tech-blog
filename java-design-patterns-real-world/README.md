@@ -5,6 +5,7 @@ This repository teaches GoF design patterns through small backend engineering st
 ## What this repository teaches
 
 - all 23 GoF patterns in practical Java form
+- richer examples for core interview patterns like Strategy, State, Decorator, and Facade
 - a real-world payment system that combines patterns the way production systems do
 - a small Kafka-style in-memory event flow
 - short pattern READMEs optimized for interview revision
@@ -39,6 +40,8 @@ mvn -q exec:java -Dexec.mainClass=com.example.designpatterns.DesignPatternDemo
 3. Open the pattern README for weak areas
 4. Study `realworld/payment/PaymentProcessingSystem.java`
 5. Review `docs/interview-questions.md`
+6. Review `docs/pattern-comparisons.md`
+7. Review `docs/spring-pattern-mapping.md`
 
 ## 5-minute cheat sheet
 

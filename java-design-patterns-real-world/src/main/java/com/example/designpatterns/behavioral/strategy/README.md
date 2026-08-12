@@ -49,6 +49,11 @@ Because the competing pattern either solves creation instead of behavior, behavi
 
 Senior backend systems use patterns inside orchestration, integrations, validation pipelines, eventing, and domain workflows.
 
+## Richer Example Upgrade
+
+Payment methods arrive every quarter, but the service API stays the same. The richer example now shows recurring-payment support as a real business constraint.
+
+
 ## Common Mistake
 
 Using the pattern before the real pressure exists.
