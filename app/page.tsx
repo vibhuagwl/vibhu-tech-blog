@@ -3,6 +3,7 @@ import {ArrowRight} from 'lucide-react';
 import {getAllPosts} from '@/lib/posts';
 import {hrefForPost} from '@/lib/href';
 import DifficultyBadge from '@/components/difficulty-badge';
+import {TOPIC_GROUPS} from '@/lib/site-nav';
 
 const reasons=[
   {
@@ -19,19 +20,6 @@ const reasons=[
   },
 ];
 
-const paths=[
-  {title:'System Design',href:'/system-design',blurb:'Architecture problems, estimation, and Staff follow-ups.'},
-  {title:'Distributed Systems',href:'/distributed-systems',blurb:'Locking, messaging, resilience, and consistency.'},
-  {title:'Design Patterns',href:'/design-patterns',blurb:'All 23 GoF patterns: source, revision cards, memory formula, poster, mock interview.'},
-  {title:'Java Compiler',href:'/java-compiler',blurb:'Monaco IDE with local JDK compile, run, console, and Cursor/AI assist.'},
-  {title:'Real-Time Issues',href:'/realtime-issues',blurb:'Stuck threads, Aurora, Oracle SQL, Java migration, Lead Experience.'},
-  {title:'JPMC Experience',href:'/jpmc-experience',blurb:'Hadron Cashlines, Kafka replay, tax, RSU, Terraform.'},
-  {title:'Spring Security',href:'/spring-security',blurb:'OAuth + JWT, Authn + Authz, and IDAnywhere OIDC grouped under one hub.'},
-  {title:'Kafka & Redis',href:'/kafka-interview',blurb:'Five practical Kafka pages: code, optimization, properties, cheatsheet, realtime case.'},
-  {title:'Java Complexity',href:'/complexity',blurb:'Derive Big-O from Java code with interview framing.'},
-  {title:'Behavioral & LPs',href:'/behavioral-interview',blurb:'STAR answers and Amazon Leadership Principles.'},
-];
-
 export default function Home(){
   const all=getAllPosts();
   const prep=all.find((p)=>p.slug==='system-design-interview-preparation');
@@ -42,6 +30,7 @@ export default function Home(){
       'java-migration-master-index',
       'lead-experience-master-index',
       'distributed-locking',
+      'performance-master-index',
     ].includes(p.slug)),
   ]
     .filter((p,i,arr)=>arr.findIndex((x)=>x.slug===p.slug)===i)
@@ -50,14 +39,15 @@ export default function Home(){
   return (
     <main>
       <section className="border-b border-slate-200/80 bg-white/85 dark:border-slate-800 dark:bg-slate-950/70">
-            <div className="mx-auto max-w-7xl px-5 py-16 md:py-24">
+        <div className="mx-auto max-w-7xl px-5 py-16 md:py-24">
           <div className="max-w-3xl">
             <p className="eyebrow">Senior Engineering Interview Hub</p>
             <h1 className="mt-4 text-4xl font-bold tracking-[-.035em] text-slate-900 md:text-6xl dark:text-white">
-              Real-world engineering knowledge for senior technical interviews.
+              Structured knowledge for senior technical interviews.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-              Learn the problem. Understand the trade-offs. Tell the story. Answer the interview.
+              Browse by category — architecture, platform ops, data systems, and career tools —
+              then drill into Staff-level playbooks with production examples.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/learn" className="btn-primary">
@@ -88,19 +78,33 @@ export default function Home(){
 
       <section className="mx-auto max-w-7xl px-5 pb-14">
         <div className="max-w-2xl">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Choose your path</h2>
-          <p className="mt-2 text-slate-500">Pick one lane. Every guide ends with an interview answer and a next step.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Browse by category</h2>
+          <p className="mt-2 text-slate-500">Same structure as the Topics menu — pick a lane, then open a guide.</p>
         </div>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {paths.map((p)=>(
-            <Link
-              key={p.href}
-              href={p.href}
-              className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-blue-200 dark:border-slate-800 dark:bg-slate-950"
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          {TOPIC_GROUPS.map((group)=>(
+            <section
+              key={group.id}
+              className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950"
             >
-              <h3 className="font-semibold text-slate-900 dark:text-white">{p.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-500">{p.blurb}</p>
-            </Link>
+              <div className="text-[11px] font-black uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+                {group.title}
+              </div>
+              <p className="mt-2 text-sm text-slate-500">{group.description}</p>
+              <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+                {group.topics.map((t)=>(
+                  <li key={t.href}>
+                    <Link
+                      href={t.href}
+                      className="block rounded-xl border border-transparent px-3 py-3 transition hover:border-slate-200 hover:bg-slate-50 dark:hover:border-slate-700 dark:hover:bg-slate-900"
+                    >
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">{t.label}</div>
+                      <div className="mt-1 text-xs leading-5 text-slate-500">{t.blurb}</div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
         </div>
         <div className="mt-6">
