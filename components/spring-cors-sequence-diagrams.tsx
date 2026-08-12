@@ -48,7 +48,7 @@ const DECISION = `flowchart TD
   C --> E{Origin allowlisted?}
   D --> E
   E -->|Yes| F[ACAO exact match · JS reads body]
-  E -->|No| G[Browser blocks JS access]
+  E -->|No| G[403 Invalid CORS request / browser block]
   F --> H{Credentials?}
   H -->|Yes| I[ACAC true · never ACAO *]
   H -->|No| J[ACAO may be * for public APIs]
@@ -57,8 +57,8 @@ const DECISION = `flowchart TD
 const diagrams = [
   {
     id: 'cors-simple',
-    title: 'Simple cross-origin GET',
-    blurb: 'Frontend :5500 → API :8091. Browser attaches Origin; Spring echoes ACAO for the allowlist.',
+    title: 'Simple cross-origin GET (allowed)',
+    blurb: 'Frontend http://localhost:5500 → API http://localhost:8091. Browser attaches Origin; Spring echoes ACAO.',
     chart: SIMPLE,
   },
   {
@@ -69,14 +69,14 @@ const diagrams = [
   },
   {
     id: 'cors-blocked',
-    title: 'Evil origin blocked in the browser',
-    blurb: 'The API may return 200; without ACAO the browser refuses to expose the body to JS.',
+    title: 'Evil origin → 403 Invalid CORS request',
+    blurb: 'Origin http://evil.example is not allowlisted. Spring CorsFilter returns 403; browser blocks JS access.',
     chart: BLOCKED,
   },
   {
     id: 'cors-decision',
     title: 'CORS decision map',
-    blurb: 'CORS ≠ auth. Credentials require an exact ACAO — never *.',
+    blurb: 'CORS ≠ auth. CORS ≠ CSRF. Credentials require an exact ACAO — never *.',
     chart: DECISION,
   },
 ] as const;
@@ -88,7 +88,7 @@ export default function SpringCorsSequenceDiagrams() {
         CORS end-to-end diagrams
       </h2>
       <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
-        Interview story: different origins → Origin header → optional preflight → allowlist ACAO → browser allow or block.
+        Same story as the image: different origins → Origin header → optional preflight → allowlist ACAO or 403.
       </p>
       <div className="mt-6 space-y-8">
         {diagrams.map((d) => (
