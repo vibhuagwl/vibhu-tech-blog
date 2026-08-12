@@ -60,6 +60,7 @@ const ORDER=[
   'java-migration-testing-and-regression',
   'java-migration-rollout-and-rollback',
   'java-migration-interview-answer-and-followups',
+  'java-migration-production-runbook',
   'oracle-database-realtime-troubleshooting',
   'oracle-database-incident-case-study',
   'query-used-to-be-fast-now-timeouts',
