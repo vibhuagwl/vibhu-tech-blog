@@ -16,8 +16,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Java / Maven (oauth-jwt-demo)
+# Java / Maven demos
+**/target/
 oauth-jwt-demo/**/target/
+spring-whatsapp-demo/**/target/
 *.class
 .idea/
 *.iml
