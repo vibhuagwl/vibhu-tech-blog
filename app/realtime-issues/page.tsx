@@ -30,6 +30,7 @@ const ORDER=[
   'java-30yoe-kafka-database-qa',
   'java-30yoe-distributed-caching-migration-qa',
   'java-30yoe-architecture-code-qa',
+<<<<<<< HEAD
   'aurora-postgresql-master-index',
   'aurora-postgresql-sql-and-architecture',
   'aurora-postgresql-query-tuning-indexes',
@@ -38,6 +39,16 @@ const ORDER=[
   'aurora-postgresql-transactions-migrations',
   'aurora-postgresql-incident-case-study',
   'aurora-postgresql-interview-answer-and-followups',
+=======
+  'api-integration-frameworks-master-index',
+  'api-design-contracts-rest',
+  'api-integration-patterns',
+  'api-versioning-compatibility',
+  'api-authn-authz-security',
+  'api-error-handling-resilience',
+  'api-service-to-service-communication',
+  'api-integration-interview-answer-and-followups',
+>>>>>>> origin/main
 ];
 
 export default function RealtimeIssues(){
@@ -55,7 +66,11 @@ export default function RealtimeIssues(){
         <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Real-time production issues — diagnose like you were on-call.</h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
           Incident playbooks for Java/Spring Boot: stuck threads, multi‑GB files, 30 YOE interview bank,
+<<<<<<< HEAD
           and <strong>Aurora PostgreSQL</strong> tuning, locks, pools, writer/reader, and production incidents.
+=======
+          and <strong>API Integration &amp; Frameworks</strong> (contracts, patterns, versioning, auth, errors, S2S).
+>>>>>>> origin/main
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} guides</span>

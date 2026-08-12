@@ -1,0 +1,494 @@
+---
+slug: api-authn-authz-security
+title: "API Authentication, Authorization, and Security in Spring Boot"
+description: "Principal-level guide to API authn vs authz, OAuth2, JWT, OIDC, mTLS, RBAC, ABAC, secrets, least privilege, audit, TLS, rotation, and production failure scenarios."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Real-Time Issues, API Security, Spring Boot, OAuth2, JWT, OIDC, mTLS, RBAC, ABAC]
+readingTime: 28 min
+publishedAt: "2026-08-12"
+---
+
+## The Principal framing
+
+API security is not one control.
+
+It is a chain of evidence and enforcement.
+
+At Principal level I explain it in four layers:
+
+- authenticate the caller
+- authorize the action
+- protect the transport and secrets
+- prove what happened afterward
+
+If any layer is vague, the system usually fails open during an incident.
+
+The interview answer should sound operational:
+
+> Authentication tells us who or what is calling. Authorization decides whether that identity can perform this action on this resource right now.
+
+That distinction matters because many production breaches come from treating a valid login as permission to do everything.
+
+## Authn vs authz
+
+Authentication is identity proof.
+
+Examples:
+
+- user logs in through OIDC
+- machine presents a client certificate
+- service validates a JWT signature
+- gateway verifies an OAuth2 access token
+
+Authorization is policy enforcement.
+
+Examples:
+
+- user can read only accounts in their tenant
+- service can call only inventory read APIs
+- support role can view an order but cannot refund it
+- admin can rotate a key but cannot bypass audit
+
+The failure mode is simple:
+
+```text
+authenticated user
+  -> broad role
+  -> missing resource check
+  -> cross-tenant data exposure
+```
+
+Authentication succeeded.
+
+Authorization failed.
+
+## Typical gateway-to-service flow
+
+For an internet-facing Spring Boot estate:
+
+```text
+client
+  -> load balancer with TLS
+  -> API gateway
+  -> OAuth2 / OIDC token validation
+  -> JWT claims normalized
+  -> internal services over HTTPS or mTLS
+  -> service-level authorization
+  -> audit event
+```
+
+The gateway should reject clearly invalid traffic early.
+
+The service should still enforce its own authorization.
+
+Do not rely on "the gateway already checked it" for business-critical permissions.
+
+Gateways are excellent for:
+
+- TLS termination
+- coarse authentication
+- request size limits
+- rate limiting
+- WAF integration
+- token shape validation
+- correlation id creation
+- edge audit
+
+Services remain responsible for:
+
+- tenant boundaries
+- object-level permissions
+- command-specific authorization
+- domain audit
+- least-privilege outbound calls
+- secure failure behavior
+
+## OAuth2 and JWT in production
+
+OAuth2 is the delegation framework.
+
+JWT is a token format commonly used for access tokens.
+
+OIDC adds identity on top of OAuth2 and standardizes login claims.
+
+A common production model is:
+
+```text
+browser or mobile app
+  -> authorization server
+  -> authorization code flow with PKCE
+  -> access token
+  -> API gateway
+  -> resource service
+```
+
+The access token should be short-lived.
+
+The refresh token, if used, should be protected more carefully than the access token.
+
+Do not put secrets, PII, or large authorization graphs inside a JWT.
+
+JWTs are bearer credentials.
+
+Anyone who has the token can use it until it expires unless additional controls stop them.
+
+## What to validate in a JWT
+
+A Spring Boot service should validate more than the signature.
+
+It should validate:
+
+- issuer
+- audience
+- expiration
+- not-before time
+- signature algorithm
+- key id and trusted key set
+- required scopes or roles
+- tenant claim, if tenancy is part of the contract
+
+Signature-only validation is incomplete.
+
+A token minted for service A should not automatically be accepted by service B.
+
+That is the purpose of the audience claim.
+
+## Spring Security resource server sketch
+
+```java
+@Configuration
+@EnableMethodSecurity
+class SecurityConfiguration {
+
+    @Bean
+    SecurityFilterChain apiSecurity(HttpSecurity http) throws Exception {
+        return http
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/orders/**").hasAuthority("SCOPE_orders.read")
+                .requestMatchers(HttpMethod.POST, "/api/orders/**").hasAuthority("SCOPE_orders.write")
+                .anyRequest().authenticated()
+            )
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+            .build();
+    }
+}
+```
+
+This is a starting point, not the whole design.
+
+Method or domain checks are still needed when access depends on tenant, owner, region, product, or workflow state.
+
+## OIDC responsibilities
+
+OIDC is useful when the caller is a user.
+
+It gives standardized identity concepts:
+
+- subject
+- issuer
+- audience
+- login session
+- id token
+- user info endpoint
+- well-known discovery document
+
+Do not confuse an id token with an API access token.
+
+The id token is primarily for the client to understand who logged in.
+
+The access token is what the API validates.
+
+In interviews, I say:
+
+> OIDC proves the interactive user identity. OAuth2 access tokens authorize API access. The service still maps claims to domain permissions.
+
+## Service-to-service mTLS
+
+JWTs solve one set of problems.
+
+mTLS solves another.
+
+mTLS authenticates the workload or service endpoint at the transport layer.
+
+In a service mesh or platform-managed environment:
+
+```text
+service A
+  -> client certificate
+  -> TLS handshake
+  -> service B verifies trusted CA
+  -> service B maps certificate identity to allowed callers
+```
+
+mTLS is strong for service-to-service identity because credentials are tied to workload certificates.
+
+It also protects against accidental plaintext traffic inside the network.
+
+But mTLS alone does not answer every domain authorization question.
+
+Service B still needs to know whether service A may perform this specific operation.
+
+## RBAC
+
+RBAC maps users or services to roles.
+
+Examples:
+
+- `ROLE_SUPPORT_READONLY`
+- `ROLE_ORDER_ADMIN`
+- `ROLE_PAYMENT_OPERATOR`
+- `ROLE_INVENTORY_SERVICE`
+
+RBAC is easy to explain and easy to audit.
+
+It is also easy to make too broad.
+
+The production smell is a role named `ROLE_SUPER_ADMIN` used by automation, support, and migrations.
+
+That role eventually becomes impossible to reason about.
+
+## ABAC
+
+ABAC evaluates attributes.
+
+Examples:
+
+- caller tenant equals resource tenant
+- order country belongs to caller region
+- request time is inside support shift
+- transaction amount is below approval limit
+- device trust score meets the threshold
+
+ABAC is more expressive than RBAC.
+
+It is also easier to make opaque if policy logic is scattered.
+
+Principal-level design usually combines them:
+
+- RBAC for coarse capability
+- ABAC for resource and context boundaries
+- explicit deny for high-risk operations
+- audit explaining the decision
+
+## Least privilege
+
+Least privilege applies to humans, services, CI, databases, queues, and cloud resources.
+
+For Spring Boot services, I look for:
+
+- one database account per service
+- no shared admin database user
+- separate read and write privileges where practical
+- topic-level Kafka ACLs
+- object store prefixes scoped per service
+- no wildcard cloud permissions
+- short-lived credentials where possible
+- break-glass access with approval and audit
+
+The test is not "can it work."
+
+The test is "what can it damage if compromised."
+
+## Secrets manager
+
+Secrets should not live in source, Docker images, tickets, wiki pages, or environment dumps.
+
+Use a secrets manager or platform secret facility.
+
+Examples include Vault, AWS Secrets Manager, GCP Secret Manager, Azure Key Vault, or Kubernetes secrets backed by encrypted storage and access controls.
+
+For a Spring Boot service:
+
+```text
+startup
+  -> workload identity
+  -> secrets manager
+  -> fetch database password
+  -> configure HikariCP
+  -> expose readiness only after validation
+```
+
+The service should not log the secret when configuration binding fails.
+
+The platform should rotate the secret without requiring source changes.
+
+## Rotation
+
+Credential rotation must be designed before the first incident.
+
+Useful patterns:
+
+- dual keys during migration
+- short-lived certs
+- automated renewal
+- alert before expiry
+- canary validation of new trust bundles
+- rollback path for bad keys
+- audit of who triggered rotation
+
+For JWT signing keys, the resource servers need to refresh JWKS safely.
+
+For mTLS, clients and servers need overlapping trust windows.
+
+For database passwords, connection pools need a way to drain old connections and open new ones.
+
+## Token expiry
+
+Long-lived tokens reduce login friction.
+
+They increase blast radius.
+
+A good production default is:
+
+- short access token lifetime
+- refresh token rotation for interactive clients
+- token revocation for high-risk events
+- step-up auth for dangerous actions
+- no permanent personal tokens for automation
+
+For service accounts, prefer workload identity or managed identities over static shared tokens.
+
+If static credentials exist, put an owner, expiry, and rotation playbook on them.
+
+## TLS everywhere
+
+TLS protects confidentiality and integrity in transit.
+
+At Principal level I care about:
+
+- TLS at the edge
+- TLS to internal services
+- modern cipher suites
+- certificate chain validation
+- hostname verification
+- automated renewal
+- alerting before expiry
+- no "trust all" HTTP clients
+
+The worst production anti-pattern is a temporary disabled certificate check that becomes permanent.
+
+## No secrets or PII in logs
+
+Logs are copied, indexed, retained, exported, and queried by many people.
+
+Treat logs as a broad access surface.
+
+Never log:
+
+- bearer tokens
+- refresh tokens
+- API keys
+- passwords
+- full certificates or private keys
+- full credit card data
+- government identifiers
+- raw authentication headers
+
+For PII, log stable opaque identifiers instead of names, emails, or addresses unless there is a proven operational need and retention policy.
+
+Log correlation ids, tenant ids, opaque subject references, resource ids, and authorization decisions.
+
+Do not log raw authorization headers, raw JWTs, emails, full card data, or secret material.
+
+## Audit
+
+Audit is not debug logging.
+
+Audit records should answer:
+
+- who acted
+- what action was attempted
+- which resource was affected
+- what decision was made
+- which policy or role allowed it
+- when it happened
+- from where it happened
+- which correlation id ties it to traces
+
+Audit records should be tamper-resistant and retained according to policy.
+
+## Production failure: expired certificate
+
+Symptom:
+
+- sudden spike in 502 or 503 between services
+- TLS handshake failures
+- only one dependency path is red
+- pods are healthy but calls fail
+
+Likely cause:
+
+- client certificate expired
+- server certificate expired
+- CA bundle was not refreshed
+- service mesh rotated certificates but one workload missed renewal
+
+Immediate response:
+
+- confirm expiry and issuer
+- check platform certificate renewal events
+- route around the failing dependency if safe
+- renew certificate or roll affected pods
+- keep audit of emergency changes
+
+Prevention:
+
+- alert before expiry
+- synthetic mTLS checks
+- automated renewal
+- rotation drills
+- no manual certificate inventory as the source of truth
+
+## Production failure: overly broad roles
+
+Symptom:
+
+- user in support role can change payment state
+- internal tool can export all tenants
+- service token accepted by unrelated API
+- audit says allowed but business owner says impossible
+
+Likely cause:
+
+- role reused for convenience
+- route-level check without resource-level check
+- missing audience validation
+- admin role granted to automation
+- stale group membership
+
+Immediate response:
+
+- revoke or narrow the role
+- disable the dangerous route if needed
+- preserve audit evidence
+- identify affected resources
+- notify according to incident policy
+
+Prevention:
+
+- least-privilege review
+- deny-by-default policy
+- automated authorization tests
+- role ownership
+- periodic access review
+- tenant-bound integration tests
+
+## Interview answer
+
+"I separate authentication from authorization. Authentication proves the caller identity, usually through OIDC for users, OAuth2 access tokens, JWT validation, or mTLS for service workloads. Authorization is a separate decision: can this identity perform this action on this resource in this tenant.
+
+In a Spring Boot microservice estate, the gateway validates coarse concerns like TLS, token structure, rate limits, and correlation ids, but each service still enforces business authorization. I validate issuer, audience, expiry, key id, and scopes, then apply RBAC for coarse capabilities and ABAC for tenant or resource rules.
+
+For service-to-service calls I prefer mTLS or workload identity, sometimes combined with a JWT carrying delegated user context. Secrets come from a secrets manager, credentials rotate with overlap, access tokens are short-lived, and no tokens, secrets, or PII appear in logs. Audit records describe who attempted what, on which resource, and why it was allowed or denied.
+
+The production failures I watch for are expired certificates, stale JWKS during key rotation, overly broad roles, disabled TLS verification, and missing resource checks. The prevention is deny by default, least privilege, automated auth tests, expiry alerts, and a clear emergency access process."
+
+## Related Real-Time Issues guides
+
+- [Stuck threads from DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools)
+- [Spring Boot and microservices incidents](/realtime-issues/java-30yoe-spring-microservices-qa)
+- [RCA, prevention, and observability](/realtime-issues/stuck-thread-rca-prevention-observability)
+

@@ -1,0 +1,850 @@
+---
+slug: api-design-contracts-rest
+title: "Contract-First REST API Design: Payment APIs That Survive Production"
+description: "Principal-level guide to OpenAPI-first REST design, DTO boundaries, pagination, status codes, idempotent POST, async APIs, compatibility, and Spring Boot Java 17 sketches."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [REST, OpenAPI, Spring Boot, Java 17, Payments, Idempotency, API Design]
+readingTime: 28 min
+publishedAt: "2026-08-12"
+---
+
+## The interview framing
+
+At Principal level, REST API design is not a naming exercise.
+
+It is contract engineering.
+
+The interviewer wants to know whether your API can survive real clients, retries, partial failures, old versions, schema drift, partner mistakes, and on-call pressure.
+
+For payments, the API is especially unforgiving.
+
+A duplicate side effect is not a cosmetic bug.
+
+It can become a customer refund, audit exception, chargeback, or regulatory incident.
+
+## Start contract-first
+
+Contract-first means the OpenAPI document is reviewed before the controller implementation becomes the source of truth.
+
+The contract should define:
+
+- resource names
+- operations
+- request schemas
+- response schemas
+- validation constraints
+- security scopes
+- idempotency headers
+- examples
+- status codes
+- error format
+- pagination model
+- deprecation markers
+- versioning policy
+
+The goal is not bureaucracy.
+
+The goal is to make incompatible assumptions visible before consumers write code.
+
+## Minimal OpenAPI shape
+
+For a payment creation contract:
+
+```yaml
+openapi: 3.1.0
+info:
+  title: Payment API
+  version: 1.0.0
+paths:
+  /api/v1/payments:
+    post:
+      summary: Create a payment intent
+      operationId: createPayment
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '202':
+          description: Payment accepted for asynchronous processing
+        '400':
+          description: Invalid request
+        '409':
+          description: Idempotency key conflict or invalid state transition
+        '422':
+          description: Semantically valid request rejected by business rules
+        '429':
+          description: Rate limited
+        '503':
+          description: Dependency unavailable; retry only if caller preserves idempotency key
+components:
+  schemas:
+    CreatePaymentRequest:
+      type: object
+      required: [customerId, amount, currency]
+      properties:
+        customerId:
+          type: string
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    PaymentResponse:
+      type: object
+      required: [paymentId, status, amount, currency, createdAt]
+      properties:
+        paymentId:
+          type: string
+        status:
+          type: string
+          enum: [CREATED, AUTHORIZED, CAPTURED, FAILED]
+        amount:
+          type: integer
+          format: int64
+        currency:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+```
+
+This is not the final API.
+
+It is enough to expose the important review questions.
+
+## Review questions for the contract
+
+Ask these before implementation:
+
+- Is the idempotency key scoped to customer, merchant, endpoint, or tenant?
+- What response is returned for a duplicate key with the same payload?
+- What response is returned for the same key with a different payload?
+- Can `status` gain new values without breaking clients?
+- Are monetary amounts minor units or decimal values?
+- Is currency required before PSP selection?
+- Does `202 Accepted` expose a status resource?
+- Is retry behavior documented for each error?
+- Are validation errors machine-readable?
+- Is the API stable if the database schema changes?
+
+The value of contract-first is that these questions happen while the blast radius is small.
+
+## Resource-oriented REST
+
+Resource-oriented REST does not mean database CRUD.
+
+It means the API exposes stable business resources and state transitions.
+
+For payments:
+
+```text
+POST /api/v1/payments
+GET  /api/v1/payments/{paymentId}
+POST /api/v1/payments/{paymentId}/authorizations
+POST /api/v1/payments/{paymentId}/captures
+POST /api/v1/payments/{paymentId}/refunds
+GET  /api/v1/payments/{paymentId}/events
+```
+
+Each command has a different correctness rule.
+
+Creating a payment intent is not the same as capturing money.
+
+Refunding is not the same as deleting a row.
+
+The API should make those differences visible.
+
+## Avoid table-shaped APIs
+
+Weak design:
+
+```text
+POST /api/v1/payment-table
+PUT  /api/v1/payment-table/{id}
+DELETE /api/v1/payment-table/{id}
+```
+
+That exposes storage instead of business meaning.
+
+It also encourages clients to mutate columns directly.
+
+Strong design:
+
+```text
+POST /api/v1/payments/{paymentId}/captures
+POST /api/v1/payments/{paymentId}/refunds
+POST /api/v1/payments/{paymentId}/cancellations
+```
+
+Now each transition can be validated, authorized, audited, and made idempotent.
+
+## DTOs are not entities
+
+Do not return JPA entities from controllers.
+
+That creates several failure modes:
+
+- lazy loading during serialization
+- accidental data exposure
+- circular references
+- persistence refactors becoming API breaks
+- fields changing without contract review
+- security annotations bypassed by nested objects
+
+Use DTOs as the public contract.
+
+Use entities as persistence details.
+
+Use domain objects or service models where the business rules live.
+
+## Java 17 DTO sketches
+
+Java records work well for immutable request and response shapes.
+
+```java
+package com.example.payments.api;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import java.time.Instant;
+import java.util.Map;
+
+public record CreatePaymentRequest(
+        @NotBlank String customerId,
+        @Positive long amountMinor,
+        @NotBlank String currency,
+        Map<String, String> metadata
+) {
+}
+
+public record PaymentResponse(
+        String paymentId,
+        PaymentStatus status,
+        long amountMinor,
+        String currency,
+        Instant createdAt,
+        Instant updatedAt
+) {
+}
+
+public enum PaymentStatus {
+    CREATED,
+    AUTHORIZED,
+    CAPTURED,
+    FAILED
+}
+```
+
+Records do not remove the need for validation.
+
+They make the contract shape explicit.
+
+## Entity sketch
+
+The entity may have fields that never belong in the public contract.
+
+```java
+package com.example.payments.persistence;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.Instant;
+
+@Entity
+@Table(name = "payments")
+public class PaymentEntity {
+    @Id
+    private String id;
+    private String customerId;
+    private long amountMinor;
+    private String currency;
+    private String status;
+    private String pspReference;
+    private String riskDecisionId;
+    private int version;
+    private Instant createdAt;
+    private Instant updatedAt;
+
+    protected PaymentEntity() {
+    }
+}
+```
+
+The entity contains persistence and provider details.
+
+The response DTO should expose only stable consumer-facing fields.
+
+## Controller sketch
+
+A Spring Boot controller should be thin.
+
+```java
+package com.example.payments.api;
+
+import jakarta.validation.Valid;
+import java.net.URI;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/payments")
+public class PaymentController {
+    private final PaymentApplicationService payments;
+
+    public PaymentController(PaymentApplicationService payments) {
+        this.payments = payments;
+    }
+
+    @PostMapping
+    public ResponseEntity<PaymentResponse> createPayment(
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody CreatePaymentRequest request) {
+
+        PaymentResponse response = payments.createPayment(idempotencyKey, request);
+
+        return ResponseEntity
+                .created(URI.create("/api/v1/payments/" + response.paymentId()))
+                .body(response);
+    }
+
+    @GetMapping("/{paymentId}")
+    public ResponseEntity<PaymentResponse> getPayment(@PathVariable String paymentId) {
+        return ResponseEntity.ok(payments.getPayment(paymentId));
+    }
+}
+```
+
+The controller delegates idempotency, state transitions, and integration behavior.
+
+It does not call the PSP directly.
+
+## Stateless API, stateful idempotency
+
+REST APIs should remain stateless with respect to server sessions.
+
+That does not mean the system keeps no state.
+
+Payment idempotency is deliberately persisted.
+
+The caller sends:
+
+```text
+Idempotency-Key: merchant-123:create-payment:01HR...
+```
+
+The service stores:
+
+```text
+tenant_id
+endpoint
+idempotency_key_hash
+request_fingerprint
+response_body
+status_code
+created_at
+expires_at
+```
+
+Then duplicate requests can collapse safely.
+
+## Idempotent POST behavior
+
+For side-effecting POST:
+
+| Situation | Response |
+|---|---|
+| First request with new key | Process and store final response |
+| Same key, same payload, completed | Return the stored response |
+| Same key, same payload, in progress | Return `202 Accepted` or `409 Conflict`, depending on contract |
+| Same key, different payload | Return `409 Conflict` |
+| Missing key for payment side effect | Return `400 Bad Request` |
+| Key expired | Treat as new only if business risk accepts it |
+
+Do not use "same body hash" alone as idempotency for payments.
+
+The caller must provide an operation key that survives retry.
+
+## Idempotency service sketch
+
+```java
+package com.example.payments.idempotency;
+
+import java.util.Optional;
+
+public interface IdempotencyStore {
+    Optional<StoredResponse> find(String tenantId, String endpoint, String keyHash);
+
+    Reservation reserve(
+            String tenantId,
+            String endpoint,
+            String keyHash,
+            String requestFingerprint);
+
+    void complete(Reservation reservation, int statusCode, String responseJson);
+}
+
+public record StoredResponse(
+        int statusCode,
+        String responseJson,
+        String requestFingerprint
+) {
+}
+
+public record Reservation(String id) {
+}
+```
+
+The database must enforce uniqueness.
+
+The application should not rely on a race-prone check-then-insert pattern.
+
+## Status codes that matter
+
+Use status codes as part of the contract.
+
+| Code | Payment API use |
+|---:|---|
+| `200 OK` | Read succeeded or duplicate idempotent request returns existing result |
+| `201 Created` | New resource created synchronously |
+| `202 Accepted` | Work accepted and processing asynchronously |
+| `204 No Content` | Idempotent cancellation with no response body |
+| `400 Bad Request` | Syntax or validation error |
+| `401 Unauthorized` | Missing or invalid authentication |
+| `403 Forbidden` | Authenticated caller lacks scope or tenant access |
+| `404 Not Found` | Resource does not exist or is hidden by tenant boundary |
+| `409 Conflict` | Invalid state transition or idempotency key conflict |
+| `422 Unprocessable Entity` | Business rule rejects a valid request |
+| `429 Too Many Requests` | Client or tenant rate limit |
+| `500 Internal Server Error` | Unclassified server fault |
+| `503 Service Unavailable` | Dependency unavailable or circuit open |
+
+The retry policy must be documented.
+
+Never force clients to infer payment retry safety from status code alone.
+
+## Error response shape
+
+Use a stable machine-readable error shape.
+
+```json
+{
+  "errorCode": "PAYMENT_STATE_CONFLICT",
+  "message": "Payment cannot be captured from FAILED state",
+  "correlationId": "0f3b2e...",
+  "retryable": false,
+  "details": [
+    {
+      "field": "paymentId",
+      "reason": "Invalid state transition"
+    }
+  ]
+}
+```
+
+For incidents, `correlationId` is not optional.
+
+It connects caller reports to traces, logs, PSP calls, and idempotency rows.
+
+## Pagination
+
+Never expose unbounded list APIs.
+
+Payment history can grow for years.
+
+Use cursor pagination when ordering matters and data changes while clients read.
+
+```text
+GET /api/v1/payments?customerId=cus_123&limit=50&cursor=eyJ...
+```
+
+Response:
+
+```json
+{
+  "items": [],
+  "nextCursor": "eyJwYXltZW50SWQiOiJwYXlfNDU2In0=",
+  "hasMore": true
+}
+```
+
+Use offset pagination only when the result set is small or stability does not matter.
+
+Cursor pagination is better for high-write payment histories.
+
+## Filtering
+
+Filtering must be constrained.
+
+Good filters:
+
+```text
+customerId
+merchantId
+status
+createdFrom
+createdTo
+currency
+```
+
+Dangerous filters:
+
+```text
+freeText
+metadata.*
+providerResponse
+unindexedStatusReason
+```
+
+Every filter should map to a known access pattern and index strategy.
+
+Do not let the public API become an arbitrary database query interface.
+
+## Sorting
+
+Make allowed sort fields explicit.
+
+```text
+GET /api/v1/payments?sort=-createdAt
+GET /api/v1/payments?sort=amountMinor
+```
+
+Reject unknown sort fields.
+
+Tie-break with a stable unique column.
+
+For example:
+
+```text
+ORDER BY created_at DESC, id DESC
+```
+
+Without a stable tie-breaker, pagination can skip or duplicate records.
+
+## Field selection
+
+Field selection can reduce payload size.
+
+```text
+GET /api/v1/payments/{paymentId}?fields=paymentId,status,amountMinor
+```
+
+Use it carefully.
+
+The contract still owns the field names.
+
+Do not allow nested arbitrary graph expansion that triggers N+1 queries.
+
+Prefer named views for expensive joins:
+
+```text
+GET /api/v1/payments/{paymentId}?view=summary
+GET /api/v1/payments/{paymentId}?view=audit
+```
+
+Named views are easier to test, cache, and secure.
+
+## Async APIs for high volume
+
+Not every API should finish in the request thread.
+
+Use asynchronous APIs when:
+
+- downstream latency is unpredictable
+- work can exceed caller timeout
+- volume spikes would exhaust servlet threads
+- correctness needs durable orchestration
+- the caller can tolerate eventual completion
+- the operation has multiple states
+
+Payment capture may start synchronously and finish asynchronously.
+
+```text
+POST /api/v1/payments/{paymentId}/captures
+```
+
+Response:
+
+```http
+HTTP/1.1 202 Accepted
+Location: /api/v1/payments/{paymentId}/captures/{captureId}
+Retry-After: 2
+```
+
+The status resource becomes the contract.
+
+```text
+GET /api/v1/payments/{paymentId}/captures/{captureId}
+```
+
+The client does not need to know whether Kafka, a worker, or a saga completes the work.
+
+## Async handoff design
+
+A robust async design usually persists state first.
+
+```text
+1. Validate request.
+2. Reserve idempotency key.
+3. Insert payment command row.
+4. Insert outbox event in the same transaction.
+5. Return 202 with status location.
+6. Relay event to Kafka.
+7. Worker calls PSP with provider idempotency key.
+8. Worker updates state.
+9. Worker emits domain event.
+```
+
+This avoids holding an HTTP request thread while waiting for a slow provider.
+
+It also gives incident responders durable state to inspect.
+
+## Backward-compatible evolution
+
+Prefer compatible changes.
+
+Usually safe:
+
+- add optional response field
+- add optional request field with default behavior
+- add new endpoint
+- add new enum value only if clients are built for unknown values
+- widen validation carefully
+- add new error code while preserving existing high-level semantics
+
+Usually breaking:
+
+- remove field
+- rename field
+- change field meaning
+- narrow validation unexpectedly
+- change currency units
+- change idempotency scope
+- make optional field required
+- change ordering or pagination semantics
+
+API versioning is not a substitute for discipline.
+
+Versioning is the escape hatch after compatible evolution is exhausted.
+
+## Production failure: timeout then duplicate charge
+
+At 10:04 UTC, a mobile client calls:
+
+```text
+POST /api/v1/payments/{paymentId}/captures
+```
+
+The client times out after 3 seconds.
+
+The PSP completes at 8 seconds.
+
+The client retries with a new request body and no idempotency key.
+
+The service calls the PSP again.
+
+Two captures are created.
+
+The root cause is not "the API was slow."
+
+The root cause is that the API allowed unsafe retry of a side effect.
+
+The fix is:
+
+- require `Idempotency-Key`
+- pass a provider idempotency key to the PSP
+- persist request fingerprint
+- return stored response for duplicate requests
+- make unknown provider state reconcilable
+- emit metrics for duplicate suppression and conflict
+
+## Production failure: entity leak
+
+A team returns `PaymentEntity` from the controller.
+
+Later, a field called `riskScoreInternal` is added for fraud operations.
+
+A partner starts receiving it.
+
+Then a database migration renames `pspReference`.
+
+The partner parser breaks.
+
+The root cause is not only missing review.
+
+The root cause is that the database model became the public API.
+
+The fix is DTO isolation and contract review.
+
+## Spring Boot validation tips
+
+Use validation annotations on DTOs.
+
+Use service-level validation for cross-field business rules.
+
+Examples:
+
+```java
+public record CapturePaymentRequest(
+        @Positive long amountMinor,
+        @NotBlank String currency
+) {
+}
+```
+
+Do not rely only on annotations for payment rules.
+
+The service must check:
+
+- payment exists
+- caller owns tenant
+- state allows capture
+- amount does not exceed authorized amount
+- currency matches original payment
+- idempotency key matches the operation
+
+## Controller advice sketch
+
+Centralize error mapping.
+
+```java
+package com.example.payments.api;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class ApiExceptionHandler {
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<ApiError> validation(MethodArgumentNotValidException ex) {
+        return ResponseEntity
+                .badRequest()
+                .body(ApiError.notRetryable("VALIDATION_FAILED", "Request validation failed"));
+    }
+
+    @ExceptionHandler(PaymentStateConflictException.class)
+    ResponseEntity<ApiError> conflict(PaymentStateConflictException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiError.notRetryable("PAYMENT_STATE_CONFLICT", ex.getMessage()));
+    }
+
+    @ExceptionHandler(DependencyUnavailableException.class)
+    ResponseEntity<ApiError> dependency(DependencyUnavailableException ex) {
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiError.retryable("PAYMENT_DEPENDENCY_UNAVAILABLE", ex.getMessage()));
+    }
+}
+```
+
+The handler should preserve correlation IDs.
+
+It should not turn every exception into a generic `500`.
+
+## Observability contract
+
+Expose metrics that match the API contract.
+
+Useful metrics:
+
+- request count by route, method, status, client, tenant, and version
+- latency by route and dependency
+- idempotency duplicate suppression count
+- idempotency conflict count
+- validation failure count by error code
+- async accepted count
+- async completion latency
+- circuit breaker state
+- downstream timeout count
+- old version usage
+
+Use traces to carry:
+
+- correlation ID
+- payment ID
+- idempotency key hash
+- PSP request ID
+- Kafka topic and partition when async
+
+Do not log raw card, token, or secret values.
+
+## Trade-offs
+
+| Design choice | Benefit | Cost |
+|---|---|---|
+| Contract-first OpenAPI | Early consumer review and generated docs | Requires governance and discipline |
+| Resource-oriented REST | Clear lifecycle and ownership | More design work than CRUD |
+| DTO isolation | Compatibility and security | Mapping code and tests |
+| Cursor pagination | Stable high-write reads | More complex cursors |
+| Idempotency key | Safe retries for side effects | Requires persistent store and conflict rules |
+| Async `202` workflow | Protects request threads and latency budgets | Eventual consistency and status tracking |
+| Compatible evolution | Fewer client migrations | Requires planning for unknown future values |
+
+## Interview answer shape
+
+Say:
+
+> I would design the payment API contract-first with OpenAPI, model resources around business transitions rather than tables, keep DTOs separate from entities, and define status codes and error semantics as part of the contract. For side-effecting POST operations, I require `Idempotency-Key`, persist the request fingerprint and response, and pass a provider idempotency key downstream. List APIs use bounded cursor pagination with explicit filters and sort fields. If the operation cannot reliably finish inside the caller's latency budget, I return `202 Accepted` with a status resource and complete the workflow asynchronously through durable state and an outbox. For evolution, I prefer additive compatible changes, use consumer contract tests, and monitor old-version usage before any deprecation.
+
+## Checklist
+
+Before shipping a payment REST API:
+
+- OpenAPI reviewed by producer and consumers
+- DTOs separated from entities
+- validation errors machine-readable
+- idempotency required for side effects
+- duplicate and conflict behavior documented
+- status codes mapped to retry policy
+- pagination bounded
+- filters indexed and constrained
+- sorting stable
+- async status resources documented
+- versioning policy documented
+- consumer contract tests running
+- route, version, error, and idempotency metrics available
+- dashboards include dependency latency and timeout rate
+- runbook explains ambiguous PSP state
+
+## Final principle
+
+REST is the interface.
+
+The contract is the promise.
+
+For Principal engineers, the design is complete only when the promise holds during retry, timeout, duplicate delivery, schema evolution, and downstream failure.

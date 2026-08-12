@@ -1,0 +1,186 @@
+---
+slug: api-versioning-compatibility
+title: "API Versioning & Backward Compatibility — Principal Guide"
+description: "Prefer compatible evolution; use explicit /v1 /v2 for breaking changes; deprecation, consumer contract tests, and monitoring old versions in Spring Boot estates."
+category: Real-Time Issues
+difficulty: Principal
+tags: [API Versioning, Compatibility, OpenAPI, Spring Boot, Contract Testing, Principal Interview]
+readingTime: 16 min
+publishedAt: "2026-08-12"
+---
+
+## The Principal rule
+
+Prefer **backward-compatible evolution** first. Introduce an explicit new version only when the change is **breaking** for existing consumers.
+
+Breaking usually means:
+
+- removing or renaming a field
+- changing a field’s type or meaning
+- changing status-code semantics for the same outcome
+- changing auth requirements in a way that rejects previously valid clients
+- changing pagination defaults that silently alter result sets
+
+Related:
+
+- [API design & contracts](/realtime-issues/api-design-contracts-rest)
+- [API Integration & Frameworks index](/realtime-issues/api-integration-frameworks-master-index)
+- [Error handling](/realtime-issues/api-error-handling-resilience)
+
+## Compatible evolution (default path)
+
+```text
+v1 consumers keep working
+        ↓
+add optional fields
+        ↓
+widen enums carefully (or use strings + documented values)
+        ↓
+document deprecation for unused fields
+        ↓
+remove only after usage → near zero
+```
+
+Examples that are usually safe:
+
+| Change | Compatible? | Notes |
+|---|---|---|
+| Add optional response field | Yes | Old clients ignore it |
+| Add optional request field with default | Yes | Server must default safely |
+| Add new endpoint | Yes | No impact on old paths |
+| Make required field optional | Usually yes | Be careful with null semantics |
+| Remove field | No | Explicit version or long deprecation |
+| Change `amount` from string to number | No | Serialization break |
+| Reuse HTTP 200 for failures | No | Semantics break |
+
+## Explicit URL versioning
+
+For breaking changes I prefer clear URL versions in public APIs:
+
+```text
+/api/v1/payments
+/api/v2/payments
+```
+
+Why Principals like path versioning:
+
+- visible in access logs and gateways
+- easy to route, rate-limit, and deprecate per version
+- easy for mobile / partner teams to understand
+
+Trade-off: URL proliferation and dual maintenance until v1 is retired.
+
+### Spring Boot sketch
+
+```java
+@RestController
+@RequestMapping("/api/v1/payments")
+public class PaymentV1Controller {
+    @GetMapping("/{id}")
+    public PaymentV1Response get(@PathVariable String id) { /* ... */ }
+}
+
+@RestController
+@RequestMapping("/api/v2/payments")
+public class PaymentV2Controller {
+    @GetMapping("/{id}")
+    public PaymentV2Response get(@PathVariable String id) { /* ... */ }
+}
+```
+
+Share domain services; keep **transport contracts** versioned, not the whole business core.
+
+## Header / media-type versioning
+
+Mature organizations sometimes use:
+
+```text
+Accept: application/vnd.company.payments.v2+json
+```
+
+or a custom header:
+
+```text
+X-API-Version: 2
+```
+
+Pros:
+
+- cleaner resource URLs
+- content negotiation is “HTTP-native”
+
+Cons:
+
+- harder to spot in casual logs
+- easier for clients to misconfigure
+- caching/CDN behavior needs care
+
+I use header/media-type versioning when the org standard already demands it—not as a personal preference war.
+
+## Deprecation playbook
+
+```text
+1. Announce deprecation in OpenAPI + docs + release notes
+2. Add response headers: Deprecation / Sunset
+3. Monitor traffic by version
+4. Contact high-volume consumers
+5. Keep dual-run window (weeks to quarters depending on partners)
+6. Block new consumer onboarding to v1
+7. Remove v1 only when usage is near zero or contractually expired
+```
+
+Example headers:
+
+```text
+Deprecation: true
+Sunset: Sat, 01 Aug 2026 00:00:00 GMT
+Link: </api/v2/payments>; rel="successor-version"
+```
+
+## Compatibility testing
+
+I do not trust “we didn’t break clients” without evidence.
+
+| Test | Purpose |
+|---|---|
+| Consumer-driven contract tests (Pact / Spring Cloud Contract) | Catch provider breaks against known consumers |
+| OpenAPI diff in CI | Fail PR if breaking schema change without version bump |
+| Golden response fixtures | Lock critical fields for mobile/partners |
+| Canary on old version | Prove dual stack works under load |
+
+## Monitoring older versions
+
+Track:
+
+```text
+requests_by_api_version
+error_rate_by_api_version
+p99_latency_by_api_version
+unique_clients_by_api_version
+```
+
+Alert when:
+
+- v1 traffic unexpectedly rises after deprecation
+- v2 error rate exceeds v1 during migration
+- a major partner still depends on a sunset version
+
+## What I say in an interview
+
+> I evolve APIs by adding optional fields and keeping semantics stable. For breaking changes I introduce `/api/v2`, keep v1 running with a documented sunset, monitor version traffic, and only retire v1 when consumers have moved. Compatibility is proven with contract tests and OpenAPI diff gates—not hope.
+
+## Common mistakes
+
+| Mistake | Why it hurts |
+|---|---|
+| Silent field rename | Mobile apps crash or drop data |
+| One “latest” URL that changes meaning | Undeployable clients |
+| No sunset date | Eternal dual maintenance |
+| Versioning every additive change | Version explosion |
+| Sharing JPA entities as API models | Accidental schema coupling |
+
+## Related
+
+- [Integration patterns](/realtime-issues/api-integration-patterns)
+- [Authn / Authz](/realtime-issues/api-authn-authz-security)
+- [Interview answers](/realtime-issues/api-integration-interview-answer-and-followups)
