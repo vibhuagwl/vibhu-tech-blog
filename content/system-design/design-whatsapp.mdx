@@ -1,11 +1,11 @@
 ---
 slug: design-whatsapp
 title: "Design WhatsApp — Complete High-Level System Design"
-description: "Single-page WhatsApp-like HLD for Staff interviews: architecture, protocols, messaging, groups, Kafka, Redis, media, calls, sharding, failures, cheat sheet — with Mermaid diagrams."
+description: "Single-page WhatsApp-like HLD for Staff interviews: architecture, REST APIs, Spring Boot microservices demo, protocols, messaging, Kafka, Redis, media, calls, sharding, failures — with Mermaid."
 category: System Design
 difficulty: Staff
-tags: [WhatsApp, Messaging, WebSocket, Kafka, Redis, WebRTC, System Design, Interview]
-readingTime: 45 min
+tags: [WhatsApp, Messaging, WebSocket, Kafka, Redis, WebRTC, Spring Boot, System Design, Interview]
+readingTime: 50 min
 publishedAt: "2026-08-10"
 updatedAt: "2026-08-12"
 ---
@@ -19,8 +19,8 @@ This is a **WhatsApp-like industry design**, not a claim about private WhatsApp 
 | If you have | Read these sections | Goal |
 |---|---|---|
 | 5 minutes | Memory sheet + story + spoken answer | Deliver a crisp Staff-level answer. |
-| 15 minutes | Add protocols, one-to-one, groups, offline, Kafka, Redis | Handle the first wave of follow-ups. |
-| 30 minutes | Add sharding, multi-region, media, calls, failures, Q&A | Drive the interview instead of reacting. |
+| 15 minutes | Add REST APIs, protocols, one-to-one, groups, offline, Kafka, Redis | Handle the first wave of follow-ups. |
+| 30 minutes | Add Spring Boot demo, sharding, multi-region, media, calls, failures | Drive the interview instead of reacting. |
 
 ### Memory sheet (one image — all components)
 
@@ -166,6 +166,66 @@ A junior answer says "use WebSockets and Kafka". A Staff answer explains:
 | Scale | Hundreds of millions of daily active users; millions of concurrent sockets. |
 | Cost | Media and fan-out dominate; use object storage, CDN, batching, compaction. |
 | Abuse | Rate limits, device trust, spam controls, group invite controls. |
+
+### REST API endpoints
+
+These are the **public HTTP APIs** clients and gateways use. Realtime chat frames still ride WebSocket; HTTPS covers registration, history sync, and control-plane actions. The runnable Spring Boot demo implements the core messaging subset below.
+
+| Method | Path | Purpose | Key headers / body |
+|---|---|---|---|
+| `POST` | `/api/v1/users` | Register / upsert a user | `{ userId, displayName, phone }` |
+| `POST` | `/api/v1/conversations/direct` | Create or get 1:1 conversation | `{ userA, userB }` → `conversationId` |
+| `POST` | `/api/v1/conversations/{conversationId}/messages` | Send message (persist + outbox) | `X-User-Id`, optional `Idempotency-Key`; body `{ clientMsgId, recipientId, encryptedPayload }` |
+| `GET` | `/api/v1/conversations/{conversationId}/messages?afterSeq=` | Sync missed messages | `X-User-Id`; returns ordered envelopes |
+| `POST` | `/api/v1/messages/{serverMsgId}/acks` | Delivery / read ACK | `{ userId, deviceId, type: DELIVERED \| READ }` |
+| `POST` | `/api/v1/presence/heartbeat` | Mark device online | `{ userId, deviceId, gatewayNode }` |
+| `GET` | `/api/v1/presence/{userId}` | Lookup presence (approx) | Online sessions / last gateway |
+| `GET` | `/actuator/health` | Liveness for demo | — |
+
+#### Extended catalog (whiteboard / production sketch)
+
+| Method | Path | Service | Notes |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/otp/start` | Auth | Phone OTP start |
+| `POST` | `/api/v1/auth/otp/verify` | Auth | Issue JWT / device session |
+| `GET` | `/api/v1/contacts` | Contact | Privacy-aware contact discovery |
+| `POST` | `/api/v1/groups` | Group | Create group + admins |
+| `POST` | `/api/v1/groups/{groupId}/members` | Group | Add/remove members (versioned) |
+| `POST` | `/api/v1/media/upload-url` | Media | Pre-signed PUT URL |
+| `POST` | `/api/v1/calls/invite` | Call | Signaling start (WS preferred) |
+| `GET` | `/api/v1/status/feed` | Status | 24h status stories |
+| `WS` | `/ws` | Gateway | Realtime send/receive frames |
+
+#### Example — send message
+
+```http
+POST /api/v1/conversations/{conversationId}/messages HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+X-User-Id: alice
+Idempotency-Key: alice-client-msg-1
+
+{
+  "clientMsgId": "alice-client-msg-1",
+  "recipientId": "bob",
+  "encryptedPayload": "opaque-ciphertext"
+}
+```
+
+```json
+{
+  "serverMsgId": "msg_…",
+  "conversationId": "conv_…",
+  "serverSeq": 1,
+  "senderId": "alice",
+  "recipientId": "bob",
+  "clientMsgId": "alice-client-msg-1",
+  "encryptedPayload": "opaque-ciphertext",
+  "createdAt": "2026-08-12T12:00:00Z"
+}
+```
+
+Retry with the same `clientMsgId` must return the **same** `serverMsgId` / `serverSeq` (idempotency).
 
 ### Back-of-envelope numbers
 
@@ -352,6 +412,244 @@ MessageCreated -> Kafka -> delivery, push, group fan-out, index, metrics, abuse 
 | Kafka | Durable internal log | topic partitions |
 | Message DB | Yes | conversation id or bucketed conversation id |
 | Object Storage | Yes | object key prefix and region |
+
+---
+
+## Spring Boot microservices — end-to-end working code
+
+This section is a **runnable WhatsApp-like messaging path** in Spring Boot 3.4 / Java 21. It is an interview demo, not private WhatsApp internals. Payload is an opaque `encryptedPayload` string (no real E2EE crypto).
+
+**Repo folder:** `spring-whatsapp-demo/`  
+**Browse full source:** [/spring-whatsapp-demo](/spring-whatsapp-demo)  
+**Default profile `local`:** no Docker — in-memory stores + Spring application events.  
+**Profile `kafka`:** Kafka publish + `delivery-worker` consumer + Redis presence.
+
+### Microservice layout
+
+| Module | Port | Responsibility |
+|---|---:|---|
+| `whatsapp-common` | — | DTOs + `MessageCreatedEvent` + topic name |
+| `message-service` | 8088 | Users, conversations, send/sync, ACKs, presence, persist, outbox, local delivery |
+| `delivery-worker` | 8089 | Kafka consumer: presence check → delivery attempt |
+
+<Mermaid chart={`flowchart LR
+  Alice[Alice client] -->|HTTPS| MS[message-service :8088]
+  Bob[Bob client] -->|HTTPS| MS
+  MS --> Store[(In-memory Message DB)]
+  MS --> Outbox[Outbox]
+  Outbox -->|local events| LDC[LocalDeliveryCoordinator]
+  Outbox -->|profile kafka| K[(Kafka message.created)]
+  K --> DW[delivery-worker :8089]
+  MS --> Presence[(Presence map or Redis)]
+  DW --> Presence
+  LDC --> Presence
+`} />
+
+### How to run (local, no Docker)
+
+```bash
+cd spring-whatsapp-demo
+mvn -pl message-service test
+mvn -q -pl message-service spring-boot:run
+# other terminal
+./scripts/demo.sh
+```
+
+Alice → Bob curl (core path):
+
+```bash
+BASE=http://localhost:8088
+curl -s -X POST "$BASE/api/v1/users" -H 'Content-Type: application/json' \
+  -d '{"userId":"alice","displayName":"Alice","phone":"+15550001"}'
+curl -s -X POST "$BASE/api/v1/users" -H 'Content-Type: application/json' \
+  -d '{"userId":"bob","displayName":"Bob","phone":"+15550002"}'
+curl -s -X POST "$BASE/api/v1/presence/heartbeat" -H 'Content-Type: application/json' \
+  -d '{"userId":"bob","deviceId":"bob-phone-1","gatewayNode":"gw-1"}'
+CONV=$(curl -s -X POST "$BASE/api/v1/conversations/direct" -H 'Content-Type: application/json' \
+  -d '{"userA":"alice","userB":"bob"}' | jq -r .conversationId)
+curl -s -X POST "$BASE/api/v1/conversations/$CONV/messages" \
+  -H 'Content-Type: application/json' -H 'X-User-Id: alice' \
+  -d '{"clientMsgId":"m1","recipientId":"bob","encryptedPayload":"opaque"}'
+curl -s "$BASE/api/v1/conversations/$CONV/messages?afterSeq=0" -H 'X-User-Id: bob'
+```
+
+### REST controller (`message-service`)
+
+```java
+@RestController
+@RequestMapping("/api/v1")
+public class WhatsAppController {
+  private final WhatsAppMessageService whatsAppMessageService;
+
+  @PostMapping("/users")
+  public UserView registerUser(@RequestBody RegisterUserRequest request) {
+    return whatsAppMessageService.registerUser(request);
+  }
+
+  @PostMapping("/conversations/direct")
+  public ConversationView createDirectConversation(
+      @RequestBody CreateDirectConversationRequest request) {
+    return whatsAppMessageService.createDirectConversation(request);
+  }
+
+  @PostMapping("/conversations/{conversationId}/messages")
+  public MessageView sendMessage(
+      @PathVariable String conversationId,
+      @RequestHeader("X-User-Id") String senderId,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+      @RequestBody SendMessageRequest request) {
+    return whatsAppMessageService.sendMessage(
+        conversationId, senderId, idempotencyKey, request);
+  }
+
+  @GetMapping("/conversations/{conversationId}/messages")
+  public List<MessageView> syncMessages(
+      @PathVariable String conversationId,
+      @RequestHeader(value = "X-User-Id", required = false) String requesterId,
+      @RequestParam(defaultValue = "0") long afterSeq) {
+    return whatsAppMessageService.syncMessages(conversationId, requesterId, afterSeq);
+  }
+
+  @PostMapping("/messages/{serverMsgId}/acks")
+  public AckView acknowledge(
+      @PathVariable String serverMsgId, @RequestBody AckRequest request) {
+    return whatsAppMessageService.acknowledge(serverMsgId, request);
+  }
+
+  @PostMapping("/presence/heartbeat")
+  public PresenceView heartbeat(@RequestBody PresenceHeartbeatRequest request) {
+    return whatsAppMessageService.heartbeat(request);
+  }
+}
+```
+
+### Persist before delivery + outbox publish
+
+```java
+public MessageView sendMessage(
+    String conversationId,
+    String senderId,
+    String idempotencyKeyHeader,
+    SendMessageRequest request
+) {
+  String clientMsgId = firstNonBlank(request.clientMsgId(), idempotencyKeyHeader);
+  // membership checks omitted for brevity
+
+  MessagePersistResult persistResult = messageRepository.saveIfAbsent(
+      conversationId, senderId, request.recipientId(),
+      clientMsgId, request.encryptedPayload());
+
+  if (persistResult.created()) {
+    publishAfterPersist(persistResult.message()); // outbox + event
+  }
+  return persistResult.message().toView(); // same id on retry
+}
+
+private void publishAfterPersist(MessageRecord message) {
+  MessageCreatedEvent event = message.toEvent();
+  OutboxRecord outbox = outboxRepository.save(new OutboxRecord(
+      "outbox_" + UUID.randomUUID(),
+      message.serverMsgId(),
+      MessageCreatedEvent.class.getSimpleName(),
+      event, Instant.now(), false));
+  messageEventPublisher.publish(event); // local ApplicationEvent or Kafka
+  outboxRepository.markPublished(outbox.outboxId());
+}
+```
+
+### Idempotency + per-conversation `serverSeq`
+
+```java
+public synchronized MessagePersistResult saveIfAbsent(
+    String conversationId, String senderId, String recipientId,
+    String clientMsgId, String encryptedPayload) {
+
+  IdempotencyKey key = new IdempotencyKey(senderId, clientMsgId);
+  String existing = serverMsgIdByIdempotencyKey.get(key);
+  if (existing != null) {
+    return new MessagePersistResult(messagesById.get(existing), false);
+  }
+
+  long serverSeq = serverSeqByConversation
+      .computeIfAbsent(conversationId, ignored -> new AtomicLong())
+      .incrementAndGet();
+
+  MessageRecord message = new MessageRecord(
+      "msg_" + UUID.randomUUID(), conversationId, serverSeq,
+      senderId, recipientId, clientMsgId, encryptedPayload, Instant.now());
+
+  messagesById.put(message.serverMsgId(), message);
+  serverMsgIdByIdempotencyKey.put(key, message.serverMsgId());
+  return new MessagePersistResult(message, true);
+}
+```
+
+### Local delivery coordinator (online vs offline)
+
+```java
+@Component
+@Profile("!kafka")
+public class LocalDeliveryCoordinator {
+  @EventListener
+  public void onMessageCreated(MessageCreatedEvent event) {
+    PresenceView presence = presenceStore.find(event.recipientId());
+    if (presence.online()) {
+      recordDelivered(event, presence);
+      return;
+    }
+    pendingByRecipient
+        .computeIfAbsent(event.recipientId(), ignored -> new CopyOnWriteArrayList<>())
+        .add(event);
+    deliveryAttemptRepository.record(
+        event.serverMsgId(), event.recipientId(),
+        null, null, DeliveryAttemptStatus.PENDING_OFFLINE);
+  }
+}
+```
+
+### Kafka delivery worker (`delivery-worker`, profile `kafka`)
+
+```java
+@Component
+@Profile("kafka")
+public class DeliveryKafkaListener {
+  @KafkaListener(topics = WhatsAppTopics.MESSAGE_CREATED, groupId = "delivery-worker")
+  public void onMessageCreated(MessageCreatedEvent event) {
+    PresenceView presence = presenceLookup.find(event.recipientId());
+    if (presence.online()) {
+      deliveryAttemptRepository.record(
+          event.serverMsgId(), event.recipientId(),
+          presence.deviceId(), presence.gatewayNode(),
+          DeliveryAttemptStatus.DELIVERED);
+      return;
+    }
+    deliveryAttemptRepository.record(
+        event.serverMsgId(), event.recipientId(),
+        null, null, DeliveryAttemptStatus.PENDING_OFFLINE);
+  }
+}
+```
+
+### Map demo code → HLD invariants
+
+| HLD invariant | Where in code |
+|---|---|
+| Persist before delivery | `sendMessage` → `saveIfAbsent` then `publishAfterPersist` |
+| Idempotency `(senderId, clientMsgId)` | `MessageRepository.saveIfAbsent` |
+| Order per conversation | `serverSeq` `AtomicLong` per `conversationId` |
+| Presence ephemeral | `PresenceStore` / Redis; not message SoT |
+| Kafka internal only | clients use HTTPS; `MessageCreatedEvent` is S2S |
+| Offline = pending + sync | `PENDING_OFFLINE` + `GET …/messages?afterSeq=` |
+
+### Optional Kafka + Redis
+
+```bash
+cd spring-whatsapp-demo && docker compose up -d
+SPRING_PROFILES_ACTIVE=kafka mvn -q -pl message-service spring-boot:run
+SPRING_PROFILES_ACTIVE=kafka mvn -q -pl delivery-worker spring-boot:run
+```
+
+Full file tree and copy-paste sources: **[Browse spring-whatsapp-demo →](/spring-whatsapp-demo)**
 
 ---
 

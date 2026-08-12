@@ -7,7 +7,7 @@ const FEATURED_HLD=[
   {
     href:'/system-design/design-whatsapp',
     title:'Design WhatsApp — Complete HLD',
-    blurb:'Single-page Staff/Lead guide: architecture, protocols, messaging, groups, Kafka, Redis, media, calls, sharding, failures, cheat sheet — with Mermaid.',
+    blurb:'Single-page Staff/Lead guide: architecture, REST APIs, Spring Boot microservices demo, messaging, Kafka, Redis, media, calls, sharding, failures — with Mermaid.',
   },
   {
     href:'/system-design/design-evoting',
