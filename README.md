@@ -4,9 +4,6 @@ Production-oriented system design interview preparation by Vibhu Agarwal — bui
 
 Learn through real-world stories, architecture diagrams, capacity estimates, failure scenarios, trade-offs, and follow-ups — not technology name-dropping.
 
-## Live site
-
-https://vibhuagwl.github.io/vibhu-tech-blog/
 
 ## Start here
 
