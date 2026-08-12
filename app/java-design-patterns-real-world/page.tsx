@@ -34,6 +34,10 @@ export default function JavaDesignPatternsRealWorldPage(){
             5-minute cheat sheet →
           </Link>
           <span className="text-slate-300">·</span>
+          <Link href="/design-patterns-revision" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+            Revision cards →
+          </Link>
+          <span className="text-slate-300">·</span>
           <Link href="/java-design-patterns-real-world?path=docs%2Fpattern-comparisons.md" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
             Pattern comparisons →
           </Link>
