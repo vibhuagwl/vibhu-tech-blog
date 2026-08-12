@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Spring Authn/Authz Portal</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+  <main>
+    <h1>Spring Security — Authn + Authz (no OAuth)</h1>
+    <p>Form login builds a session. URL rules and <code>@PreAuthorize</code> enforce authorization.</p>
+    <ul>
+      <li><a th:href="@{/login}">Login</a></li>
+      <li><a th:href="@{/payments}">Payments (USER)</a></li>
+      <li><a th:href="@{/admin}">Admin (ADMIN)</a></li>
+    </ul>
+    <p>Users: <code>alice</code> / <code>admin</code> — password <code>password</code></p>
+  </main>
+</body>
+</html>

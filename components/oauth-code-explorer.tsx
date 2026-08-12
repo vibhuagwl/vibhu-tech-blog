@@ -168,10 +168,14 @@ export default function OAuthCodeExplorer({
   files,
   tree,
   defaultPath,
+  routeBase='/oauth-jwt-demo',
+  ariaLabel='Demo source tree',
 }:{
   files:DemoSourceFile[];
   tree:DemoTreeNode[];
   defaultPath:string;
+  routeBase?:string;
+  ariaLabel?:string;
 }){
   const params=useSearchParams();
   const router=useRouter();
@@ -196,7 +200,7 @@ export default function OAuthCodeExplorer({
   },[tree,files,filter]);
 
   function select(path:string){
-    router.replace(`/oauth-jwt-demo?file=${encodeURIComponent(path)}`,{scroll:false});
+    router.replace(`${routeBase}?file=${encodeURIComponent(path)}`,{scroll:false});
   }
 
   async function copy(){
@@ -221,7 +225,7 @@ export default function OAuthCodeExplorer({
             />
           </label>
         </div>
-        <nav aria-label="OAuth demo source tree" className="max-h-[70vh] overflow-auto p-2">
+        <nav aria-label={ariaLabel} className="max-h-[70vh] overflow-auto p-2">
           <Tree nodes={filteredTree} active={active} onSelect={select}/>
         </nav>
       </aside>

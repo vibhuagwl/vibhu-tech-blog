@@ -19,6 +19,7 @@ const COLUMNS=[
       {href:'/realtime-issues',label:'Real-time issues'},
       {href:'/jpmc-experience',label:'JPMC experience'},
       {href:'/oauth-jwt-demo',label:'OAuth + JWT source'},
+      {href:'/spring-auth-demo',label:'Authn + Authz source'},
       {href:'/complexity',label:'Complexity'},
     ],
   },

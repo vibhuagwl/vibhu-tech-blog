@@ -1,0 +1,78 @@
+---
+slug: spring-security-authn-authz-demo
+title: "Spring Security Authn + Authz — Without OAuth"
+description: "Runnable Spring Boot demo: form login, HTTP Basic, roles, method security, and sequence diagrams — no Authorization Server or JWT tokens."
+category: "Distributed Systems"
+difficulty: Staff
+tags: [Spring Security, Authentication, Authorization, Form Login, HTTP Basic, Interview]
+readingTime: 14 min
+publishedAt: "2026-08-12"
+---
+
+## Browse the full source in the UI
+
+**[Spring Authn + Authz — full source →](/spring-auth-demo)**
+
+Compare with the OAuth lab: **[OAuth + JWT source →](/oauth-jwt-demo)**
+
+## What this is
+
+A **runnable** Spring Security lab at `spring-authn-authz-demo/` that implements **authentication and authorization without OAuth**.
+
+- **web-portal (:8080)** — form login, session (`JSESSIONID`), URL rules, `@PreAuthorize`
+- **api-service (:8081)** — HTTP Basic, stateless, JSON APIs, same role model
+
+There is **no** `/oauth2/authorize`, `/oauth2/token`, JWKS, or client registration.
+
+## Authn vs Authz (in one app)
+
+| Concern | Mechanism in this demo |
+|---|---|
+| Authentication | `UserDetailsService` + BCrypt + form login **or** HTTP Basic |
+| Authorization | `authorizeHttpRequests` + role hierarchy + `@PreAuthorize` |
+
+The OAuth Authorization Server is absent because each app **is** the security boundary.
+
+## Sequence — form login
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor User
+    participant Portal as web-portal
+    participant UDS as UserDetailsService
+
+    User->>Portal: GET /payments
+    Portal-->>User: 302 /login
+    User->>Portal: POST /login
+    Portal->>UDS: loadUserByUsername
+    Portal->>Portal: BCrypt + session SecurityContext
+    User->>Portal: GET /payments + JSESSIONID
+    Portal->>Portal: URL + method authorization
+    Portal-->>User: 200
+`} />
+
+## Sequence — HTTP Basic API
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant Client
+    participant API as api-service
+
+    Client->>API: GET /api/admin/stats
+    API-->>Client: 401
+    Client->>API: Basic alice
+    API-->>Client: 403
+    Client->>API: Basic admin
+    API-->>Client: 200
+`} />
+
+## Start here
+
+1. Open **[source explorer](/spring-auth-demo)**
+2. `cd spring-authn-authz-demo && mvn test`
+3. Run `web-portal` and `api-service`
+4. Read `docs/INTERVIEW.md` for the talk track vs OAuth
+
+## Interview punchline
+
+> Without OAuth, Spring Security still does both authentication and authorization — locally. OAuth becomes necessary when you need delegated identity and tokens across apps you do not fully control.

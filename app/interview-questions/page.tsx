@@ -30,6 +30,12 @@ const banks=[
     blurb:'Browse the full Spring Authorization Server / Resource Server demo in the browser.',
   },
   {
+    href:'/spring-auth-demo',
+    label:'Authn + Authz Source',
+    level:'Staff',
+    blurb:'Form login and HTTP Basic Spring Security without OAuth — roles and method security.',
+  },
+  {
     href:'/kafka-interview',
     label:'Kafka Interview',
     level:'Staff',
