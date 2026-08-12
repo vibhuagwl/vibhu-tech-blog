@@ -1,0 +1,42 @@
+---
+slug: kafka-troubleshooting-index
+title: "Kafka Troubleshooting Center"
+description: "Symptom-first playbooks for consumer lag, rebalances, ISR, disk, duplication, timeouts, and DLQ — separate from fundamentals and long incident stories."
+category: "Kafka Interview"
+difficulty: Senior
+tags: [Kafka, Troubleshooting, Production, Consumer Lag, Operations]
+readingTime: 6 min
+publishedAt: "2026-08-12"
+---
+
+## Playbook shape
+
+```text
+SYMPTOM → WHAT TO CHECK → METRICS → LOGS → ROOT CAUSES → FIX → PREVENTION
+```
+
+## Guides
+
+| Symptom | Guide |
+|---|---|
+| Consumer lag rising | [Lag playbook](/kafka-interview/kafka-troubleshooting-consumer-lag) |
+| Rebalance storms | [Rebalance incident](/kafka-interview/kafka-experience-rebalance) + consumer opt |
+| Duplication / ordering | [Failure scenarios](/kafka-interview/kafka-failure-scenarios-interview) |
+| Poison messages / DLQ | [DLQ interview](/kafka-interview/kafka-dlq-poison-message-interview) |
+| Broker / ISR / disk | [Architecture](/kafka-interview/kafka-architecture-interview), [Failure scenarios](/kafka-interview/kafka-failure-scenarios-interview) |
+
+## Quick triage order
+
+```text
+1. Is the cluster healthy? (ISR, disk, broker down)
+2. Is lag consumer-side? (processing, deps, poll config)
+3. Are we thrashing on rebalances?
+4. Is it data/poison/serialization?
+5. Is it auth / network / timeouts?
+```
+
+## Related
+
+- [Real-world experience](/kafka-interview/kafka-experience-index)
+- [Configuration](/kafka-interview/kafka-configuration-index)
+- [Cheat sheet](/kafka-interview/kafka-cheat-sheet)

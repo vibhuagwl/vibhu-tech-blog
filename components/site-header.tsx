@@ -10,7 +10,7 @@ const TOPICS=[
   {href:'/system-design',label:'System Design',blurb:'Architecture problems & trade-offs'},
   {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking, messaging, resilience'},
   {href:'/realtime-issues',label:'Real-Time Issues',blurb:'Production incidents & on-call'},
-  {href:'/kafka-interview',label:'Kafka Interview',blurb:'Failure modes & designs'},
+  {href:'/kafka-interview',label:'Kafka',blurb:'Knowledge · Experience · Interview'},
   {href:'/redis-interview',label:'Redis Interview',blurb:'Caching, HA, locks'},
   {href:'/complexity',label:'Complexity',blurb:'Big-O from Java code'},
   {href:'/behavioral-interview',label:'Behavioral Interview',blurb:'Staff+ STAR bank'},

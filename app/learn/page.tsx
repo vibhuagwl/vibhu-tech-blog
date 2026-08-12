@@ -38,7 +38,7 @@ export default function Learn(){
           <Link href="/behavioral-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Behavioral Interview</Link>
           <Link href="/leadership-principles" className="rounded-lg border px-4 py-2 text-sm font-bold">Leadership Principles</Link>
           <Link href="/complexity" className="rounded-lg border px-4 py-2 text-sm font-bold">Complexity</Link>
-          <Link href="/kafka-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Kafka Interview</Link>
+          <Link href="/kafka-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Kafka Hub</Link>
           <Link href="/redis-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Redis Interview</Link>
           <Link href="/realtime-issues" className="rounded-lg border px-4 py-2 text-sm font-bold">Real-Time Issues</Link>
         </div>
@@ -176,7 +176,7 @@ export default function Learn(){
         </section>
 
         <section>
-          <h2 className="text-2xl font-black">10 — Kafka Interview (Staff+ / Principal)</h2>
+          <h2 className="text-2xl font-black">10 — Kafka (Knowledge · Experience · Interview)</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {kafkaInterview.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">

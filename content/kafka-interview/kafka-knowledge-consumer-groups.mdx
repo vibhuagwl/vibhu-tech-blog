@@ -1,0 +1,114 @@
+---
+slug: kafka-knowledge-consumer-groups
+title: "Kafka Consumer Groups — Why They Exist (Story-First)"
+description: "A memorable story of why Kafka consumer groups exist: parallel payment processing, partition assignment, and what breaks when you get the model wrong."
+category: "Kafka Interview"
+difficulty: Senior
+tags: [Kafka, Knowledge, Consumer Groups, Partitions, Story]
+readingTime: 8 min
+publishedAt: "2026-08-12"
+---
+
+## The problem
+
+Imagine one payment service must process **10 million** payment events.
+
+One consumer cannot keep up.
+
+Lag grows.
+
+Business impact: delayed settlement, stale balances, angry operations.
+
+## Why Kafka exists here
+
+You need:
+
+- durable event storage
+- parallel consumption
+- independent producer and consumer rates
+- replay when processing fails
+
+That is the production reason Kafka shows up — not “because microservices.”
+
+## How consumer groups work
+
+So we add:
+
+```text
+Consumer 1
+Consumer 2
+Consumer 3
+Consumer 4
+```
+
+All in the **same consumer group**.
+
+Kafka assigns partitions across them.
+
+```text
+Topic: payments
+Partitions: P0 P1 P2 P3
+
+Group: payment-processors
+  C1 → P0
+  C2 → P1
+  C3 → P2
+  C4 → P3
+```
+
+Now processing can happen in parallel.
+
+**That is why consumer groups exist.**
+
+## Real-world example
+
+Payment authorization events land on `payments.authorized`.
+
+A ledger writer group consumes them.
+
+If you start a **second group** for fraud scoring, both groups independently read the same topic.
+
+```text
+One topic
+  → Group A (ledger) owns its offsets
+  → Group B (fraud) owns its offsets
+```
+
+Groups isolate progress. Partitions provide parallelism inside a group.
+
+## Production consideration
+
+Parallelism is capped by **partition count**, not consumer count.
+
+```text
+4 partitions + 8 consumers in one group
+= 4 busy consumers + 4 idle consumers
+```
+
+Adding consumers without adding partitions does not scale throughput.
+
+## Common mistake
+
+Treating consumer group as “load balancer for HTTP workers.”
+
+Kafka assignment is partition-based.
+
+If processing one message blocks for 30 seconds while calling a slow bank API, the whole partition stalls — even if other consumers are idle.
+
+## Interview answer
+
+> “A consumer group lets multiple consumers share a topic’s partitions so work can run in parallel while preserving per-partition ordering. Each group maintains its own offsets. Throughput inside a group is limited by partition count, so scaling consumers without scaling partitions creates idle members. In production I size partitions for required parallelism, keep processing bounded per poll, and watch lag and rebalances.”
+
+## Key takeaways
+
+- Consumer groups exist for **parallel consumption + independent progress**
+- Parallelism ≤ partition count
+- Different groups can read the same topic independently
+- Slow per-message work stalls a partition, not “the cluster randomly”
+
+## Next
+
+- [Kafka Knowledge map](/kafka-interview/kafka-knowledge-index)
+- [Consumer interview bank](/kafka-interview/kafka-consumer-interview)
+- [Consumer lag incident](/kafka-interview/kafka-experience-consumer-lag)
+- [max.poll.records config](/kafka-interview/kafka-config-max-poll-records)

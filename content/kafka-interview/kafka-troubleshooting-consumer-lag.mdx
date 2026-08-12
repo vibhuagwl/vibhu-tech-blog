@@ -1,0 +1,78 @@
+---
+slug: kafka-troubleshooting-consumer-lag
+title: "Troubleshoot Kafka Consumer Lag"
+description: "Symptom-first lag playbook: metrics, logs, root causes, fixes, and prevention — linked to the full production incident story."
+category: "Kafka Interview"
+difficulty: Senior
+tags: [Kafka, Troubleshooting, Consumer Lag, Operations, Interview]
+readingTime: 8 min
+publishedAt: "2026-08-12"
+---
+
+## Symptom
+
+Consumer group lag grows continuously (or oscillates with rebalances).
+
+## What to check
+
+```text
+1. Lag by partition (hot partitions?)
+2. Processing time per record
+3. Downstream latency / errors
+4. max.poll.records & max.poll.interval.ms
+5. Partition count vs consumer count
+6. Rebalance rate
+7. Consumer CPU / GC / threads
+8. Broker ISR / disk (rule out quickly)
+```
+
+## Metrics
+
+- Group lag (sum and per partition)
+- Records consumed / sec
+- Processing latency
+- Rebalance count / duration
+- Downstream p95 / error rate
+- Broker under-replicated partitions (to exclude cluster issues)
+
+## Logs
+
+- Rebalance callbacks
+- Commit failures
+- Deserialization errors
+- Timeout / retry storms to dependencies
+
+## Possible root causes
+
+| Cause | Signal |
+|---|---|
+| Slow dependency | High processing time, healthy brokers |
+| Oversized poll | Long poll-to-poll gaps, rebalances |
+| Too few partitions | Consumers idle while lag grows |
+| Hot key / partition | One partition lag dominates |
+| Poison message loop | Same offset retries, error spikes |
+| Broker disk / ISR | Cluster alerts, produce/fetch errors |
+
+## Diagnosis
+
+If brokers and ISR are healthy and one dependency’s latency correlates with lag — **it is a consumer processing problem**, not “Kafka is slow.”
+
+## Fix (typical)
+
+1. Stabilize poll budget (`max.poll.records` / processing).
+2. Fix or isolate the slow dependency.
+3. Scale consumers only up to partition count; add partitions only with a capacity plan.
+4. Stop poison loops (DLQ / skip policy with audit).
+
+Full narrative: [Lag incident walkthrough](/kafka-interview/kafka-experience-consumer-lag)
+
+## Prevention
+
+- Lag SLOs and alerts with processing-time panels
+- Load tests for dependency slowdowns
+- Explicit commit strategy for critical consumers
+- Runbooks that start with the checklist above
+
+## Interview version
+
+> I separate cluster health from consumer processing. Most lag incidents I’ve owned were slow downstream calls or poll misconfiguration — fixed by measuring processing time, shrinking poll size, and protecting the dependency path.

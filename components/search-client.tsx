@@ -4,6 +4,16 @@ import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {useRouter,useSearchParams} from 'next/navigation';
 import {hrefForPost} from '@/lib/href';
+import {KNOWLEDGE_TYPE_FILTERS} from '@/lib/technology-hub';
+
+const LEVELS=['Beginner','Intermediate','Senior','Staff','Principal'] as const;
+
+const TECH_HINTS=[
+  {label:'Kafka',match:'kafka'},
+  {label:'Redis',match:'redis'},
+  {label:'System Design',match:'system design'},
+  {label:'Real-Time Issues',match:'real-time'},
+] as const;
 
 export default function SearchClient({
   posts,
@@ -14,9 +24,15 @@ export default function SearchClient({
   const router=useRouter();
   const initial=params.get('q') ?? '';
   const [q,setQ]=useState(initial);
+  const [type,setType]=useState(params.get('type') ?? '');
+  const [level,setLevel]=useState(params.get('level') ?? '');
+  const [tech,setTech]=useState(params.get('tech') ?? '');
 
   useEffect(()=>{
     setQ(params.get('q') ?? '');
+    setType(params.get('type') ?? '');
+    setLevel(params.get('level') ?? '');
+    setTech(params.get('tech') ?? '');
   },[params]);
 
   useEffect(()=>{
@@ -31,17 +47,49 @@ export default function SearchClient({
     return ()=>window.removeEventListener('keydown',handle);
   },[]);
 
+  function syncUrl(next:{q?:string;type?:string;level?:string;tech?:string}){
+    const query=new URLSearchParams();
+    const qq=(next.q ?? q).trim();
+    const tt=next.type ?? type;
+    const ll=next.level ?? level;
+    const th=next.tech ?? tech;
+    if(qq) query.set('q',qq);
+    if(tt) query.set('type',tt);
+    if(ll) query.set('level',ll);
+    if(th) query.set('tech',th);
+    const qs=query.toString();
+    router.replace(`/search${qs?`?${qs}`:''}`,{scroll:false});
+  }
+
   const results=useMemo(()=>{
     const s=q.trim().toLowerCase();
-    return s
-      ? posts.filter((p)=>`${p.title} ${p.description} ${p.category} ${p.tags.join(' ')}`.toLowerCase().includes(s))
-      : posts.slice(0,24);
-  },[q,posts]);
+    let list=posts;
+    if(tech){
+      const t=tech.toLowerCase();
+      list=list.filter((p)=>
+        p.category.toLowerCase().includes(t)
+        || p.tags.some((tag)=>tag.toLowerCase().includes(t))
+        || p.title.toLowerCase().includes(t)
+      );
+    }
+    if(type){
+      list=list.filter((p)=>p.tags.some((tag)=>tag.toLowerCase()===type.toLowerCase())
+        || p.title.toLowerCase().includes(type.toLowerCase()));
+    }
+    if(level){
+      list=list.filter((p)=>p.difficulty.toLowerCase()===level.toLowerCase());
+    }
+    if(s){
+      list=list.filter((p)=>`${p.title} ${p.description} ${p.category} ${p.tags.join(' ')}`.toLowerCase().includes(s));
+    } else if(!type && !level && !tech){
+      list=list.slice(0,24);
+    }
+    return list;
+  },[q,posts,type,level,tech]);
 
   function onChange(value:string){
     setQ(value);
-    const next=value.trim()?`?q=${encodeURIComponent(value.trim())}`:'';
-    router.replace(`/search${next}`,{scroll:false});
+    syncUrl({q:value});
   }
 
   return (
@@ -51,7 +99,7 @@ export default function SearchClient({
           id="site-search-input"
           value={q}
           onChange={(e)=>onChange(e.target.value)}
-          placeholder="Kafka, Java 17, stuck thread, circuit breaker, system design..."
+          placeholder="Kafka lag, batch.size, consumer groups, system design..."
           className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           aria-label="Search articles"
         />
@@ -59,8 +107,56 @@ export default function SearchClient({
           ⌘ K
         </span>
       </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3" role="group" aria-label="Search filters">
+        <label className="block text-xs font-semibold uppercase tracking-[.08em] text-slate-500">
+          Technology
+          <select
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            value={tech}
+            onChange={(e)=>{setTech(e.target.value);syncUrl({tech:e.target.value});}}
+            aria-label="Filter by technology"
+          >
+            <option value="">Any</option>
+            {TECH_HINTS.map((t)=>(
+              <option key={t.label} value={t.match}>{t.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-xs font-semibold uppercase tracking-[.08em] text-slate-500">
+          Type
+          <select
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            value={type}
+            onChange={(e)=>{setType(e.target.value);syncUrl({type:e.target.value});}}
+            aria-label="Filter by knowledge type"
+          >
+            <option value="">Any</option>
+            {KNOWLEDGE_TYPE_FILTERS.map((t)=>(
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-xs font-semibold uppercase tracking-[.08em] text-slate-500">
+          Level
+          <select
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            value={level}
+            onChange={(e)=>{setLevel(e.target.value);syncUrl({level:e.target.value});}}
+            aria-label="Filter by level"
+          >
+            <option value="">Any</option>
+            {LEVELS.map((l)=>(
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       <p className="mt-3 text-sm text-slate-500">
-        {q.trim()?`${results.length} result${results.length===1?'':'s'}`:`Showing ${results.length} recent guides — type to filter.`}
+        {q.trim() || type || level || tech
+          ? `${results.length} result${results.length===1?'':'s'}`
+          : `Showing ${results.length} recent guides — type to filter or use Technology / Type / Level.`}
       </p>
       <div className="mt-6 space-y-3">
         {results.map((p)=>(
@@ -83,7 +179,7 @@ export default function SearchClient({
         ))}
         {results.length===0 && (
           <div className="rounded-xl border border-dashed border-slate-300 py-12 text-center text-slate-500 dark:border-slate-700">
-            No articles matched “{q}”. Try Kafka, Redis, stuck thread, or Java migration.
+            No articles matched. Try Technology=Kafka and Type=Experience, or search for consumer lag.
           </div>
         )}
       </div>
