@@ -4,12 +4,13 @@ const items=[
   {href:'/oauth-jwt-demo',title:'OAuth + JWT Code',blurb:'Browse full Spring Security source for authorization server, resource server, JWT, and OAuth flows.'},
   {href:'/spring-auth-demo',title:'Authn + Authz Code',blurb:'Spring Security form login and HTTP Basic without OAuth.'},
   {href:'/spring-csrf-demo',title:'CSRF Protection',blurb:'Session CSRF, CookieCsrfTokenRepository for SPAs, forged POST → 403, and when JWT APIs disable CSRF.'},
-      {href:'/idanywhere-demo',title:'IDAnywhere OIDC SSO',blurb:'OIDC vs ADFS vs IDAnywhere; Okta/Keycloak profiles; internal token flow and sequence diagrams.'},
+  {href:'/spring-cors-demo',title:'CORS Security',blurb:'End-to-end CORS: allowlist, preflight OPTIONS, credentials, blocked evil origins, and a second-origin frontend.'},
+  {href:'/idanywhere-demo',title:'IDAnywhere OIDC SSO',blurb:'OIDC vs ADFS vs IDAnywhere; Okta/Keycloak profiles; internal token flow and sequence diagrams.'},
 ];
 
 export const metadata={
   title:'Spring Security',
-  description:'One hub for Spring Security source demos: OAuth + JWT, Authn + Authz, CSRF Protection, and IDAnywhere OIDC SSO.',
+  description:'One hub for Spring Security source demos: OAuth + JWT, Authn + Authz, CSRF Protection, CORS Security, and IDAnywhere OIDC SSO.',
 };
 
 export default function SpringSecurityHubPage(){
@@ -24,7 +25,7 @@ export default function SpringSecurityHubPage(){
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
           All Spring Security code demos in one place: OAuth + JWT, authentication + authorization,
-          CSRF protection, and IDAnywhere-style OIDC wiring.
+          CSRF protection, CORS security, and IDAnywhere-style OIDC wiring.
         </p>
       </header>
 

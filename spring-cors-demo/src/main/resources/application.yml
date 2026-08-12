@@ -1,0 +1,21 @@
+server:
+  port: 8091
+
+spring:
+  application:
+    name: spring-cors-demo
+
+cors:
+  # Frontend must be served from this exact origin (scheme+host+port)
+  allowed-origins: http://localhost:5500
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    org.springframework.web.cors: DEBUG
+    org.springframework.security: INFO

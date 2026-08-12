@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .t { font-family: Georgia, 'Times New Roman', serif; }
+      .s { font-family: 'Segoe UI', system-ui, sans-serif; }
+      .title { font-size: 28px; font-weight: 700; fill: #f8fafc; }
+      .sub { font-size: 13px; fill: #94a3b8; }
+      .h { font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .b { font-size: 12px; fill: #1e293b; }
+      .sm { font-size: 11px; fill: #334155; }
+      .tiny { font-size: 10px; fill: #64748b; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .url { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #0f172a; }
+    ]]></style>
+  </defs>
+
+  <rect width="1600" height="1200" fill="#f1f5f9"/>
+  <rect x="0" y="0" width="1600" height="78" fill="#0f172a"/>
+  <text class="t title" x="36" y="36">CORS  Live Example (URLs ∑ Preflight ∑ Allow / 403 ∑ Fix)</text>
+  <text class="s sub" x="36" y="58">Frontend :5500 calls API :8091 ∑ different origin ∑ browser enforces CORS ∑ Spring allowlists origins</text>
+
+  <!-- STEP 1 FRONTEND -->
+  <text class="s h" x="36" y="112">` Frontend page (allowed origin)</text>
+  <rect x="36" y="124" width="760" height="210" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="52" y="140" width="728" height="34" rx="8" fill="#e2e8f0"/>
+  <circle cx="72" cy="157" r="5" fill="#f87171"/>
+  <circle cx="90" cy="157" r="5" fill="#fbbf24"/>
+  <circle cx="108" cy="157" r="5" fill="#34d399"/>
+  <rect x="130" y="146" width="630" height="22" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text class="url" x="140" y="161">http://localhost:5500/</text>
+  <rect x="52" y="186" width="728" height="128" rx="8" fill="#ecfdf5" stroke="#059669"/>
+  <text class="s b" x="72" y="214" font-weight="700" fill="#065f46">SPA / static page  JS runs here</text>
+  <text class="mono" x="72" y="240" fill="#0f172a">fetch("http://localhost:8091/api/public/ping")</text>
+  <text class="mono" x="72" y="262" fill="#0f172a">fetch("http://localhost:8091/api/transfers", { method:"POST", ... })</text>
+  <text class="s tiny" x="72" y="292">Same laptop, different port í cross-origin. Browser adds Origin header.</text>
+
+  <!-- STEP 1 API -->
+  <text class="s h" x="824" y="112">` API server (resource origin)</text>
+  <rect x="824" y="124" width="740" height="210" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="840" y="140" width="708" height="34" rx="8" fill="#e2e8f0"/>
+  <circle cx="860" cy="157" r="5" fill="#f87171"/>
+  <circle cx="878" cy="157" r="5" fill="#fbbf24"/>
+  <circle cx="896" cy="157" r="5" fill="#34d399"/>
+  <rect x="918" y="146" width="610" height="22" rx="6" fill="#fff" stroke="#94a3b8"/>
+  <text class="url" x="928" y="161">http://localhost:8091/api/...</text>
+  <rect x="840" y="186" width="708" height="128" rx="8" fill="#eff6ff" stroke="#2563eb"/>
+  <text class="s b" x="860" y="214" font-weight="700" fill="#1e40af">Spring Security + CorsConfigurationSource</text>
+  <text class="mono" x="860" y="240" fill="#0f172a">allowed-origins: http://localhost:5500</text>
+  <text class="mono" x="860" y="262" fill="#0f172a">allowCredentials: true ∑ methods GET,POST,OPTIONS</text>
+  <text class="s tiny" x="860" y="292">Must echo ACAO / ACAC or the browser hides the response from JS.</text>
+
+  <!-- STEP 2 ALLOWED -->
+  <text class="s h" x="36" y="370">a Allowed request (Origin matches allowlist)</text>
+  <rect x="36" y="382" width="760" height="200" rx="12" fill="#0f172a"/>
+  <text class="mono" x="56" y="412" fill="#34d399">GET http://localhost:8091/api/public/ping HTTP/1.1</text>
+  <text class="mono" x="56" y="436" fill="#e2e8f0">Host: localhost:8091</text>
+  <text class="mono" x="56" y="460" fill="#fbbf24">Origin: http://localhost:5500</text>
+  <text class="mono" x="56" y="492" fill="#34d399">ê Response</text>
+  <text class="mono" x="56" y="516" fill="#86efac">HTTP/1.1 200 OK</text>
+  <text class="mono" x="56" y="540" fill="#86efac">Access-Control-Allow-Origin: http://localhost:5500</text>
+  <text class="mono" x="56" y="564" fill="#86efac">Access-Control-Allow-Credentials: true</text>
+
+  <!-- STEP 2 BLOCKED -->
+  <text class="s h" x="824" y="370">a Blocked request (evil origin)</text>
+  <rect x="824" y="382" width="740" height="200" rx="12" fill="#0f172a"/>
+  <text class="mono" x="844" y="412" fill="#f87171">GET http://localhost:8091/api/public/ping HTTP/1.1</text>
+  <text class="mono" x="844" y="436" fill="#e2e8f0">Host: localhost:8091</text>
+  <text class="mono" x="844" y="460" fill="#fbbf24">Origin: http://evil.example</text>
+  <text class="mono" x="844" y="492" fill="#f87171">ê Response (Spring CorsFilter)</text>
+  <text class="mono" x="844" y="516" fill="#fca5a5">HTTP/1.1 403 Forbidden</text>
+  <text class="mono" x="844" y="540" fill="#fca5a5">Body: Invalid CORS request</text>
+  <text class="mono" x="844" y="564" fill="#94a3b8">No Access-Control-Allow-Origin</text>
+
+  <!-- STEP 3 PREFLIGHT -->
+  <text class="s h" x="36" y="620">b Preflight for credentialed POST (JSON + Authorization)</text>
+  <rect x="36" y="632" width="1528" height="200" rx="12" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="52" y="650" width="740" height="164" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text class="s b" x="72" y="678" font-weight="700" fill="#92400e">Browser sends OPTIONS first</text>
+  <text class="mono" x="72" y="704" fill="#0f172a">OPTIONS /api/transfers</text>
+  <text class="mono" x="72" y="726" fill="#0f172a">Origin: http://localhost:5500</text>
+  <text class="mono" x="72" y="748" fill="#0f172a">Access-Control-Request-Method: POST</text>
+  <text class="mono" x="72" y="770" fill="#0f172a">Access-Control-Request-Headers: authorization,content-type</text>
+
+  <rect x="812" y="650" width="732" height="164" rx="8" fill="#ecfdf5" stroke="#059669"/>
+  <text class="s b" x="832" y="678" font-weight="700" fill="#065f46">API must allow  then real POST runs</text>
+  <text class="mono" x="832" y="704" fill="#0f172a">HTTP/1.1 200 OK</text>
+  <text class="mono" x="832" y="726" fill="#0f172a">Access-Control-Allow-Origin: http://localhost:5500</text>
+  <text class="mono" x="832" y="748" fill="#0f172a">Access-Control-Allow-Methods: GET,POST,PUT,DELETE,OPTIONS</text>
+  <text class="mono" x="832" y="770" fill="#0f172a">Access-Control-Allow-Headers: Authorization, Content-Type, ...</text>
+
+  <!-- STEP 4 FIX -->
+  <text class="s h" x="36" y="870">c How to fix / configure in Spring Security</text>
+  <rect x="36" y="882" width="1528" height="288" rx="12" fill="#fff" stroke="#059669" stroke-width="2.5"/>
+  <rect x="36" y="882" width="1528" height="40" rx="12" fill="#059669"/>
+  <rect x="36" y="906" width="1528" height="16" fill="#059669"/>
+  <text class="s h" x="56" y="908" fill="#fff">CorsConfigurationSource allowlist + http.cors(Customizer.withDefaults())</text>
+
+  <text class="mono" x="56" y="956" fill="#065f46">http.cors(Customizer.withDefaults());</text>
+  <text class="mono" x="56" y="980" fill="#334155">CorsConfiguration cfg = new CorsConfiguration();</text>
+  <text class="mono" x="56" y="1004" fill="#334155">cfg.setAllowedOrigins(List.of("http://localhost:5500"));  // exact match</text>
+  <text class="mono" x="56" y="1028" fill="#334155">cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));</text>
+  <text class="mono" x="56" y="1052" fill="#334155">cfg.setAllowedHeaders(List.of("Authorization","Content-Type"));</text>
+  <text class="mono" x="56" y="1076" fill="#334155">cfg.setAllowCredentials(true);  // NEVER combine with Allow-Origin: *</text>
+  <text class="mono" x="56" y="1100" fill="#334155">source.registerCorsConfiguration("/api/**", cfg);</text>
+
+  <text class="s b" x="900" y="956" font-weight="700">Errors you will see</text>
+  <text class="s sm" x="900" y="984">∑ API (Spring): HTTP 403  Invalid CORS request</text>
+  <text class="s sm" x="900" y="1008">∑ Browser console: "blocked by CORS policy:</text>
+  <text class="s sm" x="900" y="1028">  No 'Access-Control-Allow-Origin' header..."</text>
+  <text class="s sm" x="900" y="1056">∑ Preflight fail í real POST never leaves browser</text>
+  <text class="s tiny" x="900" y="1092">CORS ` auth. CORS ` CSRF. Allowlist only who may read responses.</text>
+  <text class="s tiny" x="900" y="1112">Demo: python3 -m http.server 5500 + API on :8091</text>
+</svg>
