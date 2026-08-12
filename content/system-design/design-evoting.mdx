@@ -1,0 +1,779 @@
+---
+slug: design-evoting
+title: "Design an E-Voting System — Complete High-Level System Design"
+description: "Single-page e-voting HLD for Staff interviews: voter auth, secret ballot, one-vote enforcement, immutable ballot store, tally, audit, encryption, failures, cheat sheet — with Mermaid diagrams."
+category: System Design
+difficulty: Staff
+tags: [E-Voting, Elections, Security, Secret Ballot, Audit, Kafka, Redis, System Design, Interview]
+readingTime: 40 min
+publishedAt: "2026-08-12"
+updatedAt: "2026-08-12"
+---
+
+## How to use this page (5/15/30 min)
+
+This is an **industry-standard e-voting platform design** for Senior/Staff interviews — not a claim about any real government system's private internals. Say that clearly, then design a system that supports secure online casting, secret ballot, one person one vote, auditable tally, and certified results.
+
+### Pick your mode
+
+| If you have | Read these sections | Goal |
+|---|---|---|
+| 5 minutes | Memory sheet + story + spoken answer | Deliver a crisp Staff-level answer. |
+| 15 minutes | Add auth, eligibility, ballot cast, secret ballot split, tally | Handle the first wave of follow-ups. |
+| 30 minutes | Add encryption, audit, sharding, threats, failures, Q&A | Drive the interview instead of reacting. |
+
+### Memory sheet (one image — all components)
+
+Spend 60 seconds on this before the interview. Trace Maria's cast journey left-to-right, then skim secret ballot, one-vote rules, tally integrity, and the five invariants bar.
+
+![E-voting HLD memory sheet covering voter channels, edge security, core services, split data plane, cast journey, secret ballot, tally, scale, invariants, and failures](/images/evoting/evoting-hld-memory-sheet.svg)
+
+### Mental model
+
+```text
+Prove identity -> prove eligibility -> accept exactly one ballot -> store choice without identity link -> tally reproducibly -> publish signed results
+```
+
+WHAT: e-voting is a **correctness-first, audit-first transaction system** with strong security boundaries.  
+HOW: voters authenticate over HTTPS; eligibility enforces one vote; ballot service splits identity from choice; append-only ballot store holds encrypted votes; tally runs after close; audit log records every transition.  
+WHY: a lost vote destroys trust; a duplicated vote invalidates the election; a linked identity-choice pair breaks secret ballot; a mutable tally enables fraud.
+
+<Mermaid chart={`flowchart TD
+  A[5 min answer] --> B[Architecture + cast journey]
+  B --> C[Five invariants]
+  C --> D[One trade off]
+  E[15 min answer] --> F[Auth + eligibility]
+  F --> G[Secret ballot split]
+  G --> H[Tally after close]
+  I[30 min answer] --> J[Encryption + audit]
+  J --> K[Threats + sharding]
+  K --> L[Failures + recount]
+`} />
+
+### Interview promise
+
+By the end you should be able to say:
+
+```text
+A voter does not write directly to the ballot database.
+Voter -> Auth -> Eligibility -> Ballot Service -> atomic participation + append-only ballot -> receipt.
+Tally happens after polls close from the immutable ballot store, not from live counters.
+```
+
+Keep repeating the Staff-level invariants:
+
+| Invariant | Why it matters |
+|---|---|
+| One eligible voter → one accepted ballot | Duplicate votes invalidate the election. |
+| Secret ballot — unlink identity from choice | Coercion and insider abuse become possible otherwise. |
+| Accepted ballots are immutable | UPDATE/DELETE on votes enables tampering. |
+| Tally is reproducible from ballot store + audit | Observers and recounts must verify results. |
+| Correctness beats speed | Premature live counts leak information and invite attack. |
+
+---
+
+## The interview story (Maria casts her ballot)
+
+Maria opens the official voting portal on election day. She authenticates with MFA linked to her voter registration record. The Eligibility Service confirms she is registered in the correct district, the election is **OPEN**, and she has **not already voted**.
+
+The Ballot Service issues a **single-use ballot session token** stored in Redis with a short TTL. Maria selects candidates across multiple contests on her ballot. The client encrypts her choices with the election public key (or sends them over TLS to be encrypted server-side if you state that trade-off clearly).
+
+Maria submits with a **client idempotency key**. The Ballot Service runs one **atomic transaction**: insert into the **Participation Ledger** `(voterId, electionId)` with a uniqueness constraint, append an encrypted row to the **Ballot Box Store** with no voterId column, write an **Audit Event**, and commit. Maria receives a **receipt hash** proving her ballot was accepted — not revealing her choices.
+
+After polls close, an admin transitions the election to **CLOSED**, then **TALLYING**. The Tally Service reads all ballots for that election, decrypts inside a secure environment, aggregates per contest, produces a **signed results manifest**, and the Results Publisher posts certified outcomes. Observers can re-run tally from the ballot store and verify the signature and audit chain.
+
+<Mermaid chart={`sequenceDiagram
+  participant V as Maria Voter
+  participant GW as API Gateway
+  participant A as Auth Service
+  participant E as Eligibility Service
+  participant B as Ballot Service
+  participant P as Participation DB
+  participant BB as Ballot Box Store
+  participant R as Redis
+  participant K as Kafka Audit
+  participant T as Tally Service
+  V->>GW: login MFA
+  GW->>A: authenticate
+  A-->>V: JWT
+  V->>GW: request ballot session
+  GW->>E: check eligible voter election
+  E->>P: not already voted
+  E->>R: issue single-use token
+  E-->>V: ballot UI + token
+  V->>GW: submit encrypted ballot idempotencyKey
+  GW->>B: cast
+  B->>P: insert participation UNIQUE
+  B->>BB: append encrypted ballot
+  B->>K: BallotAccepted event
+  B-->>V: receipt hash
+  Note over V,T: polls close later
+  T->>BB: read all ballots
+  T->>T: decrypt aggregate sign
+  T-->>V: certified results published
+`} />
+
+---
+
+## Requirements and estimation
+
+### Functional requirements
+
+| Requirement | Notes |
+|---|---|
+| Voter registration lookup | Tie to gov ID / national voter roll or pre-registered list |
+| Authentication | MFA, device binding optional for high-assurance elections |
+| Eligibility check | District, age, citizenship rules, election window |
+| Cast ballot | Single choice, ranked choice, multi-contest ballot |
+| One vote per voter per election | Hard constraint, not best-effort |
+| Secret ballot | Cannot retrieve "how Maria voted" from production DB |
+| Receipt | Voter proof of cast without revealing choice |
+| Close election | State machine; no new ballots after close |
+| Tally and publish | Aggregate per contest; signed results |
+| Audit trail | Immutable log of admin and system actions |
+| Recount support | Re-run tally from ballot store |
+| Observer access | Read-only audit APIs for authorized observers |
+| Kiosk mode | Optional staff-assisted channel with stronger controls |
+
+### Non-functional requirements
+
+| NFR | Target |
+|---|---|
+| Availability during election window | 99.95%+ for cast path |
+| Cast latency | p99 under 2s (correctness over ultra-low latency) |
+| Integrity | Zero accepted duplicate votes |
+| Audit completeness | 100% of state transitions logged |
+| Secrecy | No authorized production query links voter to choice |
+| Scalability | Handle election-hour spike (not steady daily traffic) |
+| Recoverability | Tally reproducible after partial failures |
+
+### Capacity estimation (example)
+
+Assume **20M eligible voters**, **60% turnout** → **12M casts** in one election.
+
+If 70% cast in a 4-hour peak window:
+
+```text
+12M × 0.70 / (4 × 3600) ≈ 580 casts/sec average peak
+```
+
+Add **3× burst** → ~**1,750 casts/sec** peak. Reads (ballot preview, candidate lists) may be **5–10×** writes during peak — plan **~10K RPS** at the edge with caching for static ballot definitions.
+
+Storage: 12M ballots × ~2 KB encrypted payload ≈ **24 GB** per national election — modest. Audit logs and key ceremony artifacts add more. The hard part is **correctness and security**, not raw storage.
+
+<Mermaid chart={`flowchart LR
+  subgraph peak["Election day peak"]
+    W[4 hour window]
+    C[12M casts]
+  end
+  W --> R[580 avg casts per sec]
+  C --> R
+  R --> B[1750/sec with 3x burst]
+  B --> S[Scale cast path not tally path]
+`} />
+
+---
+
+## High-level architecture
+
+```text
+Voter Client (web/mobile/kiosk)
+        |
+        v
+API Gateway + WAF + Rate Limiter
+        |
+   +----+----+----+----+
+   |    |    |    |    |
+ Auth  Voter Elig Ballot Tally/Results
+       Registry Svc  Svc   Admin
+        |    |    |    |
+        v    v    v    v
+   Election DB   Participation Ledger   Ballot Box Store
+                 Audit Log (immutable)    Redis (nonce/session)
+                 Kafka (audit events)   KMS/HSM (keys)
+```
+
+<Mermaid chart={`flowchart TB
+  subgraph clients["Voter channels"]
+    WEB[Web app]
+    MOB[Mobile app]
+    KIO[Kiosk]
+  end
+  subgraph edge["Edge and security"]
+    GW[API Gateway WAF]
+    AUTH[Auth Service MFA]
+    KMS[KMS HSM]
+  end
+  subgraph core["Core services"]
+    VR[Voter Registry]
+    EL[Eligibility Service]
+    BS[Ballot Service]
+    EA[Election Admin]
+    TS[Tally Service]
+    RP[Results Publisher]
+    AU[Audit Service]
+  end
+  subgraph data["Data plane"]
+    PDB[(Participation Ledger)]
+    BB[(Ballot Box append only)]
+    ED[(Election DB)]
+    AL[(Audit Log WORM)]
+    RD[(Redis)]
+    KF[(Kafka)]
+  end
+  WEB --> GW
+  MOB --> GW
+  KIO --> GW
+  GW --> AUTH
+  GW --> EL
+  GW --> BS
+  AUTH --> VR
+  EL --> PDB
+  EL --> ED
+  BS --> PDB
+  BS --> BB
+  BS --> RD
+  BS --> KF
+  BS --> KMS
+  EA --> ED
+  TS --> BB
+  TS --> KMS
+  TS --> RP
+  AU --> AL
+  KF --> AU
+`} />
+
+### Why each component exists
+
+| Component | Purpose |
+|---|---|
+| API Gateway + WAF | TLS termination, auth enforcement, DDoS and bot protection |
+| Auth Service | Prove voter identity; issue short-lived JWT |
+| Voter Registry | Source of registered voters and districts |
+| Eligibility Service | Answer "may this voter cast now?" |
+| Ballot Service | Accept cast, enforce atomicity, return receipt |
+| Election Admin | Configure contests, open/close election, role separation |
+| Tally Service | Post-close aggregation in secure environment |
+| Results Publisher | Publish signed certified results |
+| Audit Service | Append-only record of all sensitive actions |
+| Participation Ledger | Authoritative one-vote enforcement |
+| Ballot Box Store | Immutable encrypted ballots without voterId |
+| KMS/HSM | Key generation, encryption, threshold decryption for tally |
+
+---
+
+## Voter authentication and registration
+
+### Registration model
+
+Voters are **pre-registered** before election day (typical for government elections). The registry holds:
+
+```text
+voterId, legalName, districtId, status, externalIdHash
+```
+
+Registration updates are **admin-controlled** with audit. Same-day registration, if supported, is a separate audited workflow with cutoff rules.
+
+### Authentication flow
+
+| Step | Mechanism |
+|---|---|
+| Identity proof | Gov ID portal, OTP to registered phone, or smart card |
+| Session | Short-lived JWT (15–30 min) scoped to `cast` or `view` |
+| MFA | Required for remote online voting |
+| Device binding | Optional: reduce credential theft impact |
+| Kiosk | Staff operator login + voter auth (two-person control) |
+
+<Mermaid chart={`flowchart TD
+  V[Voter] --> ID[Identity provider gov ID OTP]
+  ID --> AUTH[Auth Service]
+  AUTH --> JWT[JWT scoped token]
+  JWT --> EL[Eligibility checks]
+  AUTH --> AUD[Audit login success fail]
+`} />
+
+### Interview line
+
+"I separate **authentication** (who are you?) from **eligibility** (may you vote in this election?) from **authorization** (what actions does this token allow?). Admins and observers use different roles and scopes."
+
+---
+
+## Eligibility and one-vote enforcement
+
+### Eligibility checks (all must pass)
+
+| Check | Failure response |
+|---|---|
+| Election state is OPEN | 403 Election closed |
+| Voter registered in district | 403 Not eligible |
+| Voter status ACTIVE | 403 Suspended |
+| No row in Participation Ledger | proceed |
+| Ballot session token valid | 401 Invalid session |
+| Rate limit not exceeded | 429 |
+
+### One vote — the authoritative rule
+
+```sql
+-- Participation Ledger
+UNIQUE (voterId, electionId)
+```
+
+This constraint is stronger than an application-level check. Two concurrent submits from the same voter: **one wins, one gets 409 Already Voted**.
+
+### Ballot session token
+
+Before showing the ballot UI, issue a **single-use token** stored in Redis:
+
+```text
+ballotSession:{token} -> { voterId, electionId, expiresAt }
+```
+
+On successful cast, delete the token. On TTL expiry, voter must re-request (still blocked if already voted).
+
+<Mermaid chart={`stateDiagram-v2
+  [*] --> NotVoted: registered
+  NotVoted --> SessionActive: issue ballot token
+  SessionActive --> Voted: successful cast
+  SessionActive --> NotVoted: token expires no cast
+  Voted --> [*]
+  note right of Voted: participation row exists UNIQUE enforced
+`} />
+
+### Idempotency on submit
+
+Client sends `Idempotency-Key` (UUID). Server stores:
+
+```text
+(voterId, electionId, idempotencyKey) -> { ballotId, receiptHash, status }
+```
+
+Retry after timeout returns the **same receipt** — critical for voter trust and duplicate prevention.
+
+---
+
+## Ballot design and vote casting
+
+### Ballot structure
+
+| Element | Description |
+|---|---|
+| electionId | Which election |
+| contests | Mayor, council, referendum, etc. |
+| candidates / options | Per contest |
+| rules | single-choice, ranked-choice, abstain allowed |
+| ballotVersion | Freezes layout when election opens |
+
+Static ballot definitions are **cached on CDN**; mutable state lives in services.
+
+### Cast API (conceptual)
+
+```http
+POST /elections/{electionId}/ballots
+Authorization: Bearer {jwt}
+Idempotency-Key: {uuid}
+X-Ballot-Session: {token}
+
+{ "encryptedPayload": "...", "payloadHash": "..." }
+```
+
+Server validates token, eligibility, decrypts or re-encrypts for storage (state your approach), appends to ballot store, returns receipt.
+
+### Atomic transaction (critical)
+
+```text
+BEGIN;
+  INSERT INTO participation (voterId, electionId, ballotId, castAt) -- UNIQUE
+  INSERT INTO ballot_box (ballotId, electionId, encryptedPayload, hash, seq) -- append only
+  INSERT INTO audit_events (...)
+COMMIT;
+```
+
+If either insert fails, **neither** takes effect. Never mark voted without a stored ballot.
+
+<Mermaid chart={`flowchart TD
+  S[Submit request] --> I{idempotency hit?}
+  I -->|yes| R[Return existing receipt]
+  I -->|no| E{eligible?}
+  E -->|no| X[Reject]
+  E -->|yes| T[BEGIN TXN]
+  T --> P[Insert participation]
+  P --> B[Append ballot]
+  B --> A[Write audit]
+  A --> C[COMMIT]
+  C --> RC[Return receipt]
+`} />
+
+---
+
+## Secret ballot and encryption
+
+### The split — core Staff insight
+
+| Store | Contains | Must NOT contain |
+|---|---|---|
+| Participation Ledger | voterId, electionId, ballotId, castAt | candidate choices |
+| Ballot Box Store | ballotId, electionId, encryptedPayload | voterId |
+
+An insider with DB access should not query "Maria's vote for mayor." They can only see that Maria voted.
+
+### Encryption options (state trade-offs)
+
+| Approach | Secrecy | Complexity |
+|---|---|---|
+| TLS + server-side encrypt at rest | Good if server compromise excluded | Lower |
+| Client encrypts with election public key | Stronger against server peek | Medium |
+| End-to-end verifiable (E2E-V) | Voter verifies inclusion | High (mix-nets, crypto proofs) |
+| Homomorphic tally | Never decrypt individual ballots | Very high |
+
+For most interviews: **client encrypts with election public key; private key in HSM; tally service decrypts only after close in secure enclave.**
+
+<Mermaid chart={`flowchart LR
+  subgraph identity["Identity side"]
+    V[voterId]
+    P[participation row]
+  end
+  subgraph choice["Choice side"]
+    B[ballotId]
+    E[encrypted payload]
+  end
+  V --> P
+  B --> E
+  P -.->|ballotId link only| B
+  V -.-x E
+`} />
+
+### Receipt
+
+Return `receiptHash = SHA256(ballotId + payloadHash + electionId)`. Voter can verify their ballot was included in a published Merkle root (advanced) without revealing choice.
+
+---
+
+## Immutable ballot store and audit trail
+
+### Ballot Box Store rules
+
+| Rule | Reason |
+|---|---|
+| INSERT only | Updates/deletes enable tampering |
+| Monotonic seq per election | Ordering for audit |
+| Content hash stored | Detect corruption |
+| Optional Merkle batch roots | Public verifiability |
+
+### Audit log
+
+Every sensitive action appends an event:
+
+```text
+ELECTION_OPENED, BALLOT_ACCEPTED, ELECTION_CLOSED, TALLY_STARTED,
+TALLY_COMPLETED, RESULTS_CERTIFIED, ADMIN_LOGIN, KEY_CEREMONY
+```
+
+Store in **append-only** storage (WORM bucket, hash-chained table, or ledger DB). Kafka consumers fan out to SIEM and long-term archive.
+
+<Mermaid chart={`flowchart TD
+  BS[Ballot Service] --> K[Kafka BallotAccepted]
+  EA[Election Admin] --> K2[Kafka ElectionClosed]
+  K --> AU[Audit Service]
+  K2 --> AU
+  AU --> WORM[(WORM Audit Store)]
+  AU --> SIEM[Security monitoring]
+`} />
+
+---
+
+## Tallying and results publication
+
+### Election state machine
+
+```text
+DRAFT -> OPEN -> CLOSED -> TALLYING -> CERTIFIED -> ARCHIVED
+```
+
+| State | Allowed actions |
+|---|---|
+| OPEN | Cast ballots |
+| CLOSED | No new ballots; prepare tally |
+| TALLYING | Decrypt and aggregate |
+| CERTIFIED | Publish results; immutable |
+| ARCHIVED | Retention policy; limited access |
+
+**Never tally while polls are open** in a secret-ballot design — live partial counts leak information and enable manipulation narratives.
+
+### Tally pipeline
+
+```text
+1. Verify election CLOSED (admin + audit)
+2. Load all ballots for electionId from Ballot Box
+3. Verify hashes / Merkle roots
+4. Decrypt in HSM / secure enclave (threshold key optional)
+5. Aggregate per contest (count, ranked-choice algorithm if needed)
+6. Generate results manifest + digital signature
+7. Publish to results portal; notify observers
+```
+
+<Mermaid chart={`flowchart LR
+  BB[(Ballot Box)] --> V[Verify hashes]
+  V --> D[Decrypt in HSM]
+  D --> A[Aggregate per contest]
+  A --> S[Sign manifest]
+  S --> P[Publish results]
+`} />
+
+### Recount
+
+Re-run steps 2–6 from the same ballot store. Counts must match unless law defines a different recount scope. Mismatch triggers incident response and audit investigation.
+
+---
+
+## End-to-end verifiability (Staff bonus)
+
+If the interviewer asks for cutting-edge assurance:
+
+| Property | Meaning |
+|---|---|
+| Cast-as-intended | Voter sees correct ballot (UI audit) |
+| Recorded-as-cast | Receipt proves ballot in published set |
+| Talled-as-recorded | Anyone can verify count from published data |
+
+Techniques: cryptographic receipts, Merkle trees over ballots, mix-nets, homomorphic encryption. Say: "I would add E2E-V in phase 2; phase 1 delivers split stores, immutable ballots, signed tally, and public audit APIs."
+
+---
+
+## Kiosk and offline-assisted voting
+
+| Control | Why |
+|---|---|
+| Staff operator authentication | Prevents rogue kiosks |
+| Voter still authenticates | Same eligibility path |
+| Hardware hardening | Kiosk in tamper-evident mode |
+| No offline queue of votes | Offline sync of **votes** is too risky; require connectivity for cast ACK |
+| Paper backup contingency | Legal requirement in many jurisdictions |
+
+If connectivity drops mid-cast, idempotency ensures the voter sees either receipt or retry — never ambiguous "maybe counted."
+
+---
+
+## Redis, Kafka, and supporting infra
+
+### Redis
+
+| Use | NOT for |
+|---|---|
+| Ballot session tokens | Storing vote choices |
+| Rate limiting per IP/voter | One-vote source of truth |
+| Nonce / replay protection | Permanent ballot storage |
+
+Redis loss: issue new session tokens; participation ledger still enforces one vote.
+
+### Kafka
+
+| Topic | Purpose |
+|---|---|
+| `ballot.accepted` | Audit fan-out, metrics, async notifications |
+| `election.lifecycle` | Close/tally triggers |
+| `audit.events` | SIEM pipeline |
+
+Kafka is **internal**. Voters never produce/consume Kafka directly.
+
+---
+
+## Database design and sharding
+
+### Entity model
+
+```text
+Election (electionId, name, state, openAt, closeAt)
+Contest (contestId, electionId, type, districtId)
+Candidate (candidateId, contestId, name)
+Voter (voterId, districtId, status)
+Participation (voterId, electionId, ballotId, castAt) UNIQUE voter+election
+Ballot (ballotId, electionId, seq, encryptedPayload, hash) append-only
+TallyResult (electionId, contestId, counts, manifestSig)
+AuditEvent (eventId, type, actor, payload, ts, prevHash)
+```
+
+### Sharding strategy
+
+| Data | Shard key |
+|---|---|
+| Participation | `electionId` or `regionId` |
+| Ballot box | `electionId` (hot shard = national election) |
+| Voter registry | `regionId` |
+
+National election = few hot partitions. Mitigate with pre-provisioned capacity, partition per state/district, and load tests before election day.
+
+<Mermaid chart={`flowchart TD
+  E[National election] --> SP[Shard by regionId]
+  SP --> P1[Participation shard west]
+  SP --> P2[Participation shard east]
+  SP --> B1[Ballot shard per region]
+`} />
+
+---
+
+## Multi-region, security, and observability
+
+### Multi-region
+
+| Pattern | Use when |
+|---|---|
+| Home region per election | Most government designs |
+| Active-passive failover | DR for cast path |
+| Active-active same election | Rare — conflict resolution on participation is hard |
+
+Prefer **single primary region for participation writes** during live election; async replica for read-only failover with manual promotion and audit.
+
+### Security controls
+
+| Layer | Control |
+|---|---|
+| Transport | TLS 1.3, cert pinning on mobile |
+| Auth | MFA, short JWT, RBAC for admin |
+| Data | Encrypt ballots at rest; KMS rotation |
+| App | Input validation, CSRF, rate limits |
+| Ops | Separation of duties; dual control for close/certify |
+| Insider | No prod query linking voter to choice |
+| Supply chain | Signed releases, election freeze window |
+
+### Observability
+
+| Metric | Alert |
+|---|---|
+| Cast success rate | Drop during election window |
+| Already-voted rate | Anomaly spike (attack or bug) |
+| Cast latency p99 | SLO breach |
+| Participation insert conflicts | Monitor race patterns |
+| Audit log gap | Any missing event |
+| Tally duration | Stuck job |
+| Results signature verify failures | Critical |
+
+---
+
+## Corner cases and what-if Q&A
+
+| Question | Answer |
+|---|---|
+| Voter closes browser after submit | Idempotency key; poll status endpoint returns receipt |
+| Two devices submit simultaneously | UNIQUE constraint; one wins, one 409 |
+| Ballot accepted but voter claims not | Receipt hash + audit + participation row |
+| Admin closes election early | Audited admin action; optional grace policy |
+| Need to cancel election | State CANCELLED; no tally; audit reason code |
+| Candidate withdraws after open | Contest rule: votes still count or marked spoiled — define upfront |
+| Coercion ("prove you voted X") | Secret ballot + no receipt of choice; optional anti-coercion code |
+| Partial tally crash | Idempotent tally job from checkpoint |
+| Database failover mid-cast | TXN abort; voter retries with idempotency |
+| Observer wants live count | Deny until certified; publish audit stats not choices |
+| Ranked-choice tally | IRV/STV batch job; same immutable input |
+| 409 but voter insists they never voted | Support workflow checks participation + audit, not choice |
+| Key compromise | HSM rotation ceremony; election invalidation policy |
+| Bug over-counts one contest | Recount from ballot store; manifest mismatch detection |
+| DDoS election day | WAF, queue, CAPTCHA, scale edge; never disable auth |
+| Kiosk staff coerces voter | Physical monitoring + voter-only confirm + audit |
+| Blockchain for votes? | Usually overkill; append-only DB + hash chain suffices |
+| Why not UPDATE ballot? | Immutability is the integrity model |
+| Can voters change vote? | Policy: no revote, or spoil-and-recast before close with audit |
+| GDPR delete voter | Retain participation fact; delete PII per retention law |
+| How prove election fair? | Public audit API, signed manifest, third-party recount |
+
+---
+
+## Whiteboard diagram and one-page cheat sheet
+
+### Memory sheet
+
+Use the **Memory sheet** image at the top of this page as your last 60-second recall before drawing.
+
+### Whiteboard diagram
+
+Draw this in the interview before diving into details.
+
+<Mermaid chart={`flowchart LR
+  V[Voter] -->|HTTPS| GW[Gateway]
+  GW --> AUTH[Auth]
+  GW --> EL[Eligibility]
+  GW --> BS[Ballot Service]
+  BS --> PL[(Participation UNIQUE)]
+  BS --> BB[(Ballot Box append)]
+  BS --> AU[Audit]
+  EL --> PL
+  BS --> R[(Redis session)]
+  BB --> T[Tally after close]
+  T --> RES[Signed Results]
+`} />
+
+### One-page cheat sheet
+
+```text
+Core answer:
+Voter -> Auth -> Eligibility -> ballot session token -> encrypted submit
+-> atomic participation INSERT + ballot append -> receipt -> close -> tally -> signed results
+
+Never say:
+UPDATE ballot row · store voterId with choice · live public tally while open
+trust client-side count · skip audit for speed
+
+One vote:
+UNIQUE(voterId, electionId) + idempotency key on submit
+
+Secret ballot:
+participation ledger (who voted) separate from ballot box (what was chosen)
+
+Integrity:
+append-only ballots · hash chain · reproducible tally · signed manifest
+
+Correctness > speed:
+tally after close · no leaderboard during voting
+```
+
+### Component checklist
+
+| Component | Interview phrase |
+|---|---|
+| Auth Service | Proves voter identity; MFA for remote channel |
+| Eligibility Service | Gate before ballot UI; enforces election window |
+| Ballot Service | Owns atomic cast, receipt, and session token burn |
+| Participation Ledger | Authoritative one-vote enforcement |
+| Ballot Box Store | Immutable encrypted choices without voterId |
+| Tally Service | Post-close decrypt-aggregate-sign pipeline |
+| Audit Service | Append-only proof of every sensitive transition |
+| KMS/HSM | Keys never on app servers; threshold for tally |
+
+---
+
+## 5 / 15 / 30 minute spoken answers
+
+### 5-minute answer
+
+"I'll design an online e-voting platform for a government-style election. Voters authenticate with MFA against a pre-registered voter roll. The Eligibility Service checks district, election state OPEN, and that they haven't voted — enforced by a UNIQUE constraint on `(voterId, electionId)` in a Participation Ledger.
+
+When casting, the Ballot Service runs one transaction: mark participation and append an encrypted ballot to an immutable Ballot Box Store that does not store voterId with the choice — that's the secret ballot split. The client gets a receipt hash. Retries use an idempotency key so a timeout never creates a double vote.
+
+After polls close, the Tally Service reads all ballots, decrypts in an HSM, aggregates per contest, signs a results manifest, and publishes certified results. An append-only audit log records opens, casts, closes, and tally steps. I'd shard by election or region, protect the cast path with WAF and rate limits, and prioritize correctness and auditability over real-time partial counts."
+
+### 15-minute answer
+
+Add to the 5-minute answer:
+
+"I split authentication, eligibility, and cast into separate services behind an API Gateway with WAF. Static ballot definitions cache on CDN; mutable state stays in the Election DB. Before the ballot UI, Eligibility issues a single-use session token in Redis.
+
+The cast API accepts an encrypted payload and idempotency key. Inside one DB transaction I insert participation, append the ballot row, and emit an audit event to Kafka. Concurrent double-submit hits the UNIQUE constraint — one succeeds, one returns 409.
+
+For encryption, the client encrypts with the election public key; tally uses an HSM-held private key only after CLOSE. Receipts let voters prove inclusion without revealing choice. Redis handles sessions and rate limits; Kafka is internal for audit fan-out.
+
+Election state machine: DRAFT, OPEN, CLOSED, TALLYING, CERTIFIED. Tally is a reproducible batch job — re-run from the ballot store for recount. Observers get read-only audit APIs. Kiosk mode adds staff authentication but uses the same eligibility and cast path."
+
+### 30-minute answer
+
+Add to the 15-minute answer:
+
+"Requirements: functional cast, one vote, secret ballot, receipt, close, tally, audit, recount, observer access; non-functional availability during the election window, zero duplicate accepts, complete audit trail, and reproducible tally.
+
+Capacity: model election-hour spike — e.g. 12M votes in a 4-hour peak is hundreds to low thousands of casts per second with burst multipliers. Scale the cast path and edge; tally is batch.
+
+Threat model: external DDoS, credential stuffing, insider with DB access, replay, concurrent race, coercion, and key compromise. Mitigations: rate limits, MFA, split stores, append-only ballots, hash-chained audit, separation of duties for certify, KMS with dual control, no prod queries linking voter to choice.
+
+Sharding: participation and ballots by electionId or regionId; single primary writer region during live election to avoid split-brain on participation. DR via audited failover.
+
+Advanced topics if asked: E2E verifiable voting with Merkle receipts; homomorphic tally; ranked-choice IRV in tally service. Trade-offs: client-side crypto vs server encrypt; blockchain vs append-only DB with signatures — I prefer the latter for audit without public chain complexity.
+
+Failure handling: idempotent cast and tally jobs; transaction boundaries on participation+ballot; stuck tally alerts; manifest signature verification by observers. Compliance: retention, accessibility, paper contingency, legal recount process. Deployment: freeze releases before election, load test, canary in off-season, runbook for election day."

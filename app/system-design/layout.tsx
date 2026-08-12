@@ -3,6 +3,7 @@ import CatalogLayout from '@/components/catalog-layout';
 const SYSTEM_DESIGN_SLUG_ORDER=[
   'system-design-master-index',
   'design-whatsapp',
+  'design-evoting',
   'design-url-shortener',
   'design-rate-limiter',
   'design-key-value-store',
