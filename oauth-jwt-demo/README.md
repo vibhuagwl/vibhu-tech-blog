@@ -83,8 +83,8 @@ Production: private key in KMS/HSM/Vault; publish JWKS; rotate with overlapping 
 
 ## Docs
 
+- [docs/FLOWS.md](docs/FLOWS.md) — OAuth/JWT **sequence diagrams** (auth code, PKCE, client credentials, JWT validation, refresh)
 - [docs/CONCEPTS.md](docs/CONCEPTS.md)
-- [docs/FLOWS.md](docs/FLOWS.md)
 - [docs/INTERNALS.md](docs/INTERNALS.md)
 - [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md)
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)

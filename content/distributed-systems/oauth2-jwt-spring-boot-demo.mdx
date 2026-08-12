@@ -47,6 +47,65 @@ Login → Authorize → Code → Token (JWT RS256) → Gateway → Resource Serv
   → JwtDecoder/JWKS → claims → SCOPE_/ROLE_ → @PreAuthorize → API
 ```
 
+Interactive diagrams also live on **[OAuth + JWT source explorer](/oauth-jwt-demo#auth-code)** and in `oauth-jwt-demo/docs/FLOWS.md`.
+
+## Sequence diagram — Authorization Code end-to-end
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor User
+    participant Client as Client App :8082
+    participant AS as Auth Server :9000
+    participant GW as API Gateway :8080
+    participant RS as Resource Server :8081
+
+    User->>Client: Open /payments
+    Client->>AS: GET /oauth2/authorize (code flow)
+    AS->>User: Login + consent
+    User->>AS: Approve
+    AS->>Client: Redirect with authorization code
+    Client->>AS: POST /oauth2/token
+    AS-->>Client: JWT access_token (RS256)
+    Client->>GW: API + Bearer JWT
+    GW->>GW: Validate via JWKS
+    GW->>RS: Forward Authorization
+    RS->>RS: Re-validate + scopes/roles
+    RS-->>Client: 200 via Gateway
+`} />
+
+## Sequence diagram — Client Credentials
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant Svc as payment-service
+    participant AS as Auth Server :9000
+    participant RS as Resource Server :8081
+
+    Svc->>AS: POST /oauth2/token client_credentials
+    AS-->>Svc: access_token JWT
+    Svc->>RS: API + Bearer JWT
+    RS->>RS: Validate sig/iss/aud/scope
+    RS-->>Svc: 200
+`} />
+
+## Sequence diagram — JWT validation (zero-trust)
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant Client
+    participant GW as API Gateway
+    participant RS as Resource Server
+    participant AS as JWKS
+
+    Client->>GW: Bearer JWT
+    GW->>AS: Fetch JWKS (cached)
+    GW->>GW: Verify signature, iss, exp
+    GW->>RS: Forward token
+    RS->>AS: Fetch JWKS (cached)
+    RS->>RS: Verify + aud + PreAuthorize
+    RS-->>Client: 200 or 401/403
+`} />
+
 ## Interview punchline
 
 > The hard part is not wiring `oauth2ResourceServer`. It is key management, audience/scope design, refresh/rotation, and what still works when the Authorization Server is down.
