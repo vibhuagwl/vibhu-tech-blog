@@ -1,0 +1,495 @@
+---
+slug: oracle-database-realtime-troubleshooting
+title: "Oracle Database Real-Time Experience: Practical SQL Troubleshooting"
+description: "Hands-on Oracle troubleshooting for production Java/Spring APIs: session waits, blocking locks, slow SQL, AWR/ASH-style queries, tablespace, redo, and Hikari pool incidents with copy-paste SQL."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Oracle, Real-Time Issues, SQL, Troubleshooting, Spring Boot, HikariCP, Production Incident, AWR, ASH]
+readingTime: 28 min
+publishedAt: "2026-08-12"
+---
+
+## What this page is
+
+Practical Oracle work I do when a Java/Spring API is slow or stuck — **SQL you run**, what the output means, and the next action.
+
+Not architecture essays. Symptom → query → decision.
+
+Assumes you can connect as a DBA/monitor account (or ask DBA to run these). Table names below use a payments-style example (`PAYMENT`, `PAYMENT_EVENT`).
+
+```text
+Symptom (API p95 / stuck threads / Hikari pending)
+  -> v$session / ASH wait class
+  -> lock tree OR top SQL
+  -> plan / stats / index
+  -> mitigate (kill blocker / cancel SQL / scale) then permanent fix
+```
+
+## Incident kit — run these first (2 minutes)
+
+### 1) Who is active right now?
+
+```sql
+SELECT s.sid,
+       s.serial#,
+       s.username,
+       s.status,
+       s.machine,
+       s.program,
+       s.sql_id,
+       s.event,
+       s.wait_class,
+       s.seconds_in_wait,
+       s.blocking_session,
+       ROUND(s.last_call_et/60,1) AS mins_in_call
+FROM   v$session s
+WHERE  s.type = 'USER'
+AND    s.status = 'ACTIVE'
+ORDER  BY s.seconds_in_wait DESC NULLS LAST;
+```
+
+**What I look for:** many sessions on `enq: TX - row lock contention`, `db file sequential read`, `log file sync`, or `SQL*Net message from client` with high `seconds_in_wait`.
+
+### 2) Blocking tree (classic checkout freeze)
+
+```sql
+SELECT LPAD(' ', LEVEL*2) || sid AS tree,
+       sid,
+       serial#,
+       username,
+       status,
+       event,
+       blocking_session,
+       sql_id,
+       seconds_in_wait
+FROM   v$session
+WHERE  level > 1
+OR     sid IN (SELECT blocking_session FROM v$session WHERE blocking_session IS NOT NULL)
+START WITH blocking_session IS NULL
+       AND sid IN (SELECT blocking_session FROM v$session WHERE blocking_session IS NOT NULL)
+CONNECT BY PRIOR sid = blocking_session;
+```
+
+Simpler flat view:
+
+```sql
+SELECT blocked.sid   AS blocked_sid,
+       blocked.serial# AS blocked_serial,
+       blocked.username AS blocked_user,
+       blocked.event AS blocked_wait,
+       blocked.sql_id AS blocked_sql,
+       blocker.sid   AS blocker_sid,
+       blocker.serial# AS blocker_serial,
+       blocker.username AS blocker_user,
+       blocker.event AS blocker_event,
+       blocker.sql_id AS blocker_sql,
+       blocker.seconds_in_wait AS blocker_wait_s
+FROM   v$session blocked
+JOIN   v$session blocker ON blocker.sid = blocked.blocking_session
+WHERE  blocked.blocking_session IS NOT NULL;
+```
+
+**Action example:** if blocker holds a row lock for 12 minutes and SQL shows an open transaction waiting on an HTTP callback inside `@Transactional`, kill is a last resort after confirming no critical write mid-flight — better fix is move external call **outside** the transaction (same pattern as Postgres lock incidents).
+
+Kill only with owner approval:
+
+```sql
+-- ALTER SYSTEM KILL SESSION 'sid,serial#' IMMEDIATE;
+ALTER SYSTEM KILL SESSION '145,3921' IMMEDIATE;
+```
+
+### 3) What SQL is the session running?
+
+```sql
+SELECT s.sid,
+       s.sql_id,
+       q.sql_text
+FROM   v$session s
+JOIN   v$sql q ON q.sql_id = s.sql_id
+              AND q.child_number = s.sql_child_number
+WHERE  s.sid = :sid;
+```
+
+Full text if truncated:
+
+```sql
+SELECT sql_fulltext
+FROM   v$sql
+WHERE  sql_id = :sql_id
+AND    ROWNUM = 1;
+```
+
+---
+
+## Case A — Payment API p95 jumped from 180ms to 4–7s
+
+**Symptom:** Spring endpoint `GET /payments?merchantId=&status=PENDING` slow. Hikari active high, pending > 0. Oracle CPU not maxed.
+
+### Step A1 — Top SQL by elapsed time (last interval)
+
+```sql
+SELECT *
+FROM (
+  SELECT sql_id,
+         executions,
+         ROUND(elapsed_time/1e6,2) AS elapsed_s,
+         ROUND(cpu_time/1e6,2)     AS cpu_s,
+         buffer_gets,
+         disk_reads,
+         ROUND(elapsed_time/NULLIF(executions,0)/1e3,2) AS avg_ms,
+         SUBSTR(sql_text,1,80) AS sql_preview
+  FROM   v$sql
+  WHERE  parsing_schema_name = 'PAYMENTS_APP'
+  AND    executions > 0
+  ORDER  BY elapsed_time DESC
+)
+WHERE ROWNUM <= 20;
+```
+
+### Step A2 — Confirm the bad statement
+
+Found `sql_id` for:
+
+```sql
+SELECT payment_id, merchant_id, status, amount, created_at
+FROM   payment
+WHERE  merchant_id = :1
+AND    status = :2
+ORDER  BY created_at DESC
+FETCH FIRST 50 ROWS ONLY;
+```
+
+### Step A3 — Current plan
+
+```sql
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY_CURSOR(:sql_id, NULL, 'ALLSTATS LAST +PEEKED_BINDS'));
+```
+
+If you only have text:
+
+```sql
+EXPLAIN PLAN FOR
+SELECT payment_id, merchant_id, status, amount, created_at
+FROM   payment
+WHERE  merchant_id = :b1
+AND    status = 'PENDING'
+ORDER  BY created_at DESC
+FETCH FIRST 50 ROWS ONLY;
+
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY(NULL, NULL, 'ALL'));
+```
+
+**Practical finding I have hit:** plan showed `TABLE ACCESS FULL` on `PAYMENT` (400M+ rows) after data growth; earlier it used an index. Cardinality for `status='PENDING'` was wrong.
+
+### Step A4 — Stats + histogram check
+
+```sql
+SELECT table_name,
+       num_rows,
+       blocks,
+       last_analyzed
+FROM   user_tables
+WHERE  table_name = 'PAYMENT';
+
+SELECT column_name,
+       num_distinct,
+       density,
+       histogram,
+       last_analyzed
+FROM   user_tab_col_statistics
+WHERE  table_name = 'PAYMENT'
+AND    column_name IN ('MERCHANT_ID','STATUS','CREATED_AT');
+```
+
+Skew check:
+
+```sql
+SELECT status, COUNT(*) AS cnt
+FROM   payment
+GROUP  BY status
+ORDER  BY cnt DESC;
+```
+
+### Step A5 — Index that actually matches the access path
+
+```sql
+-- Prove existing indexes
+SELECT index_name, uniqueness, status
+FROM   user_indexes
+WHERE  table_name = 'PAYMENT';
+
+SELECT index_name, column_position, column_name, descend
+FROM   user_ind_columns
+WHERE  table_name = 'PAYMENT'
+ORDER  BY index_name, column_position;
+```
+
+Oracle practical pattern without Postgres-style partial index:
+
+```sql
+-- Virtual column for hot status slice
+ALTER TABLE payment ADD (
+  pending_merchant_id GENERATED ALWAYS AS
+    (CASE WHEN status = 'PENDING' THEN merchant_id END) VIRTUAL
+);
+
+CREATE INDEX payment_pending_mrc_created_i
+ON payment (pending_merchant_id, created_at DESC);
+```
+
+Then re-gather:
+
+```sql
+BEGIN
+  DBMS_STATS.GATHER_TABLE_STATS(
+    ownname => USER,
+    tabname => 'PAYMENT',
+    method_opt => 'FOR ALL COLUMNS SIZE AUTO',
+    cascade => TRUE
+  );
+END;
+/
+```
+
+Re-run `DISPLAY_CURSOR` — expect `INDEX RANGE SCAN` + low `buffer_gets`.
+
+### Step A6 — App-side confirmation
+
+Hikari: `pending` back to 0, active normal. API p95 back under 300ms.
+
+---
+
+## Case B — Threads stuck, Oracle shows row lock waits
+
+**Symptom:** Tomcat stuck threads in `oracle.jdbc`. Many sessions `enq: TX - row lock contention`.
+
+### Find locked objects / rows
+
+```sql
+SELECT lo.session_id,
+       lo.oracle_username,
+       o.owner,
+       o.object_name,
+       lo.locked_mode
+FROM   v$locked_object lo
+JOIN   dba_objects o ON o.object_id = lo.object_id
+ORDER  BY lo.session_id;
+```
+
+Who holds TX enqueue:
+
+```sql
+SELECT s.sid,
+       s.serial#,
+       s.username,
+       s.program,
+       s.sql_id,
+       s.event,
+       s.seconds_in_wait,
+       t.start_time,
+       t.used_ublk
+FROM   v$session s
+JOIN   v$transaction t ON t.ses_addr = s.saddr
+WHERE  s.sid IN (
+  SELECT blocking_session FROM v$session WHERE blocking_session IS NOT NULL
+);
+```
+
+### Practical root cause I look for in Spring code
+
+```java
+@Transactional
+public void processPayment(String id) {
+  Payment p = repo.lockById(id);     // SELECT … FOR UPDATE
+  gateway.capture(p);                // HTTP 8s — HOLDS ROW LOCK
+  p.markCaptured();
+}
+```
+
+**Mitigation:** cancel long SQL / kill blocker if business allows.  
+**Permanent:** lock → local work → commit → HTTP → separate compensating update (or outbox). Never hold `FOR UPDATE` across network I/O.
+
+Row lock SQL pattern:
+
+```sql
+SELECT payment_id, status
+FROM   payment
+WHERE  payment_id = :id
+FOR UPDATE WAIT 5;   -- fail fast in app; don't WAIT forever
+```
+
+---
+
+## Case C — `log file sync` / commit latency spikes
+
+**Symptom:** writes slow; waits dominated by `log file sync`.
+
+```sql
+SELECT event,
+       total_waits,
+       ROUND(time_waited_micro/1e6,2) AS time_s
+FROM   v$system_event
+WHERE  wait_class <> 'Idle'
+ORDER  BY time_waited_micro DESC
+FETCH FIRST 15 ROWS ONLY;
+```
+
+Session sample:
+
+```sql
+SELECT sid, event, state, seconds_in_wait, wait_time_micro
+FROM   v$session
+WHERE  username = 'PAYMENTS_APP'
+AND    event LIKE 'log file sync%';
+```
+
+**Practical checks:** too many tiny commits (flush every row), redo log size/groups, storage latency. App fix I have done: JDBC batch + commit per chunk (500–1000), not per payment.
+
+```java
+// bad: commit each insert
+// better: spring jdbc batchUpdate, transaction boundary per batch
+```
+
+---
+
+## Case D — Connection pool exhaustion (Hikari + Oracle)
+
+**Symptom:** `HikariPool - Connection is not available`, Oracle `sessions` high.
+
+```sql
+SELECT resource_name, current_utilization, max_utilization, limit_value
+FROM   v$resource_limit
+WHERE  resource_name IN ('sessions','processes','transactions');
+
+SELECT username, COUNT(*) AS cnt, status
+FROM   v$session
+WHERE  username IS NOT NULL
+GROUP  BY username, status
+ORDER  BY cnt DESC;
+```
+
+Idle sessions holding connections:
+
+```sql
+SELECT sid, serial#, status, program, machine,
+       ROUND(last_call_et/60,1) AS mins_idle,
+       sql_id
+FROM   v$session
+WHERE  username = 'PAYMENTS_APP'
+AND    status = 'INACTIVE'
+ORDER  BY last_call_et DESC
+FETCH FIRST 30 ROWS ONLY;
+```
+
+**Typical fix:** leak (connection not closed), transaction too wide, pool max > Oracle sessions budget across pods. Formula I use in war rooms:
+
+```text
+pods * hikari.maximumPoolSize  <  Oracle sessions limit * 0.7
+```
+
+---
+
+## Case E — “It worked yesterday” — bind peeking / bad plan
+
+```sql
+SELECT sql_id, child_number, plan_hash_value, is_bind_sensitive, is_bind_aware,
+       executions, ROUND(elapsed_time/NULLIF(executions,0)/1e3,2) AS avg_ms
+FROM   v$sql
+WHERE  sql_id = :sql_id;
+```
+
+Force fresh hard parse only as controlled experiment (coordinate with DBA):
+
+```sql
+-- SELECT /*+ NO_SHARE */ …  -- app hint last resort
+-- Or flush shared pool is nuclear — avoid in prod unless DBA-owned change window
+```
+
+Practical approach: gather stats with histograms on skewed `STATUS`, use SQL Plan Baseline / SPM if a known good `plan_hash_value` must stick.
+
+```sql
+SELECT plan_hash_value, COUNT(*) 
+FROM   dba_hist_sqlstat
+WHERE  sql_id = :sql_id
+AND    snap_id > (SELECT MAX(snap_id)-24 FROM dba_hist_snapshot)
+GROUP  BY plan_hash_value;
+```
+
+---
+
+## Case F — Tablespace / unable to extend
+
+```sql
+SELECT tablespace_name,
+       ROUND(used_space*8192/1024/1024/1024,2) AS used_gb,
+       ROUND(tablespace_size*8192/1024/1024/1024,2) AS size_gb,
+       ROUND(used_percent,1) AS used_pct
+FROM   dba_tablespace_usage_metrics
+ORDER  BY used_percent DESC;
+```
+
+Autoextend check:
+
+```sql
+SELECT file_name, tablespace_name, autoextensible,
+       ROUND(bytes/1024/1024/1024,2) AS gb,
+       ROUND(maxbytes/1024/1024/1024,2) AS max_gb
+FROM   dba_data_files
+WHERE  tablespace_name = 'PAYMENTS_DATA';
+```
+
+**App symptom:** intermittent `ORA-01653: unable to extend table`. Mitigate: add space / datafile. Permanent: retention purge job for old `PAYMENT_EVENT`.
+
+---
+
+## ASH / AWR style — last hour hotspots (if licensed)
+
+```sql
+SELECT NVL(event, session_state) AS wait_or_cpu,
+       COUNT(*) AS samples,
+       ROUND(COUNT(*)*100/SUM(COUNT(*)) OVER (),1) AS pct
+FROM   v$active_session_history
+WHERE  sample_time > SYSTIMESTAMP - INTERVAL '60' MINUTE
+AND    session_type = 'FOREGROUND'
+GROUP  BY NVL(event, session_state)
+ORDER  BY samples DESC
+FETCH FIRST 15 ROWS ONLY;
+```
+
+Top SQL from ASH:
+
+```sql
+SELECT sql_id,
+       COUNT(*) AS samples,
+       COUNT(DISTINCT session_id) AS sessions
+FROM   v$active_session_history
+WHERE  sample_time > SYSTIMESTAMP - INTERVAL '60' MINUTE
+AND    sql_id IS NOT NULL
+GROUP  BY sql_id
+ORDER  BY samples DESC
+FETCH FIRST 10 ROWS ONLY;
+```
+
+---
+
+## Java/Spring evidence I pair with Oracle SQL
+
+| App signal | Oracle query to run |
+|---|---|
+| Hikari pending / acquire timeout | Case D sessions + Case B locks |
+| Stuck threads in JDBC | Case 1 ACTIVE + sql_text |
+| Write path p99 only | Case C `log file sync` + commit batching |
+| Read path regression after growth | Case A plan + stats + index |
+| Sudden 500s `ORA-01653` | Case F tablespace |
+
+---
+
+## Spoken interview answer (practical, ~90 seconds)
+
+> When a Spring payment API slowed against Oracle, I did not start with “add an index.” I checked Hikari pending, then `v$session` for wait class. We had either `enq: TX` blockers from long transactions or a SQL_ID with exploding buffer gets. For locks I built the blocking tree and traced Spring `@Transactional` holding `FOR UPDATE` across an HTTP call — we moved the remote call out of the transaction. For slow reads I pulled `DISPLAY_CURSOR`, saw a full table scan after growth, fixed stats/histogram on skewed status, added a targeted index on the pending slice, and verified avg elapsed ms and API p95. Pool math across pods stayed under Oracle session limits.
+
+## Related
+
+- [Aurora PostgreSQL incident case study](/realtime-issues/aurora-postgresql-incident-case-study) — same investigation style on Postgres
+- [Stuck thread DB, API, pools](/realtime-issues/stuck-thread-db-api-pools)
+- [Oracle incident case study](/realtime-issues/oracle-database-incident-case-study)

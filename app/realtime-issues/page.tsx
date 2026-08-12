@@ -60,6 +60,8 @@ const ORDER=[
   'java-migration-testing-and-regression',
   'java-migration-rollout-and-rollback',
   'java-migration-interview-answer-and-followups',
+  'oracle-database-realtime-troubleshooting',
+  'oracle-database-incident-case-study',
 ];
 
 export default function RealtimeIssues(){

@@ -22,7 +22,7 @@ const reasons=[
 const paths=[
   {title:'System Design',href:'/system-design',blurb:'Architecture problems, estimation, and Staff follow-ups.'},
   {title:'Distributed Systems',href:'/distributed-systems',blurb:'Locking, messaging, resilience, and consistency.'},
-  {title:'Real-Time Issues',href:'/realtime-issues',blurb:'Stuck threads, Aurora, Java migration, Lead Experience.'},
+  {title:'Real-Time Issues',href:'/realtime-issues',blurb:'Stuck threads, Aurora, Oracle SQL, Java migration, Lead Experience.'},
   {title:'JPMC Experience',href:'/jpmc-experience',blurb:'Hadron Cashlines, Kafka replay, tax, RSU, Terraform.'},
   {title:'OAuth + JWT Source',href:'/oauth-jwt-demo',blurb:'Browse the full Spring Security demo in the browser.'},
   {title:'Authn + Authz Source',href:'/spring-auth-demo',blurb:'Spring Security form login & HTTP Basic — no OAuth.'},

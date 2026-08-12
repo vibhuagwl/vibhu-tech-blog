@@ -1,0 +1,192 @@
+---
+slug: oracle-database-incident-case-study
+title: "Oracle Incident Case Study: Payment API 200ms to 6s + Hikari Timeouts"
+description: "Real-time Oracle troubleshooting walkthrough: Spring payment API latency, v$session waits, blocking tree, DISPLAY_CURSOR full scan, skewed STATUS stats, virtual-column index, and pool math — with the SQL that was run."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Oracle, Incident Case Study, Spring Boot, HikariCP, SQL, Real-Time Issues, Production]
+readingTime: 18 min
+publishedAt: "2026-08-12"
+---
+
+## Incident summary
+
+Payment list API normally ~200ms p95.
+
+At 14:40 UTC, p95 hit 5–7 seconds. Pods showed Hikari `Connection is not available, request timed out after 30000ms`. Error rate climbed; checkout UI spun.
+
+Stack: Java 17, Spring Boot, HikariCP, Oracle 19c.
+
+Final finding:
+
+> One SQL_ID switched from index range scan to full table scan on `PAYMENT` after row growth + skewed `STATUS`. Sessions piled up; Hikari pending exhausted the pool.
+
+Permanent fix: gather stats with histograms, add a virtual-column index for the pending slice, verify plan + buffer gets, keep pod×pool under Oracle session budget.
+
+## The endpoint and SQL
+
+```text
+GET /api/v1/payments?merchantId=M-8891&status=PENDING
+```
+
+Equivalent SQL:
+
+```sql
+SELECT payment_id, merchant_id, status, amount, created_at
+FROM   payment
+WHERE  merchant_id = :1
+AND    status = :2
+ORDER  BY created_at DESC
+FETCH FIRST 50 ROWS ONLY;
+```
+
+## Minute-by-minute (what we actually ran)
+
+### T+0 — App evidence
+
+- API p95 6.2s
+- Hikari: active=30 (max), pending=40+
+- Thread dump: many threads in `oracle.jdbc.driver.OracleStatement.execute`
+
+No deploy that morning. Table had grown hard over the prior week.
+
+### T+3 — Active sessions
+
+```sql
+SELECT sid, serial#, event, wait_class, seconds_in_wait, sql_id, blocking_session
+FROM   v$session
+WHERE  username = 'PAYMENTS_APP'
+AND    status = 'ACTIVE'
+ORDER  BY seconds_in_wait DESC NULLS LAST;
+```
+
+**Result:** dozens of sessions on the same `sql_id=8f3k2…`, wait `db file scattered read` / CPU — not row locks. So this was CPU/IO from heavy SQL, not a classic blocker tree.
+
+(If we had seen `enq: TX`, we would have jumped to the lock tree — see [Oracle realtime troubleshooting](/realtime-issues/oracle-database-realtime-troubleshooting).)
+
+### T+6 — Top SQL
+
+```sql
+SELECT sql_id,
+       executions,
+       ROUND(elapsed_time/NULLIF(executions,0)/1e3,2) AS avg_ms,
+       buffer_gets,
+       disk_reads,
+       SUBSTR(sql_text,1,100) AS preview
+FROM   v$sql
+WHERE  sql_id = '8f3k2abc…';  -- from v$session
+```
+
+**Result:** avg_ms ~4800, buffer_gets per exec in the millions.
+
+### T+8 — Plan
+
+```sql
+SELECT * FROM TABLE(
+  DBMS_XPLAN.DISPLAY_CURSOR('8f3k2abc…', NULL, 'ALLSTATS LAST')
+);
+```
+
+**Result (simplified):**
+
+```text
+| Id | Operation          | Name    | A-Rows | Buffers |
+|  0 | SELECT STATEMENT   |         |     50 |  1.8M   |
+|  1 |  SORT ORDER BY     |         |     50 |  1.8M   |
+|  2 |   TABLE ACCESS FULL| PAYMENT |   12M  |  1.8M   |
+```
+
+Full scan of ~400M-row table filtered late. That matched the latency.
+
+### T+12 — Why the plan flipped
+
+```sql
+SELECT status, COUNT(*) FROM payment GROUP BY status;
+
+-- PENDING ~ 0.4% of rows; COMPLETED ~ 95%
+```
+
+```sql
+SELECT column_name, num_distinct, histogram, last_analyzed
+FROM   user_tab_col_statistics
+WHERE  table_name = 'PAYMENT'
+AND    column_name IN ('STATUS','MERCHANT_ID');
+```
+
+**Result:** `STATUS` histogram stale / missing; optimizer underestimated selectivity of `PENDING`.
+
+### T+20 — Mitigation while fixing
+
+1. Raised read timeout messaging; scaled one extra pod only as temporary relief (knew it could worsen Oracle load).
+2. Asked edge to shed non-critical dashboard polling.
+3. Did **not** flush shared pool.
+
+### T+35 — Permanent SQL change
+
+```sql
+ALTER TABLE payment ADD (
+  pending_merchant_id GENERATED ALWAYS AS
+    (CASE WHEN status = 'PENDING' THEN merchant_id END) VIRTUAL
+);
+
+CREATE INDEX payment_pending_mrc_created_i
+ON payment (pending_merchant_id, created_at DESC);
+
+BEGIN
+  DBMS_STATS.GATHER_TABLE_STATS(
+    ownname => USER,
+    tabname => 'PAYMENT',
+    method_opt => 'FOR COLUMNS SIZE 254 STATUS MERCHANT_ID',
+    cascade => TRUE
+  );
+END;
+/
+```
+
+App query kept the same predicates (Oracle can use the virtual column index when `status='PENDING'` is present, or we adjusted the repository to filter `pending_merchant_id = :merchantId` for the pending dashboard path).
+
+### T+50 — Prove it
+
+```sql
+SELECT * FROM TABLE(
+  DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST')
+);
+-- After one warm execution of the pending query
+```
+
+**New plan:** `INDEX RANGE SCAN PAYMENT_PENDING_MRC_CREATED_I`, buffers ~200, avg_ms ~12.
+
+```sql
+-- pool health
+SELECT username, status, COUNT(*)
+FROM   v$session
+WHERE  username = 'PAYMENTS_APP'
+GROUP  BY username, status;
+```
+
+Hikari pending → 0. API p95 → ~220ms.
+
+### T+90 — Guardrails
+
+```text
+max pods (12) * hikari.maximumPoolSize (20) = 240
+Oracle sessions limit 800 → keep headroom; alert at 60% utilization
+```
+
+Added dashboard: `v$sql` avg_ms for that SQL_ID + Hikari pending + API p95.
+
+## What I would say in an interview
+
+> Latency and Hikari timeouts together pointed at DB time, not DNS. `v$session` showed one SQL_ID with scattered reads, not TX enqueues. `DISPLAY_CURSOR` proved a full table scan with millions of buffers. Status skew plus stale stats explained the plan change after growth. We added a virtual-column index for the pending slice, regathered histograms, confirmed the plan and API p95, and locked pool math so scaling pods would not melt Oracle sessions.
+
+## Copy-paste checklist for the next Oracle page-out
+
+1. `v$session` ACTIVE — wait class + `sql_id` + `blocking_session`
+2. If blockers → blocking tree; else top `v$sql` by elapsed
+3. `DBMS_XPLAN.DISPLAY_CURSOR`
+4. Stats / skew on filter columns
+5. Index that matches equality + order by
+6. Re-measure avg_ms, buffers, Hikari pending, API p95
+7. Only then talk about killing sessions or flushing pools
+
+Full SQL kit: [Oracle realtime troubleshooting](/realtime-issues/oracle-database-realtime-troubleshooting).
