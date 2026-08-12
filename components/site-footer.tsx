@@ -5,7 +5,7 @@ const COLUMNS=[
   {
     title:'Start',
     links:[
-      {href:'/learn',label:'Learning path'},
+      {href:'/learn',label:'Learning paths'},
       {href:'/search',label:'Search topics'},
       {href:'/interview-questions',label:'Interview practice'},
       {href:'/about',label:'About'},
@@ -37,11 +37,11 @@ export default function SiteFooter(){
       <div className="mx-auto grid max-w-[1400px] gap-10 px-5 py-12 md:grid-cols-[1.2fr_2fr]">
         <div>
           <div className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-            Senior Engineering Interview Hub
+            Vibhu Tech
           </div>
           <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-            Real-world Java, Spring Boot, microservices, Kafka, system design, and production engineering —
-            learn the problem, understand the trade-offs, tell the story, answer the interview.
+            Senior Engineering Interview Hub — real-world Java, Spring Boot, Kafka, system design,
+            and production engineering. Learn it. Remember it. Explain it. Defend it.
           </p>
           <div className="mt-5 flex gap-3 text-slate-500">
             <a href="https://www.linkedin.com/in/vibhuagwl/" aria-label="LinkedIn" className="rounded-lg p-2 hover:bg-slate-100 hover:text-blue-700 dark:hover:bg-slate-900">
