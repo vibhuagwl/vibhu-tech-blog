@@ -24,6 +24,12 @@ const banks=[
     blurb:'Hadron Cashlines, CDC, Kafka replay, Deloitte tax, RSU, Terraform, migration.',
   },
   {
+    href:'/design-patterns',
+    label:'Design Patterns',
+    level:'Senior',
+    blurb:'One hub for all 23 GoF patterns: source repo, revision cards, memory formula, poster, and mock interview.',
+  },
+  {
     href:'/oauth-jwt-demo',
     label:'OAuth + JWT Source',
     level:'Staff',

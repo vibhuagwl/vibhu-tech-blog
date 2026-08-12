@@ -41,6 +41,7 @@ export default function Learn(){
           <Link href="/complexity" className="rounded-lg border px-4 py-2 text-sm font-bold">Complexity</Link>
           <Link href="/kafka-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Kafka Hub</Link>
           <Link href="/redis-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Redis Interview</Link>
+          <Link href="/design-patterns" className="rounded-lg border px-4 py-2 text-sm font-bold">Design Patterns</Link>
           <Link href="/realtime-issues" className="rounded-lg border px-4 py-2 text-sm font-bold">Real-Time Issues</Link>
           <Link href="/jpmc-experience" className="rounded-lg border px-4 py-2 text-sm font-bold">JPMC Experience</Link>
           <Link href="/oauth-jwt-demo" className="rounded-lg border px-4 py-2 text-sm font-bold">OAuth + JWT Source</Link>
