@@ -42,4 +42,16 @@ public class IdempotencyKeyEntity {
   public String getResponseJson() {
     return responseJson;
   }
+
+  public void setResponseJson(String responseJson) {
+    this.responseJson = responseJson;
+  }
+
+  public String getTransactionId() {
+    return transactionId;
+  }
+
+  public void setTransactionId(String transactionId) {
+    this.transactionId = transactionId;
+  }
 }

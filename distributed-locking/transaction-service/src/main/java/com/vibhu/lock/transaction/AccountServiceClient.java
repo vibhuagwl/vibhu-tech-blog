@@ -14,9 +14,17 @@ public class AccountServiceClient {
     this.restClient = restClient;
   }
 
+  public AccountTransferApplyResponse prepareTransfer(TransactionEntity transaction) {
+    return post("/internal/accounts/transfer-prepare", transaction);
+  }
+
   public AccountTransferApplyResponse applyTransfer(TransactionEntity transaction) {
+    return post("/internal/accounts/transfer-apply", transaction);
+  }
+
+  private AccountTransferApplyResponse post(String path, TransactionEntity transaction) {
     AccountTransferApplyResponse response = restClient.post()
-        .uri("/internal/accounts/transfer-apply")
+        .uri(path)
         .body(new AccountTransferApplyRequest(
             transaction.getId(),
             transaction.getSourceAccountId(),

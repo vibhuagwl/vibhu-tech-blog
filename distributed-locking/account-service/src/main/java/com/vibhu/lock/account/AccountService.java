@@ -37,17 +37,37 @@ public class AccountService {
         .orElseThrow(() -> new EntityNotFoundException("Account not found: " + id));
   }
 
+  /**
+   * 3PL prepare: take {@code SELECT ... FOR UPDATE} row locks, validate fencing + funds,
+   * but do not mutate balances. Commit applies the mutation under the same Redis lease.
+   */
+  @Transactional
+  public TransferApplyResponse prepareTransfer(TransferApplyRequest request) {
+    requirePositive(request.amount(), "amount");
+    Map<String, AccountEntity> locked = lockAccountsInDeterministicOrder(
+        request.sourceAccountId(),
+        request.destAccountId()
+    );
+    AccountEntity source = locked.get(request.sourceAccountId());
+    AccountEntity destination = locked.get(request.destAccountId());
+    validateFence(source, request.fencingTokenSource(), "source");
+    validateFence(destination, request.fencingTokenDest(), "destination");
+    if (source != destination && source.getBalance().compareTo(request.amount()) < 0) {
+      throw new InsufficientFundsException("Insufficient funds in account " + source.getId());
+    }
+    return response(request, source, destination);
+  }
+
   @Transactional
   public TransferApplyResponse applyTransfer(TransferApplyRequest request) {
     requirePositive(request.amount(), "amount");
 
     /*
-     * The transaction-service first obtains Redis-backed distributed locks with
-     * monotonically increasing fencing tokens. This method then opens a single
-     * PostgreSQL transaction and takes row-level PESSIMISTIC_WRITE locks in a
-     * deterministic account-id order. Redis prevents concurrent distributed
-     * writers from entering, fencing rejects stale lock holders after lease loss,
-     * and the database transaction makes the debit/credit atomic.
+     * Redis distributed lock (with fencing) is acquired by transaction-service first.
+     * This method opens a PostgreSQL transaction and takes row-level PESSIMISTIC_WRITE
+     * locks in deterministic account-id order. Redis serializes distributed writers,
+     * fencing rejects stale lock holders after lease loss, and the DB transaction
+     * makes debit/credit atomic as the final consistency boundary.
      */
     Map<String, AccountEntity> locked = lockAccountsInDeterministicOrder(
         request.sourceAccountId(),

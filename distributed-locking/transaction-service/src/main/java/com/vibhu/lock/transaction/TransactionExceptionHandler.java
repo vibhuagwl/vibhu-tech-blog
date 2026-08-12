@@ -2,6 +2,7 @@ package com.vibhu.lock.transaction;
 
 import com.vibhu.lock.common.DeadlockException;
 import com.vibhu.lock.common.FenceTokenRejectedException;
+import com.vibhu.lock.common.IdempotencyConflictException;
 import com.vibhu.lock.common.InsufficientFundsException;
 import com.vibhu.lock.common.LockTimeoutException;
 import jakarta.persistence.EntityNotFoundException;
@@ -28,7 +29,8 @@ public class TransactionExceptionHandler {
       IllegalStateException.class,
       InsufficientFundsException.class,
       FenceTokenRejectedException.class,
-      DeadlockException.class
+      DeadlockException.class,
+      IdempotencyConflictException.class
   })
   ResponseEntity<ApiError> conflict(RuntimeException ex) {
     return error(HttpStatus.CONFLICT, ex.getMessage());

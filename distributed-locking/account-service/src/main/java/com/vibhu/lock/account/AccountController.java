@@ -32,6 +32,11 @@ public class AccountController {
     return accountService.get(id);
   }
 
+  @PostMapping("/internal/accounts/transfer-prepare")
+  public TransferApplyResponse transferPrepare(@RequestBody TransferApplyRequest request) {
+    return accountService.prepareTransfer(request);
+  }
+
   @PostMapping("/internal/accounts/transfer-apply")
   public TransferApplyResponse transferApply(@RequestBody TransferApplyRequest request) {
     return accountService.applyTransfer(request);

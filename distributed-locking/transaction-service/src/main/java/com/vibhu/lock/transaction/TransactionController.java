@@ -13,10 +13,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/transfers")
-public class TransferController {
+public class TransactionController {
   private final TransferService transferService;
 
-  public TransferController(TransferService transferService) {
+  public TransactionController(TransferService transferService) {
     this.transferService = transferService;
   }
 
@@ -28,13 +28,13 @@ public class TransferController {
     return transferService.transfer(request, idempotencyKey);
   }
 
-  @GetMapping("/{id}")
-  public TransactionView get(@PathVariable String id) {
-    return transferService.get(id);
+  @GetMapping("/{transactionId}")
+  public TransactionView get(@PathVariable String transactionId) {
+    return transferService.get(transactionId);
   }
 
-  @PostMapping("/{id}/cancel")
-  public TransactionView cancel(@PathVariable String id) {
-    return transferService.cancel(id);
+  @PostMapping("/{transactionId}/cancel")
+  public TransactionView cancel(@PathVariable String transactionId) {
+    return transferService.cancel(transactionId);
   }
 }

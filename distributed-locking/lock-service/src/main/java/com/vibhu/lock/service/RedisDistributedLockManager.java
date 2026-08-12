@@ -129,15 +129,16 @@ public class RedisDistributedLockManager {
     public RedisDistributedLockManager(StringRedisTemplate redis, DeadlockDetector deadlockDetector, MeterRegistry registry) {
         this.redis = redis;
         this.deadlockDetector = deadlockDetector;
-        this.acquireAttempts = registry.counter("lock.acquire.attempts");
-        this.acquireSuccess = registry.counter("lock.acquire.success");
-        this.acquireTimeouts = registry.counter("lock.acquire.timeout");
-        this.acquireDeadlocks = registry.counter("lock.acquire.deadlock");
-        this.releaseSuccess = registry.counter("lock.release.success");
-        this.releaseFailure = registry.counter("lock.release.failure");
-        this.renewSuccess = registry.counter("lock.renew.success");
-        this.renewFailure = registry.counter("lock.renew.failure");
-        this.acquireTimer = registry.timer("lock.acquire.duration");
+        this.acquireAttempts = registry.counter("distributed_lock_acquisition_total", "result", "attempt");
+        this.acquireSuccess = registry.counter("distributed_lock_acquisition_total", "result", "success");
+        this.acquireTimeouts = registry.counter("distributed_lock_timeout_total");
+        this.acquireDeadlocks = registry.counter("distributed_deadlock_total");
+        this.releaseSuccess = registry.counter("distributed_lock_release_total", "result", "success");
+        this.releaseFailure = registry.counter("distributed_lock_release_total", "result", "failure");
+        this.renewSuccess = registry.counter("distributed_lock_renew_total", "result", "success");
+        this.renewFailure = registry.counter("distributed_lock_renew_total", "result", "failure");
+        this.acquireTimer = registry.timer("distributed_lock_wait_seconds");
+        registry.timer("distributed_lock_held_seconds");
     }
 
     public LockToken acquireExclusive(String lockKey, String ownerId, Duration lease) {

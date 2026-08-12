@@ -1,7 +1,5 @@
 package com.vibhu.lock.transaction;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vibhu.lock.common.TransferRequest;
 import com.vibhu.lock.common.TransferResponse;
 import com.vibhu.lock.common.TransactionState;
@@ -10,7 +8,7 @@ import jakarta.persistence.EntityNotFoundException;
 import java.util.EnumSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,27 +23,24 @@ public class TransferService {
   );
 
   private final TransactionRepository transactionRepository;
-  private final IdempotencyKeyRepository idempotencyKeyRepository;
+  private final IdempotencyService idempotencyService;
   private final ThreePhaseTransactionManager transactionManager;
-  private final ObjectMapper objectMapper;
 
   public TransferService(
       TransactionRepository transactionRepository,
-      IdempotencyKeyRepository idempotencyKeyRepository,
-      ThreePhaseTransactionManager transactionManager,
-      ObjectMapper objectMapper
+      IdempotencyService idempotencyService,
+      ThreePhaseTransactionManager transactionManager
   ) {
     this.transactionRepository = transactionRepository;
-    this.idempotencyKeyRepository = idempotencyKeyRepository;
+    this.idempotencyService = idempotencyService;
     this.transactionManager = transactionManager;
-    this.objectMapper = objectMapper;
   }
 
   public TransferResponse transfer(TransferRequest request, String headerIdempotencyKey) {
     validate(request);
     String idempotencyKey = firstNonBlank(headerIdempotencyKey, request.idempotencyKey());
     if (idempotencyKey != null) {
-      TransferResponse existing = findIdempotentResponse(idempotencyKey);
+      TransferResponse existing = idempotencyService.claimOrGet(idempotencyKey);
       if (existing != null) {
         return existing;
       }
@@ -54,18 +49,33 @@ public class TransferService {
     TransactionEntity transaction = null;
     try {
       transaction = transactionManager.begin(request);
+      MDC.put("transactionId", transaction.getId());
+      MDC.put("accountId", transaction.getSourceAccountId());
+      log.info("Transfer started source={} dest={} amount={}",
+          transaction.getSourceAccountId(),
+          transaction.getDestinationAccountId(),
+          transaction.getAmount());
+
       transaction = transactionManager.acquireLocks(transaction);
+      MDC.put("fencingToken", String.valueOf(transaction.getFencingSource()));
+      MDC.put("lockKey", TwoPhaseLockingManager.lockKey(transaction.getSourceAccountId()));
+
       transaction = transactionManager.prepare(transaction);
       transaction = transactionManager.preCommit(transaction);
       transaction = transactionManager.commit(transaction);
       transaction = transactionManager.releaseLocks(transaction);
 
       TransferResponse response = new TransferResponse(transaction.getId(), transaction.getState());
-      persistIdempotencyResponse(idempotencyKey, response);
+      idempotencyService.store(idempotencyKey, response);
       return response;
     } catch (RuntimeException ex) {
       rollbackAndRelease(transaction, ex);
       throw ex;
+    } finally {
+      MDC.remove("transactionId");
+      MDC.remove("accountId");
+      MDC.remove("fencingToken");
+      MDC.remove("lockKey");
     }
   }
 
@@ -107,44 +117,6 @@ public class TransferService {
       transactionManager.releaseLocks(aborted);
     } catch (RuntimeException rollbackFailure) {
       log.warn("Rollback/release failed for transaction {}", transaction.getId(), rollbackFailure);
-    }
-  }
-
-  private TransferResponse findIdempotentResponse(String idempotencyKey) {
-    return idempotencyKeyRepository.findById(idempotencyKey)
-        .map(IdempotencyKeyEntity::getResponseJson)
-        .map(this::readTransferResponse)
-        .orElse(null);
-  }
-
-  private void persistIdempotencyResponse(String idempotencyKey, TransferResponse response) {
-    if (idempotencyKey == null) {
-      return;
-    }
-    try {
-      idempotencyKeyRepository.save(new IdempotencyKeyEntity(
-          idempotencyKey,
-          response.transactionId(),
-          writeTransferResponse(response)
-      ));
-    } catch (DataIntegrityViolationException ex) {
-      log.debug("Idempotency response already exists for key {}", idempotencyKey);
-    }
-  }
-
-  private TransferResponse readTransferResponse(String json) {
-    try {
-      return objectMapper.readValue(json, TransferResponse.class);
-    } catch (JsonProcessingException ex) {
-      throw new IllegalStateException("Failed to deserialize idempotency response", ex);
-    }
-  }
-
-  private String writeTransferResponse(TransferResponse response) {
-    try {
-      return objectMapper.writeValueAsString(response);
-    } catch (JsonProcessingException ex) {
-      throw new IllegalStateException("Failed to serialize idempotency response", ex);
     }
   }
 

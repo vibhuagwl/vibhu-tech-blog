@@ -74,8 +74,32 @@ public class TransactionEntity {
   }
 
   public void transitionTo(TransactionState newState) {
+    if (this.state != null && this.state != newState && !isAllowed(this.state, newState)) {
+      throw new IllegalStateException("Illegal 3PL transition " + this.state + " -> " + newState);
+    }
     this.state = newState;
     this.status = newState.name();
+  }
+
+  private static boolean isAllowed(TransactionState from, TransactionState to) {
+    return switch (from) {
+      case ACTIVE -> to == TransactionState.LOCKING || to == TransactionState.ABORTING || to == TransactionState.ABORTED;
+      case LOCKING -> to == TransactionState.PRE_COMMIT
+          || to == TransactionState.ABORTING
+          || to == TransactionState.ABORTED
+          || to == TransactionState.TIMED_OUT;
+      case PRE_COMMIT -> to == TransactionState.COMMIT_READY
+          || to == TransactionState.ABORTING
+          || to == TransactionState.ABORTED;
+      case COMMIT_READY -> to == TransactionState.COMMITTED
+          || to == TransactionState.ABORTING
+          || to == TransactionState.ABORTED;
+      case COMMITTED -> to == TransactionState.RELEASED;
+      case ABORTING -> to == TransactionState.ABORTED;
+      case ABORTED -> to == TransactionState.RELEASED;
+      case TIMED_OUT -> to == TransactionState.ABORTING || to == TransactionState.ABORTED || to == TransactionState.RELEASED;
+      case RELEASED -> false;
+    };
   }
 
   public String getId() {
