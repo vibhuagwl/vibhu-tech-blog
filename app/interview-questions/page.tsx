@@ -37,9 +37,9 @@ const banks=[
   },
   {
     href:'/kafka-interview',
-    label:'Kafka Interview',
+    label:'Kafka',
     level:'Staff',
-    blurb:'Failure modes, DLQ, EOS, multi-region, and payment event scenarios.',
+    blurb:'One hub for Kafka interview banks plus Spring Kafka code, DLQ flow, storytelling, and full property checklists.',
   },
   {
     href:'/redis-interview',
