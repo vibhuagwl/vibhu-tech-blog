@@ -127,7 +127,7 @@ Templates live in:
 | `max.poll.records` | bounded | avoid giant processing batches |
 | `max.poll.interval.ms` | tuned to handler time | avoid rebalances mid-processing |
 | `session.timeout.ms` | tuned | avoid false death detection |
-| `heartbeat.interval.ms` | `< session/3` | stable group membership |
+| `heartbeat.interval.ms` | `&lt; session/3` | stable group membership |
 | `partition.assignment.strategy` | `CooperativeStickyAssignor` | smoother rolling deploy rebalances |
 | `value.deserializer` | explicit | stable event mapping |
 | `spring.json.trusted.packages` | narrow list | deserialization safety |
@@ -253,7 +253,7 @@ If these are missing in prod, your “working local Kafka” setup is not produc
 |---|---|---|
 | Random topics appear | auto-create enabled | disable auto-create |
 | Data loss after broker failover | unclean leader election on | turn it off |
-| Replica fetch errors | replica fetch max < message max | increase replica fetch bytes |
+| Replica fetch errors | replica fetch max &lt; message max | increase replica fetch bytes |
 | Transactional producer errors | tx state log config wrong | fix `transaction.state.log.*` |
 | Retention not as expected | cleanup policy mismatch | set delete/compact intentionally |
 
