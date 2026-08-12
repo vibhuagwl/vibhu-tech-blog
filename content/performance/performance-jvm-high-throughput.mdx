@@ -1,0 +1,423 @@
+---
+slug: performance-jvm-high-throughput
+title: "JVM and High-Throughput Spring Boot Optimization"
+description: "A practical interview playbook for optimizing JVM and high-throughput Java/Spring Boot services with container flags, G1 GC logs, pool sizing, RestClient connections, allocation reduction, virtual threads, and bounded executors."
+category: Performance
+difficulty: Staff
+tags: [Performance, Spring Boot, Java, JVM, GC, Throughput, HikariCP, RestClient]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+## Interview answer
+
+> I optimize JVM performance by first measuring CPU, allocation rate, heap usage, GC pause, thread count, and request latency. In containers I set predictable heap sizing with `-XX:MaxRAMPercentage`, use G1 as the default collector, enable GC logs, and then tune Spring concurrency: Tomcat threads, Hikari pool size, RestClient connection pool, executor queues, and Kafka consumers. For high throughput, I reduce blocking on request threads, avoid allocation-heavy hot paths, and enforce bounded concurrency into downstreams.
+
+Do not start with random JVM flags.
+
+Start with evidence.
+
+## Container JVM flags
+
+Baseline production flags:
+
+```bash
+JAVA_TOOL_OPTIONS="
+  -XX:InitialRAMPercentage=50
+  -XX:MaxRAMPercentage=75
+  -XX:+UseG1GC
+  -XX:MaxGCPauseMillis=200
+  -Xlog:gc*,safepoint:file=/var/log/app/gc.log:time,uptime,level,tags:filecount=5,filesize=20m
+  -XX:+HeapDumpOnOutOfMemoryError
+  -XX:HeapDumpPath=/var/log/app/heapdump.hprof
+"
+```
+
+Why these matter:
+
+| Flag | Practical reason |
+|---|---|
+| `InitialRAMPercentage` | Avoids tiny starting heap and early resizing churn. |
+| `MaxRAMPercentage` | Keeps heap inside container memory limit. |
+| `UseG1GC` | Good default for server apps with predictable pauses. |
+| `MaxGCPauseMillis` | Soft target, not a guarantee. |
+| `Xlog:gc*` | Lets you prove GC caused or did not cause latency. |
+| `HeapDumpOnOutOfMemoryError` | Captures evidence for leaks. |
+
+For a 2Gi container, `MaxRAMPercentage=75` gives roughly 1.5Gi heap.
+
+Leave room for:
+
+- metaspace
+- thread stacks
+- direct buffers
+- JIT/code cache
+- native libraries
+- Netty/Tomcat buffers
+
+## JVM metrics to watch
+
+| Metric | What it tells you |
+|---|---|
+| `jvm.memory.used` | Heap and non-heap pressure. |
+| `jvm.gc.pause` | Stop-the-world pause impact. |
+| allocation rate from JFR/profiler | Whether object churn is driving GC. |
+| `jvm.threads.live` | Thread growth and leaks. |
+| CPU usage and throttling | Compute saturation or container limit. |
+| safepoint time | JVM-wide pauses not always visible as app code. |
+
+Micrometer config:
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,metrics
+  metrics:
+    tags:
+      application: checkout-api
+```
+
+## Spring Boot server pool sizing
+
+```yaml
+server:
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+    accept-count: 100
+
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 30
+      connection-timeout: 500ms
+      leak-detection-threshold: 2000ms
+```
+
+Important relationship:
+
+```text
+Tomcat request concurrency must not overwhelm Hikari, Redis, or RestClient pools.
+```
+
+If 200 request threads all call DB and Hikari has 30 connections, 170 can wait.
+
+That might be acceptable only if wait time is short and bounded.
+
+## RestClient connection pool
+
+Use an explicit pooled HTTP client when outbound traffic is high.
+
+```java
+package com.example.client;
+
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
+
+@Configuration
+class RestClientPoolConfig {
+    @Bean
+    RestClient inventoryClient(RestClient.Builder builder) {
+        PoolingHttpClientConnectionManager manager = new PoolingHttpClientConnectionManager();
+        manager.setMaxTotal(500);
+        manager.setDefaultMaxPerRoute(100);
+
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectionRequestTimeout(Timeouts.millis(200))
+                .setConnectTimeout(Timeouts.millis(300))
+                .setResponseTimeout(Timeouts.millis(800))
+                .build();
+
+        CloseableHttpClient httpClient = HttpClients.custom()
+                .setConnectionManager(manager)
+                .setDefaultRequestConfig(requestConfig)
+                .evictExpiredConnections()
+                .build();
+
+        return builder
+                .baseUrl("https://inventory.internal")
+                .requestFactory(new HttpComponentsClientHttpRequestFactory(httpClient))
+                .build();
+    }
+}
+
+final class Timeouts {
+    private Timeouts() {
+    }
+
+    static org.apache.hc.core5.util.Timeout millis(long value) {
+        return org.apache.hc.core5.util.Timeout.ofMilliseconds(value);
+    }
+}
+```
+
+Watch:
+
+- connection request timeout
+- connect timeout
+- read/response timeout
+- max per route
+- downstream bulkhead size
+
+## Avoid allocations in hot paths
+
+Common allocation sources:
+
+- repeated Jackson `ObjectMapper` creation
+- converting objects to maps for every request
+- string concatenation in loops
+- large intermediate lists
+- logging full JSON payloads
+- copying byte arrays
+- regex in hot paths
+
+Bad:
+
+```java
+package com.example.serialization;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+class BadJsonCodec {
+    String encode(PaymentEvent event) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.writeValueAsString(event);
+    }
+}
+```
+
+Better:
+
+```java
+package com.example.serialization;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Component;
+
+@Component
+class JsonCodec {
+    private final ObjectMapper objectMapper;
+
+    JsonCodec(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    String encode(PaymentEvent event) {
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Unable to encode payment event", ex);
+        }
+    }
+}
+```
+
+For large responses, stream instead of building a huge list.
+
+```java
+package com.example.export;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+
+@RestController
+class ExportController {
+    private final ObjectMapper objectMapper;
+    private final OrderRepository repository;
+
+    ExportController(ObjectMapper objectMapper, OrderRepository repository) {
+        this.objectMapper = objectMapper;
+        this.repository = repository;
+    }
+
+    @GetMapping("/api/orders/export")
+    StreamingResponseBody exportOrders() {
+        return outputStream -> {
+            outputStream.write('[');
+            boolean first = true;
+            for (OrderView order : repository.streamOrders()) {
+                if (!first) {
+                    outputStream.write(',');
+                }
+                objectMapper.writeValue(outputStream, order);
+                first = false;
+            }
+            outputStream.write(']');
+        };
+    }
+}
+```
+
+## Before: blocking request thread on slow work
+
+```java
+package com.example.checkout;
+
+import org.springframework.stereotype.Service;
+
+@Service
+class BlockingCheckoutService {
+    private final FraudClient fraudClient;
+    private final ReceiptClient receiptClient;
+    private final PaymentGateway paymentGateway;
+
+    BlockingCheckoutService(FraudClient fraudClient,
+                            ReceiptClient receiptClient,
+                            PaymentGateway paymentGateway) {
+        this.fraudClient = fraudClient;
+        this.receiptClient = receiptClient;
+        this.paymentGateway = paymentGateway;
+    }
+
+    CheckoutResult checkout(CheckoutCommand command) {
+        fraudClient.score(command);
+        CheckoutResult result = paymentGateway.authorize(command);
+        receiptClient.sendReceipt(command.customerId(), result.orderId());
+        return result;
+    }
+}
+```
+
+Receipt sending increases checkout latency and consumes request threads.
+
+## After: bounded executor for non-critical work
+
+```java
+package com.example.checkout;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ThreadPoolExecutor;
+
+@Configuration
+class CheckoutExecutorConfig {
+    @Bean
+    ThreadPoolTaskExecutor receiptExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setThreadNamePrefix("receipt-");
+        executor.setCorePoolSize(16);
+        executor.setMaxPoolSize(32);
+        executor.setQueueCapacity(5_000);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+        return executor;
+    }
+}
+
+@Service
+class FastCheckoutService {
+    private final FraudClient fraudClient;
+    private final ReceiptClient receiptClient;
+    private final PaymentGateway paymentGateway;
+    private final ThreadPoolTaskExecutor receiptExecutor;
+
+    FastCheckoutService(FraudClient fraudClient,
+                        ReceiptClient receiptClient,
+                        PaymentGateway paymentGateway,
+                        ThreadPoolTaskExecutor receiptExecutor) {
+        this.fraudClient = fraudClient;
+        this.receiptClient = receiptClient;
+        this.paymentGateway = paymentGateway;
+        this.receiptExecutor = receiptExecutor;
+    }
+
+    CheckoutResult checkout(CheckoutCommand command) {
+        fraudClient.score(command);
+        CheckoutResult result = paymentGateway.authorize(command);
+
+        receiptExecutor.execute(() ->
+                receiptClient.sendReceipt(command.customerId(), result.orderId()));
+
+        return result;
+    }
+}
+```
+
+For durable receipt sending, prefer Kafka.
+
+The executor example is for bounded non-critical local work.
+
+## Virtual threads in Spring Boot 3.2+
+
+Virtual threads can help when:
+
+- workload is mostly blocking I/O
+- calls have strict timeouts
+- downstream concurrency is bulkheaded
+- code is thread-per-request friendly
+
+Enable:
+
+```yaml
+spring:
+  threads:
+    virtual:
+      enabled: true
+```
+
+They do not fix:
+
+- slow database queries
+- missing indexes
+- unlimited downstream concurrency
+- synchronized hot locks
+- CPU-bound code
+
+Still enforce Hikari, Redis, RestClient, and executor limits.
+
+## GC-driven incident signs
+
+Suspect GC when:
+
+- p99 spikes align with `jvm.gc.pause`
+- CPU is high but business throughput drops
+- allocation profile shows DTO/list/string churn
+- old-gen occupancy grows after every collection
+- pod restarts with OOMKilled
+
+Commands:
+
+```bash
+jcmd 1 GC.heap_info
+jcmd 1 VM.native_memory summary
+jcmd 1 JFR.start name=gc duration=120s filename=/tmp/gc.jfr settings=profile
+```
+
+Do not tune GC before checking allocation profile.
+
+Reducing object churn often beats changing collectors.
+
+## High-throughput checklist
+
+| Area | Practical action |
+|---|---|
+| HTTP | Keep controllers thin, use timeouts, avoid request-thread side effects. |
+| Tomcat | Set max threads and accept count intentionally. |
+| Hikari | Pool size based on DB capacity, not request count. |
+| RestClient | Use connection pooling, short timeouts, bulkheads. |
+| Redis | Avoid giant values and hot-key stampedes. |
+| Kafka | Use batching, compression, partition keys. |
+| JVM | Set heap percentage, enable GC logs, profile CPU/allocation. |
+| Code | Avoid global locks, repeated object creation, unbounded collections. |
+
+## Interview close
+
+> My JVM answer is measurement-first: container heap percent, G1, GC logs, Micrometer JVM metrics, and profiler evidence. My Spring throughput answer is concurrency control: Tomcat, Hikari, RestClient, Kafka, and executors must be bounded and aligned so one slow dependency cannot consume every request thread.

@@ -1,0 +1,434 @@
+---
+slug: performance-backpressure-load-shedding
+title: "Backpressure, Traffic Spikes, and Load Shedding in Spring Boot"
+description: "A practical Java/Spring Boot playbook for bounded queues, Resilience4j bulkheads and rate limiters, 503 load shedding, Kafka pause/resume, and spike response for critical payment paths."
+category: Performance
+difficulty: Staff
+tags: [Performance, Spring Boot, Java, Backpressure, Load Shedding, Resilience4j, Kafka, Traffic Spikes]
+readingTime: 20 min
+publishedAt: "2026-08-12"
+---
+
+## Interview answer
+
+> Backpressure means the service stops accepting unlimited work when downstream capacity is saturated. In Spring Boot I use bounded queues, timeouts, Resilience4j bulkheads/rate limiters, Kafka pause/resume, and request filters that return `503 Service Unavailable` with `Retry-After` when queue depth or pool saturation is too high. During spikes I preserve the critical path, shed non-critical work, and scale only where downstreams can absorb the extra concurrency.
+
+The bad design is:
+
+```text
+accept all traffic -> unbounded queue -> request threads stuck -> timeouts -> retries -> outage
+```
+
+The better design is:
+
+```text
+measure pressure -> bound queues -> reject early -> retry safely -> keep critical path alive
+```
+
+## Where backpressure applies
+
+| Layer | Backpressure control |
+|---|---|
+| Gateway | per-user/tenant/IP rate limit |
+| Spring API | bounded Tomcat threads, load-shedding filter |
+| Executors | bounded queues, rejection policy |
+| RestClient | connection pool, timeout, bulkhead |
+| HikariCP | small bounded DB pool and fast connection timeout |
+| Kafka producer | send timeout, buffer memory, linger/batch |
+| Kafka consumer | pause/resume partitions, max poll records |
+| Redis | command timeout and local fallback |
+
+## Bounded executor with AbortPolicy
+
+Use bounded queues for async work.
+
+```java
+package com.example.async;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import java.util.concurrent.ThreadPoolExecutor;
+
+@Configuration
+class ExecutorConfig {
+    @Bean
+    ThreadPoolTaskExecutor thumbnailExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setThreadNamePrefix("thumbnail-");
+        executor.setCorePoolSize(16);
+        executor.setMaxPoolSize(32);
+        executor.setQueueCapacity(1_000);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.initialize();
+        return executor;
+    }
+}
+```
+
+Handle rejection:
+
+```java
+package com.example.media;
+
+import org.springframework.core.task.TaskRejectedException;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+class ImageService {
+    private final ThumbnailClient thumbnailClient;
+    private final org.springframework.core.task.TaskExecutor thumbnailExecutor;
+
+    ImageService(ThumbnailClient thumbnailClient,
+                 org.springframework.core.task.TaskExecutor thumbnailExecutor) {
+        this.thumbnailClient = thumbnailClient;
+        this.thumbnailExecutor = thumbnailExecutor;
+    }
+
+    void upload(ImageUpload upload) {
+        storeOriginal(upload);
+        try {
+            thumbnailExecutor.execute(() -> thumbnailClient.generate(upload.imageId()));
+        } catch (TaskRejectedException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "thumbnail queue is full; retry later",
+                    ex
+            );
+        }
+    }
+
+    private void storeOriginal(ImageUpload upload) {
+        // Store critical data first.
+    }
+}
+```
+
+## CallerRunsPolicy
+
+`CallerRunsPolicy` slows the caller when the queue is full.
+
+Use it carefully.
+
+```java
+@Bean
+ThreadPoolTaskExecutor auditExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setThreadNamePrefix("audit-");
+    executor.setCorePoolSize(8);
+    executor.setMaxPoolSize(16);
+    executor.setQueueCapacity(2_000);
+    executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+    executor.initialize();
+    return executor;
+}
+```
+
+For request threads, `CallerRunsPolicy` can increase user latency.
+
+For background producers, it can be a useful throttle.
+
+## Resilience4j Bulkhead and RateLimiter
+
+Configuration:
+
+```yaml
+resilience4j:
+  bulkhead:
+    instances:
+      fraudClient:
+        maxConcurrentCalls: 50
+        maxWaitDuration: 50ms
+  ratelimiter:
+    instances:
+      fraudClient:
+        limitForPeriod: 500
+        limitRefreshPeriod: 1s
+        timeoutDuration: 25ms
+  timelimiter:
+    instances:
+      fraudClient:
+        timeoutDuration: 800ms
+```
+
+Spring service:
+
+```java
+package com.example.payment;
+
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
+import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.CompletableFuture;
+
+@Service
+class ProtectedFraudService {
+    private final FraudClient fraudClient;
+
+    ProtectedFraudService(FraudClient fraudClient) {
+        this.fraudClient = fraudClient;
+    }
+
+    @Bulkhead(name = "fraudClient", fallbackMethod = "fraudFallback")
+    @RateLimiter(name = "fraudClient")
+    @TimeLimiter(name = "fraudClient")
+    CompletableFuture<FraudDecision> score(PaymentRequest request) {
+        return CompletableFuture.supplyAsync(() -> fraudClient.score(request));
+    }
+
+    CompletableFuture<FraudDecision> fraudFallback(PaymentRequest request, Throwable error) {
+        return CompletableFuture.completedFuture(FraudDecision.review("fraud service overloaded"));
+    }
+}
+```
+
+Practical note:
+
+- bulkhead protects your service from one dependency
+- rate limiter protects the dependency from you
+- timeout prevents request threads waiting forever
+- fallback must be business-safe
+
+For payments, fallback may be "manual review", not "approve everything."
+
+## Load shedding filter
+
+Return `503` before the service is fully wedged.
+
+```java
+package com.example.shed;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+@Component
+class LoadSheddingFilter extends OncePerRequestFilter {
+    private final PressureGauge pressureGauge;
+
+    LoadSheddingFilter(PressureGauge pressureGauge) {
+        this.pressureGauge = pressureGauge;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        if (isCritical(request) || !pressureGauge.overloaded()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        response.setHeader("Retry-After", "2");
+        response.setContentType("application/json");
+        response.getWriter().write("""
+                {"error":"service_overloaded","message":"retry shortly"}
+                """);
+    }
+
+    private boolean isCritical(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith("/api/payments/authorize")
+                || path.startsWith("/api/orders/checkout");
+    }
+}
+```
+
+Pressure gauge:
+
+```java
+package com.example.shed;
+
+import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.stereotype.Component;
+
+@Component
+class PressureGauge {
+    private final HikariDataSource dataSource;
+    private final ThreadPoolTaskExecutor enrichmentExecutor;
+
+    PressureGauge(HikariDataSource dataSource,
+                  ThreadPoolTaskExecutor enrichmentExecutor) {
+        this.dataSource = dataSource;
+        this.enrichmentExecutor = enrichmentExecutor;
+    }
+
+    boolean overloaded() {
+        int dbPending = dataSource.getHikariPoolMXBean().getThreadsAwaitingConnection();
+        int active = dataSource.getHikariPoolMXBean().getActiveConnections();
+        int total = dataSource.getHikariPoolMXBean().getTotalConnections();
+        int queueDepth = enrichmentExecutor.getThreadPoolExecutor().getQueue().size();
+
+        boolean dbSaturated = total > 0 && active >= total && dbPending > 10;
+        boolean queueSaturated = queueDepth > 4_000;
+        return dbSaturated || queueSaturated;
+    }
+}
+```
+
+This is intentionally simple.
+
+In production, use smoothed metrics and avoid flipping every request on/off.
+
+## HandlerInterceptor variant
+
+Use an interceptor when the decision depends on controller route metadata.
+
+```java
+package com.example.shed;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+@Component
+class SheddingInterceptor implements HandlerInterceptor {
+    private final PressureGauge pressureGauge;
+
+    SheddingInterceptor(PressureGauge pressureGauge) {
+        this.pressureGauge = pressureGauge;
+    }
+
+    @Override
+    public boolean preHandle(HttpServletRequest request,
+                             HttpServletResponse response,
+                             Object handler) throws Exception {
+        if (!pressureGauge.overloaded()) {
+            return true;
+        }
+
+        if (request.getRequestURI().startsWith("/api/recommendations")) {
+            response.setStatus(503);
+            response.setHeader("Retry-After", "5");
+            response.getWriter().write("recommendations temporarily unavailable");
+            return false;
+        }
+
+        return true;
+    }
+}
+```
+
+## Kafka consumer pause/resume
+
+If downstream DB is saturated, pause consumption instead of pulling more records into memory.
+
+```java
+package com.example.kafka;
+
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
+import org.springframework.kafka.listener.MessageListenerContainer;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+@Component
+class ConsumerBackpressureController {
+    private final KafkaListenerEndpointRegistry registry;
+    private final DatabasePressure databasePressure;
+
+    ConsumerBackpressureController(KafkaListenerEndpointRegistry registry,
+                                   DatabasePressure databasePressure) {
+        this.registry = registry;
+        this.databasePressure = databasePressure;
+    }
+
+    @Scheduled(fixedDelayString = "PT2S")
+    void applyBackpressure() {
+        MessageListenerContainer container = registry.getListenerContainer("payment-writer");
+        if (container == null) {
+            return;
+        }
+
+        if (databasePressure.overloaded()) {
+            container.pause();
+        } else {
+            container.resume();
+        }
+    }
+}
+```
+
+Listener with explicit ID:
+
+```java
+package com.example.kafka;
+
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+
+@Component
+class PaymentWriter {
+    @KafkaListener(id = "payment-writer", topics = "payment-events-v1", groupId = "payment-writer")
+    void onPaymentEvent(PaymentEvent event) {
+        // Keep handler bounded: no unbounded retries, no remote calls without timeouts.
+    }
+}
+```
+
+Use pause/resume with alerts.
+
+Paused consumers create lag, which is acceptable only if the system is protecting a harder dependency.
+
+## Spike playbook
+
+| Step | Action |
+|---:|---|
+| 1 | Confirm spike source: endpoint, tenant, region, bot, campaign, retry storm. |
+| 2 | Check saturation: Tomcat, Hikari, Redis, RestClient, Kafka lag, CPU, GC. |
+| 3 | Apply gateway rate limits for abusive or low-priority traffic. |
+| 4 | Shed non-critical endpoints: views, recommendations, metrics enrichment, exports. |
+| 5 | Keep payment/checkout path alive with reserved capacity. |
+| 6 | Scale API pods only if downstreams can handle more concurrency. |
+| 7 | Scale Kafka consumers if lag is high and DB is not saturated. |
+| 8 | Disable optional feature flags and expensive enrichment. |
+| 9 | After recovery, add alerting and load test for the same spike shape. |
+
+## Priority example
+
+During a retail sale:
+
+```text
+Keep:
+  POST /api/payments/authorize
+  POST /api/orders/checkout
+  GET  /api/orders/{id}/status
+
+Shed first:
+  GET /api/recommendations
+  GET /api/recently-viewed
+  POST /api/analytics/view
+  GET /api/export/*
+```
+
+This is a business decision implemented in code.
+
+Staff-level engineers ask product/ops ahead of time which paths are critical.
+
+## Metrics and alerts
+
+| Alert | Example |
+|---|---|
+| Request saturation | Tomcat busy threads > 85% for 5 min |
+| DB pressure | Hikari pending > 10 for 2 min |
+| Queue pressure | executor queue > 80% capacity |
+| Load shedding active | shed responses > 1% of traffic |
+| Retry storm | same client retry rate increases sharply |
+| Kafka lag | lag grows while consumer processing latency is high |
+
+## Interview close
+
+> My backpressure design has bounded queues, explicit rejection, and priority. I would return `503` with `Retry-After` for non-critical work when queue depth or DB pending is high, use Resilience4j bulkheads/rate limiters around slow dependencies, pause Kafka consumers when the database is overloaded, and reserve capacity for the payment path during spikes.

@@ -1,0 +1,507 @@
+---
+slug: performance-caching-spring-redis
+title: "Caching Effectively with Spring Boot and Redis"
+description: "A practical cache playbook for Java/Spring interviews covering cache-aside, write-through, write-behind with Kafka outbox, stampede prevention, invalidation, TTLs, and versioned Redis keys."
+category: Performance
+difficulty: Staff
+tags: [Performance, Spring Boot, Java, Redis, Caching, Kafka, Cache Stampede, Invalidation]
+readingTime: 22 min
+publishedAt: "2026-08-12"
+---
+
+## Interview answer
+
+> I use caching only when I know the read pattern, correctness requirement, hit ratio target, TTL, invalidation trigger, and stale-data tolerance. For Spring Boot, cache-aside with Redis is my default for catalog/profile reads, write-through is useful when a write must update DB and cache together, and write-behind is useful when cache updates can be asynchronous through an outbox/Kafka pipeline. I prevent stampedes with per-key single-flight locks or early refresh, and I invalidate using `@CacheEvict`, versioned keys, TTLs, and domain events.
+
+Do not say "I will add Redis" as the whole answer.
+
+Say what keys, TTLs, invalidation, failure behavior, and metrics you will use.
+
+## Payment/catalog example
+
+Use different cache rules for different domains:
+
+| Domain | Cache? | Reason |
+|---|---|---|
+| Product catalog | Yes | High read volume, updates are rare, stale for minutes is often acceptable. |
+| Merchant config | Yes | Read on every payment, changes are controlled. |
+| Payment authorization result | Carefully | Correctness-sensitive; cache idempotency result, not mutable payment state blindly. |
+| Inventory count | Usually not simple cache | High write rate and correctness-sensitive. Use reservation model. |
+
+## Cache key design
+
+Use explicit versioned keys:
+
+```text
+product:v3:{productId}
+merchant-config:v2:{merchantId}
+idempotency:v1:{merchantId}:{idempotencyKey}
+```
+
+Versioned keys let you change shape without deleting every old key immediately.
+
+## Redis configuration
+
+```java
+package com.example.cache;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.cache.CacheManager;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
+
+import java.time.Duration;
+import java.util.Map;
+
+@Configuration
+class RedisCacheConfig {
+    @Bean
+    CacheManager cacheManager(RedisConnectionFactory connectionFactory,
+                              ObjectMapper objectMapper) {
+        var serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+        var valueSerialization = RedisSerializationContext.SerializationPair
+                .fromSerializer(serializer);
+
+        RedisCacheConfiguration defaults = RedisCacheConfiguration.defaultCacheConfig()
+                .disableCachingNullValues()
+                .serializeValuesWith(valueSerialization)
+                .entryTtl(Duration.ofMinutes(10));
+
+        return RedisCacheManager.builder(connectionFactory)
+                .cacheDefaults(defaults)
+                .withInitialCacheConfigurations(Map.of(
+                        "product-v3", defaults.entryTtl(Duration.ofMinutes(15)),
+                        "merchant-config-v2", defaults.entryTtl(Duration.ofMinutes(5)),
+                        "idempotency-v1", defaults.entryTtl(Duration.ofHours(24))
+                ))
+                .build();
+    }
+}
+```
+
+## Pattern 1: cache-aside with `@Cacheable`
+
+Best for read-heavy data where DB remains the source of truth.
+
+```java
+package com.example.catalog;
+
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+
+@Service
+class ProductCatalogService {
+    private final ProductRepository repository;
+
+    ProductCatalogService(ProductRepository repository) {
+        this.repository = repository;
+    }
+
+    @Cacheable(cacheNames = "product-v3", key = "#productId", unless = "#result == null")
+    ProductView getProduct(String productId) {
+        return repository.findVisibleProduct(productId);
+    }
+}
+```
+
+Operational notes:
+
+- cache miss reads DB
+- cache hit avoids DB
+- DB update must evict or version the key
+- use TTL to cap stale data
+- do not cache huge objects without measuring memory
+
+## Pattern 1b: manual cache-aside with RedisTemplate
+
+Use manual get/set when you need custom TTL, negative caching, metrics, or locking.
+
+```java
+package com.example.catalog;
+
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.util.Optional;
+
+@Service
+class ProductCacheAsideService {
+    private final RedisTemplate<String, ProductView> redisTemplate;
+    private final ProductRepository repository;
+
+    ProductCacheAsideService(RedisTemplate<String, ProductView> redisTemplate,
+                             ProductRepository repository) {
+        this.redisTemplate = redisTemplate;
+        this.repository = repository;
+    }
+
+    ProductView getProduct(String productId) {
+        String key = "product:v3:" + productId;
+        ProductView cached = redisTemplate.opsForValue().get(key);
+        if (cached != null) {
+            return cached;
+        }
+
+        ProductView loaded = repository.findVisibleProduct(productId);
+        redisTemplate.opsForValue().set(key, loaded, Duration.ofMinutes(15));
+        return loaded;
+    }
+
+    Optional<ProductView> getProductWithNegativeCache(String productId) {
+        String key = "product:v3:" + productId;
+        ProductView cached = redisTemplate.opsForValue().get(key);
+        if (cached != null) {
+            return cached.notFoundMarker() ? Optional.empty() : Optional.of(cached);
+        }
+
+        Optional<ProductView> loaded = repository.findOptional(productId);
+        redisTemplate.opsForValue().set(
+                key,
+                loaded.orElse(ProductView.notFound(productId)),
+                loaded.isPresent() ? Duration.ofMinutes(15) : Duration.ofSeconds(30)
+        );
+        return loaded;
+    }
+}
+```
+
+Negative caching protects the DB from repeated misses for invalid IDs.
+
+Keep the negative TTL short.
+
+## Pattern 2: write-through
+
+Write-through updates DB and cache in the same service method.
+
+Use when callers expect read-after-write from the cache.
+
+```java
+package com.example.catalog;
+
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+class ProductWriteThroughService {
+    private final ProductRepository repository;
+
+    ProductWriteThroughService(ProductRepository repository) {
+        this.repository = repository;
+    }
+
+    @Transactional
+    @CachePut(cacheNames = "product-v3", key = "#command.productId()")
+    ProductView updateProduct(UpdateProductCommand command) {
+        Product product = repository.findByIdForUpdate(command.productId());
+        product.rename(command.name());
+        product.changePrice(command.price());
+        repository.save(product);
+        return ProductView.from(product);
+    }
+}
+```
+
+Be careful:
+
+- if DB commit fails, cache must not show success
+- if cache update fails after DB commit, you need retry or eviction
+- for critical money flows, DB is still source of truth
+
+For stronger control, use transaction synchronization:
+
+```java
+package com.example.catalog;
+
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.time.Duration;
+
+@Service
+class ProductWriteThroughWithAfterCommit {
+    private final ProductRepository repository;
+    private final RedisTemplate<String, ProductView> redisTemplate;
+
+    ProductWriteThroughWithAfterCommit(ProductRepository repository,
+                                       RedisTemplate<String, ProductView> redisTemplate) {
+        this.repository = repository;
+        this.redisTemplate = redisTemplate;
+    }
+
+    @Transactional
+    ProductView updateProduct(UpdateProductCommand command) {
+        Product product = repository.findByIdForUpdate(command.productId());
+        product.rename(command.name());
+        repository.save(product);
+
+        ProductView view = ProductView.from(product);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                redisTemplate.opsForValue()
+                        .set("product:v3:" + command.productId(), view, Duration.ofMinutes(15));
+            }
+        });
+        return view;
+    }
+}
+```
+
+## Pattern 3: write-behind via outbox and Kafka
+
+Write-behind means the write path does not synchronously update Redis.
+
+For production, do not rely on an in-memory queue.
+
+Use an outbox table and Kafka.
+
+```java
+package com.example.catalog;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+class ProductWriteBehindService {
+    private final ProductRepository productRepository;
+    private final OutboxRepository outboxRepository;
+
+    ProductWriteBehindService(ProductRepository productRepository,
+                              OutboxRepository outboxRepository) {
+        this.productRepository = productRepository;
+        this.outboxRepository = outboxRepository;
+    }
+
+    @Transactional
+    void updateProduct(UpdateProductCommand command) {
+        Product product = productRepository.findByIdForUpdate(command.productId());
+        product.rename(command.name());
+        product.changePrice(command.price());
+        productRepository.save(product);
+
+        outboxRepository.save(OutboxEvent.productChanged(
+                product.id(),
+                ProductView.from(product)
+        ));
+    }
+}
+```
+
+Outbox publisher:
+
+```java
+package com.example.catalog;
+
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Component
+class OutboxPublisher {
+    private final OutboxRepository outboxRepository;
+    private final KafkaTemplate<String, ProductChangedEvent> kafkaTemplate;
+
+    OutboxPublisher(OutboxRepository outboxRepository,
+                    KafkaTemplate<String, ProductChangedEvent> kafkaTemplate) {
+        this.outboxRepository = outboxRepository;
+        this.kafkaTemplate = kafkaTemplate;
+    }
+
+    @Scheduled(fixedDelayString = "PT1S")
+    @Transactional
+    void publishBatch() {
+        for (OutboxEvent event : outboxRepository.lockNextBatch(100)) {
+            kafkaTemplate.send("product-cache-update-v1", event.aggregateId(), event.payload());
+            event.markPublished();
+        }
+    }
+}
+```
+
+Kafka consumer updates Redis:
+
+```java
+package com.example.catalog;
+
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+
+import java.time.Duration;
+
+@Component
+class ProductCacheUpdater {
+    private final RedisTemplate<String, ProductView> redisTemplate;
+
+    ProductCacheUpdater(RedisTemplate<String, ProductView> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
+
+    @KafkaListener(topics = "product-cache-update-v1", groupId = "product-cache")
+    void onProductChanged(ProductChangedEvent event) {
+        redisTemplate.opsForValue().set(
+                "product:v3:" + event.productId(),
+                event.view(),
+                Duration.ofMinutes(15)
+        );
+    }
+}
+```
+
+Write-behind accepts brief staleness.
+
+It must be monitored with outbox lag and Kafka consumer lag.
+
+## Cache stampede
+
+A stampede happens when a hot key expires and thousands of requests all hit the DB.
+
+Use a per-key single-flight lock.
+
+```java
+package com.example.catalog;
+
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+
+@Service
+class ProductSingleFlightCache {
+    private final RedisTemplate<String, ProductView> redisTemplate;
+    private final RedissonClient redissonClient;
+    private final ProductRepository repository;
+
+    ProductSingleFlightCache(RedisTemplate<String, ProductView> redisTemplate,
+                             RedissonClient redissonClient,
+                             ProductRepository repository) {
+        this.redisTemplate = redisTemplate;
+        this.redissonClient = redissonClient;
+        this.repository = repository;
+    }
+
+    ProductView getProduct(String productId) throws InterruptedException {
+        String key = "product:v3:" + productId;
+        ProductView cached = redisTemplate.opsForValue().get(key);
+        if (cached != null) {
+            return cached;
+        }
+
+        RLock lock = redissonClient.getLock("lock:" + key);
+        boolean locked = lock.tryLock(100, 2_000, TimeUnit.MILLISECONDS);
+        if (!locked) {
+            Thread.sleep(50);
+            ProductView secondTry = redisTemplate.opsForValue().get(key);
+            if (secondTry != null) {
+                return secondTry;
+            }
+            throw new CacheBusyException("product cache refresh in progress");
+        }
+
+        try {
+            ProductView secondTry = redisTemplate.opsForValue().get(key);
+            if (secondTry != null) {
+                return secondTry;
+            }
+            ProductView loaded = repository.findVisibleProduct(productId);
+            redisTemplate.opsForValue().set(key, loaded, Duration.ofMinutes(15));
+            return loaded;
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+```
+
+The second cache check after acquiring the lock is important.
+
+Another request may have already refreshed the key.
+
+## Invalidation
+
+Use multiple layers:
+
+1. `@CacheEvict` for direct write paths
+2. versioned keys for shape changes
+3. TTL for safety
+4. event-driven eviction for writes from other services
+
+```java
+package com.example.catalog;
+
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+class ProductInvalidationService {
+    private final ProductRepository repository;
+
+    ProductInvalidationService(ProductRepository repository) {
+        this.repository = repository;
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = "product-v3", key = "#productId")
+    void deactivateProduct(String productId) {
+        Product product = repository.findByIdForUpdate(productId);
+        product.deactivate();
+        repository.save(product);
+    }
+}
+```
+
+Event-driven eviction:
+
+```java
+package com.example.catalog;
+
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+
+@Component
+class ProductEvictionConsumer {
+    private final RedisTemplate<String, ProductView> redisTemplate;
+
+    ProductEvictionConsumer(RedisTemplate<String, ProductView> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
+
+    @KafkaListener(topics = "product-events-v1", groupId = "product-cache-evictor")
+    void onProductEvent(ProductEvent event) {
+        redisTemplate.delete("product:v3:" + event.productId());
+    }
+}
+```
+
+## Metrics to watch
+
+| Metric | Why |
+|---|---|
+| cache hit ratio | Shows whether Redis is reducing DB load. |
+| cache load time | Slow loader can create p99 spikes. |
+| Redis command latency | Cache can become the bottleneck. |
+| evictions | Memory pressure or bad sizing. |
+| key cardinality | Exploding keyspace. |
+| stampede lock wait | Hot keys expiring together. |
+| outbox lag | Write-behind staleness. |
+| Kafka consumer lag | Cache update delay. |
+
+## Practical close
+
+> For a catalog API, I would use cache-aside with `@Cacheable` or RedisTemplate, versioned keys like `product:v3:{id}`, a 10-15 minute TTL, event-driven eviction on product changes, and a Redisson single-flight lock for hot keys. For writes, I would choose write-through only when read-after-write matters, and write-behind through an outbox/Kafka pipeline when brief staleness is acceptable.

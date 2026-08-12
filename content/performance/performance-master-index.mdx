@@ -1,0 +1,154 @@
+---
+slug: performance-master-index
+title: "Performance Master Index — Java/Spring Interview Playbooks"
+description: "A practical Performance interview hub for Java and Spring Boot engineers: latency incidents, scaling, bottlenecks, caching, JVM throughput, and backpressure."
+category: Performance
+difficulty: Staff
+tags: [Performance, Spring Boot, Java, Latency, Redis, Kafka, JVM, Micrometer]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+## How to use this hub
+
+This is a last-mile interview hub for production performance questions.
+
+The expected style is not textbook performance theory.
+
+The expected style is:
+
+- state what signal you check first
+- protect the user path while investigating
+- name Spring Boot metrics and pool symptoms
+- show how you would change code or configuration
+- close with a concrete RCA and follow-up
+
+If an interviewer asks, "How would you debug this in production?", answer like an on-call engineer with dashboards open.
+
+## What to open first
+
+| Prep window | Open first | Why |
+|---|---|---|
+| 5 min | [Latency spike investigation](/performance/performance-latency-spike-investigation) | Most common Staff interview incident: p99 jumps, pools saturate, dependency slows down. |
+| 5 min | [Backpressure and load shedding](/performance/performance-backpressure-load-shedding) | Shows you can protect the system instead of blindly scaling. |
+| 15 min | [Identify bottlenecks](/performance/performance-identify-bottlenecks) | Gives a reusable method: Utilization, Saturation, Errors plus JFR/profiler/Prometheus. |
+| 15 min | [Caching with Spring and Redis](/performance/performance-caching-spring-redis) | Covers cache-aside, write-through, write-behind, stampede, and invalidation with code. |
+| 30 min | [Scale 10K to 1M RPS](/performance/performance-scale-10k-to-1m) | Connects capacity math, stateless pods, Kafka offload, Redis/CDN, and autoscaling. |
+| 30 min | [JVM high-throughput service](/performance/performance-jvm-high-throughput) | Covers heap flags, G1, connection pools, allocations, virtual threads, and bounded executors. |
+
+## Interview question map
+
+| # | Question | Playbook |
+|---:|---|---|
+| 1 | API latency suddenly increases from 50ms to 2 seconds. How do you investigate? | [Latency spike investigation](/performance/performance-latency-spike-investigation) |
+| 2 | How would you scale an API from 10K to 1M requests per second? | [Scale 10K to 1M RPS](/performance/performance-scale-10k-to-1m) |
+| 3 | How do you identify bottlenecks? | [Identify bottlenecks](/performance/performance-identify-bottlenecks) |
+| 4 | How do you use caching effectively? Cache-aside vs write-through vs write-behind? Stampede? Invalidation? | [Caching with Spring and Redis](/performance/performance-caching-spring-redis) |
+| 5 | How do you optimize JVM performance and a high-throughput Java service? | [JVM high-throughput service](/performance/performance-jvm-high-throughput) |
+| 6 | How do you design backpressure, handle spikes, and implement load shedding? | [Backpressure and load shedding](/performance/performance-backpressure-load-shedding) |
+
+## Quick spoken answer one-liners
+
+### 1. Latency 50ms to 2s
+
+I would first compare p50, p95, p99, error rate, and saturation because a p99-only spike usually means queueing, pool exhaustion, or one slow dependency, while all percentiles moving often means a shared bottleneck. In Spring Boot I would check Micrometer timers for controller, RestClient, JDBC, Hikari pending connections, recent deploys, and dependency latency, then capture a thread dump with `jcmd` if pools are exhausted.
+
+The practical fix depends on the evidence: restore timeouts, increase or reduce pool sizes to match the database, remove sync waits on Kafka lag, add cache or bulkheads, and roll back if the regression matches a deploy.
+
+### 2. Scale 10K to 1M RPS
+
+I would start with capacity math: one pod RPS is roughly concurrency divided by service latency, so 200 Tomcat threads at 50ms gives about 4K RPS before overhead and downstream limits. Then I would make the service stateless, scale horizontally, cache read-heavy paths in Redis/CDN, partition and batch writes, and offload slow work to Kafka after accepting the request.
+
+At 1M RPS, the hard part is not just more pods; it is keeping dependencies from collapsing, using rate limits, autoscaling on RPS/CPU/queue depth, and shedding non-critical work before payment or checkout traffic is harmed.
+
+### 3. Identify bottlenecks
+
+I use the USE method: check Utilization, Saturation, and Errors at every layer: CPU, JVM heap/GC, Tomcat threads, Hikari pool, database, Redis, Kafka, and external APIs. In Spring Boot I want Micrometer metrics, Prometheus queries, dependency timers, JFR or async-profiler samples, DB `EXPLAIN`, and thread dumps that show where request time is queued or burned.
+
+The bottleneck is the component whose saturation grows before latency rises; the fix is usually narrower than "scale everything."
+
+### 4. Caching effectively
+
+I cache only read-heavy, stable, or expensive data, use TTLs and versioned keys, and measure hit ratio, load time, evictions, and stale-read impact. Cache-aside is the default for catalog/profile reads, write-through is useful when the write path must update DB and cache together, and write-behind is useful when cache updates can be propagated asynchronously through an outbox or Kafka.
+
+I prevent stampedes with single-flight locks or early refresh, and I invalidate using `@CacheEvict`, versioned keys like `product:v3:{id}`, TTL, and event-driven eviction from domain events.
+
+### 5. JVM and high-throughput Spring service
+
+For a containerized Spring service, I set predictable heap sizing with `-XX:MaxRAMPercentage`, use G1 unless evidence says otherwise, enable GC logs, and watch JVM memory, allocation rate, GC pause, CPU, and thread metrics. Then I align Tomcat threads, Hikari pool size, and RestClient connection pool limits so request concurrency cannot exceed downstream capacity.
+
+For throughput, I remove unnecessary blocking from request threads, use bounded executors, avoid avoidable allocations and Jackson churn, and consider virtual threads in Spring Boot 3.2+ for blocking I/O workloads where downstream limits are still enforced.
+
+### 6. Backpressure and load shedding
+
+Backpressure means refusing or slowing work before queues become unbounded and the whole service times out. In Spring Boot I use bounded queues, Resilience4j bulkheads and rate limiters, Kafka pause/resume, and a filter or interceptor that returns `503` with `Retry-After` when queue depth or dependency saturation crosses a threshold.
+
+During a spike, I keep the critical path alive by shedding non-critical views, recommendations, metrics enrichment, and async fanout before payment authorization or checkout APIs.
+
+## 30-second incident answer template
+
+```text
+I start by separating latency from errors and queueing.
+I check p50/p99, error rate, Tomcat busy threads, Hikari pending, dependency timers, GC, CPU, and recent deploy.
+If pool saturation is visible, I capture thread dumps with jcmd before restarting.
+I mitigate with timeout/bulkhead/rate-limit/cache/rollback depending on the evidence.
+Then I write an RCA that maps symptom -> metric -> cause -> code/config fix.
+```
+
+## Metrics you should be able to name
+
+| Layer | Metric names worth saying |
+|---|---|
+| HTTP server | `http.server.requests`, p95/p99, status, URI, exception |
+| RestClient | `http.client.requests`, target host, outcome, timeout count |
+| Tomcat | `tomcat.threads.busy`, `tomcat.threads.current`, `tomcat.connections.current` |
+| HikariCP | `hikaricp.connections.active`, `hikaricp.connections.pending`, `hikaricp.connections.timeout` |
+| JVM | `jvm.memory.used`, `jvm.gc.pause`, `jvm.threads.live`, allocation rate from profiler/JFR |
+| Redis | command latency, hit ratio, timeouts, connection pool usage |
+| Kafka | consumer lag, poll interval, processing time, producer send latency |
+
+## The Staff-level framing
+
+Do not say:
+
+```text
+I would add more servers and cache.
+```
+
+Say:
+
+```text
+I would first locate whether the latency is CPU, queueing, database, cache, external API, Kafka sync wait, or GC.
+Then I would apply the smallest mitigation that protects the critical path: timeouts, bulkheads, bounded queues, rollback, cache, or horizontal scale.
+```
+
+That answer sounds practical because it separates detection, mitigation, and permanent fix.
+
+## Common follow-up traps
+
+| Trap | Better answer |
+|---|---|
+| "Increase thread pool size" | Only after checking downstream capacity; more request threads can amplify DB pool waits. |
+| "Use WebFlux" | Useful for high I/O wait and many concurrent sockets, not a magic fix for slow DB queries. |
+| "Cache everything" | Cache only where correctness, invalidation, and hit ratio justify it. |
+| "Kafka makes it scalable" | Kafka helps offload async work; it does not make synchronous reads faster. |
+| "Restart the pod" | Restart may mitigate, but capture thread dumps and metrics first if safe. |
+
+## Recommended speaking order
+
+1. State the user impact and SLO breach.
+2. Check percentiles, errors, saturation, and deploys.
+3. Identify the likely layer from metrics.
+4. Mitigate blast radius.
+5. Capture evidence.
+6. Fix code/config.
+7. Add alert, dashboard, and regression test.
+
+## Related pages
+
+- [Latency spike investigation](/performance/performance-latency-spike-investigation)
+- [Scale 10K to 1M RPS](/performance/performance-scale-10k-to-1m)
+- [Identify bottlenecks](/performance/performance-identify-bottlenecks)
+- [Caching with Spring and Redis](/performance/performance-caching-spring-redis)
+- [JVM high-throughput service](/performance/performance-jvm-high-throughput)
+- [Backpressure and load shedding](/performance/performance-backpressure-load-shedding)
