@@ -1,91 +1,201 @@
 import Link from 'next/link';
 import {getAllPosts,getPost} from '@/lib/posts';
 import {hrefForPost} from '@/lib/href';
+import InterviewPractice from '@/components/interview-practice';
+import DifficultyBadge from '@/components/difficulty-badge';
 
-const qs=[
-  ['What happens if Kafka goes down?','Discuss producer behavior, buffering, retries, backpressure and durability.'],
-  ['How do you prevent duplicate processing?','Use idempotency keys, deterministic business operations and state checks.'],
-  ['How would you scale 10×?','Find the first bottleneck, quantify it, then scale the constrained resource.'],
-  ['What if Redis is unavailable?','Protect the database from a cache-miss storm and define degraded behavior.'],
-  ['How do you choose SQL vs NoSQL?','Start with access patterns, consistency, transactions, scale and operational constraints.'],
-  ['What happens during a database failure?','Discuss replication, failover, timeouts, retry budgets and recovery.'],
+const banks=[
+  {
+    href:'/system-design',
+    label:'System Design',
+    level:'Senior',
+    blurb:'Architecture problems, estimation, bottlenecks, and Staff follow-ups.',
+  },
+  {
+    href:'/realtime-issues',
+    label:'Real-Time Issues',
+    level:'Principal',
+    blurb:'Stuck threads, Aurora, Java migration, Lead Experience, and on-call playbooks.',
+  },
+  {
+    href:'/kafka-interview',
+    label:'Kafka Interview',
+    level:'Staff',
+    blurb:'Failure modes, DLQ, EOS, multi-region, and payment event scenarios.',
+  },
+  {
+    href:'/redis-interview',
+    label:'Redis Interview',
+    level:'Staff',
+    blurb:'Internals, Cluster/Sentinel, stampede, locks, and cache architecture.',
+  },
+  {
+    href:'/behavioral-interview',
+    label:'Behavioral Interview',
+    level:'Staff',
+    blurb:'STAR banks for leadership, conflict, cost, and executive communication.',
+  },
+  {
+    href:'/leadership-principles',
+    label:'Leadership Principles',
+    level:'Senior',
+    blurb:'All 16 Amazon LPs with strong vs weak contrasts and follow-ups.',
+  },
+  {
+    href:'/complexity',
+    label:'Complexity',
+    level:'Senior',
+    blurb:'Derive time and space complexity from Java code under interview pressure.',
+  },
+  {
+    href:'/distributed-systems',
+    label:'Distributed Systems',
+    level:'Principal',
+    blurb:'Locking, messaging, resilience, and consistency decision frameworks.',
+  },
+];
+
+const practiceItems=[
+  {
+    question:'What happens if Kafka goes down mid-traffic?',
+    think:'Producers, buffering, retries, backpressure, durability, and user-visible impact.',
+    points:[
+      'Separate producer and consumer failure modes.',
+      'Discuss acks, retries, idempotence, and whether the outage is brokers, network, or auth.',
+      'Explain backpressure to callers and what is buffered vs rejected.',
+      'Cover recovery: lag catch-up, replay risk, and duplicate handling.',
+    ],
+    followUps:[
+      'How do you protect the database when consumers catch up after an outage?',
+      'What metrics prove the system is healthy again?',
+    ],
+  },
+  {
+    question:'How do you prevent duplicate payment processing?',
+    think:'Idempotency keys, unique constraints, at-least-once delivery, and reconciliation.',
+    points:[
+      'Make the business operation idempotent, not just the HTTP handler.',
+      'Use a durable uniqueness guard (DB unique key / ledger entry).',
+      'Design for at-least-once Kafka delivery with safe retries.',
+      'Add reconciliation for residual inconsistency.',
+    ],
+    followUps:[
+      'What happens if the process crashes after debit but before event publish?',
+      'How do you handle two concurrent retries with the same idempotency key?',
+    ],
+  },
+  {
+    question:'How would you scale a service 10×?',
+    think:'Find the first bottleneck before changing architecture.',
+    points:[
+      'Quantify current limit: CPU, memory, DB, network, or downstream dependency.',
+      'Scale the constrained resource first; avoid premature redesign.',
+      'Discuss horizontal vs vertical scaling and stateful components.',
+      'Call out observational proof and rollback if the change worsens latency.',
+    ],
+    followUps:[
+      'What if the bottleneck is a single Postgres writer?',
+      'How do you validate the 10× claim in a load test?',
+    ],
+  },
+  {
+    question:'What if Redis is unavailable?',
+    think:'Degraded mode, stampede protection, and whether Redis is cache or source of truth.',
+    points:[
+      'Clarify whether Redis is optional cache or required state.',
+      'Protect the database from a cache-miss storm.',
+      'Define degraded behavior and timeouts explicitly.',
+      'Plan recovery and warm-up to avoid thundering herds.',
+    ],
+    followUps:[
+      'How do you avoid stampedes when Redis returns?',
+      'Would you fail open or fail closed for authorization data?',
+    ],
+  },
 ];
 
 export default function Interview(){
   const posts=getAllPosts();
   const prep=getPost('system-design-interview-preparation');
+  const popular=posts
+    .filter((p)=>![
+      'system-design-interview-preparation',
+    ].includes(p.slug))
+    .slice(0,6);
+
   return (
     <main className="mx-auto max-w-7xl px-5 py-14">
       <div className="max-w-3xl">
-        <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Interview Questions</div>
-        <h1 className="mt-3 text-5xl font-black tracking-[-.05em]">Practice the follow-up, not just the diagram.</h1>
-        <p className="mt-5 text-lg leading-8 text-slate-600">Senior interviews probe failure, scale, consistency and trade-offs — plus Staff+ behavioral, Kafka, Redis, complexity, and real-time incident prep.</p>
+        <p className="eyebrow">Interview Practice</p>
+        <h1 className="mt-3 text-4xl font-bold tracking-[-.035em] text-slate-900 md:text-5xl dark:text-white">
+          Practice the follow-up, not just the diagram.
+        </h1>
+        <p className="mt-5 text-lg leading-8 text-slate-600 dark:text-slate-300">
+          Senior interviews probe failure, scale, consistency, and trade-offs. Use active recall first,
+          then open the banks for deep guides.
+        </p>
       </div>
 
+      <div id="practice" className="mt-10 scroll-mt-24">
+        <InterviewPractice items={practiceItems}/>
+      </div>
+
+      <section className="mt-14">
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Question banks</h2>
+        <p className="mt-2 text-slate-500">Choose a lane and work question → story → answer → follow-up.</p>
+        <div className="mt-6 grid gap-3 md:grid-cols-2">
+          {banks.map((b)=>(
+            <Link
+              key={b.href}
+              href={b.href}
+              className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-blue-200 dark:border-slate-800 dark:bg-slate-950"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">
+                  {b.label}
+                </span>
+                <DifficultyBadge difficulty={b.level}/>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-500">{b.blurb}</p>
+              <div className="mt-3 text-sm font-semibold text-blue-700 dark:text-blue-400">Open bank →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {prep && (
-        <section className="mt-10 grid gap-4 md:grid-cols-2">
-          <Link href={hrefForPost(prep.category,prep.slug)} className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
-            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">{prep.category} · {prep.difficulty}</div>
-            <h2 className="mt-3 text-xl font-black tracking-tight">{prep.title}</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-500">{prep.description}</p>
-            <div className="mt-4 text-sm font-bold text-blue-600">Read the full preparation guide →</div>
-          </Link>
-          <Link href="/behavioral-interview" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
-            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Staff+ · Behavioral</div>
-            <h2 className="mt-3 text-xl font-black tracking-tight">Behavioral Interview (30 STAR)</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-500">Architect-level answers: leadership, conflict, failure, mentoring, cost, executive communication, and impact.</p>
-            <div className="mt-4 text-sm font-bold text-blue-600">Open Behavioral Interview →</div>
-          </Link>
-          <Link href="/leadership-principles" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
-            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Amazon · Behavioral</div>
-            <h2 className="mt-3 text-xl font-black tracking-tight">Leadership Principles (all 16)</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-500">STAR answers, Kafka follow-up case banks, metrics, and weak-vs-strong contrasts for every Amazon LP.</p>
-            <div className="mt-4 text-sm font-bold text-blue-600">Open Leadership Principles →</div>
-          </Link>
-          <Link href="/kafka-interview" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
-            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Staff+ · Kafka</div>
-            <h2 className="mt-3 text-xl font-black tracking-tight">Kafka Interview (130+)</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-500">Architecture, failure, DLQ, EOS/payments, multi-region and scenario drills for Principal/Architect rounds.</p>
-            <div className="mt-4 text-sm font-bold text-blue-600">Open Kafka Interview →</div>
-          </Link>
-          <Link href="/redis-interview" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
-            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Staff+ · Redis</div>
-            <h2 className="mt-3 text-xl font-black tracking-tight">Redis Interview (165+)</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-500">Internals, Sentinel/Cluster, stampede/hot keys, locks/Redlock, and architect designs for Principal rounds.</p>
-            <div className="mt-4 text-sm font-bold text-blue-600">Open Redis Interview →</div>
-          </Link>
-          <Link href="/realtime-issues" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
-            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">Staff+ · On-call</div>
-            <h2 className="mt-3 text-xl font-black tracking-tight">Real-Time Issues</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-500">Stuck threads, thread dumps, DB locks, API hangs, pool exhaustion, Kafka, GC — Principal incident playbooks.</p>
-            <div className="mt-4 text-sm font-bold text-blue-600">Open Real-Time Issues →</div>
-          </Link>
-          <Link href="/complexity" className="card block p-6 transition hover:-translate-y-0.5 md:p-8">
-            <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">DSA · Big-O</div>
-            <h2 className="mt-3 text-xl font-black tracking-tight">Time & Space Complexity</h2>
-            <p className="mt-3 text-sm leading-7 text-slate-500">Full Java master guide: derive time/space from code — arrays through graphs, DP, practice problems, and formula sheet.</p>
-            <div className="mt-4 text-sm font-bold text-blue-600">Open Complexity →</div>
+        <section className="mt-14">
+          <Link
+            href={hrefForPost(prep.category,prep.slug)}
+            className="block rounded-xl border border-slate-200 bg-white p-6 md:p-8 dark:border-slate-800 dark:bg-slate-950"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="eyebrow">{prep.category}</span>
+              <DifficultyBadge difficulty={prep.difficulty}/>
+            </div>
+            <h2 className="mt-3 text-xl font-bold tracking-tight text-slate-900 dark:text-white">{prep.title}</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{prep.description}</p>
+            <div className="mt-4 text-sm font-semibold text-blue-700 dark:text-blue-400">
+              Read the full preparation guide →
+            </div>
           </Link>
         </section>
       )}
 
-      <div className="mt-10 grid gap-4 md:grid-cols-2">
-        {qs.map(([q,a])=>(
-          <div className="card p-6" key={q}>
-            <h2 className="font-bold">{q}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{a}</p>
-          </div>
-        ))}
-      </div>
-
       <section className="mt-14">
-        <h2 className="text-2xl font-black">Read a full design</h2>
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Popular guides</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-3">
-          {posts.filter(p=>p.slug!=='system-design-interview-preparation').slice(0,6).map(p=>(
-            <Link className="card p-5" href={hrefForPost(p.category,p.slug)} key={p.slug}>
-              <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-700">{p.category}</div>
-              <div className="mt-2 font-bold">{p.title}</div>
-              <div className="mt-2 text-xs text-slate-500">{p.tags.slice(0,4).join(' · ')}</div>
+          {popular.map((p)=>(
+            <Link
+              className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950"
+              href={hrefForPost(p.category,p.slug)}
+              key={p.slug}
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">
+                {p.category}
+              </div>
+              <div className="mt-2 font-semibold text-slate-900 dark:text-white">{p.title}</div>
+              <div className="mt-2 text-xs text-slate-500">{p.tags.slice(0,3).join(' · ')}</div>
             </Link>
           ))}
         </div>

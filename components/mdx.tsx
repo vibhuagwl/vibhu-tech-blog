@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Mermaid from './mermaid';
 import CodeBlock from './code-block';
 import {slugify,textFromChildren} from '@/lib/slugify';
+import {headingKind} from '@/lib/article-meta';
 
 function isInternalHref(href:unknown){
   return typeof href==='string' && href.startsWith('/') && !href.startsWith('//');
@@ -17,8 +18,13 @@ function Heading({
 } & React.HTMLAttributes<HTMLHeadingElement>){
   const text=textFromChildren(children);
   const id=rest.id || slugify(text) || undefined;
+  const kind=headingKind(text);
   return (
-    <Tag id={id} {...rest}>
+    <Tag
+      id={id}
+      {...rest}
+      {...(kind?{'data-kind':kind,className:[rest.className,`heading-kind-${kind}`].filter(Boolean).join(' ')}:{})}
+    >
       {children}
     </Tag>
   );

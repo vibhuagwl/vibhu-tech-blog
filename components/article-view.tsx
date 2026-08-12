@@ -6,8 +6,11 @@ import {ArrowLeft,ArrowRight} from 'lucide-react';
 import {getAllPosts,getPost,getPostsByCategories,SECTION_CATEGORIES} from '@/lib/posts';
 import {hrefForPost} from '@/lib/href';
 import {extractHeadings} from '@/lib/headings';
+import {pickQuickNav} from '@/lib/article-meta';
 import {mdxComponents} from '@/components/mdx';
 import ArticleToc from '@/components/article-toc';
+import ArticleQuickNav from '@/components/article-quick-nav';
+import DifficultyBadge from '@/components/difficulty-badge';
 import BackToTop from '@/components/back-to-top';
 
 type Section=keyof typeof SECTION_CATEGORIES;
@@ -62,6 +65,7 @@ export default async function ArticleView({
   const next=index>=0 && index<sectionPosts.length-1?sectionPosts[index+1]:null;
 
   const headings=extractHeadings(p.content);
+  const quickNav=pickQuickNav(headings);
 
   const {content}=await compileMDX({
     source:p.content,
@@ -83,6 +87,8 @@ export default async function ArticleView({
 
   const sectionHref=basePath;
   const sectionLabel=SECTION_LABEL[section] ?? section;
+  const interviewHeading=headings.find((h)=>/interview answer|how i would answer|30-second|2-minute/i.test(h.text));
+  const takeawaysHeading=headings.find((h)=>/takeaway/i.test(h.text));
 
   return (
     <main>
@@ -100,89 +106,94 @@ export default async function ArticleView({
             </ol>
           </nav>
 
-          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,.04)] md:p-10 dark:border-slate-800 dark:bg-slate-950">
-            <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
-              {p.category} · {p.difficulty}
-            </div>
-            <h1 className="mt-3 text-3xl font-bold tracking-[-.03em] text-slate-900 md:text-4xl dark:text-white">
-              {p.title}
-            </h1>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600 md:text-lg md:leading-8 dark:text-slate-300">
-              {p.description}
-            </p>
-            <div className="mt-5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span>{p.readingTime}</span>
-              <span aria-hidden="true">·</span>
-              <span>{p.publishedAt}</span>
-            </div>
-            {p.tags.length>0 && (
-              <ul className="mt-4 flex flex-wrap gap-2" aria-label="Tags">
-                {p.tags.map((tag)=>(
-                  <li key={tag}>
-                    <Link
-                      href={`/search?q=${encodeURIComponent(tag)}`}
-                      className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-blue-200 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                    >
-                      {tag}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <article className="article-shell">
+            <header className="article-header">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="eyebrow">{p.category}</span>
+                <DifficultyBadge difficulty={p.difficulty}/>
+              </div>
+              <h1 className="article-title">{p.title}</h1>
+              <p className="article-dek">{p.description}</p>
+              <div className="article-meta">
+                <span>{p.readingTime}</span>
+                <span aria-hidden="true">·</span>
+                <span>{p.publishedAt}</span>
+              </div>
+              {p.tags.length>0 && (
+                <ul className="article-tags" aria-label="Tags">
+                  {p.tags.map((tag)=>(
+                    <li key={tag}>
+                      <Link href={`/search?q=${encodeURIComponent(tag)}`}>{tag}</Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </header>
+
+            <aside className="tldr" aria-label="Summary">
+              <div className="tldr__label">TL;DR</div>
+              <p className="tldr__text">{p.description}</p>
+              <ol className="tldr__flow">
+                <li>Understand the problem</li>
+                <li>Learn the trade-offs</li>
+                <li>Tell the production story</li>
+                <li>Practice the interview answer</li>
+              </ol>
+              {(interviewHeading || takeawaysHeading) && (
+                <div className="tldr__actions">
+                  {interviewHeading && (
+                    <a href={`#${interviewHeading.id}`}>Jump to interview answer</a>
+                  )}
+                  {takeawaysHeading && (
+                    <a href={`#${takeawaysHeading.id}`}>Jump to takeaways</a>
+                  )}
+                </div>
+              )}
+            </aside>
+
+            <ArticleQuickNav items={quickNav}/>
 
             {headings.length>=2 && (
-              <details className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 xl:hidden dark:border-slate-800 dark:bg-slate-900">
-                <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-100">
-                  On this page
-                </summary>
-                <ul className="mt-3 space-y-2">
+              <details className="mobile-toc xl:hidden">
+                <summary>On this page</summary>
+                <ul>
                   {headings.map((h)=>(
                     <li key={h.id} className={h.level===3?'pl-3':''}>
-                      <a href={`#${h.id}`} className="text-sm text-slate-600 hover:text-blue-700 dark:text-slate-300">
-                        {h.text}
-                      </a>
+                      <a href={`#${h.id}`}>{h.text}</a>
                     </li>
                   ))}
                 </ul>
               </details>
             )}
 
-            <div className="prose-design mt-8 md:mt-10">{content}</div>
+            <div className="prose-design article-body">{content}</div>
           </article>
 
-          <nav aria-label="Adjacent articles" className="mt-8 grid gap-3 sm:grid-cols-2">
+          <nav aria-label="Adjacent articles" className="article-adjacent">
             {prev?(
-              <Link
-                href={`${basePath}/${prev.slug}`}
-                className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-200 dark:border-slate-800 dark:bg-slate-950"
-              >
-                <div className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[.12em] text-slate-500">
+              <Link href={`${basePath}/${prev.slug}`} className="article-adjacent__link">
+                <span className="article-adjacent__dir">
                   <ArrowLeft size={14}/> Previous
-                </div>
-                <div className="mt-2 text-sm font-semibold text-slate-900 group-hover:text-blue-700 dark:text-white">
-                  {prev.title}
-                </div>
+                </span>
+                <span className="article-adjacent__title">{prev.title}</span>
               </Link>
             ):<div className="hidden sm:block"/>}
             {next && (
-              <Link
-                href={`${basePath}/${next.slug}`}
-                className="group rounded-xl border border-slate-200 bg-white p-4 text-right transition hover:border-blue-200 dark:border-slate-800 dark:bg-slate-950"
-              >
-                <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-[.12em] text-slate-500">
+              <Link href={`${basePath}/${next.slug}`} className="article-adjacent__link article-adjacent__link--next">
+                <span className="article-adjacent__dir">
                   Next <ArrowRight size={14}/>
-                </div>
-                <div className="mt-2 text-sm font-semibold text-slate-900 group-hover:text-blue-700 dark:text-white">
-                  {next.title}
-                </div>
+                </span>
+                <span className="article-adjacent__title">{next.title}</span>
               </Link>
             )}
           </nav>
 
           {fallbackRelated.length>0 && (
             <section className="mt-12">
-              <h2 className="text-xl font-bold tracking-tight">Related guides</h2>
-              <p className="mt-1 text-sm text-slate-500">Continue with adjacent interview topics.</p>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                If you understand this, learn next
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">Related interview topics in this learning graph.</p>
               <div className="mt-5 grid gap-4 md:grid-cols-3">
                 {fallbackRelated.map((r)=>(
                   <Link
