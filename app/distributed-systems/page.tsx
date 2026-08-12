@@ -4,6 +4,7 @@ import {getPostsByCategories,SECTION_CATEGORIES} from '@/lib/posts';
 export const metadata={title:'Distributed Systems'};
 
 const LOCKING_ORDER=[
+  '2pl-3pl-money-transfer-interview',
   'distributed-locking-master-index',
   'locking-fundamentals-and-layers',
   'jvm-and-spring-locking',
@@ -29,6 +30,7 @@ export default function Distributed(){
   const bySlug=new Map(posts.map((p)=>[p.slug,p]));
   const locking=LOCKING_ORDER.map((s)=>bySlug.get(s)).filter(Boolean) as typeof posts;
   const rest=posts.filter((p)=>!LOCKING_ORDER.includes(p.slug));
+  const interview=bySlug.get('2pl-3pl-money-transfer-interview');
   const index=bySlug.get('distributed-locking-master-index');
 
   return (
@@ -43,9 +45,14 @@ export default function Distributed(){
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} topics</span>
+          {interview && (
+            <Link href={`/distributed-systems/${interview.slug}`} className="rounded-full bg-emerald-600 px-3 py-1 font-semibold text-white">
+              2PL/3PL interview diagrams →
+            </Link>
+          )}
           {index && (
             <Link href={`/distributed-systems/${index.slug}`} className="rounded-full bg-blue-600 px-3 py-1 font-semibold text-white">
-              Distributed Locking curriculum →
+              Full locking curriculum →
             </Link>
           )}
         </div>
