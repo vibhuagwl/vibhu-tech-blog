@@ -1,0 +1,243 @@
+---
+slug: production-database-change-risk-checklist
+title: "Production Database Changes for Java Apps — Risk Reduction with a Practical Example"
+description: "What steps reduce risk when a production Java/Spring app needs a DB change: impact assessment, Flyway scripts, expand-contract, testing, data validation, release plan, and rollback — walked through with a real payments column add + backfill."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Database Migration, Flyway, Rollback, Production, Spring Boot, Oracle, PostgreSQL, Real-Time Issues, Expand-Contract]
+readingTime: 16 min
+publishedAt: "2026-08-12"
+---
+
+## The question
+
+> What steps do you take to reduce risk when database changes are needed for a production Java application?
+
+Look for: migration scripts, rollback plans, testing, data validation, release planning, impact assessment.
+
+Below is the checklist I use, then one **concrete payment change** end to end.
+
+---
+
+## Short answer (interview)
+
+1. **Impact assessment** — which tables, locks, downtime, dual-write window, who reads/writes  
+2. **Expand-contract design** — never require old and new code to break on the same deploy  
+3. **Forward + rollback scripts** reviewed with the feature  
+4. **Test** on prod-like volume (migrate, backfill, dual-run, rollback dry-run)  
+5. **Data validation** queries with pass/fail thresholds before cutover  
+6. **Release plan** — ordered steps, feature flags, owners, abort criteria  
+7. **Execute** with monitoring; **rollback** is a rehearsed path, not a hope  
+
+---
+
+## Practical example — add `settlement_ref` to `payment`
+
+**Need:** payment API must store a settlement reference from the bank. Today the column does not exist. Table has ~180M rows. Java Spring Boot + Flyway + Oracle (same pattern on Postgres).
+
+**Wrong approach:** one PR that adds `NOT NULL` column + backfills in the same migration + deploys app that requires the column → lock, long migration, or old pods crash.
+
+**Safe approach:** expand → dual-write → backfill → validate → contract.
+
+### 1) Impact assessment (before writing SQL)
+
+| Question | This change |
+|---|---|
+| Table / size | `PAYMENT` ~180M rows, hot OLTP |
+| Lock risk | `ADD COLUMN` nullable = metadata-ish; `NOT NULL` + default on huge table = long lock — **avoid** |
+| Readers | list/get payment APIs, batch settlement job |
+| Writers | `POST /payments`, capture webhook |
+| Downtime allowed? | No |
+| Dual-version window | Rolling deploy: old pods without field + new pods with field must both work |
+| Rollback | Drop unused column later; never drop while code still writes |
+
+Document blast radius: “If migration hangs, checkout create-payment p99 rises; abort if migration &gt; 2 min or Hikari pending &gt; 10.”
+
+### 2) Migration scripts (expand)
+
+**V102__payment_settlement_ref_expand.sql** (forward only, safe):
+
+```sql
+-- EXPAND: additive, nullable, no rewrite of 180M rows
+ALTER TABLE payment ADD settlement_ref VARCHAR2(64);
+
+CREATE INDEX payment_settlement_ref_i
+ON payment (settlement_ref);
+-- Oracle: create online if your edition supports it
+-- CREATE INDEX ... ONLINE;
+-- Postgres: CREATE INDEX CONCURRENTLY (own migration, not in a txn with other DDL)
+```
+
+**V102__payment_settlement_ref_expand_rollback.sql** (kept next to it, run manually if needed):
+
+```sql
+-- Only valid BEFORE app depends on the column in queries that assume it exists
+DROP INDEX payment_settlement_ref_i;
+ALTER TABLE payment DROP COLUMN settlement_ref;
+```
+
+Rules I enforce in review:
+
+- No `NOT NULL` on first expand  
+- No multi-hour backfill inside Flyway migrate on deploy  
+- Index creation strategy called out (ONLINE / CONCURRENTLY / off-peak)
+
+### 3) Java code — dual compatible
+
+**Phase A (deploy with expand migration):**
+
+```java
+// Entity: field optional
+@Column(name = "settlement_ref")
+private String settlementRef; // null OK
+
+// Write path: set when bank returns it; old pods ignore unknown column if not selected
+// Prefer explicit column lists in JDBC — avoid SELECT * across versions
+```
+
+**Phase B (after backfill):** new code reads/filters by `settlement_ref`.
+
+**Phase C (contract, weeks later):** make NOT NULL only if product requires it — separate change with validated 0 nulls.
+
+### 4) Testing (what I run before prod)
+
+| Test | How |
+|---|---|
+| Migrate up on clone | Flyway migrate on prod-sized snapshot or 10% copy |
+| Rollback dry-run | Apply V102, smoke API, run rollback script, smoke again |
+| Dual-version | Run **old JAR** and **new JAR** against DB after expand; create payment on both |
+| Backfill dry-run | Run backfill on clone; measure rows/min and lock waits |
+| Load | Create-payment p95 with migration running (should be flat for nullable add) |
+
+JUnit alone is not enough — need a **volume** check:
+
+```sql
+-- clone: time the expand
+SET TIMING ON
+ALTER TABLE payment ADD settlement_ref VARCHAR2(64);
+```
+
+### 5) Data validation (before calling expand “done”)
+
+**Before backfill**
+
+```sql
+SELECT COUNT(*) AS total,
+       COUNT(settlement_ref) AS populated,
+       COUNT(*) - COUNT(settlement_ref) AS nulls
+FROM   payment;
+-- expect populated = 0 right after expand
+```
+
+**Backfill job** (batched — not one UPDATE of 180M rows):
+
+```sql
+-- repeat until 0 rows updated
+UPDATE payment
+SET    settlement_ref = 'LEGACY-' || payment_id
+WHERE  settlement_ref IS NULL
+AND    payment_id IN (
+  SELECT payment_id FROM payment
+  WHERE  settlement_ref IS NULL
+  AND    ROWNUM <= 5000   -- Postgres: LIMIT 5000 in subquery
+);
+COMMIT;
+```
+
+**Validation gates (must pass)**
+
+```sql
+-- Gate 1: nulls only for rows we intentionally leave unset (e.g. status not SETTLED)
+SELECT status, COUNT(*) AS null_refs
+FROM   payment
+WHERE  settlement_ref IS NULL
+GROUP  BY status;
+
+-- Gate 2: no dupes if business requires uniqueness
+SELECT settlement_ref, COUNT(*)
+FROM   payment
+WHERE  settlement_ref IS NOT NULL
+GROUP  BY settlement_ref
+HAVING COUNT(*) > 1;
+
+-- Gate 3: sample reconcile vs bank file / outbox
+SELECT COUNT(*) FROM payment p
+WHERE  p.status = 'SETTLED'
+AND    p.settlement_ref IS NULL;
+-- must be 0 before enabling settlement-ref-required flag
+```
+
+Fail the release if Gate 3 &gt; 0 when the flag is about to turn on.
+
+### 6) Release planning (ordered, abortable)
+
+```text
+T-7d  Design review: expand-contract + rollback owner + metrics
+T-2d  Clone migrate + rollback dry-run signed off
+T-0   Change window (prefer low traffic)
+  1. Feature flag settlement_ref_write = off
+  2. Run Flyway V102 (expand) — watch lock waits / API p95
+  3. Deploy app version that CAN read/write column (still optional)
+  4. Flag settlement_ref_write = on (dual-write / new writes)
+  5. Start batched backfill job; pause if p99 &gt; SLO or blocker sessions appear
+  6. Validation gates green
+  7. Flag settlement_ref_required = on for settlement APIs only
+T+14d If stable, schedule CONTRACT (optional NOT NULL) as separate RFC
+```
+
+**Abort criteria (written in the ticket):**
+
+- Expand DDL &gt; 2 minutes  
+- Hikari pending &gt; 10 for 3 minutes  
+- Error rate &gt; 1% on create-payment  
+- Backfill causes `enq: TX` blockers on OLTP  
+
+**Owners:** app lead (flag), DBA (DDL), on-call (abort).
+
+### 7) Rollback plan (rehearsed)
+
+| Stage | Rollback |
+|---|---|
+| After expand, before new writes matter | Turn off flags; redeploy previous app; optional DROP COLUMN via rollback script |
+| After dual-write started | Turn off `settlement_ref_required`; keep column (do not drop while rows populated); redeploy prior app that ignores column |
+| After consumers depend on column | Forward-fix only — ship a fix migration; dropping column is a data-loss decision |
+
+I say in interviews: **rollback of schema ≠ git revert**. Code rollback is easy; column drop after backfill is not.
+
+### 8) Monitoring during the change
+
+```sql
+-- Oracle: sessions waiting while DDL/backfill runs
+SELECT sid, event, seconds_in_wait, sql_id, blocking_session
+FROM   v$session
+WHERE  username = 'PAYMENTS_APP' AND status = 'ACTIVE';
+```
+
+App dashboards: create-payment p95, Hikari pending, Flyway migrate success, backfill rows/sec, null-count gauge for `settlement_ref`.
+
+---
+
+## Checklist I paste into the PR / RFC
+
+- [ ] Impact: table size, lock type, dual-version compatibility  
+- [ ] Expand migration (additive) + documented rollback script  
+- [ ] No NOT NULL / heavy rewrite on first deploy  
+- [ ] Backfill offline/batched, not inside deploy txn  
+- [ ] Dual-version test (old JAR + new JAR)  
+- [ ] Validation SQL with numeric gates  
+- [ ] Feature flags for write/require  
+- [ ] Ordered release steps + abort criteria + owners  
+- [ ] Monitoring queries/dashboards linked  
+- [ ] Contract phase scheduled separately (if needed)  
+
+---
+
+## Spoken 60-second answer
+
+> I treat schema change as a multi-step release, not a single Flyway file. First I assess lock and dual-version impact. I expand with a nullable column and safe index strategy, deploy code that works with or without the value, dual-write behind a flag, backfill in batches, and run validation queries until null/dupe gates pass. Rollback is rehearsed: flags off and prior app first; drop column only if nothing depends on it. Contract to NOT NULL is a later change after data is proven clean.
+
+## Related
+
+- [Aurora transactions & migrations](/realtime-issues/aurora-postgresql-transactions-migrations) — expand-contract / CONCURRENTLY detail  
+- [Query was fast, now timeouts](/realtime-issues/query-used-to-be-fast-now-timeouts) — when a migration/plan change hurts OLTP  
+- [Oracle realtime troubleshooting](/realtime-issues/oracle-database-realtime-troubleshooting) — live SQL during a bad change window  

@@ -63,6 +63,7 @@ const ORDER=[
   'oracle-database-realtime-troubleshooting',
   'oracle-database-incident-case-study',
   'query-used-to-be-fast-now-timeouts',
+  'production-database-change-risk-checklist',
 ];
 
 export default function RealtimeIssues(){
