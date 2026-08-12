@@ -1,0 +1,398 @@
+---
+slug: java-migration-before-prod-checklist
+title: "Java Migration — Before-Prod Checklist (No Theory, Real Payment Example)"
+description: "Copy-paste pre-prod gates, corner-case fixes, dependency/CVE patches, and GO/NO-GO diagrams for Java 11→21 on a Spring Boot payment platform. Commands, checkboxes, and sequences only."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Java Migration, Checklist, Spring Boot, Kafka, CVE, Canary, Production, Corner Cases]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+**Use case:** `payment-service` — Java 11 / Boot 2.7 → Java 21 / Boot 3.4. Kafka `payment.events`, Postgres, OAuth2 JWT, Hikari, K8s.
+
+Long runbook: [production runbook](/realtime-issues/java-migration-production-runbook).
+
+---
+
+## Box — GO / NO-GO before prod
+
+<Mermaid chart={`flowchart TD
+    Start([Deploy candidate ready]) --> A{Baseline captured?}
+    A -->|No| STOP1[STOP — run baseline script]
+    A -->|Yes| B{jdeps/jdeprscan clean?}
+    B -->|No| FIX1[Fix sun.* / removed APIs]
+    B -->|Yes| C{dependency:tree single BOM?}
+    C -->|No| FIX2[Fix NoSuchMethodError risk]
+    C -->|Yes| D{SCA CVE gate pass?}
+    D -->|No| FIX3[Patch Log4j/Netty/Jackson]
+    D -->|Yes| E{IT + Kafka + DB green?}
+    E -->|No| STOP2[STOP — fix failing layer]
+    E -->|Yes| F{Flyway expand-only?}
+    F -->|No| STOP3[STOP — no rename/drop]
+    F -->|Yes| G{Canary plan + abort numbers?}
+    G -->|No| STOP4[STOP — write gates]
+    G -->|Yes| GO([GO — 1 pod canary])
+`} />
+
+---
+
+## Sequence — prod deploy day (payment-service)
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    actor Lead
+    participant CI as Jenkins/GHA
+    participant Reg as ECR/Registry
+    participant K8s
+    participant App as payment-service J21
+    participant K as Kafka
+    participant DB as Postgres
+    participant G as Grafana
+
+    Lead->>CI: Tag v2.4.0-java21-rc1
+    CI->>CI: mvn verify + SCA + image scan
+    CI->>Reg: Push temurin:21 image
+    Lead->>K8s: Deploy 1 canary pod (10% traffic)
+    App->>K: consume payment.events same group
+    App->>DB: read/write expand schema
+    G->>G: Compare p95/lag/Hikari vs Java11 baseline
+    alt p95 > baseline+20% OR lag climb OR 5xx>1%
+        G-->>Lead: ABORT
+        Lead->>K8s: Scale canary to 0, restore J11 image
+    else 30 min green
+        Lead->>K8s: 10% → 25% → 50% → 100%
+    end
+`} />
+
+---
+
+## Box — what breaks (corner cases map)
+
+<Mermaid chart={`flowchart LR
+    subgraph Compile
+      J1[javax.* left]
+      J2[WebSecurityConfigurerAdapter]
+      J3[Hibernate 5 HQL]
+    end
+    subgraph Runtime
+      R1[NoSuchMethodError Netty/Kafka]
+      R2[TLS handshake IdP]
+      R3[IllegalAccessError agent]
+    end
+    subgraph Ops
+      O1[OOMKilled K8s limit]
+      O2[Obsolete -XX flag]
+      O3[Hikari > DB max conn]
+    end
+    subgraph Data
+      D1[Kafka duplicate settle]
+      D2[Flyway not expand]
+      D3[Serdes Avro mismatch]
+    end
+    Compile --> Runtime --> Ops
+    Runtime --> Data
+`} />
+
+---
+
+## Pre-prod checklist (print this)
+
+```text
+INVENTORY (T-14)
+[ ] java -version on CI == prod target (21)
+[ ] mvn dependency:tree > tree-java21.txt saved
+[ ] jdeps --jdk-internals target/payment-service.jar → no app sun.*
+[ ] jdeprscan --release 21 target/payment-service.jar reviewed
+[ ] grep -R "javax\." src/ → zero in app code
+[ ] grep -R "WebSecurityConfigurerAdapter" src/ → zero
+
+BASELINE (T-10) — Java 11 prod numbers written down
+[ ] P50 / P95 / P99 payment-api
+[ ] 5xx rate
+[ ] CPU / heap / GC pause p99
+[ ] Kafka lag settlement-consumer
+[ ] Hikari pending / active
+[ ] DB p95 create-payment query
+
+BUILD (T-7)
+[ ] Boot parent 3.4.x only — no mixed Spring 5 jars
+[ ] java.version=21 in pom
+[ ] Dockerfile eclipse-temurin:21-jre
+[ ] Removed -XX:+UseConcMarkSweepGC and other dead flags
+[ ] mvn -q enforcer:enforce (if configured)
+
+SECURITY / CVE (T-7)
+[ ] Black Duck / Snyk gate pass on image
+[ ] Log4j2 >= patched version in tree
+[ ] Netty version from Boot BOM only (no second Netty)
+[ ] Tomcat/ Spring Security CVEs cleared
+[ ] CA certs in image (curl IdP from container)
+
+TESTS (T-3)
+[ ] mvn verify green
+[ ] Testcontainers: Postgres + Kafka IT
+[ ] OAuth2 JWT contract test (401/403)
+[ ] Settlement consumer idempotency test (duplicate event)
+[ ] Load: 10k RPS read / 3k write vs baseline ±20%
+
+DB (T-3)
+[ ] Flyway migrations this release = ADD nullable only
+[ ] No column rename/drop in same release as Java bump
+[ ] Rollback = prior app works with current schema
+
+K8S (T-1)
+[ ] memory limit ≥ heap + 25% headroom (MaxRAMPercentage 75)
+[ ] readiness/liveness/startup probes hit /actuator/health/*
+[ ] terminationGracePeriodSeconds ≥ 60
+[ ] maxSurge/maxUnavailable reviewed
+
+CANARY (T-0)
+[ ] Abort: P99 > baseline+20%
+[ ] Abort: 5xx > 1%
+[ ] Abort: Kafka lag increasing 15 min
+[ ] Abort: OOMKilled / Hikari pending > 10
+[ ] Rollback image tag documented: payment-service:2.3.8-j11
+[ ] On-call + DBA + Kafka owner in bridge
+```
+
+---
+
+## Baseline table (fill before deploy)
+
+```text
+Metric                    Java 11 (2026-08-01)   Canary abort if
+-----------------------------------------------------------------
+payment-api P95           118 ms                 > 142 ms (+20%)
+payment-api P99           176 ms                 > 211 ms
+5xx rate                  0.08%                  > 1.0%
+settlement lag            420                    rising 15 min
+Hikari pending            0                      > 10 for 3 min
+create-payment DB p95     22 ms                  > 35 ms
+CPU per pod               42%                    > 80% sustained
+```
+
+---
+
+## Commands — run in order
+
+```bash
+# 1 Inventory
+java -version && mvn -version
+./mvnw -q dependency:tree -Dverbose | tee tree.txt
+./mvnw -q dependency:tree | grep -E 'spring-kafka|netty|jackson|hibernate' | sort -u
+
+jdeps --jdk-internals target/payment-service.jar 2>&1 | tee jdeps.txt
+jdeprscan --release 21 target/payment-service.jar 2>&1 | tee jdeprscan.txt
+
+grep -RIn "javax\." src/main/java | wc -l
+grep -RIn "WebSecurityConfigurerAdapter\|sun\.\|com\.sun\." src/
+
+# 2 Build + test
+./mvnw -DskipTests=false verify
+./mvnw -q org.owasp:dependency-check-maven:check   # if in pipeline
+
+# 3 Image
+docker build -t payment-service:java21-rc1 .
+docker run --rm payment-service:java21-rc1 java -version
+docker run --rm payment-service:java21-rc1 sh -c 'curl -sf https://idp.corp.example/.well-known/openid-configuration | head -c 80'
+
+# 4 JVM flags smoke (container)
+docker run --rm -e JAVA_TOOL_OPTIONS='-XX:MaxRAMPercentage=75.0 -Xlog:gc*' payment-service:java21-rc1 java -version
+```
+
+---
+
+## Corner cases — real fixes (payment-service)
+
+| # | What you see | Root cause | Fix (exact) | Verify | Rollback |
+|---|---|---|---|---|---|
+| 1 | `package javax.persistence does not exist` | Boot 3 not done | `jakarta.persistence.*` + Boot 3 parent | `mvn compile` | prior branch |
+| 2 | `NoSuchMethodError: io.netty...` | Two Netty versions | Remove explicit netty version; use Boot BOM | `dependency:tree \| grep netty` | prior pom |
+| 3 | `BeanCreationException` Security | Old adapter | `SecurityFilterChain` `@Bean` | security IT | prior image |
+| 4 | Settlement paid twice | Rebalance + no idempotency | `UNIQUE(payment_id)` + idempotent consumer | replay test | prior consumer |
+| 5 | `SerializationException` Avro | Schema/registry client old | Align `kafka-avro-serializer` to Boot BOM | consume one msg | prior image |
+| 6 | TLS handshake to IdP | Missing CA in slim image | Copy corp CA to `/usr/local/share/ca-certificates` | curl from pod | prior image |
+| 7 | Pod `OOMKilled` | limit 512Mi + heap 512 | limit 2Gi + `MaxRAMPercentage=75` | no OOM 1h canary | prior limits |
+| 8 | JVM exit: Unrecognized VM option | CMS flag copied | Delete `-XX:+UseConcMarkSweepGC` | pod starts | prior chart |
+| 9 | Hikari timeout storm | 12 pods × 30 pool > DB max | pool 15 × 12 < 200 conn | pending=0 | scale down / pool |
+| 10 | Hibernate `QuerySyntaxException` | HQL 6 stricter | Fix query in repo + IT | IT green | prior image |
+| 11 | `UnsupportedClassVersionError` | CI built 21, ran on 11 | Deploy only 21 image everywhere | `java -version` in pod | prior image |
+| 12 | Flyway fail on deploy | NOT NULL add on 180M rows | expand nullable only this release | migrate on clone | skip migration |
+| 13 | P99 up, CPU ok | Alloc regression | JFR 120s → hot library | p99 back | pin library |
+| 14 | Log4Shell-class CVE | old transitive | Bump log4j2 via BOM + enforcer | SCA pass | block deploy |
+| 15 | Actuator `/health` 401 | Security matcher | `permitAll /actuator/health/**` | probe green | prior chart |
+
+---
+
+## Dependency / CVE fixes (real pom snippets)
+
+### Before — mixed versions (breaks at runtime)
+
+```xml
+<dependency>
+  <groupId>io.netty</groupId>
+  <artifactId>netty-handler</artifactId>
+  <version>4.1.68.Final</version>
+</dependency>
+<dependency>
+  <groupId>org.springframework.kafka</groupId>
+  <artifactId>spring-kafka</artifactId>
+</dependency>
+```
+
+### After — Boot BOM owns Netty/Kafka
+
+```xml
+<!-- Remove explicit netty version -->
+<dependency>
+  <groupId>org.springframework.kafka</groupId>
+  <artifactId>spring-kafka</artifactId>
+</dependency>
+```
+
+### Force CVE patch (example pattern)
+
+```xml
+<properties>
+  <log4j2.version>2.24.3</log4j2.version>
+</properties>
+<!-- Only when BOM lags; prefer Boot upgrade first -->
+```
+
+```bash
+./mvnw -q dependency:tree -Dincludes=org.apache.logging.log4j
+./mvnw -q dependency:tree -Dincludes=io.netty
+```
+
+---
+
+## Code fixes (only what broke prod)
+
+### Security (payment-api)
+
+```java
+// BEFORE — fails Boot 3 compile
+public class SecurityConfig extends WebSecurityConfigurerAdapter { ... }
+
+// AFTER
+@Bean
+SecurityFilterChain chain(HttpSecurity http) throws Exception {
+  http.authorizeHttpRequests(a -> a
+      .requestMatchers("/actuator/health/**").permitAll()
+      .requestMatchers("/api/v1/payments/**").authenticated())
+    .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));
+  return http.build();
+}
+```
+
+### JPA (payment entity)
+
+```java
+// BEFORE
+import javax.persistence.Entity;
+// AFTER
+import jakarta.persistence.Entity;
+```
+
+### Kafka consumer (settlement — idempotency)
+
+```java
+// BEFORE — duplicate on rebalance
+@KafkaListener(topics = "payment.events")
+void onEvent(PaymentEvent e) { settlementService.settle(e); }
+
+// AFTER
+@KafkaListener(topics = "payment.events", groupId = "settlement-java21")
+void onEvent(PaymentEvent e) {
+  if (settlementRepo.existsByPaymentId(e.paymentId())) return;
+  settlementService.settle(e);
+}
+```
+
+---
+
+## Docker / K8s (before prod)
+
+```dockerfile
+# BEFORE
+FROM openjdk:11
+ENV JAVA_OPTS="-Xmx512m -XX:+UseConcMarkSweepGC"
+
+# AFTER
+FROM eclipse-temurin:21-jre-jammy
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0"
+USER 10001
+```
+
+```yaml
+# deployment snippet — payment-service
+resources:
+  requests: { memory: "1Gi", cpu: "500m" }
+  limits:   { memory: "2Gi", cpu: "2" }
+startupProbe:
+  httpGet: { path: /actuator/health, port: 8080 }
+  failureThreshold: 30
+  periodSeconds: 10
+```
+
+---
+
+## Canary % timeline (stick to this)
+
+```text
+T+0   1 pod / ~5% traffic   30 min watch
+T+30  10%                   30 min
+T+60  25%                   30 min
+T+90  50%                   30 min
+T+120 100%                  60 min watch then close bridge
+```
+
+**Stop roll immediately if any abort line hits.** Do not “wait it out.”
+
+---
+
+## Rollback (60 seconds)
+
+```text
+1. kubectl scale deployment payment-service-canary --replicas=0
+2. kubectl set image deployment/payment-service app=payment-service:2.3.8-j11
+3. kubectl rollout status deployment/payment-service
+4. Check Kafka lag flattening (same group — old pods rejoin)
+5. Check 5xx + p95 on Grafana
+6. Do NOT run Flyway rollback DROP in panic
+```
+
+---
+
+## Sequence — corner case: Kafka duplicate during canary
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant K as payment.events
+    participant Old as consumer J11
+    participant New as consumer J21 canary
+    participant DB as settlement table
+
+    Note over Old,New: Same group rebalance during roll
+    K->>Old: partition revoked mid-batch
+    K->>New: same offset replayed
+    New->>DB: settle without idempotency check
+    DB-->>DB: duplicate row / double pay
+    Note over New: FIX existsByPaymentId before settle
+    New->>DB: second event skipped
+`} />
+
+---
+
+## 30-second interview answer (no theory)
+
+> Before prod I capture Java 11 p95, lag, and Hikari baseline. I run tree, jdeps, jdeprscan, and SCA. I only ship Boot 3 + Jakarta + SecurityFilterChain when verify and Kafka/Postgres IT pass. Flyway is expand-only. Canary one pod, abort if p99 beats baseline by 20% or lag climbs. Real breaks I’ve fixed: double Netty on classpath, missing CA in the 21 image, OOM from tight limits, duplicate settlement without idempotency, and CMS flags that don’t start on 21. Rollback is the previous image tag, not a schema drop.
+
+---
+
+## Related
+
+- [Production runbook (detailed)](/realtime-issues/java-migration-production-runbook)  
+- [Rollout and rollback](/realtime-issues/java-migration-rollout-and-rollback)  
+- [Prod DB change checklist](/realtime-issues/production-database-change-risk-checklist)  
