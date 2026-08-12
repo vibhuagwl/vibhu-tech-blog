@@ -1,0 +1,540 @@
+---
+slug: aurora-postgresql-vacuum-locks-pools
+title: "Aurora PostgreSQL Vacuum, Locks, and HikariCP Pool Incidents"
+description: "Principal-level incident guide for Aurora PostgreSQL autovacuum, dead tuples, bloat, pg_stat_user_tables, lock diagnosis, blocking timelines, HikariCP exhaustion, RDS Proxy, and safe pool sizing."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: ["Real-Time Issues", "Aurora PostgreSQL", "Vacuum", "Locks", "HikariCP", "RDS Proxy", "Spring Boot"]
+readingTime: 30 min
+publishedAt: "2026-08-12"
+---
+
+## Interview framing
+
+Vacuum, locks, and connection pools are where Aurora PostgreSQL interviews become real production interviews.
+
+Anyone can say "use indexes".
+
+The senior signal is whether you can diagnose an outage where:
+
+- application threads are waiting
+- HikariCP is exhausted
+- Aurora has active sessions but little useful throughput
+- one transaction is blocking many requests
+- autovacuum is behind
+- table bloat has changed plan quality
+- a well-meaning pool increase made everything worse
+
+This guide assumes Java, Spring Boot, HikariCP, RDS Proxy, and Aurora PostgreSQL.
+
+## The end-to-end incident path
+
+```text
+HTTP request or Kafka message
+  -> Spring Boot worker thread
+  -> @Transactional method
+  -> HikariCP acquisition
+  -> JDBC query
+  -> RDS Proxy
+  -> Aurora PostgreSQL backend
+  -> lock wait, execution, or commit
+```
+
+When the service is stuck, determine where the request is waiting.
+
+It may not be executing SQL yet.
+
+It may be waiting for a Hikari connection.
+
+It may have a connection and be waiting behind a row lock.
+
+It may be executing a bad plan caused by stale statistics.
+
+It may be slow because dead tuples and bloat increased the amount of work.
+
+## Principal rule
+
+Never blindly bump `maximumPoolSize`.
+
+Pool size is a concurrency contract.
+
+Changing it changes the load shape seen by Aurora.
+
+If Aurora can efficiently handle about 50 concurrent active queries for this workload, setting Hikari to 200 does not create capacity.
+
+It can create 200 competing database sessions, longer run queues, more memory pressure, more lock contention, more context switching, and worse p99 latency.
+
+The fix may be lower concurrency, better queries, shorter transactions, RDS Proxy, workload isolation, or backpressure.
+
+## Vacuum in plain English
+
+PostgreSQL uses MVCC.
+
+An update does not overwrite a row in place in the simple mental model.
+
+It creates a new row version and leaves the old version behind until cleanup.
+
+A delete marks a row version as no longer visible to future transactions.
+
+Vacuum cleans old row versions when they are no longer needed.
+
+Analyze updates statistics so the planner can estimate row counts.
+
+Autovacuum runs this work automatically.
+
+That does not mean you can ignore it.
+
+## Why dead tuples matter
+
+Dead tuples can cause:
+
+- larger table scans
+- larger indexes
+- more buffer churn
+- slower vacuum cycles
+- worse cache locality
+- less accurate planner behavior when statistics are stale
+- unpredictable endpoint latency
+
+Dead tuples are not always an incident.
+
+They become an incident when cleanup cannot keep up with write churn or long transactions prevent cleanup.
+
+## Bloat
+
+Bloat means the table or index takes more space than the live data requires.
+
+In a high-update table, bloat can accumulate when autovacuum is delayed, under-provisioned, blocked by long transactions, or misconfigured for the workload.
+
+Bloat increases the amount of data PostgreSQL must scan and cache.
+
+It can make a previously acceptable query expensive.
+
+It can also hide as "Aurora is slower today" when the true issue is data shape and maintenance lag.
+
+## Start with pg_stat_user_tables
+
+Use `pg_stat_user_tables` to understand table health.
+
+```sql
+SELECT
+    schemaname,
+    relname,
+    n_live_tup,
+    n_dead_tup,
+    last_vacuum,
+    last_autovacuum,
+    last_analyze,
+    last_autoanalyze,
+    vacuum_count,
+    autovacuum_count,
+    analyze_count,
+    autoanalyze_count
+FROM pg_stat_user_tables
+WHERE schemaname = 'public'
+ORDER BY n_dead_tup DESC
+LIMIT 20;
+```
+
+Read this as an operations signal, not an academic metric.
+
+Ask:
+
+- Which tables have the most dead tuples?
+- Did autovacuum run recently?
+- Did analyze run recently?
+- Are live tuples and dead tuples growing together?
+- Did a deployment or batch job change churn?
+- Is one table dominating the workload?
+
+## ANALYZE
+
+`ANALYZE` refreshes planner statistics.
+
+Stale statistics can produce bad plans.
+
+Example:
+
+```sql
+ANALYZE payment;
+```
+
+Do not treat `ANALYZE` as a permanent fix for every slow query.
+
+If stats are repeatedly stale, tune autovacuum analyze thresholds for the table and inspect write patterns.
+
+The incident mitigation may be to refresh stats.
+
+The durable fix is to make stats maintenance match the workload.
+
+## Autovacuum
+
+Autovacuum has thresholds and scale factors.
+
+Large tables can need table-specific settings because percentage-based thresholds may wait too long.
+
+Example:
+
+```sql
+ALTER TABLE payment SET (
+    autovacuum_vacuum_scale_factor = 0.02,
+    autovacuum_analyze_scale_factor = 0.01
+);
+```
+
+Use table-specific tuning carefully.
+
+The goal is not to vacuum constantly.
+
+The goal is to keep dead tuples, bloat, and statistics drift inside the workload's tolerance.
+
+## Long transactions block cleanup
+
+A long-running transaction can prevent vacuum from removing old row versions that might still be visible to that transaction.
+
+This includes:
+
+- idle-in-transaction sessions
+- application transactions held open during remote calls
+- batch jobs with giant transaction scopes
+- reporting queries on the writer
+- forgotten psql sessions
+
+Look for transaction age.
+
+```sql
+SELECT
+    pid,
+    usename,
+    application_name,
+    state,
+    now() - xact_start AS xact_age,
+    wait_event_type,
+    wait_event,
+    left(query, 200) AS query
+FROM pg_stat_activity
+WHERE xact_start IS NOT NULL
+ORDER BY xact_start;
+```
+
+An old transaction can turn normal MVCC behavior into bloat pressure.
+
+## Lock diagnosis
+
+PostgreSQL locks are visible.
+
+Use `pg_stat_activity` and `pg_locks` together.
+
+The core questions:
+
+- Who is waiting?
+- Who is blocking?
+- What query is each session running?
+- How long has the blocker transaction been open?
+- Is the blocker active, idle in transaction, or waiting on something else?
+- What application instance owns the session?
+
+## Blocking query
+
+Use this shape to find blockers:
+
+```sql
+SELECT
+    blocked.pid AS blocked_pid,
+    blocked.application_name AS blocked_app,
+    blocked.query AS blocked_query,
+    blocking.pid AS blocking_pid,
+    blocking.application_name AS blocking_app,
+    blocking.state AS blocking_state,
+    now() - blocking.xact_start AS blocking_xact_age,
+    blocking.query AS blocking_query
+FROM pg_stat_activity blocked
+JOIN pg_locks blocked_locks
+  ON blocked_locks.pid = blocked.pid
+JOIN pg_locks blocking_locks
+  ON blocking_locks.locktype = blocked_locks.locktype
+ AND blocking_locks.database IS NOT DISTINCT FROM blocked_locks.database
+ AND blocking_locks.relation IS NOT DISTINCT FROM blocked_locks.relation
+ AND blocking_locks.page IS NOT DISTINCT FROM blocked_locks.page
+ AND blocking_locks.tuple IS NOT DISTINCT FROM blocked_locks.tuple
+ AND blocking_locks.virtualxid IS NOT DISTINCT FROM blocked_locks.virtualxid
+ AND blocking_locks.transactionid IS NOT DISTINCT FROM blocked_locks.transactionid
+ AND blocking_locks.classid IS NOT DISTINCT FROM blocked_locks.classid
+ AND blocking_locks.objid IS NOT DISTINCT FROM blocked_locks.objid
+ AND blocking_locks.objsubid IS NOT DISTINCT FROM blocked_locks.objsubid
+ AND blocking_locks.pid <> blocked_locks.pid
+JOIN pg_stat_activity blocking
+  ON blocking.pid = blocking_locks.pid
+WHERE NOT blocked_locks.granted
+  AND blocking_locks.granted;
+```
+
+In practice, many teams wrap this in a runbook query.
+
+The key is the reasoning:
+
+blocked session plus blocking session plus transaction age plus application owner.
+
+## Blocking timeline
+
+A blocking incident often looks like this:
+
+```text
+12:00:00 deploy starts new payment workflow
+12:01:10 request A begins transaction and locks payment row
+12:01:12 request A calls external partner while transaction remains open
+12:01:13 request B tries to update same payment row and waits
+12:01:20 Kafka replay starts and many workers touch same tenant
+12:02:00 Hikari active reaches max
+12:02:05 Hikari pending climbs
+12:02:30 Tomcat threads wait for connections
+12:03:00 API p99 explodes
+12:04:00 operator considers raising pool size
+```
+
+The right fix is not automatically a larger pool.
+
+The right fix is to identify request A, release or terminate the blocker if safe, reduce intake, and fix the transaction boundary.
+
+## Lock mitigation options
+
+Choose based on business risk.
+
+| Action | When to consider |
+|---|---|
+| cancel a query | query is safe to retry and not in a critical commit path |
+| terminate a session | blocker is idle, abandoned, or causing major outage |
+| pause workers | Kafka or batch traffic is amplifying contention |
+| disable endpoint | one feature is causing broad blast radius |
+| reduce concurrency | Aurora is saturated by too many active operations |
+| route traffic | read-only traffic can move to safe readers |
+| rollback deploy | new code changed transaction or query shape |
+
+Always preserve auditability for financial or regulated workflows.
+
+## HikariCP exhaustion
+
+Hikari exhaustion means callers are waiting for a connection from the pool.
+
+Symptoms:
+
+- `active` equals `maximumPoolSize`
+- `idle` is zero
+- `pending` threads are increasing
+- acquisition time rises
+- acquisition timeouts appear
+- Tomcat or worker threads are blocked
+- database active sessions may or may not be high
+
+This does not prove the database needs more connections.
+
+It proves the application pool is saturated.
+
+## Hikari metrics to graph
+
+Graph these per service instance and aggregated:
+
+- active connections
+- idle connections
+- pending threads
+- max pool size
+- connection acquisition time
+- connection usage time
+- connection timeout count
+- leak detection count
+- transaction duration
+- endpoint latency
+- database wait events
+
+The shape matters.
+
+If active is max and database CPU is low, suspect lock waits, slow downstream calls inside transactions, or connection leaks.
+
+If active is max and Aurora CPU is high, suspect too much concurrent query work or inefficient SQL.
+
+If pending spikes after deploy, inspect changed endpoints and transaction boundaries.
+
+## Pool size 200 versus Aurora capacity 50
+
+Assume this workload is healthy around 50 concurrent active database operations.
+
+That number is not a universal Aurora limit.
+
+It is the measured point where CPU, memory, locks, I/O, and p99 latency are acceptable for this schema and query mix.
+
+Now set Hikari to 200 across enough Spring Boot pods.
+
+Possible effects:
+
+- more active sessions compete for CPU
+- more queries hold locks at the same time
+- more transactions overlap on hot rows
+- more memory is used for sorts, joins, and backend state
+- more work queues inside the database
+- more timeouts trigger retries
+- retries increase traffic again
+- p99 and p999 latency degrade
+
+The pool increase can turn backpressure into overload.
+
+At Principal level, explain that the pool is a valve.
+
+Opening the valve wider helps only if the downstream has spare capacity.
+
+## Safer pool sizing posture
+
+Start from measurement:
+
+- number of service instances
+- peak request rate
+- average and p99 query duration
+- number of queries per request
+- transaction duration
+- Aurora active sessions
+- CPU and wait events
+- lock contention
+- reader and writer split
+- failover behavior
+
+Then size pools so the total possible concurrency stays inside database capacity.
+
+For example:
+
+```text
+20 pods x 10 connections = 200 possible connections
+20 pods x 30 connections = 600 possible connections
+```
+
+The second configuration may look harmless per pod.
+
+It can be dangerous at fleet level.
+
+## RDS Proxy
+
+RDS Proxy can help with:
+
+- connection pooling between application and database
+- reducing connection storm impact
+- smoothing failover behavior
+- supporting large fleets with many application instances
+- reducing the cost of frequent connection establishment
+
+RDS Proxy does not fix:
+
+- long transactions
+- row lock chains
+- slow SQL
+- missing indexes
+- bad statistics
+- unbounded application concurrency
+- inconsistent read routing
+
+Use RDS Proxy as part of the connection architecture.
+
+Do not use it to justify sloppy transaction design.
+
+## Connection leaks
+
+A connection leak means application code borrows a connection and does not return it promptly.
+
+In modern Spring Boot with normal `JdbcTemplate` or JPA usage, leaks often come from:
+
+- manual connection handling
+- streaming result sets beyond transaction scope
+- transactions around long operations
+- blocked threads holding connections
+- unclosed custom resources
+- tests or admin code copied into production paths
+
+Enable Hikari leak detection carefully.
+
+It is diagnostic, not a permanent substitute for metrics.
+
+## Transactions around remote calls
+
+This is one of the most common root causes.
+
+Bad:
+
+```text
+@Transactional
+  load row
+  update status to PROCESSING
+  call payment partner
+  update status to CAPTURED
+```
+
+The transaction and possibly locks are held while the partner call runs.
+
+Better patterns include:
+
+- short local transaction to reserve work
+- commit
+- remote call with timeout and idempotency key
+- short local transaction to record result
+- outbox event for follow-up processing
+
+The exact model depends on the invariant.
+
+The principle is to avoid holding database resources across unpredictable network waits.
+
+## Idle in transaction
+
+`idle in transaction` is a serious state.
+
+It means the session has an open transaction but is not currently running a query.
+
+It can hold locks.
+
+It can block vacuum cleanup.
+
+It can preserve an old snapshot.
+
+Query it:
+
+```sql
+SELECT
+    pid,
+    application_name,
+    client_addr,
+    now() - xact_start AS xact_age,
+    now() - state_change AS idle_age,
+    left(query, 200) AS last_query
+FROM pg_stat_activity
+WHERE state = 'idle in transaction'
+ORDER BY xact_start;
+```
+
+Treat old idle transactions as incident evidence.
+
+## Incident triage checklist
+
+When Aurora-backed Spring Boot services are timing out:
+
+1. Check whether errors are Hikari acquisition timeouts or SQL timeouts.
+2. Check active, idle, pending, and max connections.
+3. Check Aurora active sessions, CPU, and wait events.
+4. Check `pg_stat_activity` for long transactions.
+5. Check `pg_locks` for blockers.
+6. Check idle-in-transaction sessions.
+7. Check top SQL and recent plan changes.
+8. Check `pg_stat_user_tables` for dead tuples and stale analyze.
+9. Check deployment markers.
+10. Check Kafka or batch replay traffic.
+11. Check reader lag if read routing changed.
+12. Decide mitigation before tuning.
+
+## How this connects to other guides
+
+Use [Aurora PostgreSQL SQL and architecture](/realtime-issues/aurora-postgresql-sql-and-architecture) for schema, transaction, isolation, and reader-routing fundamentals.
+
+Use [Aurora PostgreSQL query tuning and indexes](/realtime-issues/aurora-postgresql-query-tuning-indexes) when the plan, scan, join, estimate, buffer, or sort behavior is the focus.
+
+Use [Aurora PostgreSQL master index](/realtime-issues/aurora-postgresql-master-index) for the full study path and spoken answer.
+
+Use [stuck threads from DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools) when JVM threads and Hikari waits are the symptom.
+
+Use [Java 30 YOE Kafka, database, and batch Q&A](/realtime-issues/java-30yoe-kafka-database-qa) when replay traffic or batch concurrency is overwhelming Aurora.
+
+Use [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive) for lock mode and transaction details.
+

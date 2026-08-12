@@ -1,0 +1,459 @@
+---
+slug: lead-experience-unblocking-mentoring
+title: "Lead Experience: Unblocking Engineers and Mentoring Through Real Work"
+description: "How Staff and Principal engineers remove blockers, mentor through delivery, use mocks and migrations safely, and facilitate design before coding."
+category: "Real-Time Issues"
+difficulty: Staff
+tags: [Lead Experience, Mentoring, Unblocking, Staff Engineer, Kafka, Solution Design]
+readingTime: 25 min
+publishedAt: "2026-08-12"
+---
+
+## The leadership signal
+
+Strong technical leadership is not measured by how many questions come to you.
+
+It is measured by how many questions stop being blockers because the system for answering them improves.
+
+That is why unblocking and mentoring belong together.
+
+You remove the immediate blocker.
+
+You also teach the engineer how to handle the next version of that blocker.
+
+The goal is not dependency on you.
+
+The goal is stronger ownership after the work is complete.
+
+## The one-line answer
+
+Use this:
+
+```text
+I unblock engineers by removing system constraints and ambiguity, then mentor through the real implementation so ownership stays with them instead of moving back to me.
+```
+
+This sounds like hands-on leadership.
+
+It also avoids the trap of sounding like a help desk.
+
+## What blockers look like in real delivery
+
+Most blockers are not "I do not know what to code."
+
+They are usually one of these:
+
+- downstream service is not ready
+- API contract is still changing
+- database schema is not approved
+- migration is risky
+- event schema is unclear
+- test environment is unstable
+- local setup is too slow
+- security review is pending
+- product rule has two interpretations
+- QA cannot create valid test data
+- CI pipeline is flaky
+- dependency owner is unavailable
+- production behavior is not observable
+
+A lead engineer does not only ask for status.
+
+A lead engineer changes the conditions.
+
+## Remove blocker: mock or stub downstream
+
+If a downstream API is not ready, I do not let the whole team idle.
+
+I create or ask the team to create a contract stub.
+
+The stub should match the agreed request and response contract.
+
+It should include success behavior.
+
+It should include error behavior.
+
+It should include timeout behavior where relevant.
+
+It should include invalid payload behavior.
+
+It should be versioned with the contract.
+
+This lets the API owner, service owner, QA, and automation work in parallel.
+
+Example:
+
+```text
+Payment service -> Fraud service
+
+Fraud service is not ready.
+We create a stub with:
+- APPROVED response
+- DECLINED response
+- RETRYABLE_TIMEOUT response
+- INVALID_MERCHANT response
+- correlation ID propagation
+```
+
+Now the payment team can test routing, error mapping, timeout handling, and retry policy.
+
+When the real service arrives, integration should validate contract drift, not discover the entire behavior for the first time.
+
+## Remove blocker: temporary schema and migrations
+
+Database blockers are common in payment and platform work.
+
+Sometimes the final schema is not approved.
+
+Sometimes migration order is blocked by another team.
+
+Sometimes a large table needs careful rollout.
+
+The wrong answer is to keep coding against a guessed schema.
+
+The better answer is to create a temporary schema strategy.
+
+That can mean:
+
+- a draft migration in the feature branch
+- a temporary local migration for integration tests
+- a compatibility column added before code uses it
+- a nullable column that becomes required after backfill
+- a shadow table for validation
+- a read path that supports old and new shape during rollout
+- a rollback script reviewed with the migration
+
+The key is to make temporary work explicit.
+
+Temporary must not become hidden production design.
+
+I label the assumption.
+
+I document the removal step.
+
+I create tests around the expected final behavior.
+
+## Example temporary migration plan
+
+```text
+Goal:
+Add payment_idempotency_key to payment_request.
+
+Phase 1:
+Add nullable column and non-unique index.
+
+Phase 2:
+Deploy code that writes the key for new requests.
+
+Phase 3:
+Backfill safe historical rows where possible.
+
+Phase 4:
+Add unique constraint for active merchants.
+
+Phase 5:
+Turn application validation from warning to reject.
+
+Rollback:
+Keep old request path compatible until phase 4 is complete.
+```
+
+This unblocks development.
+
+It also preserves migration safety.
+
+## Mentoring through real work
+
+Mentoring should not be separate from delivery.
+
+The most effective mentoring happens inside real work with real consequences.
+
+My pattern is:
+
+```text
+I explain -> we implement -> you implement -> I review -> you own
+```
+
+Each step has a purpose.
+
+`I explain` gives the mental model.
+
+`We implement` turns the mental model into code with guidance.
+
+`You implement` creates independent practice.
+
+`I review` gives feedback without taking control.
+
+`You own` makes the engineer accountable for the slice.
+
+This is better than either extreme.
+
+One extreme is lecture-only mentoring.
+
+The other extreme is "just take the ticket."
+
+Real mentoring moves through both explanation and ownership.
+
+## Kafka walkthrough example
+
+Suppose an engineer is new to Kafka consumer design.
+
+The feature needs to consume `payment.authorized` events and update capture eligibility.
+
+I start with a walkthrough.
+
+I explain the event flow:
+
+- producer writes an event after authorization
+- event key is payment ID
+- partitions preserve ordering per key
+- consumer group scales processing
+- at-least-once delivery means duplicates can happen
+- offset commit timing matters
+- downstream failure can cause retry
+- poison messages need isolation
+
+Then I explain the safety rules:
+
+- consumer must be idempotent
+- database update must be safe if repeated
+- external calls need timeouts
+- DLQ must include repair context
+- lag must be monitored
+- logs need correlation IDs
+
+Then we implement the first handler together.
+
+We write a test for duplicate event delivery.
+
+We write a test for downstream timeout.
+
+We add a metric for processed, failed, retried, and skipped events.
+
+Then the engineer implements the next event type.
+
+I review for the same checklist.
+
+After that, they own the consumer slice.
+
+## What I say during the walkthrough
+
+I keep the explanation practical.
+
+For example:
+
+```text
+Kafka will not promise exactly-once business behavior for us. We have to design the consumer so duplicate delivery does not double-capture or corrupt state. That means the database state transition must be idempotent, offset commit must happen after the durable effect, and the DLQ must let us repair without losing context.
+```
+
+That is better than saying:
+
+```text
+Kafka is at-least-once, so be careful.
+```
+
+The first version teaches the operational consequence.
+
+The second version names a concept.
+
+## Solution design facilitation before coding
+
+Many delivery problems happen because coding starts before design questions are answered.
+
+As a lead, I facilitate solution design before implementation spreads.
+
+I do not need a huge design document.
+
+I need enough shared understanding.
+
+For a payment capability, the design review should answer:
+
+- What is the capability boundary?
+- Which service owns payment state?
+- What is synchronous?
+- What is asynchronous?
+- What is the event contract?
+- What is the idempotency model?
+- What is the transaction boundary?
+- What is the retry policy?
+- What is the rollback strategy?
+- What metrics prove the flow is healthy?
+- What test data is required?
+- What is the first vertical slice?
+
+Then I ask each owner to explain their slice.
+
+Dev1 explains API behavior.
+
+Dev2 explains Kafka behavior.
+
+Dev3 explains database behavior.
+
+I explain cross-cutting risk and release.
+
+If an owner cannot explain their slice, the design is not ready.
+
+## Facilitation style
+
+Good facilitation is not dominating.
+
+I ask questions that expose hidden assumptions.
+
+For example:
+
+- What happens if the client retries the same request?
+- What happens if the event is delivered twice?
+- What happens if the migration runs before all pods are updated?
+- What happens if the downstream service times out after completing the operation?
+- What is the user-visible state while async processing is still running?
+- Which metric tells us the flow is stuck?
+
+These questions are technical.
+
+They also create alignment.
+
+They let engineers discover gaps before those gaps become defects.
+
+## How to unblock without stealing ownership
+
+This is the key balance.
+
+If I always solve the problem personally, I become the bottleneck.
+
+If I only tell people to figure it out, I am not leading.
+
+The middle path is:
+
+- clarify the decision
+- provide the missing context
+- pair on the first hard part
+- create a reference pattern
+- let the owner complete the slice
+- review with specific feedback
+- ask the owner to document the pattern
+
+For example, I might pair on the first Kafka retry handler.
+
+Then the engineer implements the DLQ behavior.
+
+Then I review for idempotency, metrics, and poison message isolation.
+
+Then they document the consumer pattern for the next team.
+
+That is mentoring and delivery at the same time.
+
+## Handling under-confidence
+
+Some engineers are blocked because they lack confidence, not skill.
+
+I handle that by narrowing the next step.
+
+Instead of saying "own Kafka," I say:
+
+- first, explain the event lifecycle
+- second, write the duplicate-delivery test
+- third, implement idempotent update
+- fourth, add lag and failure metrics
+- fifth, walk me through replay behavior
+
+This creates momentum.
+
+It also makes progress inspectable.
+
+## Handling over-confidence
+
+Some engineers are blocked by moving too fast.
+
+They implement before contract clarity.
+
+They skip failure cases.
+
+They assume the happy path proves the design.
+
+I slow them down with evidence.
+
+I ask for:
+
+- duplicate event test
+- timeout test
+- migration rollback plan
+- load profile
+- query plan
+- dashboard screenshot
+- failure-mode walkthrough
+
+The goal is not to discourage speed.
+
+The goal is to make speed safe.
+
+## Unblocking through decision records
+
+When a blocker is caused by repeated debate, I write a short decision record.
+
+It includes:
+
+- context
+- options considered
+- decision
+- trade-offs
+- owners
+- follow-up checks
+
+For example:
+
+```text
+Decision:
+Use outbox table for payment-created events rather than publishing directly inside the request thread.
+
+Reason:
+We need durable event creation tied to the payment transaction.
+
+Trade-off:
+Slightly more operational complexity, but safer recovery and replay.
+```
+
+This unblocks implementation.
+
+It also creates future memory.
+
+## How to say this in an interview
+
+Use this answer:
+
+```text
+I remove blockers by changing the conditions that are blocking the team. If a downstream service is not ready, I create a contract stub so integration and tests can continue. If a schema is blocked, I work through a safe temporary migration path instead of letting engineers guess. For mentoring, I use real work: I explain the concept, we implement the first example together, the engineer implements the next slice, I review it, and then they own it. That builds capability while still delivering.
+```
+
+Then give the Kafka example.
+
+It is concrete.
+
+It shows depth.
+
+It also shows that mentoring was tied to ownership.
+
+## Link this with the rest of the series
+
+Use [Delivery ownership](/realtime-issues/lead-experience-delivery-ownership) for the ownership model.
+
+Use [Engineering standards](/realtime-issues/lead-experience-engineering-standards) for repeatable review and quality.
+
+Use [Release and hands-on leadership](/realtime-issues/lead-experience-release-hands-on) for production readiness.
+
+Use [Payment case study](/realtime-issues/lead-experience-payment-case-study) for a full narrative.
+
+Use [Interview answer and follow-ups](/realtime-issues/lead-experience-interview-answer-and-followups) for practice.
+
+Use [Behavioral mentoring and hiring bank](/behavioral-interview/behavioral-mentoring-hiring-bank) for additional behavioral examples.
+
+## Final takeaway
+
+Unblocking is not chasing status.
+
+Mentoring is not giving lectures.
+
+At Staff and Principal level, you unblock by reducing ambiguity, creating temporary safe paths, and removing external dependency friction.
+
+You mentor by turning real delivery work into repeatable ownership.
+
+That is how a hands-on lead makes the team faster without making the team dependent.

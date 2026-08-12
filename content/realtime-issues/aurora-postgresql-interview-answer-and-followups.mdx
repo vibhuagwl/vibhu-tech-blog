@@ -1,0 +1,487 @@
+---
+slug: aurora-postgresql-interview-answer-and-followups
+title: "Aurora PostgreSQL Interview Answer and Principal Follow-Ups"
+description: "30-second, 2-minute, and 5-minute spoken answers for Java Spring and Aurora PostgreSQL production incidents, plus 15 Principal-level follow-ups with answers on sequential scans, BRIN, autovacuum, pool sizing, RDS Proxy, replica lag, SKIP LOCKED, idle transactions, plan cache, JSONB GIN, VACUUM FULL, connection leaks, failover, hot row contention, and expand-contract migrations."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Aurora PostgreSQL, Interview, Spring Boot, Java, Performance, Principal Engineer]
+readingTime: 34 min
+publishedAt: "2026-08-12"
+---
+
+## How to use this guide
+
+Use this when an interviewer asks:
+
+- "A payment API went from 200ms to 8 seconds. What do you do?"
+- "How do you debug Aurora PostgreSQL latency from a Spring Boot service?"
+- "How do you decide between query tuning, pool tuning, reader routing, and schema changes?"
+- "How do you run safe migrations on a live payment table?"
+
+The best answer sounds operational.
+
+It connects user impact, Java evidence, Aurora evidence, query plans, and safe rollout.
+
+## 30-second spoken answer
+
+"I would start by defining impact at the API route level, then follow the evidence path instead of guessing.
+
+For a Spring service on Aurora PostgreSQL, I check API p95 and p99, Tomcat threads, Hikari pending and active connections, Aurora sessions, CloudWatch metrics, Performance Insights DB load, wait events, top SQL, and then `EXPLAIN` with realistic bind values.
+
+If the issue is a payment read path, I also separate writer and reader traffic and check replica lag because read-after-write and idempotency paths may need the writer.
+
+For fixes, I prefer bounded mitigation first, then a proven query, index, routing, transaction, or migration change deployed safely."
+
+## 2-minute spoken answer
+
+"My best answer is to treat Aurora latency as a cross-layer incident, not just a database ticket.
+
+I first state the blast radius: which payment endpoint, which merchants, what p95 and p99 changed, and whether errors, retries, or duplicate payment risks are increasing.
+
+Then I correlate the timeline.
+
+In the Spring service, I look at route latency, request thread saturation, and Hikari metrics.
+
+If Hikari pending threads are high, I do not immediately increase the pool.
+
+I ask why active connections are held for so long.
+
+Next I look at Aurora sessions and Performance Insights.
+
+CloudWatch tells me whether writer or reader CPU, connections, IOPS, network, storage, or replica lag changed.
+
+Performance Insights tells me DB load, wait events, and top SQL.
+
+Once I have the top SQL, I run `EXPLAIN ANALYZE` with realistic production parameters.
+
+For example, a payment dashboard query may have gone from an index scan to a sequential scan after table growth and skewed status distribution.
+
+Then I investigate selectivity, statistics, and whether the index matches the actual predicate.
+
+The fix might be a partial index, a query rewrite, better statistics, safer reader routing, or a transaction boundary change.
+
+For payments, I am careful with read-after-write and idempotency checks; those often belong on the writer or need a sticky consistency rule.
+
+If a schema change is needed, I use expand and contract: add compatible schema, dual-write if needed, backfill in batches, switch reads after validation, then remove old schema later.
+
+I would not hold database transactions across REST calls, and I would not deploy a big index or migration during peak traffic without benchmarking and rollback controls."
+
+## 5-minute spoken answer
+
+"I would approach the incident as a production ownership problem.
+
+The first thing I want is a precise impact statement.
+
+If the payment API normally responds in 200ms and now takes 5-8 seconds, I want to know which route is slow, which tenants or merchants are affected, whether the issue is read or write path, whether gateway timeouts are happening, and whether retries could create duplicate side effects.
+
+Once impact is clear, I freeze risky deploys and migrations for that domain.
+
+Then I follow the evidence path.
+
+At the application layer, I check Spring route metrics, Tomcat busy threads, exception rates, and Hikari metrics.
+
+Hikari is especially useful because it tells me whether requests are waiting for database connections or using connections for too long.
+
+If active connections are at max and pending threads are growing, increasing pool size is not my first move.
+
+That can turn one slow query into many concurrent slow queries and make Aurora worse.
+
+I want to map active connections to Aurora sessions using `application_name`, then inspect `pg_stat_activity`.
+
+Next I split writer and reader behavior.
+
+In Aurora, CloudWatch gives CPU, connections, IOPS, latency, network throughput, storage, and replica lag.
+
+For a payment system, writer-reader routing is a correctness decision, not just a performance decision.
+
+Historical dashboard reads may go to readers, but read-after-write flows, idempotency checks, and command validation usually need the writer or a sticky consistency window.
+
+If a reader is overloaded, I do not route everything to the writer blindly.
+
+I use Performance Insights for the same time window to see DB load, wait events, and top SQL.
+
+If DB load is CPU-heavy and one query dominates, I inspect that SQL.
+
+If the top wait is lock, I find blockers.
+
+If it is IO, I inspect query plans and table growth.
+
+If it is client wait, I look for slow fetches, large result sets, and application backpressure.
+
+Once I identify top SQL, I run `EXPLAIN ANALYZE` with realistic binds.
+
+The important part is realistic values.
+
+For multi-tenant payment tables, an average merchant can be fast while a large merchant is disastrous.
+
+A classic failure is that a query once used an index scan, but after table growth and skew, the planner chooses a sequential scan.
+
+Then I check selectivity, stale or insufficient statistics, column correlation, and whether the index matches the predicate.
+
+For a query that always asks for pending payments by merchant ordered by created time, a partial index such as pending-only by merchant and created time can be better than a broad index over every status.
+
+But I benchmark before deploying.
+
+I test hot merchants, average merchants, cold cache behavior, concurrency, and index build impact.
+
+If a migration is required, I use expand-contract.
+
+That means add compatible schema, deploy code that can write both shapes if needed, backfill in bounded batches with pause controls, switch reads after verification, and remove old schema later.
+
+For large live indexes I use `CREATE INDEX CONCURRENTLY`, monitor CPU, IOPS, lock waits, storage, and replica lag, and prepare cleanup for invalid indexes.
+
+Separately, I review transaction boundaries.
+
+A Spring `@Transactional` method should not call external REST while holding an Aurora transaction.
+
+The safer pattern is short local transaction plus outbox, Saga state, idempotency, and retries.
+
+That prevents long row locks, idle-in-transaction sessions, pool starvation, vacuum delay, and failover pain.
+
+My final answer in the incident would separate mitigation from permanent fix.
+
+Mitigation might be disabling a bad endpoint, lowering batch concurrency, routing safe reads, killing a proven blocker, or rolling back the release.
+
+Permanent fix would be query/index/statistics/routing/transaction changes with regression tests and dashboards that connect API latency to Hikari, CloudWatch, Performance Insights, and `EXPLAIN` evidence."
+
+## Follow-up 1: Is a sequential scan always bad?
+
+**Question:** Is a sequential scan always bad?
+
+**Answer:** No.
+
+A sequential scan is fine when the query needs a large portion of the table, the table is small, the filter is not selective, or reading sequentially is cheaper than bouncing through an index.
+
+It becomes a problem when a latency-sensitive OLTP query expects a tiny result set from a large table and scans millions of irrelevant rows.
+
+In an interview, I would say: "I do not ban seq scans. I ask whether the scan matches the data size, selectivity, and SLO."
+
+## Follow-up 2: When would you use a BRIN index?
+
+**Question:** When is BRIN appropriate in PostgreSQL or Aurora PostgreSQL?
+
+**Answer:** BRIN is useful for very large tables where data is physically correlated with the indexed column.
+
+Typical examples:
+
+- append-only events by `created_at`
+- ledger rows inserted mostly in time order
+- logs
+- audit records
+- time-ranged historical queries
+
+BRIN indexes are compact.
+
+They summarize page ranges instead of indexing every row.
+
+They are not a replacement for a selective B-tree index on OLTP equality predicates like `(merchant_id, status)`.
+
+For a recent-payment dashboard by merchant, I would first consider B-tree or partial B-tree.
+
+For a huge append-only audit query by time range, BRIN may be a strong candidate.
+
+## Follow-up 3: Why can autovacuum fall behind?
+
+**Question:** Why does autovacuum fall behind on a busy Aurora PostgreSQL table?
+
+**Answer:** Autovacuum can fall behind when dead tuples are produced faster than workers can clean them.
+
+Common causes:
+
+- long-running transactions keep old row versions visible
+- `idle in transaction` sessions hold snapshots
+- heavy update or delete workload
+- autovacuum workers are too few
+- cost delay makes vacuum too gentle for the write rate
+- IO pressure limits cleanup
+- table bloat makes each pass more expensive
+- locks or DDL interfere with progress
+
+When autovacuum falls behind, tables and indexes bloat, query plans degrade, and storage grows.
+
+The fix may include terminating old transactions, tuning autovacuum for hot tables, reducing churn, batching updates, and improving indexes.
+
+## Follow-up 4: What is your pool sizing formula?
+
+**Question:** How do you size Hikari pools for Aurora?
+
+**Answer:** I size from total database capacity, not from one pod in isolation.
+
+Start with:
+
+```text
+service_connection_budget = max_connections - reserved_connections - admin_margin
+pool_per_instance = floor(service_connection_budget / instance_count / number_of_pools)
+```
+
+Then adjust for workload:
+
+- average query latency
+- target throughput
+- number of app instances
+- writer pool and reader pool
+- other services sharing the cluster
+- failover and deploy surge
+- RDS Proxy behavior if used
+
+I also use Little's Law as a reasonableness check:
+
+```text
+needed_concurrency = throughput_per_second * average_db_time_seconds
+```
+
+The answer is not "set pool size to 100."
+
+Too many connections can make Aurora slower and failover harder.
+
+## Follow-up 5: RDS Proxy pros and cons?
+
+**Question:** What are the pros and cons of RDS Proxy with Aurora PostgreSQL?
+
+**Answer:** Pros:
+
+- reduces connection storms
+- pools database connections across many app instances
+- helps during deploys and scale events
+- can improve failover handling
+- useful for spiky serverless or container workloads
+- centralizes authentication patterns
+
+Cons:
+
+- adds another network hop
+- does not fix slow SQL
+- transaction pinning can reduce pooling benefit
+- session state can pin connections
+- troubleshooting has another layer
+- cost and configuration complexity increase
+
+I would use RDS Proxy to manage connection churn, not to hide bad query plans or oversized pools.
+
+## Follow-up 6: How do you reason about replica lag?
+
+**Question:** How do you handle Aurora reader replica lag?
+
+**Answer:** I classify reads by consistency requirement.
+
+Read-after-write, idempotency checks, command validation, and payment status immediately after mutation should use the writer or a sticky consistency policy.
+
+Historical dashboards, exports, and eventually consistent lists can use readers if lag is within the product promise.
+
+Operationally, I monitor replica lag per reader, not only cluster-level averages.
+
+If lag rises, I check writer write volume, reader CPU, long reader queries, storage IO, network, and maintenance events.
+
+Replica lag is not just a performance metric.
+
+It can become a correctness incident.
+
+## Follow-up 7: When is FOR UPDATE SKIP LOCKED useful?
+
+**Question:** When would you use `FOR UPDATE SKIP LOCKED`?
+
+**Answer:** It is useful for queue-like tables where many workers claim independent rows.
+
+Example:
+
+```sql
+select id, payload
+from payment_outbox
+where status = 'NEW'
+order by created_at
+limit 100
+for update skip locked;
+```
+
+Workers skip rows another worker already locked and process other available rows.
+
+This increases throughput and avoids head-of-line blocking.
+
+It is not appropriate when every worker must observe every row or strict ordering is required across the whole queue.
+
+It should be paired with idempotency, retry state, attempt counts, and dead-letter handling.
+
+## Follow-up 8: Why are long idle-in-transaction sessions dangerous?
+
+**Question:** Why is `idle in transaction` dangerous?
+
+**Answer:** The session may not be running a query, but it still owns a transaction.
+
+That can hold locks, keep snapshots alive, block vacuum cleanup, increase bloat, and delay DDL.
+
+In Spring, it often comes from opening a transaction too early, calling external code inside it, lazy loading outside the intended boundary, or swallowing exceptions while the transaction remains open.
+
+I set `idle_in_transaction_session_timeout`, keep transaction scopes small, and alert on old idle transactions by application name.
+
+## Follow-up 9: Parameter sniffing and plan cache?
+
+**Question:** How do parameter sniffing and plan cache issues appear in PostgreSQL?
+
+**Answer:** PostgreSQL can choose custom plans based on bind values or generic plans for prepared statements.
+
+With skewed tenant data, one generic plan may be fine for small merchants and bad for huge merchants.
+
+Symptoms include the same normalized query being fast for some binds and slow for others.
+
+I investigate with realistic bind values, `EXPLAIN`, `pg_stat_statements`, driver prepared statement behavior, and plan cache settings.
+
+Potential fixes include better indexes, extended statistics, query rewrites, avoiding harmful generic plans for that path, or splitting query shapes for different cases.
+
+## Follow-up 10: When use JSONB GIN indexes?
+
+**Question:** When are JSONB GIN indexes useful?
+
+**Answer:** JSONB GIN indexes are useful when you query inside JSONB documents using containment or key existence predicates.
+
+Example use cases:
+
+- flexible metadata search
+- merchant attributes
+- event payload filters
+- audit properties
+
+They are not free.
+
+They can be large, add write overhead, and may not help if the predicate is not selective.
+
+For hot payment OLTP fields like status, merchant id, and created time, I prefer typed columns and B-tree indexes.
+
+JSONB is useful for flexibility, but critical predicates deserve first-class columns.
+
+## Follow-up 11: Why is VACUUM FULL dangerous?
+
+**Question:** Why not run `VACUUM FULL` during an incident?
+
+**Answer:** `VACUUM FULL` rewrites the table and takes an exclusive lock.
+
+On a large live payment table, that can block reads and writes and create a bigger outage than the original issue.
+
+It also needs extra disk space for the rewrite.
+
+For bloat, I first look at normal vacuum, autovacuum tuning, old transaction cleanup, index maintenance strategies, partitioning, or online rebuild approaches.
+
+`VACUUM FULL` is a planned maintenance operation, not a casual incident command.
+
+## Follow-up 12: How do you detect connection leaks?
+
+**Question:** How do you detect a connection leak in Spring with Hikari?
+
+**Answer:** I correlate Hikari and database evidence.
+
+Signals:
+
+- active connections never return to idle
+- pending threads rise
+- acquisition time rises
+- database sessions show idle or idle-in-transaction from the service
+- one endpoint or pod owns many old sessions
+- leak detection logs show stack traces
+
+Hikari setting:
+
+```properties
+spring.datasource.hikari.leak-detection-threshold=2000
+```
+
+Use it carefully because too low a threshold creates noise.
+
+The fix is usually proper resource closure, smaller transaction scope, avoiding external calls in transactions, and checking custom JDBC code.
+
+## Follow-up 13: What happens during writer failover?
+
+**Question:** How should a Spring service handle Aurora writer failover?
+
+**Answer:** During writer failover, in-flight transactions can fail, connections can break, DNS endpoints may move, and the app must reconnect.
+
+The service should expect transient database exceptions.
+
+Safe handling requires:
+
+- short transactions
+- idempotency keys for commands
+- retry only when the operation is safe
+- connection validation
+- bounded timeouts
+- readiness checks that fail during broken DB state
+- no infinite retry storms
+- observability for reconnect and failover duration
+
+RDS Proxy may help with connection management, but it does not remove the need for idempotent command handling.
+
+## Follow-up 14: How do you handle hot updated row contention?
+
+**Question:** What if many transactions update the same payment or account row?
+
+**Answer:** That creates row lock contention.
+
+Symptoms include lock waits, high transaction latency, and active sessions blocked on the same relation or tuple.
+
+Approaches:
+
+- avoid unnecessary repeated updates
+- use optimistic locking with version columns
+- model append-only ledger entries instead of one mutable balance when appropriate
+- shard counters or aggregate asynchronously
+- keep transactions short
+- move noncritical state to separate rows
+- use idempotency to collapse duplicate commands
+- enforce valid state transitions
+
+For payments, I prefer a state machine and append-only audit trail over repeatedly rewriting a hot row for every minor event.
+
+## Follow-up 15: Expand-contract versus big bang DDL?
+
+**Question:** Why use expand-contract instead of big bang DDL?
+
+**Answer:** Big bang DDL couples schema change, code change, backfill, and cleanup into one risky release.
+
+If anything fails, rollback is hard because old and new code may not both understand the database shape.
+
+Expand-contract separates the risk:
+
+1. Add compatible schema.
+2. Deploy code that can handle both shapes.
+3. Dual-write if needed.
+4. Backfill in bounded batches.
+5. Validate data.
+6. Switch reads.
+7. Stop old writes.
+8. Remove old schema later.
+
+This is safer for Aurora because it limits lock risk, backfill pressure, replica lag, and rollback complexity.
+
+## Quick follow-up table
+
+| Topic | Principal signal |
+|---|---|
+| Sequential scan | Judge by selectivity, table size, and SLO |
+| BRIN | Huge physically correlated ranges |
+| Autovacuum | Watch old transactions and dead tuple production |
+| Pool sizing | Budget total connections across all pods |
+| RDS Proxy | Helps connection churn, not slow SQL |
+| Replica lag | Treat as correctness risk for payment reads |
+| SKIP LOCKED | Good for queue workers, not universal ordering |
+| Idle transaction | Dangerous even when no query is running |
+| Plan cache | Skewed binds can make generic plans painful |
+| JSONB GIN | Useful for JSON predicates, not free |
+| VACUUM FULL | Exclusive lock and table rewrite |
+| Leak detection | Correlate Hikari, sessions, and stack traces |
+| Failover | Short transactions and idempotent retries |
+| Hot row | Reduce contention with state and data modeling |
+| Expand-contract | Release safety over one-shot DDL |
+
+## Closing answer
+
+"The common theme is that Aurora PostgreSQL incidents are not solved from one layer.
+
+I want API metrics, Hikari metrics, Aurora CloudWatch, Performance Insights, session evidence, top SQL, and query plans aligned on the same timeline.
+
+Then I choose the smallest safe mitigation and the most durable fix.
+
+For Principal-level ownership, I also care about the release mechanics: transaction boundaries, idempotency, reader consistency, connection budgets, and expand-contract migrations."
+
+## Related guides
+
+- [Aurora writer and reader observability](/realtime-issues/aurora-postgresql-cloudwatch-writer-reader)
+- [Aurora transactions and migrations](/realtime-issues/aurora-postgresql-transactions-migrations)
+- [Aurora payment incident case study](/realtime-issues/aurora-postgresql-incident-case-study)

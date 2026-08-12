@@ -38,6 +38,21 @@ const ORDER=[
   'api-error-handling-resilience',
   'api-service-to-service-communication',
   'api-integration-interview-answer-and-followups',
+  'aurora-postgresql-master-index',
+  'aurora-postgresql-sql-and-architecture',
+  'aurora-postgresql-query-tuning-indexes',
+  'aurora-postgresql-vacuum-locks-pools',
+  'aurora-postgresql-cloudwatch-writer-reader',
+  'aurora-postgresql-transactions-migrations',
+  'aurora-postgresql-incident-case-study',
+  'aurora-postgresql-interview-answer-and-followups',
+  'lead-experience-master-index',
+  'lead-experience-delivery-ownership',
+  'lead-experience-engineering-standards',
+  'lead-experience-unblocking-mentoring',
+  'lead-experience-release-hands-on',
+  'lead-experience-payment-case-study',
+  'lead-experience-interview-answer-and-followups',
   'java-migration-master-index',
   'java-migration-lifecycle-and-baseline',
   'java-migration-compatibility-and-spring',
@@ -62,7 +77,8 @@ export default function RealtimeIssues(){
         <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Real-time production issues — diagnose like you were on-call.</h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
           Incident playbooks for Java/Spring Boot: stuck threads, multi‑GB files, 30 YOE interview bank,
-          <strong>API Integration &amp; Frameworks</strong>, and <strong>Java migration</strong> (honest Java 11→17 upgrade framing).
+          <strong>API Integration &amp; Frameworks</strong>, <strong>Aurora PostgreSQL</strong>,{' '}
+          <strong>Lead Experience</strong>, and <strong>Java migration</strong> (honest Java 11→17 upgrade framing).
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} guides</span>

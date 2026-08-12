@@ -1,0 +1,639 @@
+---
+slug: lead-experience-payment-case-study
+title: "Lead Experience Case Study: Owning a Payment Capability as a Hands-On Principal Engineer"
+description: "A STAR-style Principal engineer narrative for leading a payment capability while staying hands-on with architecture, critical path code, Kafka, database, release, and mentoring."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Lead Experience, Payments, STAR, Principal Engineer, Kafka, Spring Boot, Delivery Ownership]
+readingTime: 33 min
+publishedAt: "2026-08-12"
+---
+
+## Interview framing
+
+This story answers:
+
+- Tell me about your lead experience.
+- Tell me about a time you led delivery without being the manager.
+- How do you balance hands-on work with leadership?
+- How do you drive quality across a team?
+- Tell me about a complex technical project you owned.
+- Tell me about a time you mentored engineers while delivering.
+
+The one-line summary is:
+
+> "I owned delivery while remaining technically hands-on."
+
+The deeper message is:
+
+```text
+I led the payment capability by owning architecture, critical path, standards, integration risk, and release, while splitting implementation into meaningful engineer-owned slices.
+```
+
+## Situation
+
+We needed to deliver a new payment capability for a high-volume transaction platform.
+
+The capability had to accept payment requests, enforce idempotency, persist state, publish events, process asynchronous updates, and expose status to upstream callers.
+
+The work crossed multiple technical areas:
+
+- Java and Spring Boot service design
+- REST API contract
+- Kafka producer and consumer behavior
+- database schema and migrations
+- transaction boundaries
+- idempotency
+- retries and DLQ
+- observability
+- security
+- CI/CD
+- rollout and production monitoring
+
+The business pressure was real.
+
+The feature was tied to a payment expansion goal.
+
+The team needed to ship without compromising payment correctness.
+
+The biggest risk was not writing code.
+
+The biggest risk was inconsistent behavior across API, Kafka, and database boundaries.
+
+If idempotency was wrong, duplicate client retries could create duplicate payment records.
+
+If Kafka behavior was wrong, duplicate delivery could create duplicate downstream actions.
+
+If the database migration was wrong, rolling deploy could break either old or new pods.
+
+If monitoring was weak, the team might not detect partial failure quickly.
+
+## Task
+
+My role was to lead the delivery as a hands-on technical lead.
+
+I was not acting as a people manager.
+
+I was accountable for the technical outcome.
+
+My responsibilities were:
+
+- define the architecture
+- identify the critical path
+- split ownership across engineers
+- make standards repeatable
+- implement or pair on the riskiest path
+- unblock external dependencies
+- review API, Kafka, and database decisions
+- drive integration sequencing
+- define release readiness
+- verify production behavior after launch
+
+The ownership split was explicit:
+
+| Owner | Slice | Responsibility |
+|---|---|---|
+| Dev1 | API | endpoint contract, validation, error mapping, idempotency key handling, controller tests |
+| Dev2 | Kafka | event schema, producer, consumer, retry, DLQ, lag metrics, consumer tests |
+| Dev3 | Database | schema, migrations, indexes, transaction boundaries, rollback and repair scripts |
+| Me | Architecture and critical path | end-to-end design, first risky implementation, standards, integration, release, production verification |
+
+This was meaningful ownership, not ticket farming.
+
+Each engineer owned a system slice.
+
+They were expected to explain behavior, tests, failure modes, and operational signals.
+
+## Action: clarify the capability boundary
+
+I started by clarifying the capability boundary.
+
+The service would own payment request state.
+
+The API would accept a request with a merchant ID, amount, payment method token, and idempotency key.
+
+The service would persist the request and publish a payment-requested event.
+
+Downstream processing would authorize or fail the payment asynchronously.
+
+The status API would expose current state to upstream callers.
+
+We defined key states:
+
+- received
+- validation_failed
+- pending_authorization
+- authorized
+- capture_pending
+- captured
+- failed
+- reversed
+
+We also defined which state transitions were legal.
+
+That mattered because idempotency and retries needed a clear source of truth.
+
+## Action: identify the critical path
+
+I identified the critical path as:
+
+- API idempotency at the request boundary
+- database uniqueness constraint
+- transaction that creates request and outbox event together
+- Kafka publish from outbox
+- idempotent consumer behavior
+- migration safety during rolling deploy
+- dashboard and alert coverage
+
+If this path was wrong, the whole capability was unsafe.
+
+So I stayed hands-on there.
+
+I did not personally implement every endpoint or every repository method.
+
+I focused on the path where mistakes would create duplicate payments, lost events, or production incidents.
+
+## Action: implement the first risky component
+
+I implemented the first idempotent payment creation path as a reference pattern.
+
+The behavior was:
+
+- client sends idempotency key
+- service checks whether the merchant and key already exist
+- duplicate retry returns the existing response
+- new request writes payment state
+- same transaction writes an outbox event
+- a unique database constraint enforces correctness
+- logs include correlation ID
+- metrics count new requests and idempotency hits
+
+Pseudo-code:
+
+```java
+@Transactional
+public PaymentResponse createPayment(CreatePaymentCommand command) {
+    Optional<PaymentRequest> existing =
+        paymentRequestRepository.findByMerchantIdAndIdempotencyKey(
+            command.merchantId(),
+            command.idempotencyKey()
+        );
+
+    if (existing.isPresent()) {
+        metrics.increment("payment.idempotency.hit");
+        return PaymentResponse.from(existing.get());
+    }
+
+    PaymentRequest request = PaymentRequest.create(command);
+    paymentRequestRepository.save(request);
+
+    outboxRepository.save(OutboxEvent.paymentRequested(request));
+
+    metrics.increment("payment.request.created");
+    return PaymentResponse.from(request);
+}
+```
+
+The production design also relied on a unique database constraint.
+
+The application check was not the only guard.
+
+That distinction was important.
+
+The database enforced the invariant under concurrency.
+
+## Action: distribute ownership
+
+After the reference path was in place, I handed off ownership.
+
+Dev1 extended the API behavior.
+
+Dev1 owned validation, error mapping, OpenAPI examples, and controller-level tests.
+
+Dev2 owned Kafka producer and consumer behavior.
+
+Dev2 owned event schema, message key, retries, DLQ, duplicate delivery tests, and lag metrics.
+
+Dev3 owned schema, migrations, indexes, query behavior, rollback scripts, and data repair plan.
+
+I reviewed the cross-cutting decisions.
+
+I also facilitated design reviews when one slice affected another.
+
+For example, Dev2 needed a stable event schema.
+
+Dev3 needed to ensure the outbox table could support publish polling without table scans.
+
+Dev1 needed error behavior that did not expose sensitive gateway details.
+
+Those were not isolated tickets.
+
+They were connected system behaviors.
+
+## Action: create engineering standards
+
+I created a checklist for the capability.
+
+For API:
+
+- idempotency key required
+- validation failures deterministic
+- sensitive fields masked
+- error codes documented
+- duplicate retry returns stable response
+- correlation ID propagated
+
+For Kafka:
+
+- event schema versioned
+- message key is payment ID
+- consumer idempotent
+- retry bounded
+- DLQ includes merchant, payment ID, event type, and correlation ID
+- lag dashboard available
+- replay procedure documented
+
+For database:
+
+- migration safe during rolling deploy
+- unique constraint enforces idempotency
+- indexes match query paths
+- transaction does not call external services
+- outbox polling query is bounded
+- rollback plan reviewed
+
+For release:
+
+- feature flag ready
+- smoke test ready
+- dashboards ready
+- alert thresholds reviewed
+- rollback and fix-forward decision criteria documented
+
+The checklist made quality repeatable.
+
+It also gave engineers a clear definition of done.
+
+## Action: unblock dependencies
+
+The downstream authorization service was not fully ready during early development.
+
+I did not let that block the team.
+
+We used a contract stub with:
+
+- approved response
+- declined response
+- retryable timeout response
+- invalid merchant response
+- correlation ID propagation
+- response latency simulation
+
+That let Dev1 and Dev2 test request flow, event handling, timeout mapping, and retry behavior.
+
+For database work, the final migration order had dependency on another team.
+
+We created a temporary migration plan.
+
+Phase 1 added nullable columns and non-unique indexes.
+
+Phase 2 deployed code that wrote new fields.
+
+Phase 3 backfilled safe records.
+
+Phase 4 added the uniqueness constraint after data validation.
+
+Phase 5 tightened application validation.
+
+This kept delivery moving without hiding migration risk.
+
+## Action: mentor through the implementation
+
+One engineer was new to Kafka failure modes.
+
+I used the pattern:
+
+```text
+I explain -> we implement -> you implement -> I review -> you own
+```
+
+I explained at-least-once delivery, offset commit timing, duplicate messages, poison messages, DLQ, and lag.
+
+Then we implemented the first consumer test together.
+
+The test delivered the same event twice and verified the database state did not double-update.
+
+Then the engineer implemented timeout and DLQ behavior.
+
+I reviewed it using the Kafka checklist.
+
+After that, they owned the consumer slice.
+
+This was mentoring through real work.
+
+It did not slow delivery.
+
+It improved delivery quality.
+
+## Action: drive integration early
+
+I pushed for an early vertical slice.
+
+The first slice included:
+
+- API request
+- validation
+- idempotency key
+- database write
+- outbox event
+- Kafka publish
+- consumer stub
+- status read
+- metrics
+- smoke test
+
+It did not include every payment rule.
+
+That was intentional.
+
+The goal was to prove contracts early.
+
+We found two issues early:
+
+- one event field was ambiguous between request ID and payment ID
+- one query plan needed an index before volume testing
+
+Finding those early prevented late integration churn.
+
+## Action: lead release readiness
+
+Before release, I ran a readiness review.
+
+We checked:
+
+- CI gates
+- unit tests
+- integration tests
+- duplicate request tests
+- duplicate event tests
+- migration dry run
+- query plan
+- security review
+- dashboard
+- alerts
+- feature flag
+- smoke test
+- rollback path
+- fix-forward options
+- on-call notes
+
+We agreed on monitoring.
+
+During rollout we watched:
+
+- service health
+- error rate
+- p95 and p99 latency
+- Kafka lag
+- DLQ count
+- Hikari usage
+- slow queries
+- database lock waits
+- payment created count
+- payment authorized count
+- idempotency hit count
+- capture success rate
+- customer timeout count
+
+This made release measurable.
+
+## Result
+
+The capability launched successfully behind a controlled rollout.
+
+The first production ramp processed about 15 percent of eligible payment traffic.
+
+Then we moved to 50 percent.
+
+Then we moved to 100 percent after validating metrics.
+
+Representative outcomes:
+
+- duplicate client retries returned stable responses
+- no duplicate payment records were created during rollout
+- Kafka consumer lag stayed within the expected range
+- DLQ volume stayed near zero except for known validation cases
+- p99 create-payment latency stayed within the release threshold
+- database CPU stayed stable after index adjustment
+- support had clear status and error mapping
+- engineers could explain their slices during post-release review
+
+The most important result was not only that the feature shipped.
+
+The team now had a repeatable pattern for idempotent API plus outbox plus Kafka consumer behavior.
+
+The next payment-related capability reused the same pattern.
+
+## Metrics to mention in an interview
+
+Use metrics carefully.
+
+Do not invent impossible precision.
+
+Good phrasing:
+
+```text
+We rolled out in stages, starting with a limited merchant cohort, then expanding after p99 latency, Kafka lag, DLQ volume, DB lock waits, and payment success counters stayed within threshold. The launch did not create duplicate payment records, and the idempotency path handled duplicate client retries as expected.
+```
+
+If the interviewer asks for numbers, use ranges:
+
+- reduced late integration defects by catching contract issues in the first vertical slice
+- kept p99 latency within the agreed release threshold
+- kept DLQ volume near zero except for expected validation failures
+- completed rollout through staged traffic expansion
+- reused the pattern in later payment work
+
+The exact numbers should match your real experience.
+
+The structure is what matters.
+
+## Risks I managed
+
+The main risks were:
+
+- duplicate payments
+- lost events
+- event replay side effects
+- database migration incompatibility
+- downstream timeout ambiguity
+- sensitive logging
+- late integration failure
+- Kafka lag after rollout
+- unclear rollback if schema changed
+- team ownership gaps
+
+I managed them with:
+
+- idempotency key
+- unique database constraint
+- outbox pattern
+- idempotent consumers
+- bounded retry
+- DLQ with repair context
+- staged migration
+- contract stub
+- early vertical slice
+- review checklists
+- feature flag
+- dashboards and alerts
+
+This is the Principal part of the story.
+
+You are not only saying "we built payments."
+
+You are saying "I controlled the failure modes."
+
+## Trade-offs
+
+We made several trade-offs.
+
+### Outbox vs direct Kafka publish
+
+Direct publish was simpler.
+
+Outbox was safer.
+
+We chose outbox because payment state and event creation needed durable coordination.
+
+The trade-off was operational complexity.
+
+We accepted that because correctness mattered more than simplicity at that boundary.
+
+### Strict validation early vs compatibility
+
+Strict validation catches bad clients.
+
+But it can break clients if introduced too early.
+
+We rolled validation in phases.
+
+First we logged warnings.
+
+Then we tightened behavior after confirming client readiness.
+
+### Feature flag vs immediate full launch
+
+Full launch was faster.
+
+Feature flag rollout was safer.
+
+We used staged rollout because payment failures have high customer impact.
+
+### Lead implementation vs full delegation
+
+Full delegation would create more parallelism.
+
+But the idempotency and outbox path was too central to leave ambiguous.
+
+I implemented or paired on the first risky component.
+
+Then I handed off the pattern.
+
+That balanced speed, safety, and team growth.
+
+## What I would do differently
+
+I would bring observability requirements even earlier.
+
+We had dashboards before launch.
+
+But some business counters were added later than ideal.
+
+For payment flows, business counters should be part of the initial design, not the release checklist only.
+
+I would also create replay tooling earlier.
+
+The consumer was idempotent and DLQ behavior existed.
+
+But operator-friendly replay and repair workflows should be designed before production volume arrives.
+
+Finally, I would document the state machine earlier.
+
+We clarified states in design.
+
+A visual state machine would have helped QA, support, and new engineers align faster.
+
+That reflection is useful in interviews.
+
+It shows maturity.
+
+It shows you are not pretending the project was perfect.
+
+## STAR summary
+
+Situation:
+
+```text
+We needed to deliver a payment capability that crossed API, Kafka, database, idempotency, observability, and release risk.
+```
+
+Task:
+
+```text
+I led delivery as a hands-on technical lead, owning architecture, critical path, standards, integration risk, and release while distributing implementation ownership.
+```
+
+Action:
+
+```text
+I split ownership across API, Kafka, and DB owners; implemented the first risky idempotency and outbox path; created review checklists; unblocked downstream work with contract stubs; mentored through Kafka implementation; integrated early; and drove staged release monitoring.
+```
+
+Result:
+
+```text
+The capability launched safely through staged rollout, duplicate retries were handled correctly, Kafka and DB signals stayed within thresholds, and the team reused the pattern for later payment work.
+```
+
+## Spoken version
+
+```text
+One strong example is a payment capability I led. I owned delivery while remaining technically hands-on. I split the work into meaningful slices: one engineer owned the API contract, one owned Kafka behavior, one owned schema and migrations, and I owned architecture, critical path, standards, integration, and release. I implemented the first risky idempotency and outbox path so duplicate retries and event publishing were safe, then handed off the pattern. We used stubs to unblock downstream dependencies, staged migrations for DB safety, Kafka checklists for consumer correctness, and release dashboards for health, errors, latency, lag, DB, and business counters. The capability launched through staged rollout without duplicate payment records, and the team reused the pattern later.
+```
+
+## Link this with the rest of the series
+
+Use [Delivery ownership](/realtime-issues/lead-experience-delivery-ownership) for the ownership model.
+
+Use [Engineering standards](/realtime-issues/lead-experience-engineering-standards) for the repeatable quality bar.
+
+Use [Unblocking and mentoring](/realtime-issues/lead-experience-unblocking-mentoring) for the mentoring mechanics.
+
+Use [Release and hands-on leadership](/realtime-issues/lead-experience-release-hands-on) for release details.
+
+Use [Interview answer and follow-ups](/realtime-issues/lead-experience-interview-answer-and-followups) for compressed answers.
+
+Use [Behavioral Staff/Principal Interview Index](/behavioral-interview/behavioral-staff-principal-interview-index) to convert this into other behavioral formats.
+
+## Final takeaway
+
+The story is strong because it is not abstract leadership.
+
+It is accountable technical delivery.
+
+You owned the architecture.
+
+You owned the critical path.
+
+You distributed real ownership.
+
+You mentored through implementation.
+
+You raised standards.
+
+You released safely.
+
+You stayed hands-on where the risk justified it.
+
+That is a Principal-level lead experience narrative.

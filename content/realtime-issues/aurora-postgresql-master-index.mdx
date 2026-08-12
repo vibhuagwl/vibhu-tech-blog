@@ -1,0 +1,364 @@
+---
+slug: aurora-postgresql-master-index
+title: "Aurora PostgreSQL Master Index for Java and Spring Boot Interviews"
+description: "Principal-level hub for Aurora PostgreSQL architecture, SQL, query tuning, indexes, vacuum, locks, RDS Proxy, HikariCP, and production incident reasoning."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: ["Real-Time Issues", "Aurora PostgreSQL", "PostgreSQL", "Spring Boot", "HikariCP", "RDS Proxy", "Principal Interview"]
+readingTime: 24 min
+publishedAt: "2026-08-12"
+---
+
+## Aurora PostgreSQL hub
+
+This hub is for Java and Spring Boot engineers who need to explain Aurora PostgreSQL at Principal or Staff level.
+
+The interviewer is not asking whether you know that Aurora is "managed PostgreSQL".
+
+They are testing whether you understand how application threads, HikariCP, RDS Proxy, Aurora writer and readers, SQL plans, locks, vacuum, and operational guardrails interact during real incidents.
+
+The useful mental model is end-to-end:
+
+```text
+client
+  -> load balancer
+  -> Spring Boot controller
+  -> service transaction boundary
+  -> repository or DAO
+  -> HikariCP
+  -> PostgreSQL JDBC driver
+  -> RDS Proxy
+  -> Aurora PostgreSQL writer or reader endpoint
+  -> storage layer
+```
+
+At Principal level, every box in that path can either preserve the invariant or hide the real bottleneck.
+
+The strongest answers connect the application symptom to the database evidence.
+
+If Tomcat threads are stuck, ask whether they are waiting for Hikari acquisition, an Aurora backend, a lock, a sort spilling to disk, or a downstream call inside the same transaction.
+
+If Aurora CPU is high, ask whether the app changed query shape, cardinality estimates went stale, a missing predicate caused a sequential scan, or a pool change created excessive concurrency.
+
+If latency appears only after writes, ask whether the GET path was routed to a reader and is seeing replica lag.
+
+## Guide map
+
+Read these guides as one curriculum.
+
+| # | Guide | Difficulty | Use it for |
+|---:|---|---|---|
+| 01 | [Aurora PostgreSQL master index](/realtime-issues/aurora-postgresql-master-index) | Principal | End-to-end map, spoken answer, study path |
+| 02 | [SQL and architecture](/realtime-issues/aurora-postgresql-sql-and-architecture) | Principal | Schema, isolation, plans, writer/reader routing |
+| 03 | [Query tuning and indexes](/realtime-issues/aurora-postgresql-query-tuning-indexes) | Principal | EXPLAIN ANALYZE, selectivity, B-tree/GIN/BRIN/partial |
+| 04 | [Vacuum, locks, and pools](/realtime-issues/aurora-postgresql-vacuum-locks-pools) | Principal | Autovacuum, pg_locks, HikariCP, RDS Proxy |
+| 05 | [CloudWatch & writer/reader](/realtime-issues/aurora-postgresql-cloudwatch-writer-reader) | Principal | Performance Insights, lag, read-after-write |
+| 06 | [Transactions & migrations](/realtime-issues/aurora-postgresql-transactions-migrations) | Principal | Short txns, outbox/saga, expand-contract |
+| 07 | [Incident case study](/realtime-issues/aurora-postgresql-incident-case-study) | Principal | Payment API 200ms → 5–8s walkthrough |
+| 08 | [Interview answers + follow-ups](/realtime-issues/aurora-postgresql-interview-answer-and-followups) | Principal | 30s/2m/5m answers + Principal follow-ups |
+
+Related production incident guides:
+
+- [Stuck threads from DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools)
+- [Java 30 YOE Kafka, database, and batch Q&A](/realtime-issues/java-30yoe-kafka-database-qa)
+- [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive)
+
+## What a strong Principal answer sounds like
+
+A Principal answer starts with the system boundary.
+
+It does not start with "add an index" or "increase the pool".
+
+It names the workload, the transaction invariant, the pool path, the query plan, and the operational evidence.
+
+It also separates three topics that are often mixed together:
+
+- SQL correctness
+- database performance
+- service concurrency
+
+For example, a payment authorization service can be logically correct and still fall over because an endpoint fans out into many queries.
+
+It can have the right index and still block because another transaction holds a row lock.
+
+It can have an Aurora cluster that is healthy and still time out because Hikari is exhausted by application-side concurrency.
+
+## Best 2-Minute Interview Answer
+
+If I were explaining Aurora PostgreSQL for a Java and Spring Boot service, I would start from the request path rather than from the database in isolation.
+
+A request enters the service, reaches a transactional method, borrows a connection from HikariCP, goes through the PostgreSQL driver, often through RDS Proxy, and then lands on either the Aurora writer or a reader endpoint.
+
+For writes and read-after-write flows, I route to the writer because that is where the transaction commits and where I can reason about immediate consistency.
+
+For independent read-heavy queries, reports, and cacheable lookups, I may route to readers, but I explicitly account for replica lag.
+
+That means a GET immediately after a POST should not blindly go to a reader unless the product accepts stale reads or the application has a consistency strategy.
+
+On the SQL side, I care about schema shape, keys, constraints, transaction boundaries, isolation, and indexes as one design.
+
+I do not jump directly to creating an index when a query is slow.
+
+I first capture the exact SQL, bind values, row counts, and `EXPLAIN (ANALYZE, BUFFERS)` output.
+
+Then I check whether the plan is doing a sequential scan, index scan, bitmap scan, bad join order, bad row estimate, sort spill, or repeated nested-loop lookup.
+
+If the plan is wrong because statistics are stale, `ANALYZE` may be the fix.
+
+If the predicate is selective and stable, the right composite, partial, GIN, GiST, or BRIN index may be the fix.
+
+If the database is not CPU-bound but requests are blocked, I check `pg_stat_activity`, `pg_locks`, transaction age, wait events, and Hikari metrics.
+
+A lock wait, a connection leak, or an oversized pool can look like a database outage from the application.
+
+I am careful with pool sizing because increasing Hikari from 50 to 200 does not create more database capacity.
+
+It often creates more concurrent work, more memory pressure, more lock contention, and slower tail latency.
+
+RDS Proxy can help with connection management and failover behavior, but it is not a substitute for transaction discipline, bounded timeouts, and right-sized application concurrency.
+
+The Principal posture is: preserve correctness first, identify the scarce resource with evidence, mitigate safely, and then make the schema, SQL, pool, and routing contracts explicit so the same incident does not repeat.
+
+## Why this topic appears in Principal interviews
+
+Aurora PostgreSQL sits at the boundary between application architecture and data architecture.
+
+Most senior Java engineers have used PostgreSQL.
+
+Fewer can diagnose it while a live incident is unfolding.
+
+The interview usually tests these signals:
+
+- Can you reason about correctness and performance separately?
+- Can you explain why a connection pool is a concurrency limiter?
+- Can you read a plan instead of guessing?
+- Can you diagnose locks without restarting the service?
+- Can you explain reader endpoints without hand-waving around consistency?
+- Can you prevent Hikari exhaustion without blindly raising `maximumPoolSize`?
+- Can you communicate to leadership while the database is hot?
+
+## End-to-end architecture view
+
+Use this diagram when you need to anchor the conversation.
+
+```text
+                           writes and read-after-write
+client
+  -> API gateway
+  -> Spring Boot service
+  -> @Transactional boundary
+  -> HikariCP pool
+  -> JDBC driver
+  -> RDS Proxy
+  -> Aurora writer endpoint
+  -> Aurora storage
+
+                           independent read-heavy traffic
+client
+  -> API gateway
+  -> Spring Boot service
+  -> read-only service method
+  -> read pool or routing datasource
+  -> JDBC driver
+  -> RDS Proxy or reader endpoint
+  -> Aurora reader instance
+  -> Aurora storage
+```
+
+The writer handles writes.
+
+Readers can scale read traffic when the reads tolerate replica lag.
+
+The application still owns routing policy.
+
+Do not let a convenience abstraction route correctness-sensitive reads to a replica by accident.
+
+## The study path
+
+### Step 1: Learn the request path
+
+Start with the end-to-end flow in this hub.
+
+Say it aloud until it sounds natural:
+
+application request, transaction boundary, Hikari acquisition, JDBC call, RDS Proxy, Aurora writer or reader, storage, response.
+
+The goal is to stop treating the database as a black box.
+
+### Step 2: Read SQL and architecture
+
+Read [SQL and architecture](/realtime-issues/aurora-postgresql-sql-and-architecture) next.
+
+Focus on schema decisions, primary keys, foreign keys, isolation, transactions, joins, window functions, and the writer-reader split.
+
+Pay special attention to the read-after-write caveat.
+
+That one sentence often separates a mid-level answer from a Principal answer.
+
+### Step 3: Read query tuning and indexes
+
+Read [Query tuning and indexes](/realtime-issues/aurora-postgresql-query-tuning-indexes) after you understand the schema.
+
+Practice reading plans.
+
+Do not memorize index names in isolation.
+
+Tie each index to a predicate, join, ordering, or constraint.
+
+### Step 4: Read vacuum, locks, and pools
+
+Read [Vacuum, locks, and pools](/realtime-issues/aurora-postgresql-vacuum-locks-pools) last.
+
+This is the incident guide.
+
+It connects dead tuples, stale stats, row locks, blocking timelines, Hikari pending threads, and RDS Proxy into one operational model.
+
+### Step 5: Cross-train with stuck-thread incidents
+
+Read [stuck threads from DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools).
+
+This will help you connect JVM thread dumps to database waits.
+
+In interviews, that connection is powerful because it shows you do not stop at one dashboard.
+
+### Step 6: Cross-train with Kafka and database incidents
+
+Read [Java 30 YOE Kafka, database, and batch Q&A](/realtime-issues/java-30yoe-kafka-database-qa).
+
+Many Aurora incidents are triggered by Kafka consumers, replay traffic, or batch jobs that overwhelm the database.
+
+The right answer protects the database from uncontrolled parallelism.
+
+### Step 7: Cross-train with PostgreSQL locks
+
+Read [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive).
+
+Aurora PostgreSQL preserves PostgreSQL locking semantics.
+
+Managed infrastructure does not remove row locks, transaction age, deadlocks, or bad retry behavior.
+
+## Interview decision tree
+
+When the interviewer says "Aurora is slow", ask which symptom they mean.
+
+| Symptom | First split | Evidence |
+|---|---|---|
+| API latency | App threads or database execution | Hikari pending, request traces, `pg_stat_activity` |
+| Hikari timeout | Pool exhausted or connection creation failing | active, idle, pending, max, acquisition timeout |
+| High Aurora CPU | Query shape or concurrency | top SQL, plan, wait events, active sessions |
+| Lock waits | One blocker or broad transaction design | `pg_locks`, blockers, transaction age |
+| Slow SELECT | Plan, stats, buffers, sort, cardinality | `EXPLAIN (ANALYZE, BUFFERS)` |
+| Slow writes | indexes, constraints, locks, WAL, hot rows | wait events, row lock timeline, commit latency |
+| Stale read | Reader lag or cache semantics | writer vs reader routing, replica lag metric |
+
+## The Aurora-specific points to know
+
+Aurora separates compute instances from a distributed storage layer.
+
+The writer instance accepts writes.
+
+Reader instances can serve read traffic.
+
+Storage replication is managed by Aurora, but read replicas can still lag from the application perspective.
+
+Failover changes which instance is writer.
+
+RDS Proxy can smooth connection storms and improve failover behavior for many workloads.
+
+It does not make long transactions short.
+
+It does not make blocked row locks disappear.
+
+It does not make every read safe to send to a reader.
+
+## Java and Spring Boot points to know
+
+HikariCP is fast because it is simple and strict.
+
+That is good.
+
+It also means its metrics tell you the truth quickly.
+
+Watch:
+
+- active connections
+- idle connections
+- pending acquisition
+- acquisition timeout count
+- connection lifetime
+- leak detection logs
+- transaction duration
+- endpoint latency by route
+
+Spring `@Transactional` boundaries matter.
+
+A transaction that starts before an HTTP call holds the connection and locks while waiting on the network.
+
+A transaction wrapped around a large loop can turn one request into a pool starvation event.
+
+A read-only annotation helps intent, but it is not a substitute for routing and plan evidence.
+
+## What not to say
+
+Avoid these interview answers:
+
+- "Aurora is slow, so add indexes."
+- "Increase the Hikari pool until timeouts stop."
+- "Put all reads on replicas."
+- "RDS Proxy fixes connection problems."
+- "Sequential scans are always bad."
+- "Autovacuum is an implementation detail."
+- "Serializable isolation is safer, so use it everywhere."
+- "Restart the service to clear stuck threads."
+
+Each statement hides a missing diagnosis.
+
+## Safer Principal phrasing
+
+Say:
+
+"I would first identify the scarce resource: CPU, I/O, lock, connection, or application thread."
+
+Say:
+
+"I would capture the exact SQL and the plan with actual rows and buffers before choosing an index."
+
+Say:
+
+"I would treat Hikari as a concurrency control, not a random knob."
+
+Say:
+
+"I would route read-after-write traffic to the writer unless I have an explicit stale-read contract."
+
+Say:
+
+"I would use RDS Proxy for connection management and failover behavior, while still fixing transaction duration and query shape."
+
+## Quick revision checklist
+
+- Can you draw app to HikariCP to RDS Proxy to Aurora writer or reader?
+- Can you explain when a reader endpoint is safe?
+- Can you explain why GET after POST may need the writer?
+- Can you read `EXPLAIN (ANALYZE, BUFFERS)`?
+- Can you distinguish sequential, index, and bitmap scans?
+- Can you explain composite index column order?
+- Can you diagnose stale stats and dead tuples?
+- Can you query blockers with `pg_stat_activity` and `pg_locks`?
+- Can you explain why pool size 200 can make Aurora slower?
+- Can you state what RDS Proxy helps with and what it does not?
+
+## Final mental model
+
+Aurora PostgreSQL incidents are rarely only database incidents.
+
+They are usually system incidents that surface at the database boundary.
+
+The Principal move is to keep four contracts visible:
+
+- data correctness contract
+- SQL and index contract
+- connection and transaction contract
+- read routing and consistency contract
+
+If you can explain those contracts calmly, you sound like someone who has owned Java and Spring Boot systems in production for a long time.
