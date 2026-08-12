@@ -1,0 +1,16 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: support-api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# Required env: API_BASIC_PASSWORD, PII_ADMIN_PASSWORD, SERVICE_CLIENT_PASSWORD
+# CUSTOMER_SERVICE_URL=http://customer-service:8085
+# AUDIT_SERVICE_URL=http://audit-service:8087

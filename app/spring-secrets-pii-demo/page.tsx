@@ -24,11 +24,12 @@ export default function SpringSecretsPiiDemoPage(){
           Source explorer
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
-          Spring Secrets + PII handling
+          Spring PII microservices — full source
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
           Browse <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm dark:bg-slate-900">spring-secrets-pii-demo/</code>:
-          K8s/Vault-style env secrets, AES-256-GCM column encryption, masked JSON responses, PII audit aspect, log redaction.
+          three runnable services — <strong>support-api</strong> (BFF/masking), <strong>customer-service</strong> (encrypted vault),
+          <strong>audit-service</strong> (compliance trail), plus <strong>pii-common</strong> shared DTOs.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
           <Link href="/realtime-issues/spring-secrets-pii-handling" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">

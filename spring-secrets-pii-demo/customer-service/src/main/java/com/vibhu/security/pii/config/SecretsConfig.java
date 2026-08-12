@@ -1,6 +1,6 @@
 package com.vibhu.security.pii.config;
 
-import com.vibhu.security.pii.secrets.SecretProvider;
+import com.vibhu.security.pii.common.secrets.SecretProvider;
 import javax.sql.DataSource;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;

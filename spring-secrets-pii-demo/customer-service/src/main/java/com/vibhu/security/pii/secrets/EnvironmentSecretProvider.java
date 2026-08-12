@@ -1,11 +1,9 @@
 package com.vibhu.security.pii.secrets;
 
+import com.vibhu.security.pii.common.secrets.SecretProvider;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
-/**
- * Reads secrets from environment variables (K8s Secret → env, ECS task secrets, CI inject).
- */
 @Component
 public class EnvironmentSecretProvider implements SecretProvider {
 

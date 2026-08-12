@@ -21,4 +21,4 @@ management:
       show-details: when_authorized
 
 # NEVER put real secrets here — inject via K8s Secret / AWS SM / Vault → env
-# Required env: DB_PASSWORD, PII_ENCRYPTION_KEY, API_BASIC_PASSWORD, PII_ADMIN_PASSWORD
+# Required env: DB_PASSWORD, PII_ENCRYPTION_KEY, SERVICE_CLIENT_PASSWORD

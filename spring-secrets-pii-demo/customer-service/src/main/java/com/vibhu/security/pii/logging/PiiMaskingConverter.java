@@ -2,7 +2,7 @@ package com.vibhu.security.pii.logging;
 
 import ch.qos.logback.classic.pattern.MessageConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import com.vibhu.security.pii.secrets.SecretSanitizer;
+import com.vibhu.security.pii.common.secrets.SecretSanitizer;
 
 /**
  * Logback converter — last line of defense if a developer logs a secret by mistake.

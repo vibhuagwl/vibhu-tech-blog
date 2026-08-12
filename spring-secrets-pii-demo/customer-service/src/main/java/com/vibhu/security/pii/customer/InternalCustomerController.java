@@ -1,5 +1,7 @@
 package com.vibhu.security.pii.customer;
 
+import com.vibhu.security.pii.common.dto.CreateCustomerRequest;
+import com.vibhu.security.pii.common.dto.CustomerRecord;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.Map;
@@ -13,41 +15,36 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Internal PII vault API — not exposed to agents or the public internet.
+ */
 @RestController
-@RequestMapping("/api/customers")
-public class CustomerController {
+@RequestMapping("/internal/customers")
+public class InternalCustomerController {
 
     private final CustomerService customerService;
 
-    public CustomerController(CustomerService customerService) {
+    public InternalCustomerController(CustomerService customerService) {
         this.customerService = customerService;
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPPORT','PII_ADMIN')")
-    public ResponseEntity<CustomerResponse> create(@Valid @RequestBody CreateCustomerRequest request) {
-        CustomerResponse created = customerService.create(request);
-        return ResponseEntity.created(URI.create("/api/customers/" + created.id())).body(created);
+    @PreAuthorize("hasRole('SERVICE')")
+    public ResponseEntity<CustomerRecord> create(@Valid @RequestBody CreateCustomerRequest request) {
+        CustomerRecord created = customerService.create(request);
+        return ResponseEntity.created(URI.create("/internal/customers/" + created.id())).body(created);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPPORT','PII_ADMIN')")
-    public CustomerResponse get(
-            @PathVariable UUID id,
-            @RequestParam(defaultValue = "false") boolean fullPii) {
-        return customerService.get(id, fullPii);
+    @PreAuthorize("hasRole('SERVICE')")
+    public CustomerRecord get(@PathVariable UUID id) {
+        return customerService.get(id);
     }
 
     @ExceptionHandler(CustomerNotFoundException.class)
     ResponseEntity<Map<String, String>> notFound(CustomerNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(PiiAccessDeniedException.class)
-    ResponseEntity<Map<String, String>> piiDenied(PiiAccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
     }
 }

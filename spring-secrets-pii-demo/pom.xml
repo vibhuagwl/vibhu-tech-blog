@@ -16,10 +16,13 @@
   <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>spring-secrets-pii-demo</name>
-  <description>Spring Boot secrets + PII handling — production patterns with runnable code</description>
+  <description>Spring Boot microservices — secrets + PII handling with runnable code</description>
 
   <modules>
+    <module>pii-common</module>
     <module>customer-service</module>
+    <module>support-api</module>
+    <module>audit-service</module>
   </modules>
 
   <properties>

@@ -1,9 +1,10 @@
-package com.vibhu.security.pii.customer;
+package com.vibhu.security.pii.common.dto;
 
 import java.time.Instant;
 import java.util.UUID;
 
-public record CustomerResponse(
+/** Edge API response — PII fields may be masked. */
+public record CustomerView(
         UUID id,
         String fullName,
         String email,

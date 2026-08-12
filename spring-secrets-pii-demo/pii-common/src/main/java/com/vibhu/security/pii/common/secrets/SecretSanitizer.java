@@ -1,10 +1,7 @@
-package com.vibhu.security.pii.secrets;
+package com.vibhu.security.pii.common.secrets;
 
 import java.util.regex.Pattern;
 
-/**
- * Strips credentials before writing to logs, metrics labels, or support tickets.
- */
 public final class SecretSanitizer {
 
     private static final Pattern BEARER = Pattern.compile("(?i)(Bearer\\s+)[A-Za-z0-9\\-._~+/]+=*");

@@ -2,96 +2,75 @@
 
 import Mermaid from '@/components/mermaid';
 
-const SECRETS_FLOW = `flowchart LR
-    subgraph Store["Never in git"]
-      SM[AWS Secrets Manager / Vault]
-      K8s[K8s Secret object]
-    end
-    subgraph Pod
-      ENV[env: DB_PASSWORD<br/>PII_ENCRYPTION_KEY]
-      APP[Spring Boot customer-service]
-      DS[Hikari DataSource]
-      ENC[AesGcmAttributeConverter]
-    end
-    SM --> K8s
-    K8s --> ENV
-    ENV --> APP
-    APP --> DS
-    APP --> ENC
-    ENC --> DB[(Postgres ciphertext columns)]`;
+const MICROSERVICES = `flowchart LR
+    Agent[Support agent] --> Edge[support-api :8086]
+    Edge -->|RestClient service creds| Vault[customer-service :8085]
+    Edge -->|POST audit| Audit[audit-service :8087]
+    Compliance[Compliance] --> Audit
+    Vault --> DB[(Encrypted PII)]
+    Audit --> ADB[(Audit DB)]`;
 
 const PII_READ = `sequenceDiagram
     autonumber
     actor Agent as Support agent
-    participant API as CustomerController
-    participant Svc as CustomerService
-    participant JPA as Hibernate + Converter
-    participant DB as Postgres
-    participant Audit as PiiAccessAuditAspect
-    participant Log as PII_AUDIT / masked app log
+    participant Edge as support-api
+    participant Vault as customer-service
+    participant Audit as audit-service
+    participant DB as Encrypted DB
 
-    Agent->>API: GET /customers/{id} Basic auth
-    API->>Svc: get(id, fullPii=false)
-    Svc->>JPA: findById
-    JPA->>DB: SELECT ciphertext
-    DB-->>JPA: encrypted email/ssn
-    JPA->>JPA: AesGcm decrypt in converter
-    Svc->>Svc: PiiMasking mask email/ssn
-    Svc->>Audit: afterReturning
-    Audit->>Log: READ_CUSTOMER actor=support fullPii=false
-    Svc-->>API: CustomerResponse masked=true
-    API-->>Agent: 200 j***@bank.com ***-**-6789`;
+    Agent->>Edge: GET /api/customers/{id}
+    Edge->>Vault: GET /internal/customers/{id}
+    Vault->>DB: ciphertext columns
+    Vault->>Vault: AES-GCM decrypt
+    Vault-->>Edge: CustomerRecord full PII
+    Edge->>Edge: PiiMasking mask fields
+    Edge->>Audit: POST pii-access event
+    Edge-->>Agent: masked JSON`;
 
 const FULL_PII_GATE = `sequenceDiagram
     autonumber
+    actor Support as Support agent
     actor Admin as PII admin
-    actor Support as Support user
-    participant API as CustomerController
-    participant Svc as CustomerService
+    participant Edge as support-api
+    participant Audit as audit-service
 
-    Support->>API: GET ?fullPii=true
-    API->>Svc: get(id, true)
-    Svc->>Svc: !hasRole PII_ADMIN
-    Svc-->>API: PiiAccessDeniedException
-    API-->>Support: 403 forbidden
+    Support->>Edge: GET ?fullPii=true
+    Edge-->>Support: 403 ROLE_PII_ADMIN required
+    Admin->>Edge: GET ?fullPii=true
+    Edge->>Audit: fullPiiGranted=true
+    Edge-->>Admin: 200 unmasked SSN/email`;
 
-    Admin->>API: GET ?fullPii=true
-    API->>Svc: get(id, true)
-    Svc->>Svc: ROLE_PII_ADMIN OK
-    Svc-->>API: full email + ssn
-    API-->>Admin: 200 unmasked + audit logged`;
-
-const LOG_REDACT = `flowchart TD
-    Dev[Developer log.info with password=xyz] --> LB[Logback PiiMaskingConverter]
-    LB --> San[SecretSanitizer.redact]
-    San --> Out[Console: password=[REDACTED]]
-    Err[Accidental SSN in message] --> San
-    San --> Out2[Console: ***-**-****]`;
+const SECRETS_FLOW = `flowchart LR
+    Vault[Secrets Manager] --> K8s[K8s Secret]
+    K8s --> ENV[env inject]
+    ENV --> CS[customer-service]
+    ENV --> SA[support-api]
+    CS --> ENC[AesGcm converter]`;
 
 const diagrams = [
   {
-    id: 'secrets-flow',
-    title: 'Secrets path — K8s / Vault → env → Spring (never in application.yml)',
-    blurb: 'Same pattern for DB password, Kafka SASL, OAuth client_secret, and PII encryption key.',
-    chart: SECRETS_FLOW,
+    id: 'microservices',
+    title: 'Three-service PII architecture',
+    blurb: 'Agents hit support-api only; customer-service is internal; audit-service is compliance.',
+    chart: MICROSERVICES,
   },
   {
     id: 'pii-read',
-    title: 'PII read — encrypt at rest, mask in API, audit every access',
-    blurb: 'Support sees masked fields; ciphertext in Postgres; decrypt only inside the JVM.',
+    title: 'End-to-end masked read',
+    blurb: 'Vault decrypts; BFF masks; audit records actor + IP.',
     chart: PII_READ,
   },
   {
     id: 'full-pii-gate',
-    title: 'Full PII gate — role check before unmasking',
-    blurb: '?fullPii=true without ROLE_PII_ADMIN returns 403; admin access is audited.',
+    title: 'Full PII gate at support-api',
+    blurb: 'Support gets 403 on ?fullPii=true; admin path is audited.',
     chart: FULL_PII_GATE,
   },
   {
-    id: 'log-redact',
-    title: 'Log redaction — last line of defense',
-    blurb: 'SecretSanitizer + Logback converter strip passwords, Bearer tokens, and SSN patterns.',
-    chart: LOG_REDACT,
+    id: 'secrets-flow',
+    title: 'Secrets injection',
+    blurb: 'Same env pattern on every pod — never in application.yml values.',
+    chart: SECRETS_FLOW,
   },
 ] as const;
 
@@ -102,7 +81,7 @@ export default function SpringSecretsPiiSequenceDiagrams() {
         Sequence & box diagrams
       </h2>
       <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-        customer-service — secrets injection and PII handling flows.
+        support-api + customer-service + audit-service — full microservices PII flow.
       </p>
       <div className="mt-8 space-y-12">
         {diagrams.map((d) => (

@@ -1,4 +1,4 @@
-package com.vibhu.security.pii.customer;
+package com.vibhu.security.support.customer;
 
 public class PiiAccessDeniedException extends RuntimeException {
 

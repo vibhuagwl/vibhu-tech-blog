@@ -1,6 +1,6 @@
 package com.vibhu.security.pii.crypto;
 
-import com.vibhu.security.pii.secrets.SecretProvider;
+import com.vibhu.security.pii.common.secrets.SecretProvider;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 

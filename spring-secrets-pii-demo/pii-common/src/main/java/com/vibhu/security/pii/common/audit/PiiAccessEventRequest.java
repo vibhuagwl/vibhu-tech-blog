@@ -1,14 +1,15 @@
-package com.vibhu.security.pii.audit;
+package com.vibhu.security.pii.common.audit;
 
 import java.time.Instant;
 import java.util.UUID;
 
-public record PiiAccessEvent(
+public record PiiAccessEventRequest(
         Instant at,
         String actor,
+        String sourceService,
         String action,
         UUID customerId,
-        boolean fullPiiRequested,
+        boolean fullPiiGranted,
         String clientIp
 ) {
 }

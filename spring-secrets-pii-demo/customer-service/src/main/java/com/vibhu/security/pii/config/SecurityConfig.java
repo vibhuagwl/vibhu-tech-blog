@@ -1,6 +1,7 @@
 package com.vibhu.security.pii.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vibhu.security.pii.common.secrets.SecretProvider;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import org.springframework.context.annotation.Bean;
@@ -18,8 +19,10 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-import com.vibhu.security.pii.secrets.SecretProvider;
 
+/**
+ * customer-service is internal-only — only other microservices (support-api) may call it.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -34,17 +37,12 @@ public class SecurityConfig {
 
     @Bean
     UserDetailsService userDetailsService(SecretProvider secrets, PasswordEncoder encoder) {
-        UserDetails support = User.builder()
-                .username(secrets.optional("API_BASIC_USER", "support"))
-                .password(encoder.encode(secrets.require("API_BASIC_PASSWORD")))
-                .roles("SUPPORT")
+        UserDetails serviceClient = User.builder()
+                .username(secrets.optional("SERVICE_CLIENT_USER", "support-api"))
+                .password(encoder.encode(secrets.require("SERVICE_CLIENT_PASSWORD")))
+                .roles("SERVICE")
                 .build();
-        UserDetails piiAdmin = User.builder()
-                .username(secrets.optional("PII_ADMIN_USER", "piiadmin"))
-                .password(encoder.encode(secrets.require("PII_ADMIN_PASSWORD")))
-                .roles("PII_ADMIN", "SUPPORT")
-                .build();
-        return new InMemoryUserDetailsManager(support, piiAdmin);
+        return new InMemoryUserDetailsManager(serviceClient);
     }
 
     @Bean
@@ -54,7 +52,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/internal/**").hasRole("SERVICE")
                         .anyRequest().denyAll())
                 .httpBasic(Customizer.withDefaults())
                 .exceptionHandling(ex -> ex
@@ -62,13 +60,13 @@ public class SecurityConfig {
                             res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             res.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             objectMapper.writeValue(res.getOutputStream(),
-                                    Map.of("error", "unauthorized", "message", "HTTP Basic required"));
+                                    Map.of("error", "unauthorized", "message", "Service credentials required"));
                         })
                         .accessDeniedHandler((req, res, e) -> {
                             res.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             res.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             objectMapper.writeValue(res.getOutputStream(),
-                                    Map.of("error", "forbidden", "message", "Insufficient role for PII"));
+                                    Map.of("error", "forbidden", "message", "Internal service only"));
                         }));
         return http.build();
     }

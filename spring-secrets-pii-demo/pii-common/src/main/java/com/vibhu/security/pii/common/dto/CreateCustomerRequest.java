@@ -1,4 +1,4 @@
-package com.vibhu.security.pii.customer;
+package com.vibhu.security.pii.common.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

@@ -1,8 +1,5 @@
-package com.vibhu.security.pii.customer;
+package com.vibhu.security.pii.common.masking;
 
-/**
- * Masking helpers for API responses and log output — never log full PII.
- */
 public final class PiiMasking {
 
     private PiiMasking() {
