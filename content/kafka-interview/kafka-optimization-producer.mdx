@@ -1,0 +1,67 @@
+---
+slug: kafka-optimization-producer
+title: "Kafka Producer Optimization"
+description: "Tune batching, compression, acks, retries, and idempotence for throughput vs latency — with production trade-offs and links to config details."
+category: "Kafka Interview"
+difficulty: Senior
+tags: [Kafka, Optimization, Producer, Performance, batch.size]
+readingTime: 10 min
+publishedAt: "2026-08-12"
+---
+
+## Memory formula
+
+```text
+BATCH → COMPRESS → SEND → RETRY
+```
+
+## The problem
+
+Producer CPU is fine. Brokers are fine. But end-to-end latency is high **or** throughput is stuck.
+
+Usually the send path is either:
+
+- too chatty (tiny batches, low linger)
+- too durable-per-message (acks=all + low batching + sync waits)
+- retrying under load without idempotence
+
+## What to tune first
+
+| Goal | Start with | Detail |
+|---|---|---|
+| Higher throughput | `batch.size`, `linger.ms`, `compression.type` | [batch.size](/kafka-interview/kafka-config-batch-size) |
+| Lower latency | lower `linger.ms`, smaller batches | Config detail pages |
+| Durability | `acks`, idempotence, retries | [Producer interview](/kafka-interview/kafka-interview-producer) → use `/kafka-interview/kafka-producer-interview` |
+| Ordering under retry | `max.in.flight.requests.per.connection` + idempotence | Producer interview bank |
+
+## Throughput vs latency
+
+```text
+More linger / larger batches  →  throughput ↑  latency ↑
+Less linger / smaller batches →  latency ↓  throughput ↓
+Compression                  →  network ↓  CPU ↑
+acks=all                     →  durability ↑  latency ↑
+```
+
+## Production checklist
+
+1. Measure produce rate and p99 produce latency **before** changing knobs.
+2. Enable compression only after confirming CPU headroom.
+3. Prefer idempotent producer for at-least-once without duplicates on retry.
+4. Do not raise `retries` without understanding delivery timeout and idempotence.
+5. Watch broker request queue and produce error rates after changes.
+
+## Common mistake
+
+Copying “max everything” configs from a blog. Large `batch.size` + high `linger.ms` on a latency-sensitive payment path will miss SLOs even when throughput looks great.
+
+## Interview answer (30s)
+
+> I optimize producers by deciding throughput vs latency first, then tuning batching and compression, then durability (`acks` / idempotence). I never change isolated properties without measuring produce latency and error rates.
+
+## Related
+
+- [Optimization hub](/kafka-interview/kafka-optimization-index)
+- [batch.size detail](/kafka-interview/kafka-config-batch-size)
+- [Producer interview bank](/kafka-interview/kafka-producer-interview)
+- [Cheat sheet](/kafka-interview/kafka-cheat-sheet)

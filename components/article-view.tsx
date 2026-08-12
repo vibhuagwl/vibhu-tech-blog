@@ -12,6 +12,8 @@ import ArticleToc from '@/components/article-toc';
 import ArticleQuickNav from '@/components/article-quick-nav';
 import DifficultyBadge from '@/components/difficulty-badge';
 import BackToTop from '@/components/back-to-top';
+import TechnologySectionStrip from '@/components/technology-section-strip';
+import {KAFKA_SIDEBAR_ORDER} from '@/lib/technology-hub';
 
 type Section=keyof typeof SECTION_CATEGORIES;
 
@@ -23,10 +25,24 @@ const SECTION_LABEL:Record<Section,string>={
   'leadership-principles':'Leadership Principles',
   complexity:'Complexity',
   'behavioral-interview':'Behavioral Interview',
-  'kafka-interview':'Kafka Interview',
+  'kafka-interview':'Kafka',
   'redis-interview':'Redis Interview',
   'realtime-issues':'Real-Time Issues',
 };
+
+function sortSectionPosts<T extends {slug:string;title:string}>(posts:T[],section:Section){
+  const list=posts.slice();
+  if(section==='kafka-interview'){
+    const rank=new Map(KAFKA_SIDEBAR_ORDER.map((slug,i)=>[slug,i]));
+    return list.sort((a,b)=>{
+      const ai=rank.has(a.slug)?rank.get(a.slug)!:Number.MAX_SAFE_INTEGER;
+      const bi=rank.has(b.slug)?rank.get(b.slug)!:Number.MAX_SAFE_INTEGER;
+      if(ai!==bi) return ai-bi;
+      return a.title.localeCompare(b.title);
+    });
+  }
+  return list.sort((a,b)=>a.title.localeCompare(b.title));
+}
 
 export function sectionStaticParams(section:Section){
   return getPostsByCategories([...SECTION_CATEGORIES[section]]).map((p)=>({slug:p.slug}));
@@ -57,9 +73,10 @@ export default async function ArticleView({
   const allowed=new Set<string>(SECTION_CATEGORIES[section]);
   if(!p || !allowed.has(p.category)) notFound();
 
-  const sectionPosts=getPostsByCategories([...SECTION_CATEGORIES[section]])
-    .slice()
-    .sort((a,b)=>a.title.localeCompare(b.title));
+  const sectionPosts=sortSectionPosts(
+    getPostsByCategories([...SECTION_CATEGORIES[section]]),
+    section,
+  );
   const index=sectionPosts.findIndex((x)=>x.slug===p.slug);
   const prev=index>0?sectionPosts[index-1]:null;
   const next=index>=0 && index<sectionPosts.length-1?sectionPosts[index+1]:null;
@@ -105,6 +122,8 @@ export default async function ArticleView({
               </li>
             </ol>
           </nav>
+
+          {section==='kafka-interview' && <TechnologySectionStrip technology="kafka"/>}
 
           <article className="article-shell">
             <header className="article-header">

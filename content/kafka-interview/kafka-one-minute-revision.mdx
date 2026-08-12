@@ -1,0 +1,35 @@
+---
+slug: kafka-one-minute-revision
+title: "Kafka — 1 Minute Revision"
+description: "Ultra-short Kafka interview revision: what Kafka is, partitions, consumer groups, replication, ISR, lag, and first checks."
+category: "Kafka Interview"
+difficulty: Intermediate
+tags: [Kafka, Cheat Sheet, Revision, Interview, One Minute]
+readingTime: 1 min
+publishedAt: "2026-08-12"
+---
+
+## Kafka — 1 Minute Revision
+
+**What is Kafka?**  
+→ Distributed event streaming platform.
+
+**Why partitions?**  
+→ Parallelism and scalability.
+
+**Why consumer groups?**  
+→ Parallel consumption with shared progress per group.
+
+**Why replication?**  
+→ Fault tolerance.
+
+**Why ISR?**  
+→ Track replicas that are sufficiently caught up for durability/failover.
+
+**What causes consumer lag?**  
+→ Processing slower than the incoming rate (or rebalance / poison loops).
+
+**First things to check?**  
+→ Lag → processing time → partitions → consumers → downstream dependencies.
+
+More: [Cheat sheet](/kafka-interview/kafka-cheat-sheet) · [5-minute revision](/kafka-interview/kafka-five-minute-revision)
