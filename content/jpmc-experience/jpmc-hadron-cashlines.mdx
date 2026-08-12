@@ -1,0 +1,134 @@
+---
+slug: jpmc-hadron-cashlines
+title: "JPMC Hadron Cashlines — Production Interview Story"
+description: "End-to-end Cashlines: domain meaning, API lifecycle, DB + Kafka consistency, failures, idempotency, monitoring, and senior answers."
+category: "JPMC Experience"
+difficulty: Principal
+tags: [JPMC, Hadron, Cashlines, Kafka, Interview, Experience]
+readingTime: 18 min
+publishedAt: "2026-08-12"
+---
+
+
+## The problem (business)
+
+In JPMC Hadron, a **Cashline** is a business construct representing a cash-related line/facility used in operational cash workflows.
+
+`[NEEDS MY REAL PROJECT DETAIL]`: exact internal definition, product name nuances, and business rules you can safely discuss publicly.
+
+**Business problem we solved:** clients/systems needed a reliable way to **create, validate, update, process, and track** Cashlines with auditability and consistent status — not just a CRUD form.
+
+## Architecture (spoken)
+
+```text
+Client / API
+  → Controller
+  → Service + validation
+  → Database (source of truth for status)
+  → Kafka publish (downstream processing)
+  → Consumer(s)
+  → Downstream processing
+  → Status update
+  → Response / event
+```
+
+Microservices involved: `[NEEDS MY REAL PROJECT DETAIL]` (list the services you owned vs consumed).
+
+## My exact responsibility
+
+I owned / contributed to: `[NEEDS MY REAL PROJECT DETAIL]` (APIs, validation, Kafka publish, consumer, support runbooks — be specific).
+
+## Request lifecycle
+
+### Create
+1. AuthN/AuthZ
+2. Request validation (schema + business rules)
+3. Persist Cashline in initial status
+4. Publish event (or outbox) for async processing
+5. Return accepted / created response with IDs
+
+### Update / validate / process
+Status transitions must be **explicit and guarded**. Concurrent updates need optimistic locking or equivalent: `[NEEDS MY REAL PROJECT DETAIL]` which approach you used.
+
+## Consistency: DB success, Kafka publish failed
+
+This is the classic interview trap.
+
+**What I say:**
+
+> If we commit the DB and then fail to publish, downstream never sees the Cashline. I treat that as a **dual-write** risk. Preferred pattern is transactional outbox / CDC / reliable publish with retry — not “best effort after commit.”
+
+Alternatives considered:
+- Sync dual write (bad under failure)
+- Outbox table + publisher
+- CDC from DB change
+- Orchestrator retries with idempotent publish
+
+`[NEEDS MY REAL PROJECT DETAIL]`: which pattern Cashlines actually used.
+
+## Kafka unavailable
+
+- Produce path: retry with backoff; fail request or accept with pending publish depending on product contract
+- Consume path: lag grows; do not pretend processing finished
+- Alert on publish error rate + lag
+
+## Duplicate Kafka messages
+
+Consumers must be **idempotent** using a business key / event id / unique constraint.
+
+```text
+Duplicate event
+  → lookup by cashlineId + eventType/version
+  → if already applied → ack and skip
+  → else apply transition → persist → ack
+```
+
+## Idempotency & retries
+
+- Retryable: timeouts, transient DB, broker blips
+- Non-retryable: invalid payload, illegal status transition
+- Never retry forever into poison loops — route to DLQ/error topic after budget
+
+## Concurrency
+
+Two updates for same Cashline: last-write-wins is usually wrong for status machines. Prefer version checks.
+
+## Auditability
+
+Persist who/what/when for create/update/status change. Support needs `[NEEDS MY REAL PROJECT DETAIL]` correlation fields (requestId, cashlineId, kafka offset).
+
+## Monitoring & stuck Cashlines
+
+Check:
+1. Status distribution (stuck in PROCESSING)
+2. Consumer lag
+3. Error/DLQ volume
+4. DB locks / slow queries
+5. Downstream dependency health
+
+## Level answers
+
+### 30 seconds
+> Cashlines were a core Hadron cash workflow object. I worked on the API-to-DB-to-Kafka path so create/update/process stayed consistent under failure, with idempotent consumers and clear status transitions.
+
+### 2 minutes
+Walk architecture → dual-write risk → idempotency → how you troubleshoot stuck items.
+
+### 5 minutes
+Add exact ownership, failure table, monitoring panels, and one production story (`[NEEDS MY REAL PROJECT DETAIL]`).
+
+## Interview questions to prepare
+
+1. How did Cashlines work end to end?
+2. How did you guarantee consistency?
+3. DB ok, Kafka publish failed — what happens?
+4. Duplicate message — what happens?
+5. How do you find stuck Cashlines?
+6. What did YOU build vs the team?
+
+## STAR stub
+
+**S:** Cashline processing gaps / dual-write risk / stuck statuses — `[NEEDS MY REAL PROJECT DETAIL]`  
+**T:** Make processing reliable and operable  
+**A:** `[NEEDS MY REAL PROJECT DETAIL]` concrete changes  
+**R:** `[NEEDS MY REAL PROJECT DETAIL]` measurable outcome

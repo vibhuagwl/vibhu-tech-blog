@@ -1,0 +1,58 @@
+---
+slug: jpmc-cheat-sheet
+title: "JPMC Experience Cheat Sheet"
+description: "One-page recall: Cashlines, Kafka, CDC, tax async, replay, migration, incident methodology."
+category: "JPMC Experience"
+difficulty: Senior
+tags: [JPMC, Cheat Sheet, Interview, Revision]
+readingTime: 5 min
+publishedAt: "2026-08-12"
+---
+
+
+## Cashlines / API
+
+```text
+Request → Security → Validation → Business → DB → Event → Response
+```
+
+## Kafka
+
+```text
+Producer → Topic → Partition → Consumer Group → Offset
+  → Retry → DLQ → Replay → Idempotency → Monitoring
+```
+
+## CDC
+
+```text
+DB commit → Connector → Kafka → Consumer (idempotent) → Side effects
+```
+
+## Async tax
+
+```text
+Request → Correlation ID → Tracker → Workflow → External
+  → Callback/Event → Update → Final status
+```
+
+## Replay safety
+
+```text
+Select → Validate → Dry-run → Rate-limit → Republish → Audit → Report
+```
+
+## Migration
+
+```text
+Java → Spring → Dependencies → Build → Test → Canary → Monitor → Rollback
+```
+
+## Incident
+
+```text
+Detect → Scope → Correlate → Mitigate → Recover → RCA → Fix → Prevent
+```
+
+## Fill before interview
+Volumes, SLAs, service names, your PRs: `[NEEDS MY REAL PROJECT DETAIL]`

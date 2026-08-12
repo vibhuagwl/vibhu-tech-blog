@@ -1,0 +1,32 @@
+---
+slug: jpmc-kafka-monitoring
+title: "Kafka Production Monitoring & Troubleshooting Tree"
+description: "Lag, publish latency, rebalance, ISR, DLQ volume — decision tree for “Kafka healthy but app slow.”"
+category: "JPMC Experience"
+difficulty: Senior
+tags: [JPMC, Kafka, Monitoring, Consumer Lag, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+
+## Signals
+
+Consumer lag · produce errors · publish latency · processing latency · throughput · rebalances · URP/ISR · broker disk/CPU/network · DLQ/retry volume
+
+## Decision tree
+
+```text
+Lag up?
+  → brokers unhealthy? (ISR, disk, URP) → fix cluster
+  → else processing slow? (p95, deps, DB) → fix app/deps
+  → rebalances storm? → session/poll/config/deploy churn
+  → one hot partition? → key skew
+  → not consuming? → consumer down / wrong group / auth
+```
+
+## “Kafka healthy, app slow”
+Broker metrics fine + rising lag + high processing time → dependency or code path, not Kafka itself.
+
+## Spoken example
+> The first thing I check is whether lag is cluster-side or consumer-side. If ISR and disk are fine, I jump to processing time, downstream timeouts, and rebalance rate.

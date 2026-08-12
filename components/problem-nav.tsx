@@ -14,6 +14,8 @@ export type ProblemNavConfig={
   filterPlaceholder:string;
   basePath:string;
   groupOrder?:string[];
+  /** Prefer this slug order within a category; remaining titles sort alphabetically. */
+  slugOrder?:string[];
 };
 
 const DEFAULT_GROUP_ORDER=[
@@ -38,15 +40,28 @@ const difficultyClass=(d:string)=>{
   return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
 };
 
-function groupPosts(posts:NavPost[],groupOrder:string[]){
+function sortBySlugOrder(posts:NavPost[],slugOrder?:string[]){
+  if(!slugOrder?.length){
+    return posts.slice().sort((a,b)=>a.title.localeCompare(b.title));
+  }
+  const rank=new Map(slugOrder.map((slug,i)=>[slug,i]));
+  return posts.slice().sort((a,b)=>{
+    const ai=rank.has(a.slug)?rank.get(a.slug)!:Number.MAX_SAFE_INTEGER;
+    const bi=rank.has(b.slug)?rank.get(b.slug)!:Number.MAX_SAFE_INTEGER;
+    if(ai!==bi) return ai-bi;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+function groupPosts(posts:NavPost[],groupOrder:string[],slugOrder?:string[]){
   const map=new Map<string,NavPost[]>();
   for(const p of posts){
     const key=p.category||'Other';
     if(!map.has(key)) map.set(key,[]);
     map.get(key)!.push(p);
   }
-  for(const list of map.values()){
-    list.sort((a,b)=>a.title.localeCompare(b.title));
+  for(const [key,list] of map.entries()){
+    map.set(key,sortBySlugOrder(list,slugOrder));
   }
   const keys=[
     ...groupOrder.filter((g)=>map.has(g)),
@@ -66,6 +81,7 @@ export default function ProblemNav({
   const [query,setQuery]=useState('');
   const [open,setOpen]=useState(false);
   const groupOrder=config.groupOrder ?? DEFAULT_GROUP_ORDER;
+  const slugOrder=config.slugOrder;
 
   const groups=useMemo(()=>{
     const q=query.trim().toLowerCase();
@@ -76,8 +92,8 @@ export default function ProblemNav({
           || p.difficulty.toLowerCase().includes(q)
         )
       : posts;
-    return groupPosts(filtered,groupOrder);
-  },[posts,query,groupOrder]);
+    return groupPosts(filtered,groupOrder,slugOrder);
+  },[posts,query,groupOrder,slugOrder]);
 
   const activeSlug=pathname?.startsWith(config.basePath + '/')
     ? pathname.slice(config.basePath.length + 1).split('/')[0]

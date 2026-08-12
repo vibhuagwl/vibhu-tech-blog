@@ -1,0 +1,38 @@
+---
+slug: jpmc-async-tracker-callback
+title: "Async API Tracker & Callbacks"
+description: "Correlation IDs, tracker model, callback validation, duplicates, timeouts, reconciliation — production support tracing."
+category: "JPMC Experience"
+difficulty: Principal
+tags: [JPMC, Async, Callback, Tracker, Interview, Experience]
+readingTime: 14 min
+publishedAt: "2026-08-12"
+---
+
+
+## Tracker model (pattern)
+
+```text
+requestId
+correlationId
+transactionId
+status
+createdAt / updatedAt
+request/response refs (S3 keys or payloads)
+errorCode / errorMessage
+retryCount
+workflowInstanceId
+```
+
+## Flow
+
+```text
+Client → requestId → DB tracker → workflow/external
+  → async event/callback → validate → update tracker → final status
+```
+
+## Callback risks
+Duplicate callbacks · out-of-order · auth failure · timeout with late success → reconcile via tracker + external id.
+
+## Support superpower
+Give support one `requestId` / `correlationId` and reconstruct the journey across API, workflow, S3, SQS, Kafka.

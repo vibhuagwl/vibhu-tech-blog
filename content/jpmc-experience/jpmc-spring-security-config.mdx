@@ -1,0 +1,21 @@
+---
+slug: jpmc-spring-security-config
+title: "Spring Security & Environment Configuration"
+description: "JWT/OAuth2 filters, roles, secrets, profiles across DEV→PROD without hardcoded credentials."
+category: "JPMC Experience"
+difficulty: Senior
+tags: [JPMC, Spring Security, Config, Interview]
+readingTime: 10 min
+publishedAt: "2026-08-12"
+---
+
+
+## Request path
+
+```text
+Client → Authorization header → Security filter → token validation
+  → Authentication → Authorization → Controller
+```
+
+## Config management
+Spring profiles + env vars + secret store. Never hardcode endpoints/credentials. Feature flags for risky rollout (`[NEEDS MY REAL PROJECT DETAIL]`).

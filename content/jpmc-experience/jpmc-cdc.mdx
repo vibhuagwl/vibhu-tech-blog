@@ -1,0 +1,61 @@
+---
+slug: jpmc-cdc
+title: "CDC Change Data Capture — JPMC Interview Deep Dive"
+description: "Why CDC, architecture, Kafka topics, ordering, duplicates, replay, schema evolution, and production failure questions."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, CDC, Debezium, Kafka, Avro, Interview]
+readingTime: 15 min
+publishedAt: "2026-08-12"
+---
+
+
+## Why CDC was required
+
+We needed downstream systems to react to **committed database changes** without dual-writing from every service path, and without polling tables.
+
+`[NEEDS MY REAL PROJECT DETAIL]`: exact source DB, tables, and business events CDC covered.
+
+## Architecture
+
+```text
+Database
+  → CDC connector (e.g. Debezium if used — [NEEDS MY REAL PROJECT DETAIL])
+  → Kafka topics
+  → Avro + Schema Registry (if used — [NEEDS MY REAL PROJECT DETAIL])
+  → Consumers
+  → Business processing
+  → DB / API side effects
+```
+
+## Event types
+
+Insert / update / delete (and possibly tombstones). Include before/after payloads when needed for auditing.
+
+## Hard production questions
+
+### Same event twice?
+Treat as at-least-once. Consumer uses event id / primary key + version / LSN / offset identity for idempotency.
+
+### Consumer crashes mid-processing?
+Offsets only advance when processing + side effects are safely completed (or outbox of effects). Restart redelivers → must be idempotent.
+
+### DB committed but CDC delayed?
+Downstream is eventually consistent. Product must tolerate lag; monitor connector lag / millisecond delay metrics.
+
+### Missing events?
+Monitor connector health, offsets, topic end offsets vs processed watermarks; reconciliation jobs for critical entities.
+
+### Ordering?
+Kafka ordering is **per partition**. Key by entity id so one entity’s changes stay ordered.
+
+### Schema changes?
+Registry compatibility (backward/forward/full). Prefer additive optional fields with defaults. Breaking changes need dual-write / dual-read plans.
+
+## 30-second answer
+> We used CDC so committed DB state became the event source. The hard part wasn’t connecting Debezium — it was idempotent consumers, ordering by entity key, and schema evolution without breaking readers.
+
+## Follow-ups
+- Partition key strategy?
+- How do you replay a table slice?
+- How do you backfill a new consumer?

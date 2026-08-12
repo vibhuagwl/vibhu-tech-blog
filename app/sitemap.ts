@@ -16,6 +16,7 @@ export default function sitemap():MetadataRoute.Sitemap{
     {path:'/kafka-interview', key:'kafka-interview' as const},
     {path:'/redis-interview', key:'redis-interview' as const},
     {path:'/realtime-issues', key:'realtime-issues' as const},
+    {path:'/jpmc-experience', key:'jpmc-experience' as const},
   ];
 
   return [

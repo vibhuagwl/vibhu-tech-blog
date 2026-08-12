@@ -1,0 +1,33 @@
+---
+slug: jpmc-rsu
+title: "JPM RSU File Processing — Interview Story"
+description: "RSU file listener → validate → parse → Drools → batch → DB → status — large-file and duplicate handling."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, RSU, Spring Batch, Drools, Interview, Experience]
+readingTime: 14 min
+publishedAt: "2026-08-12"
+---
+
+
+## Flow
+
+```text
+RSU file
+  → Listener
+  → File validation
+  → Parsing
+  → Drools validation
+  → Batch creation
+  → Database persistence
+  → Processing
+  → Status
+```
+
+## Hard parts
+Duplicate file detection · invalid rows vs abort whole file · partial failure policy · throughput for large files · audit
+
+## Efficient large file
+Stream/parse in chunks (Spring Batch), bounded memory, checkpointing, parallel steps only if ordering/business allows.
+
+`[NEEDS MY REAL PROJECT DETAIL]`: file format and volumes you can cite.

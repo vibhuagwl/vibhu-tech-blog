@@ -1,0 +1,32 @@
+---
+slug: jpmc-avro
+title: "Avro + Schema Registry — Safe Evolution"
+description: "Why Avro, compatibility modes, breaking changes, producer/consumer skew, and safe rollout."
+category: "JPMC Experience"
+difficulty: Senior
+tags: [JPMC, Avro, Schema Registry, Kafka, Interview]
+readingTime: 10 min
+publishedAt: "2026-08-12"
+---
+
+
+## Why Avro (in our context)
+
+Compact binary, explicit schemas, evolution rules via registry — better than ad-hoc JSON for cross-team Kafka contracts when enforced.
+
+`[NEEDS MY REAL PROJECT DETAIL]`: confirm Avro vs JSON per topic.
+
+## Compatibility
+
+Backward / forward / full. Prefer optional fields + defaults.
+
+## Failure examples
+- Producer new required field → old consumers break
+- Type change → deserialization errors → DLQ flood
+- Registry reject incompatible schema → deploy blocked (good)
+
+## Safe deploy
+1. Add optional field
+2. Deploy consumers that tolerate it
+3. Deploy producers that populate it
+4. Only later tighten constraints if needed

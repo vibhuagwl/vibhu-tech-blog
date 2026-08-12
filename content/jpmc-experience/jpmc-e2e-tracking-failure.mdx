@@ -1,0 +1,28 @@
+---
+slug: jpmc-e2e-tracking-failure
+title: "End-to-End Tracking & Failure/Fallback Design"
+description: "Correlation across API→DB→Camunda→Kafka→S3→SQS; per-dependency retry, circuit breaker, DLQ, when not to retry."
+category: "JPMC Experience"
+difficulty: Principal
+tags: [JPMC, Observability, Failure, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+
+## Trace fields
+
+requestId · correlationId · transactionId · workflowId · topic/partition/offset · external request id · SQS message id · final status
+
+## Per dependency
+
+```text
+Dependency → failure → detect → timeout → retry?
+  → circuit/fallback → DLQ → manual recovery → alert
+```
+
+## When NOT to retry
+Invalid payload, authZ deny, business rule reject, non-idempotent side effect without guard.
+
+## Architecture question
+Design distributed request tracking that lets support reconstruct one transaction in minutes.

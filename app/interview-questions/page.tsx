@@ -18,6 +18,12 @@ const banks=[
     blurb:'Stuck threads, Aurora, Java migration, Lead Experience, and on-call playbooks.',
   },
   {
+    href:'/jpmc-experience',
+    label:'JPMC Experience',
+    level:'Staff',
+    blurb:'Hadron Cashlines, CDC, Kafka replay, Deloitte tax, RSU, Terraform, migration.',
+  },
+  {
     href:'/kafka-interview',
     label:'Kafka Interview',
     level:'Staff',

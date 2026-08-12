@@ -1,0 +1,30 @@
+---
+slug: jpmc-drools
+title: "Drools Rules Engine — Tax Bands & Validation"
+description: "Facts, rules, priority, versioning, conflicts, testing — when Drools beats hard-coded if/else."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, Drools, Rules, Tax, Interview]
+readingTime: 10 min
+publishedAt: "2026-08-12"
+---
+
+
+## Flow
+
+```text
+Input
+  → Facts
+  → Rules
+  → Tax band / rate / decision
+  → Calculation output
+```
+
+## Why Drools
+Business rates/bands change more often than code deploy appetite; rules isolate decision logic and enable business-readable tests.
+
+## Realistic example (illustrative)
+Income/fact set → band rule matches → rate applied → tax amount. Replace with `[NEEDS MY REAL PROJECT DETAIL]` real rule categories you can discuss.
+
+## Risks
+Rule conflicts, silent priority bugs, undeclared fact fields — mitigate with rule unit tests and controlled deployment.

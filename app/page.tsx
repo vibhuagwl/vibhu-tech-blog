@@ -23,6 +23,7 @@ const paths=[
   {title:'System Design',href:'/system-design',blurb:'Architecture problems, estimation, and Staff follow-ups.'},
   {title:'Distributed Systems',href:'/distributed-systems',blurb:'Locking, messaging, resilience, and consistency.'},
   {title:'Real-Time Issues',href:'/realtime-issues',blurb:'Stuck threads, Aurora, Java migration, Lead Experience.'},
+  {title:'JPMC Experience',href:'/jpmc-experience',blurb:'Hadron Cashlines, Kafka replay, tax, RSU, Terraform.'},
   {title:'Kafka & Redis',href:'/kafka-interview',blurb:'Messaging and caching failure banks for Principal rounds.'},
   {title:'Java Complexity',href:'/complexity',blurb:'Derive Big-O from Java code with interview framing.'},
   {title:'Behavioral & LPs',href:'/behavioral-interview',blurb:'STAR answers and Amazon Leadership Principles.'},

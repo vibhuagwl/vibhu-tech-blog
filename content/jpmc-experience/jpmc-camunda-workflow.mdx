@@ -1,0 +1,35 @@
+---
+slug: jpmc-camunda-workflow
+title: "Camunda Workflow — Async Tax / Long-Running Requests"
+description: "BPMN service tasks, timers, gateways, error boundaries, state tracking, and why workflows beat ad-hoc Java for async processes."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, Camunda, BPMN, Workflow, Interview]
+readingTime: 12 min
+publishedAt: "2026-08-12"
+---
+
+
+## Example flow
+
+```text
+Request received
+  → Validate
+  → Create async request / tracker
+  → Call external service
+  → Wait (message/timer)
+  → Receive callback/event
+  → Validate response
+  → Calculate (Drools)
+  → Persist
+  → Complete
+```
+
+## Why Camunda
+Visible state, retries, timers, compensation hooks, human tasks for maker-checker — better than hidden thread sleeps.
+
+## Interview Q
+**How do you find a stuck workflow?**  
+By business key / process instance id / tracker id; inspect current activity, incidents, and timers.
+
+`[NEEDS MY REAL PROJECT DETAIL]`: Camunda version and whether external tasks were used.

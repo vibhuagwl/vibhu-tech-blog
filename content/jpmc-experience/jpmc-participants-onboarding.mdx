@@ -1,0 +1,45 @@
+---
+slug: jpmc-participants-onboarding
+title: "Participants Onboarding & Operational Accounts"
+description: "REST onboarding flow: auth, validation, persistence, Kafka events, status, idempotency, audit, and failure scenarios."
+category: "JPMC Experience"
+difficulty: Staff
+tags: [JPMC, Onboarding, REST, Kafka, Interview, Experience]
+readingTime: 14 min
+publishedAt: "2026-08-12"
+---
+
+
+## Business requirement
+
+Onboard participants / create operational accounts so downstream cash/ops systems can process against a known entity.
+
+`[NEEDS MY REAL PROJECT DETAIL]`: exact domain terms you can discuss.
+
+## Flow
+
+```text
+Request
+  → Authentication
+  → Authorization
+  → Validation
+  → Participant creation
+  → Operational account creation
+  → Persistence
+  → Event publishing
+  → Downstream processing
+  → Status update
+```
+
+## Idempotency
+
+Client retries must not create duplicate participants. Use idempotency key / natural business key unique constraint.
+
+## Failures
+- Validation fail → 4xx, no side effects
+- DB fail → no event
+- Event fail after DB → dual-write problem (same as Cashlines)
+- Downstream reject → status = FAILED / NEEDS_REVIEW with reason codes
+
+## 30s
+> I worked on participant/operational-account onboarding APIs with strict validation, durable persistence, and eventing so downstream systems stayed consistent — with idempotent create and clear status for support.

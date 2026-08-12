@@ -1,0 +1,34 @@
+---
+slug: jpmc-spring-migration
+title: "Spring / JAR Dependency Migration"
+description: "Java/Spring Boot upgrades, javax→jakarta, dependency tree, NoSuchMethodError, Kafka/Avro compatibility, risk reduction."
+category: "JPMC Experience"
+difficulty: Principal
+tags: [JPMC, Migration, Spring Boot, Dependencies, Interview, Experience]
+readingTime: 16 min
+publishedAt: "2026-08-12"
+---
+
+
+## Scenario
+
+Legacy Spring app → newer Spring/Boot → Java compatibility → package/API changes → regression → deploy
+
+## Investigation tools
+`mvn dependency:tree` · dependency convergence · BOM alignment · release notes
+
+## Classic runtime failures
+ClassNotFoundException · NoSuchMethodError · NoClassDefFoundError from transitive skew
+
+## Risk reduction
+1. Align BOM first
+2. Fix compile breaks
+3. Fix tests (WireMock/security configs often break)
+4. Integration tests for Kafka/security/serialization
+5. Canary
+6. Rollback artifact ready
+
+## Challenge template
+Problem → root cause → investigation → fix → test → deploy → rollback plan
+
+Include examples you actually hit: `[NEEDS MY REAL PROJECT DETAIL]`.
