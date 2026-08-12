@@ -3,7 +3,54 @@
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
 import {ChevronDown,ChevronRight,Copy,Check,FileCode2,Folder} from 'lucide-react';
+import hljs from 'highlight.js/lib/core';
+import java from 'highlight.js/lib/languages/java';
+import xml from 'highlight.js/lib/languages/xml';
+import yaml from 'highlight.js/lib/languages/yaml';
+import sql from 'highlight.js/lib/languages/sql';
+import bash from 'highlight.js/lib/languages/bash';
+import json from 'highlight.js/lib/languages/json';
+import markdown from 'highlight.js/lib/languages/markdown';
+import properties from 'highlight.js/lib/languages/properties';
 import type {DemoSourceFile,DemoTreeNode} from '@/lib/oauth-demo-source';
+
+hljs.registerLanguage('java',java);
+hljs.registerLanguage('xml',xml);
+hljs.registerLanguage('yaml',yaml);
+hljs.registerLanguage('sql',sql);
+hljs.registerLanguage('bash',bash);
+hljs.registerLanguage('json',json);
+hljs.registerLanguage('markdown',markdown);
+hljs.registerLanguage('properties',properties);
+hljs.registerLanguage('html',xml);
+
+const HLJS_LANG:Record<string,string>={
+  java:'java',
+  xml:'xml',
+  yaml:'yaml',
+  sql:'sql',
+  bash:'bash',
+  json:'json',
+  markdown:'markdown',
+  properties:'properties',
+  html:'html',
+  text:'plaintext',
+};
+
+function highlight(code:string,language:string){
+  const lang=HLJS_LANG[language] ?? 'plaintext';
+  try{
+    if(lang==='plaintext' || !hljs.getLanguage(lang)){
+      return hljs.highlight(code,{language:'plaintext'}).value;
+    }
+    return hljs.highlight(code,{language:lang}).value;
+  }catch{
+    return code
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;');
+  }
+}
 
 function Tree({
   nodes,
@@ -86,6 +133,37 @@ function TreeNode({
   );
 }
 
+function CodePanel({content,language}:{content:string;language:string}){
+  const html=useMemo(()=>highlight(content,language),[content,language]);
+  const lineCount=content.length===0?0:content.split(/\r?\n/).length;
+  const lineNos=useMemo(
+    ()=>Array.from({length:lineCount},(_,i)=>String(i+1)).join('\n'),
+    [lineCount],
+  );
+
+  return (
+    <div className="code-explorer-panel max-h-[75vh] overflow-auto">
+      <table className="w-full border-collapse">
+        <tbody>
+          <tr>
+            <td className="code-explorer-gutter select-none align-top px-3 py-4 text-right font-mono text-[12px] leading-5 text-slate-400">
+              <pre className="m-0">{lineNos}</pre>
+            </td>
+            <td className="align-top py-4 pr-4">
+              <pre className="m-0 overflow-visible text-[12.5px] leading-5">
+                <code
+                  className={`hljs language-${HLJS_LANG[language] ?? 'plaintext'} font-mono whitespace-pre`}
+                  dangerouslySetInnerHTML={{__html:html}}
+                />
+              </pre>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function OAuthCodeExplorer({
   files,
   tree,
@@ -111,7 +189,7 @@ export default function OAuthCodeExplorer({
       return nodes.flatMap((n)=>{
         if(n.path) return matched.has(n.path)?[n]:[];
         const children=n.children?prune(n.children):[];
-                return children.length?[{...n,children}]:[];
+        return children.length?[{...n,children}]:[];
       });
     }
     return prune(tree);
@@ -154,8 +232,14 @@ export default function OAuthCodeExplorer({
             <p className="truncate font-mono text-sm font-semibold text-slate-900 dark:text-white">
               {current?.path}
             </p>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {current?.language} · {current?.lines} lines
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-semibold uppercase tracking-[.06em] text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                {current?.language}
+              </span>
+              <span>{current?.lines} lines</span>
+              {current?.language==='java' && (
+                <span className="text-slate-400">Spring keywords · annotations · types colored</span>
+              )}
             </p>
           </div>
           <button
@@ -167,11 +251,7 @@ export default function OAuthCodeExplorer({
             {copied?'Copied':'Copy'}
           </button>
         </div>
-        <pre className="max-h-[75vh] overflow-auto p-4 text-[12.5px] leading-5">
-          <code className="font-mono text-slate-800 dark:text-slate-100 whitespace-pre">
-            {current?.content}
-          </code>
-        </pre>
+        {current && <CodePanel content={current.content} language={current.language}/>}
       </section>
     </div>
   );

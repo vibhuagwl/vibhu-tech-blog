@@ -563,3 +563,119 @@ a{text-decoration:none}
 .problem-nav::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}
 .dark .problem-nav{scrollbar-color:#334155 transparent}
 .dark .problem-nav::-webkit-scrollbar-thumb{background:#334155}
+
+/* OAuth / Spring source explorer — syntax colors */
+.code-explorer-panel{
+  background: #f8fafc;
+}
+.code-explorer-gutter{
+  border-right: 1px solid #e2e8f0;
+  background: #f1f5f9;
+  min-width: 3rem;
+}
+.dark .code-explorer-panel{
+  background: #0b1220;
+}
+.dark .code-explorer-gutter{
+  border-right-color: #1e293b;
+  background: #020617;
+  color: #64748b;
+}
+
+.code-explorer-panel .hljs{
+  background: transparent;
+  color: #0f172a;
+}
+.dark .code-explorer-panel .hljs{
+  color: #e2e8f0;
+}
+
+/* Keywords: public, class, return, if… */
+.code-explorer-panel .hljs-keyword{
+  color: #1d4ed8;
+  font-weight: 600;
+}
+.dark .code-explorer-panel .hljs-keyword{ color: #93c5fd; }
+
+/* Spring annotations: @Bean @Configuration @PreAuthorize */
+.code-explorer-panel .hljs-meta,
+.code-explorer-panel .hljs-meta .hljs-keyword{
+  color: #0f766e;
+  font-weight: 600;
+}
+.dark .code-explorer-panel .hljs-meta,
+.dark .code-explorer-panel .hljs-meta .hljs-keyword{ color: #5eead4; }
+
+/* Types / class names */
+.code-explorer-panel .hljs-title,
+.code-explorer-panel .hljs-title.class_,
+.code-explorer-panel .hljs-type,
+.code-explorer-panel .hljs-built_in{
+  color: #7c3aed;
+}
+.dark .code-explorer-panel .hljs-title,
+.dark .code-explorer-panel .hljs-title.class_,
+.dark .code-explorer-panel .hljs-type,
+.dark .code-explorer-panel .hljs-built_in{ color: #c4b5fd; }
+
+/* Methods */
+.code-explorer-panel .hljs-title.function_{
+  color: #0369a1;
+}
+.dark .code-explorer-panel .hljs-title.function_{ color: #7dd3fc; }
+
+/* Strings / paths / scopes */
+.code-explorer-panel .hljs-string,
+.code-explorer-panel .hljs-attr,
+.code-explorer-panel .hljs-attribute{
+  color: #c2410c;
+}
+.dark .code-explorer-panel .hljs-string,
+.dark .code-explorer-panel .hljs-attr,
+.dark .code-explorer-panel .hljs-attribute{ color: #fdba74; }
+
+/* Numbers */
+.code-explorer-panel .hljs-number{
+  color: #b45309;
+}
+.dark .code-explorer-panel .hljs-number{ color: #fbbf24; }
+
+/* Comments */
+.code-explorer-panel .hljs-comment,
+.code-explorer-panel .hljs-quote{
+  color: #64748b;
+  font-style: italic;
+}
+.dark .code-explorer-panel .hljs-comment,
+.dark .code-explorer-panel .hljs-quote{ color: #94a3b8; }
+
+/* Literals / params */
+.code-explorer-panel .hljs-literal,
+.code-explorer-panel .hljs-symbol,
+.code-explorer-panel .hljs-bullet{
+  color: #be185d;
+}
+.dark .code-explorer-panel .hljs-literal,
+.dark .code-explorer-panel .hljs-symbol,
+.dark .code-explorer-panel .hljs-bullet{ color: #f9a8d4; }
+
+/* YAML / XML / SQL extras */
+.code-explorer-panel .hljs-name,
+.code-explorer-panel .hljs-selector-tag,
+.code-explorer-panel .hljs-section{
+  color: #1d4ed8;
+  font-weight: 600;
+}
+.dark .code-explorer-panel .hljs-name,
+.dark .code-explorer-panel .hljs-selector-tag,
+.dark .code-explorer-panel .hljs-section{ color: #93c5fd; }
+
+.code-explorer-panel .hljs-variable,
+.code-explorer-panel .hljs-template-variable{
+  color: #0f766e;
+}
+.dark .code-explorer-panel .hljs-variable,
+.dark .code-explorer-panel .hljs-template-variable{ color: #5eead4; }
+
+.code-explorer-panel .hljs-addition{ color: #166534; }
+.code-explorer-panel .hljs-deletion{ color: #991b1b; }
