@@ -6,15 +6,16 @@ const ATTACK = `sequenceDiagram
     autonumber
     actor Victim
     participant Browser
-    participant Bank as csrf-demo :8090
-    participant Evil as evil.example
+    participant Bank as bank.example.com
+    participant Evil as evil-gifts.example
 
-    Victim->>Bank: Login · JSESSIONID set
-    Victim->>Evil: Visit attacker page
-    Evil-->>Browser: Auto POST /transfer
-    Browser->>Bank: POST /transfer + session cookie · no CSRF
+    Victim->>Bank: GET https://bank.example.com/login
+    Bank-->>Browser: Set-Cookie JSESSIONID
+    Victim->>Evil: Open https://evil-gifts.example/win-prize.html
+    Evil-->>Browser: auto POST /transfer (no _csrf)
+    Browser->>Bank: POST + Cookie JSESSIONID + Origin evil
     Bank-->>Browser: 403 Forbidden
-    Note over Bank: CsrfFilter rejects missing token`;
+    Note over Bank: Invalid CSRF token · transfer not executed`;
 
 const FORM_OK = `sequenceDiagram
     autonumber
@@ -59,8 +60,8 @@ const WHEN_DISABLE = `flowchart TD
 const diagrams = [
   {
     id: 'csrf-attack',
-    title: 'CSRF attack blocked',
-    blurb: 'Evil site can trigger a cookie-authenticated POST, but cannot read the CSRF token — Spring returns 403.',
+    title: 'CSRF attack → 403 Invalid CSRF token',
+    blurb: 'evil-gifts.example forces POST to bank.example.com with the victim JSESSIONID but no _csrf. Spring CsrfFilter returns 403 Forbidden; money does not move.',
     chart: ATTACK,
   },
   {
