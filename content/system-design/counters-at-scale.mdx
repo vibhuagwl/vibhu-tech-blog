@@ -7,7 +7,10 @@ difficulty: Advanced
 tags: [Counters, Redis, Kafka, Scalability]
 readingTime: 16 min
 publishedAt: "2026-08-13"
+updatedAt: "2026-08-12"
 ---
+
+**Full HLD + LLD (single page):** **[Design a Distributed Counter](/system-design/design-distributed-counter)** — memory sheet, REST APIs, class design, Spring Boot microservices demo.
 
 ## Naive design that dies
 
@@ -60,3 +63,5 @@ Exact global counts often tolerate short lag. Say it: **eventual count, immediat
 ## Remember This
 
 Hot counters need sharding and async durability, not a brave UPDATE.
+
+Continue with the full guide: [/system-design/design-distributed-counter](/system-design/design-distributed-counter) · code: [/spring-distributed-counter-demo](/spring-distributed-counter-demo)
