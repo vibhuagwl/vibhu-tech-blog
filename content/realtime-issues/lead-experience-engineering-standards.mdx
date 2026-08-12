@@ -1,0 +1,499 @@
+---
+slug: lead-experience-engineering-standards
+title: "Lead Experience: Engineering Standards for Java, Spring Boot, Microservices, and Quality"
+description: "Repeatable Staff and Principal engineering standards for Java services: reviews, tests, static analysis, CI gates, security, pagination, and Kafka consumer correctness."
+category: "Real-Time Issues"
+difficulty: Principal
+tags: [Engineering Standards, Java, Spring Boot, Microservices, Code Review, Kafka, Quality]
+readingTime: 31 min
+publishedAt: "2026-08-12"
+---
+
+## Standards are how leadership scales
+
+Hands-on leadership does not mean personally reviewing every line forever.
+
+It means making the quality bar repeatable.
+
+If the team depends on your memory, your standards are not yet standards.
+
+If the team can apply the same checklist without you in the room, your leadership is scaling.
+
+That is the Principal signal.
+
+You are not only writing good code.
+
+You are making good code easier for the team to produce.
+
+## The one-line answer
+
+Use this sentence:
+
+```text
+I make engineering standards explicit so quality is not personality-driven: Java simplicity, Spring Boot boundaries, microservice contracts, repeatable tests, security checks, CI gates, and production observability all become part of the delivery system.
+```
+
+This answer works because it connects standards to delivery.
+
+It does not sound like bureaucracy.
+
+It sounds like risk reduction.
+
+## Java standards
+
+For Java services, I expect simple, explicit code.
+
+The code should reveal domain behavior.
+
+It should not hide side effects behind clever abstractions.
+
+The standards I enforce are:
+
+- small methods with clear responsibility
+- immutable data where practical
+- explicit null handling
+- meaningful exception boundaries
+- no silent catch blocks
+- no broad `Exception` handling at business boundaries
+- no shared mutable state without a concurrency reason
+- predictable collection usage
+- bounded memory behavior for large reads
+- consistent time handling with injected clocks when testability matters
+- clear transaction boundaries
+- structured logging with correlation IDs
+- no sensitive data in logs
+
+At Principal level, the reason matters.
+
+I do not say "because clean code."
+
+I say "because unclear side effects become production incidents."
+
+## Spring Boot standards
+
+Spring Boot is powerful.
+
+It also makes it easy to put too much behavior in the wrong layer.
+
+My standards are:
+
+- controller handles protocol mapping, not business rules
+- service owns business workflow and transaction decision
+- repository owns persistence access, not orchestration
+- configuration is typed and validated
+- external clients have timeouts
+- retries are bounded and observable
+- transactions are not opened around slow external calls
+- scheduled jobs have locks or idempotency where needed
+- async executors are named, sized, and monitored
+- health checks reflect dependencies carefully
+- actuator exposure is deliberate
+
+I review Spring code for hidden coupling.
+
+I look for business logic in controllers.
+
+I look for database work inside loops.
+
+I look for `@Transactional` methods that call external APIs.
+
+I look for retries that multiply traffic during an outage.
+
+I look for missing timeout configuration.
+
+I look for unbounded thread pools.
+
+## Microservice standards
+
+Microservices fail at the boundaries.
+
+So the standards must focus on contracts, not only code style.
+
+For service-to-service APIs:
+
+- contract is documented
+- error behavior is deterministic
+- timeouts are explicit
+- retries are bounded
+- idempotency is defined
+- authentication and authorization are clear
+- sensitive fields are protected
+- client compatibility is considered
+- versioning is intentional
+
+For event-driven boundaries:
+
+- event schema is versioned
+- message key is chosen intentionally
+- ordering expectations are documented
+- consumers are idempotent
+- duplicate delivery is safe
+- retry and DLQ behavior are tested
+- lag is monitored
+- poison messages are isolatable
+
+For data boundaries:
+
+- database ownership is clear
+- migrations are backward compatible
+- indexes match read paths
+- uniqueness constraints enforce invariants
+- transaction boundaries are small
+- repair scripts are reviewed
+- retention and audit needs are known
+
+## Quality standards
+
+Quality is a system.
+
+It is not a heroic final review.
+
+My baseline quality system includes:
+
+- unit tests for domain logic
+- integration tests for repository and service wiring
+- contract tests where API or event compatibility matters
+- code reviews with an explicit checklist
+- static analysis for known defect patterns
+- dependency vulnerability checks
+- security scanning where supported
+- CI gates that block unsafe merges
+- build reproducibility
+- test data that exercises failure paths
+- dashboards and alerts for critical flows
+
+Unit tests are not enough.
+
+Integration tests are not enough.
+
+Manual QA is not enough.
+
+The point is layered confidence.
+
+Each layer catches a different class of defect.
+
+## Code review focus order
+
+I review in this order:
+
+```text
+1. Correctness
+2. Design
+3. Maintainability
+4. Performance
+5. Concurrency
+6. Security
+7. Testability
+8. Operations
+```
+
+This order prevents review from becoming a style argument.
+
+Correctness comes first.
+
+If the code does the wrong thing, naming does not matter yet.
+
+Design comes next.
+
+If the design puts behavior in the wrong boundary, future changes become expensive.
+
+Maintainability comes next.
+
+If engineers cannot safely modify the code, the service becomes fragile.
+
+Performance comes next.
+
+If a query reads too much, a consumer processes too slowly, or a loop calls a dependency repeatedly, production will reveal it.
+
+Concurrency comes next.
+
+If shared state, locking, async processing, or parallelism is present, I review it deliberately.
+
+Security comes next.
+
+If sensitive data, authentication, authorization, input validation, or dependency risk is involved, the bar is higher.
+
+Testability comes next.
+
+If the code cannot be tested without fragile setup, it will degrade.
+
+Operations comes next.
+
+If we cannot monitor, debug, roll back, or support it, it is not production-ready.
+
+## Review checklist
+
+For every meaningful service change, I ask:
+
+- Does this preserve the domain invariant?
+- Is the transaction boundary right?
+- Is external failure handled intentionally?
+- Is retry behavior safe?
+- Are exceptions mapped clearly?
+- Are logs useful and safe?
+- Are metrics present for the important state transitions?
+- Are tests proving behavior or only executing lines?
+- Is the migration safe during rolling deploy?
+- Is the performance shape acceptable for expected volume?
+- Does this increase coupling?
+- Does the next engineer understand the code?
+
+This is not a bureaucratic checklist.
+
+It is a memory aid for production risk.
+
+## `findAll` vs pageable example
+
+This is a common review signal in Java and Spring Boot services.
+
+Weak code:
+
+```java
+@Service
+public class PaymentReconciliationService {
+    private final PaymentRepository paymentRepository;
+
+    public PaymentReconciliationService(PaymentRepository paymentRepository) {
+        this.paymentRepository = paymentRepository;
+    }
+
+    public void reconcilePendingPayments() {
+        List<Payment> payments = paymentRepository.findAll();
+
+        for (Payment payment : payments) {
+            if (payment.isPending()) {
+                reconcile(payment);
+            }
+        }
+    }
+
+    private void reconcile(Payment payment) {
+        // calls downstream gateway and updates local state
+    }
+}
+```
+
+The problem is not that `findAll` is always evil.
+
+The problem is that the code has unbounded memory, unbounded runtime, unclear transaction behavior, and no production control.
+
+Better code:
+
+```java
+@Service
+public class PaymentReconciliationService {
+    private static final int PAGE_SIZE = 500;
+
+    private final PaymentRepository paymentRepository;
+
+    public PaymentReconciliationService(PaymentRepository paymentRepository) {
+        this.paymentRepository = paymentRepository;
+    }
+
+    public void reconcilePendingPayments() {
+        Pageable page = PageRequest.of(0, PAGE_SIZE, Sort.by("id").ascending());
+
+        while (true) {
+            Page<Payment> batch = paymentRepository.findPendingPayments(page);
+
+            batch.forEach(this::reconcileSafely);
+
+            if (!batch.hasNext()) {
+                break;
+            }
+
+            page = batch.nextPageable();
+        }
+    }
+
+    private void reconcileSafely(Payment payment) {
+        // bounded retries, timeout, idempotent update, metrics
+    }
+}
+```
+
+Repository:
+
+```java
+public interface PaymentRepository extends JpaRepository<Payment, UUID> {
+    @Query("""
+        select p
+        from Payment p
+        where p.status = 'PENDING'
+        order by p.id
+        """)
+    Page<Payment> findPendingPayments(Pageable pageable);
+}
+```
+
+Review questions:
+
+- Is there an index on status and id?
+- Is page size tuned for database and downstream capacity?
+- Is each item processed idempotently?
+- Does the loop hold a transaction too long?
+- What happens if a page fails halfway?
+- Are metrics emitted for processed, failed, skipped, and retried records?
+- Can the job resume safely?
+- Is there a max runtime or cancellation path?
+
+This review catches a production problem before it becomes an outage.
+
+## Kafka consumer review checklist
+
+Kafka consumers need a separate checklist.
+
+At-least-once delivery is not a footnote.
+
+It is the default risk.
+
+For every consumer, I ask:
+
+- What is the consumer group?
+- What is the partitioning key?
+- Does the key preserve required ordering?
+- Is the event schema versioned?
+- Is the consumer idempotent?
+- What unique key or state transition prevents duplicate effects?
+- When is the offset committed?
+- Can the consumer crash after side effect and before commit?
+- What happens on deserialization failure?
+- What happens on downstream timeout?
+- Are retries bounded?
+- Is retry delay configured to avoid hot loops?
+- Is a DLQ used?
+- Does the DLQ contain enough context for repair?
+- Are poison messages isolated from good messages?
+- Are headers preserved for tracing?
+- Is lag monitored by topic and partition?
+- Is processing latency measured?
+- Is rebalance behavior understood?
+- Is max poll interval appropriate?
+- Is concurrency aligned with partition count?
+- Are database writes transactional where needed?
+- Are external calls protected by timeout and circuit breaker?
+- Are sensitive values excluded from logs?
+- Is there a replay plan?
+
+Weak consumer:
+
+```java
+@KafkaListener(topics = "payment.approved")
+public void handle(PaymentApprovedEvent event) {
+    gateway.capture(event.paymentId());
+    paymentRepository.markCaptured(event.paymentId());
+}
+```
+
+Better consumer shape:
+
+```java
+@KafkaListener(topics = "payment.approved", containerFactory = "manualAckFactory")
+public void handle(PaymentApprovedEvent event, Acknowledgment ack) {
+    if (paymentRepository.isAlreadyCaptured(event.paymentId())) {
+        ack.acknowledge();
+        return;
+    }
+
+    captureService.captureIdempotently(event);
+
+    ack.acknowledge();
+}
+```
+
+The exact implementation depends on the system.
+
+The review principle does not change.
+
+The consumer must be safe under duplicate delivery, crash, retry, lag, and replay.
+
+## Static analysis and security
+
+I use tooling to catch repeatable defects.
+
+Examples:
+
+- compiler warnings
+- dependency vulnerability scanning
+- static analysis for null and resource leaks
+- secret scanning
+- container image scanning
+- license checks where required
+- security linting for common injection risks
+- test coverage thresholds for critical modules
+
+Tools do not replace review.
+
+They remove predictable work from review.
+
+That lets humans focus on correctness and design.
+
+## CI gates
+
+CI gates should match risk.
+
+For a payment service, I expect:
+
+- compile
+- unit tests
+- integration tests
+- migration validation
+- static analysis
+- dependency scan
+- container build
+- contract tests where needed
+- smoke tests
+- artifact signing or provenance if required
+- deploy dry-run where supported
+
+The CI gate should fail fast for obvious defects.
+
+It should also provide enough signal to debug the failure.
+
+A flaky CI gate is a standards problem.
+
+If engineers stop trusting CI, quality falls back to personal memory.
+
+## Making practices repeatable
+
+I make practices repeatable through artifacts.
+
+Examples include code review checklists, Kafka consumer checklists, migration checklists, release checklists, service templates, logging standards, metric naming conventions, test fixtures, reference implementations, and architecture decision records.
+
+The goal is not paperwork.
+
+The goal is to make the right behavior easy.
+
+## How to say this in an interview
+
+Use this:
+
+```text
+I raised standards by making them operational. For Java and Spring Boot, I focused on clear boundaries, safe transactions, explicit timeouts, and bounded data access. For microservices, I focused on contracts, idempotency, retries, and observability. For quality, I made reviews, tests, static analysis, security checks, and CI gates repeatable. In reviews I start with correctness, then design, maintainability, performance, concurrency, security, testability, and operations.
+```
+
+Then add either the `findAll` review example or the Kafka consumer checklist to show production judgment.
+
+## Link this with the rest of the series
+
+Start with [Delivery ownership](/realtime-issues/lead-experience-delivery-ownership) if you need the leadership framing.
+
+Use [Unblocking and mentoring](/realtime-issues/lead-experience-unblocking-mentoring) for how standards transfer to engineers.
+
+Use [Release and hands-on leadership](/realtime-issues/lead-experience-release-hands-on) for how standards survive deployment.
+
+Use [Payment case study](/realtime-issues/lead-experience-payment-case-study) for a full STAR story.
+
+Use [Interview answer and follow-ups](/realtime-issues/lead-experience-interview-answer-and-followups) for spoken practice.
+
+For deeper Java backup, use [Java 30-YOE interview](/realtime-issues/java-30yoe-interview-master-index).
+
+## Final takeaway
+
+A Staff or Principal engineer does not only have high standards.
+
+They make standards repeatable.
+
+They turn review judgment into checklists, examples, CI gates, and shared engineering habits.
+
+That is how hands-on leadership scales without becoming a bottleneck.

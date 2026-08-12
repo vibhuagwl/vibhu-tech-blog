@@ -30,6 +30,13 @@ const ORDER=[
   'java-30yoe-kafka-database-qa',
   'java-30yoe-distributed-caching-migration-qa',
   'java-30yoe-architecture-code-qa',
+  'lead-experience-master-index',
+  'lead-experience-delivery-ownership',
+  'lead-experience-engineering-standards',
+  'lead-experience-unblocking-mentoring',
+  'lead-experience-release-hands-on',
+  'lead-experience-payment-case-study',
+  'lead-experience-interview-answer-and-followups',
 ];
 
 export default function RealtimeIssues(){
@@ -46,8 +53,8 @@ export default function RealtimeIssues(){
         <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Staff+ · Principal · Architect</div>
         <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Real-time production issues — diagnose like you were on-call.</h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Incident playbooks for Java/Spring Boot microservices: stuck threads, multi‑GB file processing,
-          and a **30 YOE Principal interview bank** (production, JVM, Kafka, payments, migration).
+          Incident playbooks for Java/Spring Boot: stuck threads, multi‑GB files, 30 YOE interview bank,
+          and <strong>Lead Experience</strong> — hands-on delivery leadership, standards, mentoring, and releases.
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} guides</span>
