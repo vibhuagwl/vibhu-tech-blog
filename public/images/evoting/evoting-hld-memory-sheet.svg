@@ -1,0 +1,307 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1280" viewBox="0 0 1800 1280">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .t { font-family: Georgia, 'Times New Roman', serif; }
+      .s { font-family: 'Segoe UI', Tahoma, sans-serif; }
+      .title { font-size: 34px; font-weight: 700; fill: #0f172a; }
+      .sub { font-size: 15px; fill: #475569; }
+      .h { font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .b { font-size: 12px; fill: #1e293b; }
+      .sm { font-size: 11px; fill: #334155; }
+      .tiny { font-size: 10px; fill: #475569; }
+      .inv { font-size: 11px; font-weight: 700; fill: #0f172a; }
+      .arr { stroke: #334155; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+    ]]></style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect width="1800" height="1280" fill="#f8fafc"/>
+  <rect x="0" y="0" width="1800" height="88" fill="#0f172a"/>
+  <text class="t title" x="40" y="42" fill="#f8fafc">E-Voting HLD  Memory Sheet</text>
+  <text class="s sub" x="40" y="68" fill="#94a3b8">One picture: auth · eligibility · secret ballot · immutable store · tally · audit · invariants</text>
+  <text class="s tiny" x="1680" y="55" text-anchor="end" fill="#94a3b8">Staff / Lead recall</text>
+
+  <!-- CLIENTS -->
+  <rect x="24" y="110" width="220" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="110" width="220" height="32" rx="10" fill="#0f172a"/>
+  <rect x="24" y="126" width="220" height="16" fill="#0f172a"/>
+  <text class="s h" x="134" y="132" text-anchor="middle" fill="#f8fafc">VOTER CHANNELS</text>
+  <rect x="40" y="156" width="188" height="48" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="134" y="178" text-anchor="middle" font-weight="700">Web / Mobile app</text>
+  <text class="s tiny" x="134" y="194" text-anchor="middle">HTTPS only</text>
+  <rect x="40" y="214" width="188" height="48" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="134" y="236" text-anchor="middle" font-weight="700">Kiosk / polling site</text>
+  <text class="s tiny" x="134" y="252" text-anchor="middle">staff-assisted option</text>
+  <rect x="40" y="272" width="188" height="48" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s b" x="134" y="294" text-anchor="middle" font-weight="700">Admin / observer</text>
+  <text class="s tiny" x="134" y="310" text-anchor="middle">separate RBAC portal</text>
+  <text class="s sm" x="134" y="348" text-anchor="middle">Never expose tally keys</text>
+  <text class="s tiny" x="134" y="366" text-anchor="middle">to voter clients</text>
+  <text class="s tiny" x="134" y="384" text-anchor="middle" font-weight="700">Voters never write DB directly</text>
+
+  <!-- EDGE -->
+  <rect x="268" y="110" width="280" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="268" y="110" width="280" height="32" rx="10" fill="#1e3a5f"/>
+  <rect x="268" y="126" width="280" height="16" fill="#1e3a5f"/>
+  <text class="s h" x="408" y="132" text-anchor="middle" fill="#f8fafc">EDGE / SECURITY</text>
+  <rect x="284" y="156" width="248" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="174" text-anchor="middle" font-weight="700">API Gateway + WAF</text>
+  <text class="s tiny" x="408" y="190" text-anchor="middle">TLS · rate limit · bot defense</text>
+  <rect x="284" y="210" width="248" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="228" text-anchor="middle" font-weight="700">Auth Service</text>
+  <text class="s tiny" x="408" y="244" text-anchor="middle">MFA · gov ID / OTP · JWT</text>
+  <rect x="284" y="264" width="248" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="282" text-anchor="middle" font-weight="700">Session / nonce store</text>
+  <text class="s tiny" x="408" y="298" text-anchor="middle">Redis TTL · replay protection</text>
+  <rect x="284" y="318" width="248" height="50" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s b" x="408" y="338" text-anchor="middle" font-weight="700">KMS / HSM</text>
+  <text class="s tiny" x="408" y="356" text-anchor="middle">ballot encryption &amp; tally keys</text>
+  <path class="arr" d="M244 200 H268"/>
+  <path class="arr" d="M244 238 H268"/>
+
+  <!-- CORE -->
+  <rect x="572" y="110" width="340" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="572" y="110" width="340" height="32" rx="10" fill="#14532d"/>
+  <rect x="572" y="126" width="340" height="16" fill="#14532d"/>
+  <text class="s h" x="742" y="132" text-anchor="middle" fill="#f8fafc">CORE SERVICES</text>
+  <rect x="588" y="156" width="150" height="40" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="663" y="181" text-anchor="middle" font-weight="700">Voter Registry</text>
+  <rect x="752" y="156" width="144" height="40" rx="6" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>
+  <text class="s sm" x="824" y="181" text-anchor="middle" font-weight="700">Eligibility </text>
+  <rect x="588" y="206" width="150" height="40" rx="6" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>
+  <text class="s sm" x="663" y="231" text-anchor="middle" font-weight="700">Ballot </text>
+  <rect x="752" y="206" width="144" height="40" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="824" y="231" text-anchor="middle" font-weight="700">Election Admin</text>
+  <rect x="588" y="256" width="150" height="40" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="663" y="281" text-anchor="middle" font-weight="700">Tally Service</text>
+  <rect x="752" y="256" width="144" height="40" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="824" y="281" text-anchor="middle" font-weight="700">Results Pub</text>
+  <rect x="588" y="306" width="308" height="36" rx="6" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s tiny" x="742" y="328" text-anchor="middle" font-weight="700">Audit Service · Observer API · Notification</text>
+  <text class="s tiny" x="742" y="368" text-anchor="middle">Ballot owns: validate · split identity · persist · receipt</text>
+  <text class="s tiny" x="742" y="382" text-anchor="middle">Eligibility owns: one-vote rule before accept</text>
+  <path class="arr" d="M548 230 H572"/>
+
+  <!-- DATA -->
+  <rect x="936" y="110" width="420" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="936" y="110" width="420" height="32" rx="10" fill="#7c2d12"/>
+  <rect x="936" y="126" width="420" height="16" fill="#7c2d12"/>
+  <text class="s h" x="1146" y="132" text-anchor="middle" fill="#f8fafc">DATA PLANE (split for secret ballot)</text>
+  <rect x="952" y="156" width="190" height="70" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="2"/>
+  <text class="s b" x="1047" y="180" text-anchor="middle" font-weight="700">Participation Ledger</text>
+  <text class="s tiny" x="1047" y="198" text-anchor="middle">voterId + electionId</text>
+  <text class="s tiny" x="1047" y="214" text-anchor="middle">UNIQUE ’ one vote</text>
+  <rect x="1156" y="156" width="184" height="70" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="2"/>
+  <text class="s b" x="1248" y="180" text-anchor="middle" font-weight="700">Ballot Box Store</text>
+  <text class="s tiny" x="1248" y="198" text-anchor="middle">append-only</text>
+  <text class="s tiny" x="1248" y="214" text-anchor="middle">encrypted choice only</text>
+  <rect x="952" y="240" width="190" height="70" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5"/>
+  <text class="s b" x="1047" y="264" text-anchor="middle" font-weight="700">Audit Log</text>
+  <text class="s tiny" x="1047" y="282" text-anchor="middle">immutable events</text>
+  <text class="s tiny" x="1047" y="298" text-anchor="middle">hash chain / WORM</text>
+  <rect x="1156" y="240" width="184" height="70" rx="8" fill="#fef3c7" stroke="#a16207" stroke-width="1.5"/>
+  <text class="s b" x="1248" y="264" text-anchor="middle" font-weight="700">Redis + Kafka</text>
+  <text class="s tiny" x="1248" y="282" text-anchor="middle">nonce · rate limit</text>
+  <text class="s tiny" x="1248" y="298" text-anchor="middle">BallotAccepted events</text>
+  <text class="s tiny" x="1146" y="338" text-anchor="middle">Election DB · contests · candidates · configs</text>
+  <text class="s tiny" x="1146" y="358" text-anchor="middle" font-weight="700">Rule: unlink voter identity from ballot content at cast</text>
+  <text class="s tiny" x="1146" y="376" text-anchor="middle">Participation + ballot append in one atomic transaction</text>
+  <path class="arr" d="M912 226 H936"/>
+
+  <!-- OUTCOME -->
+  <rect x="1380" y="110" width="396" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="1380" y="110" width="396" height="32" rx="10" fill="#4c1d95"/>
+  <rect x="1380" y="126" width="396" height="16" fill="#4c1d95"/>
+  <text class="s h" x="1578" y="132" text-anchor="middle" fill="#f8fafc">OUTCOMES</text>
+  <rect x="1396" y="156" width="364" height="56" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s b" x="1578" y="178" text-anchor="middle" font-weight="700">Receipt to voter</text>
+  <text class="s tiny" x="1578" y="196" text-anchor="middle">ballotId hash · proves cast · not choice</text>
+  <rect x="1396" y="226" width="364" height="56" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s b" x="1578" y="248" text-anchor="middle" font-weight="700">After polls close</text>
+  <text class="s tiny" x="1578" y="266" text-anchor="middle">Tally ’ signed results ’ public portal</text>
+  <rect x="1396" y="296" width="364" height="72" rx="8" fill="#f5f3ff" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s b" x="1578" y="320" text-anchor="middle" font-weight="700">Election state machine</text>
+  <text class="s tiny" x="1578" y="338" text-anchor="middle">DRAFT ’ OPEN ’ CLOSED ’ TALLYING</text>
+  <text class="s tiny" x="1578" y="354" text-anchor="middle">’ CERTIFIED ’ ARCHIVED</text>
+  <path class="arr" d="M1356 250 H1380"/>
+
+  <!-- CAST JOURNEY -->
+  <rect x="24" y="412" width="1752" height="150" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="412" width="1752" height="30" rx="10" fill="#0f172a"/>
+  <rect x="24" y="426" width="1752" height="16" fill="#0f172a"/>
+  <text class="s h" x="900" y="433" text-anchor="middle" fill="#f8fafc">MARIA CASTS A BALLOT (say this out loud)</text>
+
+  <rect x="40" y="456" width="140" height="86" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s sm" x="110" y="482" text-anchor="middle" font-weight="700">1. Login</text>
+  <text class="s tiny" x="110" y="502" text-anchor="middle">MFA auth</text>
+  <text class="s tiny" x="110" y="518" text-anchor="middle">JWT issued</text>
+  <text class="s tiny" x="110" y="534" text-anchor="middle"> </text>
+
+  <rect x="196" y="456" width="140" height="86" rx="8" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <text class="s sm" x="266" y="482" text-anchor="middle" font-weight="700">2. Eligible?</text>
+  <text class="s tiny" x="266" y="502" text-anchor="middle">district</text>
+  <text class="s tiny" x="266" y="518" text-anchor="middle">not voted</text>
+  <text class="s tiny" x="266" y="534" text-anchor="middle">election OPEN</text>
+
+  <rect x="352" y="456" width="150" height="86" rx="8" fill="#bbf7d0" stroke="#15803d" stroke-width="1.5"/>
+  <text class="s sm" x="427" y="482" text-anchor="middle" font-weight="700">3. Ballot token</text>
+  <text class="s tiny" x="427" y="502" text-anchor="middle">single-use</text>
+  <text class="s tiny" x="427" y="518" text-anchor="middle">session nonce</text>
+  <text class="s tiny" x="427" y="534" text-anchor="middle">Redis TTL</text>
+
+  <rect x="518" y="456" width="150" height="86" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text class="s sm" x="593" y="482" text-anchor="middle" font-weight="700">4. Fill ballot</text>
+  <text class="s tiny" x="593" y="502" text-anchor="middle">client encrypts</text>
+  <text class="s tiny" x="593" y="518" text-anchor="middle">choices locally</text>
+  <text class="s tiny" x="593" y="534" text-anchor="middle">optional E2E</text>
+
+  <rect x="684" y="456" width="170" height="86" rx="8" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>
+  <text class="s sm" x="769" y="482" text-anchor="middle" font-weight="700">5. Submit </text>
+  <text class="s tiny" x="769" y="502" text-anchor="middle">idempotency key</text>
+  <text class="s tiny" x="769" y="518" text-anchor="middle">atomic txn</text>
+  <text class="s tiny" x="769" y="534" text-anchor="middle">participation + ballot</text>
+
+  <rect x="868" y="456" width="150" height="86" rx="8" fill="#ffedd5" stroke="#c2410c" stroke-width="1.5"/>
+  <text class="s sm" x="943" y="482" text-anchor="middle" font-weight="700">6. Append</text>
+  <text class="s tiny" x="943" y="502" text-anchor="middle">ballot store</text>
+  <text class="s tiny" x="943" y="518" text-anchor="middle">no UPDATE</text>
+  <text class="s tiny" x="943" y="534" text-anchor="middle">no DELETE</text>
+
+  <rect x="1034" y="456" width="150" height="86" rx="8" fill="#fef3c7" stroke="#a16207" stroke-width="1.5"/>
+  <text class="s sm" x="1109" y="482" text-anchor="middle" font-weight="700">7. Audit event</text>
+  <text class="s tiny" x="1109" y="502" text-anchor="middle">Kafka + log</text>
+  <text class="s tiny" x="1109" y="518" text-anchor="middle">BallotAccepted</text>
+  <text class="s tiny" x="1109" y="534" text-anchor="middle"> </text>
+
+  <rect x="1200" y="456" width="150" height="86" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text class="s sm" x="1275" y="482" text-anchor="middle" font-weight="700">8. Receipt</text>
+  <text class="s tiny" x="1275" y="502" text-anchor="middle">ballot hash</text>
+  <text class="s tiny" x="1275" y="518" text-anchor="middle">tracking code</text>
+  <text class="s tiny" x="1275" y="534" text-anchor="middle">no choice leak</text>
+
+  <rect x="1366" y="456" width="150" height="86" rx="8" fill="#fce7f3" stroke="#be185d" stroke-width="1.5"/>
+  <text class="s sm" x="1441" y="482" text-anchor="middle" font-weight="700">9. Close</text>
+  <text class="s tiny" x="1441" y="502" text-anchor="middle">polls end</text>
+  <text class="s tiny" x="1441" y="518" text-anchor="middle">state CLOSED</text>
+  <text class="s tiny" x="1441" y="534" text-anchor="middle"> </text>
+
+  <rect x="1532" y="456" width="110" height="86" rx="8" fill="#fce7f3" stroke="#be185d" stroke-width="1.5"/>
+  <text class="s sm" x="1587" y="482" text-anchor="middle" font-weight="700">10. Tally</text>
+  <text class="s tiny" x="1587" y="502" text-anchor="middle">decrypt</text>
+  <text class="s tiny" x="1587" y="518" text-anchor="middle">aggregate</text>
+  <text class="s tiny" x="1587" y="534" text-anchor="middle">sign</text>
+
+  <rect x="1658" y="456" width="110" height="86" rx="8" fill="#fce7f3" stroke="#be185d" stroke-width="1.5"/>
+  <text class="s sm" x="1713" y="482" text-anchor="middle" font-weight="700">11. Publish</text>
+  <text class="s tiny" x="1713" y="502" text-anchor="middle">results</text>
+  <text class="s tiny" x="1713" y="518" text-anchor="middle">portal</text>
+  <text class="s tiny" x="1713" y="534" text-anchor="middle"> </text>
+
+  <path class="arr" d="M180 499 H196"/>
+  <path class="arr" d="M336 499 H352"/>
+  <path class="arr" d="M502 499 H518"/>
+  <path class="arr" d="M668 499 H684"/>
+  <path class="arr" d="M854 499 H868"/>
+  <path class="arr" d="M1018 499 H1034"/>
+  <path class="arr" d="M1184 499 H1200"/>
+  <path class="arr" d="M1350 499 H1366"/>
+  <path class="arr" d="M1516 499 H1532"/>
+  <path class="arr" d="M1642 499 H1658"/>
+
+  <!-- BOTTOM 4 panels -->
+  <rect x="24" y="584" width="420" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="584" width="420" height="28" rx="10" fill="#166534"/>
+  <rect x="24" y="598" width="420" height="14" fill="#166534"/>
+  <text class="s h" x="234" y="604" text-anchor="middle" fill="#f8fafc">SECRET BALLOT</text>
+  <text class="s sm" x="44" y="640" font-weight="700">Split identity from choice</text>
+  <text class="s tiny" x="44" y="658">Participation row knows voter voted</text>
+  <text class="s tiny" x="44" y="674">Ballot row knows choice, not voterId</text>
+  <text class="s sm" x="44" y="700" font-weight="700">Encrypt ballot payload at rest</text>
+  <text class="s tiny" x="44" y="718">election public key · tally in secure enclave</text>
+  <text class="s sm" x="44" y="744" font-weight="700">Optional: E2E verifiable (advanced)</text>
+  <text class="s tiny" x="44" y="762">receipt lets voter verify inclusion, not reveal</text>
+  <text class="s tiny" x="44" y="786" font-weight="700">Admin cannot read individual choices pre-close</text>
+
+  <rect x="460" y="584" width="420" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="460" y="584" width="420" height="28" rx="10" fill="#9a3412"/>
+  <rect x="460" y="598" width="420" height="14" fill="#9a3412"/>
+  <text class="s h" x="670" y="604" text-anchor="middle" fill="#f8fafc">ONE VOTE · IDEMPOTENCY</text>
+  <text class="s sm" x="480" y="640" font-weight="700">UNIQUE(voterId, electionId)</text>
+  <text class="s tiny" x="480" y="658">participation ledger is authoritative</text>
+  <text class="s sm" x="480" y="684" font-weight="700">Client idempotency key on submit</text>
+  <text class="s tiny" x="480" y="702">retry after timeout ’ same receipt</text>
+  <text class="s sm" x="480" y="728" font-weight="700">Ballot session token single-use</text>
+  <text class="s tiny" x="480" y="746">prevents double-cast in same session</text>
+  <text class="s sm" x="480" y="772" font-weight="700">Kiosk: staff badge + voter auth both required</text>
+  <text class="s tiny" x="480" y="790" font-weight="700">Race: DB constraint beats app check</text>
+
+  <rect x="896" y="584" width="420" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="896" y="584" width="420" height="28" rx="10" fill="#5b21b6"/>
+  <rect x="896" y="598" width="420" height="14" fill="#5b21b6"/>
+  <text class="s h" x="1106" y="604" text-anchor="middle" fill="#f8fafc">TALLY &amp; INTEGRITY</text>
+  <text class="s sm" x="916" y="640" font-weight="700">Append-only ballot box</text>
+  <text class="s tiny" x="916" y="658">hash chain / Merkle root per batch</text>
+  <text class="s sm" x="916" y="684" font-weight="700">Tally is reproducible job</text>
+  <text class="s tiny" x="916" y="702">re-run from ballot store ’ same counts</text>
+  <text class="s sm" x="916" y="728" font-weight="700">Signed results manifest</text>
+  <text class="s tiny" x="916" y="746">observers verify signature + audit trail</text>
+  <text class="s sm" x="916" y="772" font-weight="700">Homomorphic / mix-net = Staff bonus</text>
+  <text class="s tiny" x="916" y="790" font-weight="700">Correctness beats real-time tally speed</text>
+
+  <rect x="1332" y="584" width="444" height="220" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="1332" y="584" width="444" height="28" rx="10" fill="#1e3a5f"/>
+  <rect x="1332" y="598" width="444" height="14" fill="#1e3a5f"/>
+  <text class="s h" x="1554" y="604" text-anchor="middle" fill="#f8fafc">SCALE · THREATS · OPS</text>
+  <text class="s sm" x="1352" y="640" font-weight="700">Shard by electionId / regionId</text>
+  <text class="s tiny" x="1352" y="656">peak = election hour, not steady QPS</text>
+  <text class="s sm" x="1352" y="680" font-weight="700">Threats: DDoS, insider, coercion, replay</text>
+  <text class="s tiny" x="1352" y="698">WAF · RBAC · audit · coercion-resistant UX</text>
+  <text class="s sm" x="1352" y="724" font-weight="700">Multi-region: home region per election</text>
+  <text class="s tiny" x="1352" y="740">async replication · certified failover plan</text>
+  <text class="s sm" x="1352" y="766" font-weight="700">SLOs: cast success · audit completeness</text>
+  <text class="s tiny" x="1352" y="784">tally job duration · results publish latency</text>
+
+  <!-- INVARIANTS -->
+  <rect x="24" y="824" width="1752" height="120" rx="10" fill="#0f172a"/>
+  <text class="s h" x="900" y="852" text-anchor="middle" fill="#f8fafc">FIVE INVARIANTS (memorize)</text>
+  <text class="s inv" x="60" y="888" fill="#86efac">1. One eligible voter ’ one accepted ballot</text>
+  <text class="s inv" x="520" y="888" fill="#93c5fd">2. Secret ballot  unlink identity from choice</text>
+  <text class="s inv" x="980" y="888" fill="#fcd34d">3. Accepted ballots are immutable</text>
+  <text class="s inv" x="60" y="920" fill="#c4b5fd">4. Tally is reproducible from ballot store + audit</text>
+  <text class="s inv" x="720" y="920" fill="#fda4af">5. Correctness &amp; auditability beat speed</text>
+
+  <!-- FAILURES + CHEAT -->
+  <rect x="24" y="964" width="860" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="24" y="964" width="860" height="28" rx="10" fill="#7f1d1d"/>
+  <rect x="24" y="978" width="860" height="14" fill="#7f1d1d"/>
+  <text class="s h" x="454" y="984" text-anchor="middle" fill="#f8fafc">WHAT-IF FAILURES (fast answers)</text>
+  <text class="s sm" x="44" y="1020" font-weight="700">Timeout after submit</text>
+  <text class="s tiny" x="44" y="1036">idempotency key returns same receipt; never double-count</text>
+  <text class="s sm" x="44" y="1060" font-weight="700">Crash after participation write, before ballot</text>
+  <text class="s tiny" x="44" y="1076">single DB transaction  both commit or both rollback</text>
+  <text class="s sm" x="44" y="1100" font-weight="700">Duplicate vote attempt</text>
+  <text class="s tiny" x="44" y="1116">UNIQUE constraint ’ 409 Already Voted</text>
+  <text class="s sm" x="44" y="1140" font-weight="700">Insider alters tally</text>
+  <text class="s tiny" x="44" y="1156">recompute from immutable ballots; signed manifest mismatch alerts</text>
+  <text class="s sm" x="44" y="1180" font-weight="700">DDoS on election day</text>
+  <text class="s tiny" x="44" y="1196">rate limit · queue · extend hours only via audited admin action</text>
+  <text class="s sm" x="44" y="1220" font-weight="700">Lost decryption key</text>
+  <text class="s tiny" x="44" y="1236">threshold keys / HSM backup; election uncertifiable without recovery</text>
+
+  <rect x="900" y="964" width="876" height="280" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <rect x="900" y="964" width="876" height="28" rx="10" fill="#0f172a"/>
+  <rect x="900" y="978" width="876" height="14" fill="#0f172a"/>
+  <text class="s h" x="1338" y="984" text-anchor="middle" fill="#f8fafc">ONE-BREATH CHEAT LINE + EXTRAS</text>
+  <text class="s sm" x="920" y="1024" font-weight="700">Core sentence</text>
+  <text class="s tiny" x="920" y="1044">Voter ’ Auth ’ Eligibility ’ Ballot token ’ encrypted submit</text>
+  <text class="s tiny" x="920" y="1060">’ atomic participation + append-only ballot ’ receipt ’ close ’ tally ’ signed results</text>
+  <text class="s sm" x="920" y="1090" font-weight="700">Ballot types</text>
+  <text class="s tiny" x="920" y="1108">single choice · ranked choice · referendum yes/no · multi-contest ballot</text>
+  <text class="s sm" x="920" y="1134" font-weight="700">Compliance</text>
+  <text class="s tiny" x="920" y="1152">retention policy · observer access · accessibility · recount workflow</text>
+  <text class="s sm" x="920" y="1178" font-weight="700">Never say</text>
+  <text class="s tiny" x="920" y="1196">"UPDATE ballot row" · "store voterId with choice" · "tally while polls open"</text>
+  <text class="s tiny" x="920" y="1212">"real-time leaderboard of live votes" · "trust the client count"</text>
+</svg>
