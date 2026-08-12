@@ -1,71 +1,16 @@
 ---
 slug: kafka-optimization-consumer
 title: "Kafka Consumer Optimization"
-description: "Balance poll size, processing time, heartbeats, and concurrency so lag stays controlled without rebalance storms."
+description: "Moved into the single Kafka Optimization page under the Kafka hub."
 category: "Kafka Interview"
 difficulty: Senior
-tags: [Kafka, Optimization, Consumer, Performance, Consumer Lag]
-readingTime: 10 min
+tags: [Kafka, Optimization, Consumer]
+readingTime: 1 min
 publishedAt: "2026-08-12"
 ---
 
-## Memory formula
+Consumer optimization now lives on **one page** with producer + broker tuning and diagrams:
 
-```text
-POLL → PROCESS → COMMIT
-```
+**→ [Kafka Optimization (single page)](/kafka-interview/kafka-optimization-index)**
 
-## The problem
-
-Lag keeps rising. Adding pods does not always help. Sometimes it makes rebalances worse.
-
-## First checklist (memorize this)
-
-```text
-1. Processing time per record
-2. max.poll.records
-3. max.poll.interval.ms
-4. Partition count
-5. Consumer count
-6. Downstream dependency latency
-7. CPU / memory
-8. Rebalance rate
-```
-
-## Key settings (where to go deep)
-
-| Property | Role | Detail |
-|---|---|---|
-| `max.poll.records` | Batch size per poll | [Detail](/kafka-interview/kafka-config-max-poll-records) |
-| `max.poll.interval.ms` | Max time between polls | Config + [rebalance incident](/kafka-interview/kafka-experience-rebalance) |
-| `session.timeout.ms` / `heartbeat.interval.ms` | Liveness | Consumer interview |
-| `fetch.min.bytes` / `fetch.max.wait.ms` | Fetch batching | Trade latency vs efficiency |
-| `enable.auto.commit` | Commit strategy | Prefer explicit commits for critical paths |
-
-## Throughput vs latency
-
-```text
-Larger poll batches     → fewer polls, risk of slow processing / rebalances
-Smaller poll batches    → safer poll loop, more overhead
-More partitions         → more parallelism (if consumers exist)
-More consumers          → only helps up to partition count
-```
-
-## Production pattern
-
-If downstream is slow:
-
-1. Reduce `max.poll.records` so each poll finishes before `max.poll.interval.ms`.
-2. Isolate slow dependencies (timeouts, bulkheads, async where correct).
-3. Scale partitions **only** when consumer count is already matching partition count and CPU is the limit.
-
-## Interview answer (30s)
-
-> Consumer optimization is about finishing work between polls. I check processing time and lag first, then `max.poll.records` / poll interval, then partition vs consumer count, then rebalances. Kafka config rarely fixes a slow dependency by itself.
-
-## Related
-
-- [Lag incident](/kafka-interview/kafka-experience-consumer-lag)
-- [Lag troubleshooting](/kafka-interview/kafka-troubleshooting-consumer-lag)
-- [Consumer interview](/kafka-interview/kafka-consumer-interview)
-- [Optimization hub](/kafka-interview/kafka-optimization-index)
+Also open: [Realtime case](/kafka-interview/kafka-realtime-case) · [Properties](/kafka-interview/kafka-properties)

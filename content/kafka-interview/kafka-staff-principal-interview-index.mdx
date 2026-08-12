@@ -1,62 +1,16 @@
 ---
 slug: kafka-staff-principal-interview-index
-title: "Kafka Interview Prep — Staff+ / Principal / Architect (25+ YOE)"
-description: "End-to-end Kafka interview guide for Staff+, Principal and Architect roles: 130+ questions spanning architecture, failure, EOS, DLQ, payments, multi-region and production scenarios."
-category: Kafka Interview
-difficulty: Intermediate
-tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
-readingTime: 12 min
-publishedAt: "2026-08-11"
+title: "Kafka Interview Prep — Staff+ / Principal / Architect"
+description: "Interview prep consolidated into the Cheatsheet & Interview page under the Kafka hub."
+category: "Kafka Interview"
+difficulty: Advanced
+tags: [Kafka, Interview]
+readingTime: 1 min
+publishedAt: "2026-08-12"
 ---
 
-## Who this is for
+All interview storytelling is now on **one page** (30s / 90s / follow-ups from the Spring payment demo):
 
-Interviewers at **Staff+ / Principal / Architect** level do not score dictionary answers. They score:
+**→ [Cheatsheet & Interview](/kafka-interview/kafka-cheat-sheet)**
 
-```text
-Failure → Detection → Recovery → Consistency → Scalability → Trade-off
-```
-
-This section answers **130+ Kafka questions** in that voice — with payment/fintech framing where it matters.
-
-## Curriculum map
-
-| # | Guide | Q range |
-|---|---|---|
-| 0 | [This index](/kafka-interview/kafka-staff-principal-interview-index) | Orientation |
-| 1 | [Architecture](/kafka-interview/kafka-architecture-interview) | 1–10 |
-| 2 | [Partitions & Ordering](/kafka-interview/kafka-partitions-ordering-interview) | 11–20 |
-| 3 | [Producer Deep Dive](/kafka-interview/kafka-producer-interview) | 21–35 |
-| 4 | [Consumer Deep Dive](/kafka-interview/kafka-consumer-interview) | 36–48 |
-| 5 | [Offset Management](/kafka-interview/kafka-offset-management-interview) | 49–60 |
-| 6 | [Failure Scenarios](/kafka-interview/kafka-failure-scenarios-interview) | 61–70 |
-| 7 | [Poison Message / DLQ](/kafka-interview/kafka-dlq-poison-message-interview) | 71–81 |
-| 8 | [Transactions & Payments](/kafka-interview/kafka-transactions-payments-interview) | 82–95 |
-| 9 | [Microservices & Schemas](/kafka-interview/kafka-microservices-schema-interview) | 96–105 |
-| 10 | [Performance & Scaling](/kafka-interview/kafka-performance-scaling-interview) | 106–118 |
-| 11 | [System Design (Architect)](/kafka-interview/kafka-system-design-architect-interview) | 119–130 |
-| 12 | [Scenario Drills](/kafka-interview/kafka-scenario-drills-staff-plus) | Fire scenarios |
-
-## The reasoning pattern they want
-
-**Duplicate payment example (memorize the chain):**
-
-```text
-Kafka retry
-  → duplicate delivery (at-least-once)
-  → idempotency key on payment
-  → DB unique constraint
-  → transactional processing (DB)
-  → outbox / publish after commit
-  → offset commit after side effects (or transactional consume pattern)
-  → recovery / DLQ for poison
-```
-
-Kafka **exactly-once** ≠ your **payment system** is exactly-once across Kafka + DB + PSP.
-
-## Related deep dives on this site
-
-- [Kafka Internals](/system-design/kafka-internals) (story + diagrams)
-- [CDC and Outbox](/system-design/cdc-and-outbox)
-- [Kafka Cheat Sheet](/system-design/cheat-sheet-kafka)
-- [Design Payment System](/fintech/design-payment-system)
+Practice path: [Realtime case](/kafka-interview/kafka-realtime-case) → [Kafka Code](/spring-kafka-payments-demo) → [Optimization](/kafka-interview/kafka-optimization-index)

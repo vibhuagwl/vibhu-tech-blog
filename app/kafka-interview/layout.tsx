@@ -6,14 +6,15 @@ export default function KafkaInterviewLayout({children}:{children:React.ReactNod
     <CatalogLayout
       section="kafka-interview"
       config={{
-        eyebrow:'Knowledge system',
+        eyebrow:'Kafka Tab',
         title:'Kafka',
-        description:'Learn · Experience · Optimize · Configure · Troubleshoot · Upgrade · Interview · Recall',
-        browseLabel:'Browse Kafka learning map',
-        filterPlaceholder:'Filter Kafka topics…',
+        description:'Code · Optimization · Properties · Cheatsheet · Realtime',
+        browseLabel:'Browse Kafka pages',
+        filterPlaceholder:'Filter…',
         basePath:'/kafka-interview',
         groupOrder:['Kafka Interview'],
         slugOrder:KAFKA_SIDEBAR_ORDER,
+        onlySlugOrder:true,
       }}
     >
       {children}

@@ -39,7 +39,7 @@ const banks=[
     href:'/kafka-interview',
     label:'Kafka',
     level:'Staff',
-    blurb:'One hub for Kafka interview banks plus Spring Kafka code, DLQ flow, storytelling, and full property checklists.',
+    blurb:'Five pages: Spring Kafka code, optimization, properties, cheatsheet & interview, realtime payment case.',
   },
   {
     href:'/redis-interview',
