@@ -77,6 +77,29 @@ class PaymentResilienceIT {
   }
 
   @Test
+  void idempotent_replay_does_not_double_charge() {
+    PaymentResult first = http.postForEntity(
+            "/api/orders", new PayRequest("same-key", "c9", 500), PaymentResult.class)
+        .getBody();
+    int calls = bank.callCount();
+    PaymentResult second = http.postForEntity(
+            "/api/orders", new PayRequest("same-key", "c9", 500), PaymentResult.class)
+        .getBody();
+    assertThat(first).isNotNull();
+    assertThat(second).isNotNull();
+    assertThat(first.status()).isEqualTo("CAPTURED");
+    assertThat(second.status()).isEqualTo("CAPTURED");
+    assertThat(bank.callCount()).isEqualTo(calls);
+  }
+
+  @Test
+  void fx_endpoint_caches() {
+    http.getForEntity("/api/fx", String.class);
+    http.getForEntity("/api/fx", String.class);
+    assertThat(http.getForEntity("/api/fx", String.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+  }
+
+  @Test
   void simulate_endpoint_switches_mode() {
     ResponseEntity<String> res = http.getForEntity("/api/payment/simulate?mode=ERROR", String.class);
     assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);

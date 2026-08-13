@@ -7,8 +7,11 @@ import {TOPICS} from '@/lib/resilience4j/topics';
 import {
   BENEFITS,
   CHEAT,
+  CHECKLIST,
+  CLOSING,
   DECISION,
   FIVE_MIN,
+  MEMORY_SENTENCE,
   MODULE_COMPARE,
   REMEMBER,
   SIXTY_SEC,
@@ -17,6 +20,8 @@ import StickyToc from './sticky-toc';
 import TopicPanel from './topic-panel';
 import InterviewMode from './interview-mode';
 import CodePanel from './code-panel';
+import OAuthCodeExplorer from '@/components/oauth-code-explorer';
+import type {DemoSourceFile,DemoTreeNode} from '@/lib/oauth-demo-source';
 
 function Section({
   id,
@@ -67,7 +72,15 @@ function MiniTable({headers, rows}: {headers: string[]; rows: string[][]}) {
   );
 }
 
-export default function Resilience4jHub() {
+export default function Resilience4jHub({
+  files = [],
+  tree = [],
+  defaultPath = '',
+}: {
+  files?: DemoSourceFile[];
+  tree?: DemoTreeNode[];
+  defaultPath?: string;
+}) {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
@@ -75,11 +88,14 @@ export default function Resilience4jHub() {
           Staff · Principal · Architect · Java · Spring Boot 3 · AWS · Payments
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          Resilience4j
+          Resilience4j in Spring Boot — Complete Production Guide
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Circuit breaker · retry · bulkhead · rate limit · time limit — banking failures, Spring code,
-          observability, and interview answers. ~90% practical.
+          Build fault-tolerant payment microservices using Circuit Breaker, Retry, Rate Limiter,
+          Bulkhead, Time Limiter and Cache — with a runnable bank lab.
+        </p>
+        <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
+          {MEMORY_SENTENCE}
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           Lab:{' '}
@@ -101,7 +117,7 @@ export default function Resilience4jHub() {
           <Section
             id="overview"
             title="Big Picture — Payment Path"
-            lead="Resilience4j is a lightweight fault-tolerance library for Java. It replaced Hystrix-style patterns with composable CircuitBreaker, Retry, RateLimiter, Bulkhead, and TimeLimiter — Spring Boot 3 ready, Micrometer-native."
+            lead="Imagine a payment service calling Account, Fraud, and a payment gateway that fans out to Visa, SWIFT, and a local bank. One dependency becomes slow. What happens to your threads, your API, and a traffic spike?"
           >
             <div className="grid gap-3 md:grid-cols-2">
               <div className="overflow-hidden rounded-2xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30">
@@ -147,12 +163,13 @@ vs Mesh: transport defaults — app still owns money semantics`}
               />
               <CodePanel
                 title="Analogies"
-                code={`CircuitBreaker = fuse box
-Retry = knock again (if safe)
-RateLimiter = ticket queue
-Bulkhead = ship compartments
-TimeLimiter = hard meeting stop
-Fallback = honest degraded answer`}
+                code={`CircuitBreaker = STOP calling the broken shop
+Retry = TRY AGAIN when the failure is temporary
+RateLimiter = CONTROL how many customers enter
+Bulkhead = KEEP separate rooms so one cannot sink the ship
+TimeLimiter = DON'T WAIT FOREVER
+Cache = DON'T ASK the same question repeatedly
+Fallback = honest PENDING — never fake SUCCESS`}
                 tone="ok"
               />
             </div>
@@ -210,6 +227,41 @@ complete outage → OPEN → PENDING → alert → HALF_OPEN probe`}
             />
           </Section>
 
+          <Section
+            id="sysdesign"
+            title="System Design Interview — Multi-Bank Payments"
+            lead="Design a payment service that calls multiple banks and remains available when one bank becomes slow or unavailable."
+          >
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid
+                chart={`flowchart TB
+  CUST[Customer] --> GW[API Gateway RL]
+  GW --> PAY[Payment Service]
+  PAY --> ID[Idempotency]
+  ID --> VAL[Validate]
+  VAL --> BH[Per-bank Bulkhead]
+  BH --> TL[TimeLimiter]
+  TL --> CB[Per-bank CircuitBreaker]
+  CB --> RT[Retry if idempotent]
+  RT --> A[Visa]
+  RT --> B[SWIFT]
+  RT --> C[Local ACH]
+  CB -->|OPEN| PEND[PENDING + alert]`}
+              />
+            </div>
+            <CodePanel
+              title="Why each box exists"
+              code={`Gateway RL     → cluster admit (R4j RL is per pod)
+Idempotency    → timeout after capture must not double-charge
+Per-bank BH/CB → slow SWIFT must not stall Visa
+TimeLimiter    → bound wait; still set HTTP timeouts
+Retry          → 503/reset only, same Idempotency-Key
+Fallback       → PENDING, never CAPTURED
+Metrics        → OPEN / not_permitted / retries per bank name`}
+              tone="ok"
+            />
+          </Section>
+
           <Section id="decision" title="Memory Framework">
             <div className="grid gap-2 md:grid-cols-2">
               {REMEMBER.map(([n, a]) => (
@@ -243,13 +295,45 @@ complete outage → OPEN → PENDING → alert → HALF_OPEN probe`}
             </div>
           </Section>
 
-          <Section id="lab" title="Runnable Lab" lead="Spring Boot 3.4 + Resilience4j 2.4 — simulated bank gateway, CB opens, retry, pending fallback, JUnit tests.">
+          <Section id="lab" title="Runnable Lab" lead="Spring Boot 3.4 + Resilience4j 2.4 — simulated bank, CB, retry, RL, bulkhead, TimeLimiter, FX cache, idempotency, PENDING fallback, JUnit.">
             <CodePanel
-              title="Quick start"
+              title="Quick start + curl"
               code={`cd spring-resilience4j-lab
 mvn test
-# PaymentBankStub · CircuitBreaker · Retry · Pending fallback`}
+mvn spring-boot:run   # :8087
+
+curl -sS -X POST http://127.0.0.1:8087/api/orders \\
+  -H 'Content-Type: application/json' \\
+  -d '{"idempotencyKey":"PAYMENT-12345","customerId":"c1","amountCents":1000}'
+
+curl -sS 'http://127.0.0.1:8087/api/payment/simulate?mode=DOWN'
+curl -sS http://127.0.0.1:8087/api/fx
+curl -sS http://127.0.0.1:8087/actuator/circuitbreakers
+
+# pom: resilience4j-spring-boot3 + aop + actuator
+# (not resilience4j-all — the Boot3 starter pulls the modules you configure)`}
             />
+            {files.length > 0 && (
+              <div className="mt-6">
+                <OAuthCodeExplorer
+                  files={files}
+                  tree={tree}
+                  defaultPath={defaultPath}
+                  routeBase="/resilience4j"
+                  ariaLabel="Resilience4j lab source tree"
+                />
+              </div>
+            )}
+          </Section>
+
+          <Section id="checklist" title="Production Checklist">
+            <ul className="grid gap-2 md:grid-cols-2">
+              {CHECKLIST.map((item) => (
+                <li key={item} className="rounded-xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-800">
+                  [ ] {item}
+                </li>
+              ))}
+            </ul>
           </Section>
 
           <Section id="cheat" title="Cheat Sheet">
@@ -261,6 +345,9 @@ mvn test
                 </div>
               ))}
             </div>
+            <p className="mt-6 max-w-3xl text-base font-semibold leading-7 text-slate-800 dark:text-slate-200">
+              {CLOSING}
+            </p>
           </Section>
         </div>
       </div>

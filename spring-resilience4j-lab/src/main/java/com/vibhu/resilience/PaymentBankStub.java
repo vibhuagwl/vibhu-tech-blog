@@ -50,6 +50,7 @@ public class PaymentBankStub {
         }
         yield PaymentResult.captured(req.idempotencyKey());
       }
+      case REJECT -> throw new BusinessException("insufficient funds");
     };
   }
 }

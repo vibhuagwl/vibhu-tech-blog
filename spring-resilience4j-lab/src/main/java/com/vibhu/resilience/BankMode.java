@@ -6,5 +6,6 @@ public enum BankMode {
   ERROR,
   FLAKY,
   SLOW,
-  DOWN
+  DOWN,
+  REJECT
 }
