@@ -190,7 +190,7 @@ export default function SiteHeader(){
           <Link href="/" className="site-brand">
             <span className="site-brand__mark">VA</span>
             <span className="site-brand__text">
-              <span className="site-brand__name">Vibhu Tech</span>
+              <span className="site-brand__name">Vibhu Tech Lab</span>
               <span className="site-brand__tag">Interview Hub</span>
             </span>
           </Link>

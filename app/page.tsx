@@ -41,7 +41,7 @@ export default function Home(){
       <section className="border-b border-slate-200/80 bg-white/85 dark:border-slate-800 dark:bg-slate-950/70">
         <div className="mx-auto max-w-7xl px-5 py-16 md:py-24">
           <div className="max-w-3xl">
-            <p className="eyebrow">Senior Engineering Interview Hub</p>
+            <p className="eyebrow">Vibhu Tech Lab</p>
             <h1 className="mt-4 text-4xl font-bold tracking-[-.035em] text-slate-900 md:text-6xl dark:text-white">
               Structured knowledge for senior technical interviews.
             </h1>

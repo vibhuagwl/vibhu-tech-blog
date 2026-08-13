@@ -18,8 +18,8 @@ const mono=IBM_Plex_Mono({
 });
 
 export const metadata:Metadata={
-  title:{default:'Senior Engineering Interview Hub | Vibhu Agarwal',template:'%s | Vibhu Agarwal'},
-  description:'Engineering knowledge for senior developers: Java, Spring Boot, microservices, Kafka, system design, and production troubleshooting — with interview-ready answers.',
+  title:{default:'Vibhu Tech Lab — Senior Engineering Interview Hub',template:'%s · Vibhu Tech Lab'},
+  description:'Vibhu Tech Lab: engineering knowledge for senior developers — Java, Spring Boot, microservices, Kafka, system design, and production troubleshooting with interview-ready answers.',
   metadataBase:new URL('https://vibhuagwl.github.io/vibhu-tech-blog'),
 };
 

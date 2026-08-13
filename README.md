@@ -1,4 +1,4 @@
-# System Design Interview Hub
+# Vibhu Tech Lab
 
 Production-oriented system design interview preparation by Vibhu Agarwal — built for **Senior → Staff/Principal** interviews (FAANG, high-scale tech, FinTech).
 
