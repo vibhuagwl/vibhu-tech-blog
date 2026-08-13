@@ -181,7 +181,7 @@ Business → Traffic → SLA → Data profile
               <p className="mt-2 text-xs text-slate-500">*Illustrative savings — verify with your Cost Explorer baseline.</p>
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <div className="text-[11px] font-bold uppercase tracking-[.12em] text-slate-500">Architecture review</div>
                 <ul className="mt-3 space-y-1 text-sm text-slate-600 dark:text-slate-300">
                   {REVIEW_CHECKLIST.map((c) => (
@@ -189,7 +189,7 @@ Business → Traffic → SLA → Data profile
                   ))}
                 </ul>
               </div>
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <div className="text-[11px] font-bold uppercase tracking-[.12em] text-slate-500">Cost-aware code review</div>
                 <ul className="mt-3 space-y-1 text-sm text-slate-600 dark:text-slate-300">
                   {CODE_REVIEW_COST.map((c) => (

@@ -89,7 +89,7 @@ public Payment get(String id) {
   D --> MC[Memcached]`}/>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2 text-sm">
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <div className="font-bold">Local</div>
                 <ul className="mt-2 list-disc pl-5 text-slate-600 dark:text-slate-300">
                   <li>No network · micro-latency</li>
@@ -97,7 +97,7 @@ public Payment get(String id) {
                   <li>Choose for ultra-hot, pod-local</li>
                 </ul>
               </div>
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <div className="font-bold">Distributed</div>
                 <ul className="mt-2 list-disc pl-5 text-slate-600 dark:text-slate-300">
                   <li>Shared · network hop</li>

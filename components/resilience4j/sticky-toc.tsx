@@ -29,7 +29,7 @@ export default function StickyToc({items}: {items: TocItem[]}) {
 
   return (
     <nav aria-label="Resilience4j sections" className="hidden xl:block">
-      <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/95">
+      <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
         <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-500">
           Resilience4j · Payments
         </div>

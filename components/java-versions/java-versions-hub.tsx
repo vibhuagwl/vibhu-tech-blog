@@ -226,7 +226,7 @@ Request N ───┘── Virtual Threads
                 ['Watch', 'Pinning via synchronized/native; ThreadLocal proliferation'],
                 ['Observe', 'JFR pinning, DB pool pending, downstream p99, carriers'],
               ].map(([t,b])=>(
-                <div key={t} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <div key={t} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                   <div className="text-xs font-bold uppercase tracking-[.12em] text-slate-500">{t}</div>
                   <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">{b}</p>
                 </div>
@@ -299,7 +299,7 @@ Request N ───┘── Virtual Threads
           <Section id="concurrency-evolution" title="Concurrency Evolution" lead="From executors to virtual threads — pick the model for the workload.">
             <div className="grid gap-3 md:grid-cols-3">
               {CONCURRENCY_TIMELINE.map((c)=>(
-                <div key={c.era} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <div key={c.era} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                   <div className="text-xs font-bold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">{c.era}</div>
                   <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
                     {c.items.map((i)=><li key={i}>{i}</li>)}
@@ -551,7 +551,7 @@ Request N ───┘── Virtual Threads
           <Section id="scenarios" title="Scenario-Based Questions" lead={`${SCENARIOS.length} production scenarios — expand for model answers.`}>
             <div className="space-y-3">
               {SCENARIOS.map((s)=>(
-                <details key={s.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <details key={s.id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                   <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">
                     {s.title}
                   </summary>

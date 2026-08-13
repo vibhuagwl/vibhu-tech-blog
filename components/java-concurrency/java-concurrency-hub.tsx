@@ -56,7 +56,7 @@ export default function JavaConcurrencyHub(){
           <Section id="overview" title="Overview" lead="Concurrent Bank / Payment Platform story maps every API to a teller, line, vault key, or badge.">
             <div className="grid gap-3 md:grid-cols-3">
               {REMEMBER.slice(0,6).map(([n,a])=>(
-                <div key={n} className="rounded-2xl border border-slate-200 p-4 text-sm dark:border-slate-800">
+                <div key={n} className="rounded-2xl border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
                   <div className="font-bold">{n}</div>
                   <div className="mt-1 text-slate-500">{a}</div>
                 </div>
@@ -76,7 +76,7 @@ export default function JavaConcurrencyHub(){
             </div>
             <div className="mt-4 space-y-3">
               {CONCURRENCY_TIMELINE.map((era)=>(
-                <div key={era.version} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <div key={era.version} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                   <div className="font-bold">{era.version}{era.year?` · ${era.year}`:''}</div>
                   <ul className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
                     {era.features.map((f)=>(
@@ -199,7 +199,7 @@ export default function JavaConcurrencyHub(){
           <Section id="comparison" title="Master Comparisons">
             <div className="space-y-3">
               {COMPARISONS.map((c)=>(
-                <div key={c.pair} className="rounded-2xl border border-slate-200 p-4 text-sm dark:border-slate-800">
+                <div key={c.pair} className="rounded-2xl border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
                   <div className="font-bold">{c.pair}</div>
                   <div className="mt-1">A: {c.a}</div>
                   <div>B: {c.b}</div>
@@ -252,7 +252,7 @@ export default function JavaConcurrencyHub(){
           <Section id="thirty-min" title="Interview in 30 Minutes">
             <div className="grid gap-3 md:grid-cols-2">
               {THIRTY_MIN.map((t)=>(
-                <a key={t.id} href={`#${t.id==='syncvol'?'synchronized':t.id==='cas'?'atomic':t.id==='scsv'?'scoped':t.id}`} className="rounded-2xl border border-slate-200 p-4 hover:border-blue-400 dark:border-slate-800">
+                <a key={t.id} href={`#${t.id==='syncvol'?'synchronized':t.id==='cas'?'atomic':t.id==='scsv'?'scoped':t.id}`} className="rounded-2xl border border-slate-200 bg-white p-4 hover:border-teal-600 dark:border-slate-800 dark:bg-slate-950">
                   <div className="font-bold">{t.title}</div>
                   <ul className="mt-2 list-disc pl-4 text-sm text-slate-600 dark:text-slate-300">
                     {t.facts.map((f)=><li key={f}>{f}</li>)}

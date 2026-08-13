@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 :root{
-  --bg:#eef2f5;
+  --bg:#f8fafc;
   --surface:#ffffff;
   --ink:#0b1220;
   --muted:#5a6a7a;
-  --line:#d5dde6;
+  --line:#e2e8f0;
   --accent:#0f766e;
   --accent-strong:#0d9488;
   --accent-soft:#ecfdf8;
@@ -52,30 +52,8 @@ body{
   line-height:1.65;
   transition:background .2s,color .2s;
 }
-.site-atmosphere{
-  pointer-events:none;
-  position:fixed;
-  inset:0;
-  z-index:-1;
-  background:
-    radial-gradient(900px 520px at 12% -8%, rgba(15,118,110,.10), transparent 58%),
-    radial-gradient(700px 420px at 92% 8%, rgba(11,18,32,.06), transparent 52%),
-    linear-gradient(180deg, rgba(255,255,255,.55), transparent 28%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 23px,
-      rgba(11,18,32,.025) 23px,
-      rgba(11,18,32,.025) 24px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 23px,
-      rgba(11,18,32,.02) 23px,
-      rgba(11,18,32,.02) 24px
-    );
-}
+/* Grid/gradient wash removed — keep solid, quiet page chrome */
+.site-atmosphere{display:none}
 a{text-decoration:none}
 :focus-visible{
   outline:2px solid var(--accent);
@@ -99,9 +77,8 @@ a{text-decoration:none}
   position:sticky;
   top:0;
   z-index:50;
-  border-bottom:1px solid color-mix(in srgb, var(--line) 80%, transparent);
-  background:color-mix(in srgb, var(--surface) 86%, transparent);
-  backdrop-filter:blur(16px) saturate(1.2);
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
 }
 .site-header__bar{
   margin:0 auto;
@@ -437,7 +414,7 @@ a{text-decoration:none}
 }
 .btn-primary:hover{opacity:.92;transform:translateY(-1px)}
 .btn-secondary{
-  background:color-mix(in srgb, var(--surface) 88%, transparent);
+  background:var(--surface);
   color:var(--ink);
   border:1px solid var(--line);
   backdrop-filter:blur(8px);
@@ -464,7 +441,14 @@ a{text-decoration:none}
   border:1px solid var(--line);
   background:var(--surface);
   border-radius:var(--radius-lg);
-  box-shadow:var(--shadow-sm);
+  box-shadow:none;
+}
+
+/* Clear solid panels used across hubs (avoid see-through boxes on page bg) */
+.hub-surface{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--radius-lg);
 }
 
 /* —— Article shell —— */
@@ -1014,12 +998,7 @@ a{text-decoration:none}
   --danger:#fca5a5;
   --danger-soft:#450a0a;
 }
-.dark .site-atmosphere{
-  background:
-    radial-gradient(800px 480px at 10% -10%, rgba(45,212,191,.12), transparent 55%),
-    radial-gradient(600px 400px at 90% 0%, rgba(14,165,233,.08), transparent 50%),
-    linear-gradient(180deg, rgba(15,22,35,.9), transparent 40%);
-}
+.dark .site-atmosphere{display:none}
 .dark body{
   background:var(--bg);
 }
@@ -1314,14 +1293,12 @@ a{text-decoration:none}
   position:relative;
   overflow:hidden;
   border-bottom:1px solid var(--line);
-  background:color-mix(in srgb, var(--surface) 78%, transparent);
+  background:var(--surface);
 }
 .home-hero__bg{
   position:absolute;
   inset:0;
-  background:
-    linear-gradient(90deg, var(--accent) 0, var(--accent) 4px, transparent 4px),
-    radial-gradient(520px 180px at 0% 0%, rgba(15,118,110,.08), transparent 70%);
+  background:linear-gradient(90deg, var(--accent) 0, var(--accent) 3px, transparent 3px);
 }
 .home-hero__grid{
   display:none;
@@ -1419,15 +1396,14 @@ a{text-decoration:none}
 }
 .home-group{
   border:1px solid var(--line);
-  background:color-mix(in srgb, var(--surface) 92%, transparent);
+  background:var(--surface);
   border-radius:var(--radius-lg);
   padding:1.35rem 1.35rem 1.1rem;
-  backdrop-filter:blur(8px);
   transition:border-color .2s, box-shadow .2s;
 }
 .home-group:hover{
   border-color:color-mix(in srgb, var(--accent) 35%, var(--line));
-  box-shadow:var(--shadow-md);
+  box-shadow:var(--shadow-sm);
 }
 .home-group__title{
   font-size:.68rem;
@@ -1470,14 +1446,13 @@ a{text-decoration:none}
 }
 .home-strip{
   border-block:1px solid var(--line);
-  background:color-mix(in srgb, var(--surface) 70%, transparent);
-  backdrop-filter:blur(10px);
+  background:var(--surface);
 }
 
 .site-footer{
   margin-top:5rem;
   border-top:1px solid var(--line);
-  background:color-mix(in srgb, var(--surface) 94%, transparent);
+  background:var(--surface);
 }
 .site-footer__inner{
   margin:0 auto;
