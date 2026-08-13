@@ -1,0 +1,28 @@
+import type {TocItem} from './types';
+
+export const R4J_TOC: TocItem[] = [
+  {id: 'overview', label: 'Big Picture · Payments'},
+  {id: 'modules', label: 'Modules Map'},
+  {id: 'failures', label: 'What Can Fail'},
+  {id: 'circuit', label: 'Circuit Breaker'},
+  {id: 'retry', label: 'Retry · Idempotency'},
+  {id: 'backoff', label: 'Backoff · Jitter'},
+  {id: 'bulkhead', label: 'Bulkhead'},
+  {id: 'ratelimit', label: 'Rate Limiter'},
+  {id: 'timelimit', label: 'TimeLimiter'},
+  {id: 'fallback', label: 'Fallback Rules'},
+  {id: 'combine', label: 'Pattern Order'},
+  {id: 'spring', label: 'Spring Boot'},
+  {id: 'scenarios', label: 'Failure Scenarios'},
+  {id: 'kafka', label: 'Kafka · Redis · DB'},
+  {id: 'clients', label: 'REST Clients'},
+  {id: 'observe', label: 'Metrics · Tracing'},
+  {id: 'tenant', label: 'Multi-Tenant'},
+  {id: 'drawbacks', label: 'Drawbacks · Mistakes'},
+  {id: 'vs', label: 'vs Mesh / Hystrix'},
+  {id: 'architecture', label: 'Banking Architecture'},
+  {id: 'decision', label: 'Memory Framework'},
+  {id: 'interview', label: 'Interview Mode'},
+  {id: 'lab', label: 'Runnable Lab'},
+  {id: 'cheat', label: 'Cheat Sheet'},
+];
