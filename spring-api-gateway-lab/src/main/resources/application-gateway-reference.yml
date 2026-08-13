@@ -1,0 +1,12 @@
+# Reference config for Spring Cloud Gateway (not loaded by the unit-test lab).
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: payment-service
+          uri: http://payment-service:8080
+          predicates:
+            - Path=/api/payments/**
+            - Method=GET,POST
+          filters:
+            - AddRequestHeader=X-Gateway, spring-api-gateway-lab
