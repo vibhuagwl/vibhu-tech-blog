@@ -20,6 +20,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     topics:[
       {href:'/system-design',label:'System Design',blurb:'HLD problems, estimation, Staff follow-ups'},
       {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking, messaging, resilience, consistency'},
+      {href:'/distributed-locking',label:'Distributed Locking',blurb:'Redis · DB · ZK · fencing · Spring Architect'},
       {href:'/design-patterns',label:'Design Patterns',blurb:'23 GoF patterns with revision and mock interview'},
       {href:'/complexity',label:'Complexity',blurb:'Big-O from Java code, interview framing'},
     ],
