@@ -112,39 +112,45 @@ const GROUPS = `sequenceDiagram
 
 const diagrams = [
   {
+    id: 'ida-stack',
+    title: 'IDAnywhere + ADFS + AD relationship',
+    blurb:
+      'Read bottom-up: AD stores users; ADFS authenticates against AD; IDAnywhere is the OIDC front door your Spring app calls. App never LDAP-binds to AD and usually never talks to ADFS hostnames directly.',
+    chart: IDA_STACK,
+  },
+  {
     id: 'internal',
     title: 'How OIDC SSO works internally (any IdP)',
-    blurb: 'Discovery → authorize → code → token → validate id_token → session → API with Bearer JWT + JWKS.',
+    blurb:
+      'Browser ↔ Spring ↔ IdP only. Discovery finds /authorize, /token, JWKS. Code becomes id_token + access_token. Session for HTML; Bearer JWT for the API. Swap IdP product — this sequence stays the same.',
     chart: INTERNAL,
   },
   {
     id: 'ways-flow',
     title: 'Ways to implement OIDC SSO (flow)',
-    blurb: 'Pick a browser flow (code / BFF). Pick an IdP product. Spring wiring stays the same.',
+    blurb:
+      'First pick a browser pattern (Authorization Code or BFF). Then pick an IdP product. Spring oauth2Login wiring does not care which product — only issuer-uri / client credentials change.',
     chart: WAYS,
-  },
-  {
-    id: 'ida-stack',
-    title: 'IDAnywhere + ADFS + AD relationship',
-    blurb: 'AD stores users. ADFS federates. IDAnywhere is the OIDC front door your app calls.',
-    chart: IDA_STACK,
   },
   {
     id: 'okta',
     title: 'Same app with Okta',
-    blurb: 'Profile okta — only issuer-uri / client-id change. End-to-end flow identical.',
+    blurb:
+      'Profile okta — only issuer-uri / client-id / secret change. End-to-end OIDC flow identical to IDAnywhere. Okta replaces the IDAnywhere+ADFS front door from the app’s point of view.',
     chart: OKTA,
   },
   {
     id: 'keycloak',
     title: 'Same app with Keycloak',
-    blurb: 'Profile keycloak — realm issuer. End-to-end flow identical.',
+    blurb:
+      'Profile keycloak — realm issuer URL. Same Authorization Code + JWT API pattern. Useful for local / self-hosted IdP practice.',
     chart: KEYCLOAK,
   },
   {
     id: 'groups',
     title: 'Group / role claims → Spring authorization',
-    blurb: 'IdP authenticates. Your API still owns authorization by mapping claims to ROLE_*.',
+    blurb:
+      'IdP proves identity (authentication). Your API still decides authorization: map IdP group/role claims to ROLE_* then @PreAuthorize. Claim JSON paths differ by IdP — converter code absorbs that.',
     chart: GROUPS,
   },
 ] as const;
@@ -156,7 +162,8 @@ export default function IdAnywhereSequenceDiagrams() {
         Detailed sequence diagrams
       </h2>
       <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-        Internals first, then IDAnywhere/ADFS stack, then Okta and Keycloak — same Spring Security client.
+        Diagrams start with the <a href="#ida-stack" className="font-semibold underline dark:text-blue-400">IDAnywhere + ADFS + AD stack</a>, then the{' '}
+        <a href="#internal" className="font-semibold underline dark:text-blue-400">OIDC token handshake</a>, then Okta / Keycloak.
       </p>
       <div className="mt-6 space-y-10">
         {diagrams.map((d) => (
