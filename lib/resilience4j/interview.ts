@@ -16,6 +16,8 @@ export const SENIOR: InterviewQ[] = [
   {id:'s13',topic:'Senior',question:'TimeLimiter vs HTTP client timeout?',answer30s:'TimeLimiter bounds a Future/Mono. Socket connect/read timeouts still fire underneath.',answer2m:'Align budgets: client 3s > TL 2s > read 1.5s > connect 200ms. cancelRunningFuture is not magic for blocking IO.',followUps:['Why both?']},
   {id:'s14',topic:'Senior',question:'Why ignore RequestNotPermitted on the CircuitBreaker?',answer30s:'Otherwise traffic spikes look like a dead bank and OPEN the CB.',answer2m:'Same for BulkheadFullException. CB should record bank failures, not admit-control rejects.',followUps:['recordExceptions?']},
   {id:'s15',topic:'Senior',question:'Self-invocation and @CircuitBreaker?',answer30s:'this.charge() skips the Spring proxy — annotations never run.',answer2m:'Call across beans: OrderService → PaymentGatewayClient. Or decorate programmatically.',followUps:['private methods?']},
+  {id:'s16',topic:'Senior',question:'Can you enable all Resilience4j modules together?',answer30s:'Yes in one app — not on every method. Money: Retry+CB+RL+semaphore BH. Fraud: thread-pool BH+TimeLimiter. FX: Cache. Micrometer observes all.',answer2m:'Named instances per dependency. Ignore RL/BH exceptions on CB. Default AOP: Retry→CB→RL→TL→BH.',followUps:['Why not all annotations on FX?']},
+  {id:'s17',topic:'Senior',question:'AtomicRateLimiter vs SemaphoreBasedRateLimiter?',answer30s:'Atomic is the default lock-free implementation. SemaphoreBased is older and lock-heavier. Same YAML knobs.',answer2m:'limitForPeriod refreshes every limitRefreshPeriod. timeoutDuration=0 fail-fast. Local only — multiply by pods.',followUps:['Token bucket vs leaky bucket?']},
 ];
 
 export const ARCHITECT: InterviewQ[] = [

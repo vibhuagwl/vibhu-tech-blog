@@ -21,6 +21,7 @@ import TopicPanel from './topic-panel';
 import InterviewMode from './interview-mode';
 import CodePanel from './code-panel';
 import SequenceWalkthrough, {LabCallMap} from './sequence-walkthrough';
+import ModuleClassroom from './module-classroom';
 import OAuthCodeExplorer from '@/components/oauth-code-explorer';
 import type {DemoSourceFile,DemoTreeNode} from '@/lib/oauth-demo-source';
 
@@ -93,7 +94,8 @@ export default function Resilience4jHub({
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
           Build fault-tolerant payment microservices using Circuit Breaker, Retry, Rate Limiter,
-          Bulkhead, Time Limiter and Cache — with a runnable bank lab.
+          Bulkhead (semaphore + thread-pool), Time Limiter, Cache, and Micrometer — with types,
+          YAML, Java, and sequence diagrams you can click through.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
@@ -174,6 +176,14 @@ Fallback = honest PENDING — never fake SUCCESS`}
                 tone="ok"
               />
             </div>
+          </Section>
+
+          <Section
+            id="module-classroom"
+            title="All Resilience4j Modules — Easy Classroom"
+            lead="Click a module. Explain = plain English. Types = semaphore vs thread-pool, Atomic vs wait, cache-aside vs Redis. Sequence = what happens on a call. YAML + Java = the lab. Yes, you can run all of them in one app — see All together."
+          >
+            <ModuleClassroom />
           </Section>
 
           <Section

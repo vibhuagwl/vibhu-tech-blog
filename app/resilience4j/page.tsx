@@ -6,7 +6,7 @@ import {buildSpringResilience4jLabTree,listSpringResilience4jLabFiles} from '@/l
 export const metadata: Metadata = {
   title: 'Resilience4j in Spring Boot — Complete Production Guide',
   description:
-    'Practical Resilience4j: Circuit Breaker, Retry, Rate Limiter, Bulkhead, TimeLimiter, Cache — payment lab, Spring Boot 3, AOP order, Kubernetes, interview bank.',
+    'Practical Resilience4j: Circuit Breaker, Retry, RateLimiter types, Semaphore vs ThreadPool Bulkhead, Cache, TimeLimiter, Micrometer — stack them together with YAML, Java, and sequence diagrams.',
 };
 
 export default function Resilience4jPage() {
