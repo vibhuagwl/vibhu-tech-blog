@@ -2,6 +2,18 @@ import Link from 'next/link';
 
 const labs = [
   {
+    href: '/encryption',
+    title: 'Encryption & Decryption',
+    oneLiner: 'Client → Lab :8093  AES-GCM · hybrid RSA+AES · field crypto · HMAC lookup · Argon2',
+    glue: 'AES-GCM + RSA-OAEP + KMS envelope patterns',
+    remember: [
+      'POST /api/crypto/encrypt · decrypt · hybrid · sign · envelope',
+      'POST /api/customers · GET /api/customers/by-account (HMAC lookup)',
+      'Ciphertext: keyId|iv|ciphertext · passwords → Argon2id/bcrypt',
+    ],
+    say: 'Encoding ≠ encryption ≠ hashing. Bulk data = AES-GCM; wrap keys with RSA-OAEP/KMS; never encrypt passwords.',
+  },
+  {
     href: '/spring-jwt-demo',
     title: 'JWT access + refresh',
     oneLiner: 'Client → API :8092  POST /api/auth/login → Bearer JWT on /api/**',

@@ -41,6 +41,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/performance',label:'Performance',blurb:'Latency, scale, cache, JVM, backpressure'},
       {href:'/jpmc-experience',label:'JPMC Experience',blurb:'Hadron, tax, RSU, Kafka, platform delivery'},
       {href:'/spring-security',label:'Spring Security',blurb:'JWT, OAuth, CSRF, CORS, OIDC, XSS, SQLi, DDoS, JPA N+1'},
+      {href:'/encryption',label:'Encryption & Decryption',blurb:'AES-GCM · RSA · KMS · JWT · Spring · Architect'},
     ],
   },
   {
