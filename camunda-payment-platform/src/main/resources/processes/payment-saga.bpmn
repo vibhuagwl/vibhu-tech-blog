@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  id="Definitions_saga"
+                  targetNamespace="http://vibhu.tech/payment"
+                  modeler:executionPlatform="Camunda Cloud"
+                  modeler:executionPlatformVersion="8.6.0">
+  <!-- Orchestrated saga demo — compensation as service tasks after failure gateway -->
+  <bpmn:process id="payment-saga" name="Payment Saga" isExecutable="true">
+    <bpmn:startEvent id="Start_Saga" name="Start">
+      <bpmn:outgoing>f1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="ReserveMoney" name="Reserve Money">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="saga-reserve-money" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>f1</bpmn:incoming>
+      <bpmn:outgoing>f2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="ReserveInventory" name="Reserve Inventory">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="saga-reserve-inventory" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>f2</bpmn:incoming>
+      <bpmn:outgoing>f3</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="CapturePayment" name="Capture Payment">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="saga-capture-payment" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>f3</bpmn:incoming>
+      <bpmn:outgoing>f4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="Err_Capture" attachedToRef="CapturePayment">
+      <bpmn:outgoing>f_fail</bpmn:outgoing>
+      <bpmn:errorEventDefinition errorRef="Error_SagaFail"/>
+    </bpmn:boundaryEvent>
+    <bpmn:serviceTask id="ReleaseInventory" name="Compensate Inventory">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="saga-release-inventory" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>f_fail</bpmn:incoming>
+      <bpmn:outgoing>f_comp2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="ReleaseMoney" name="Compensate Money">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="saga-release-money" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>f_comp2</bpmn:incoming>
+      <bpmn:outgoing>f_comp_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="End_Ok" name="Committed">
+      <bpmn:incoming>f4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_Compensated" name="Compensated">
+      <bpmn:incoming>f_comp_end</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="f1" sourceRef="Start_Saga" targetRef="ReserveMoney"/>
+    <bpmn:sequenceFlow id="f2" sourceRef="ReserveMoney" targetRef="ReserveInventory"/>
+    <bpmn:sequenceFlow id="f3" sourceRef="ReserveInventory" targetRef="CapturePayment"/>
+    <bpmn:sequenceFlow id="f4" sourceRef="CapturePayment" targetRef="End_Ok"/>
+    <bpmn:sequenceFlow id="f_fail" sourceRef="Err_Capture" targetRef="ReleaseInventory"/>
+    <bpmn:sequenceFlow id="f_comp2" sourceRef="ReleaseInventory" targetRef="ReleaseMoney"/>
+    <bpmn:sequenceFlow id="f_comp_end" sourceRef="ReleaseMoney" targetRef="End_Compensated"/>
+  </bpmn:process>
+  <bpmn:error id="Error_SagaFail" name="SAGA_FAIL" errorCode="SAGA_FAIL"/>
+</bpmn:definitions>

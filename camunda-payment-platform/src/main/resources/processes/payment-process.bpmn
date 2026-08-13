@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  id="Definitions_payment"
+                  targetNamespace="http://vibhu.tech/payment"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.28.0"
+                  modeler:executionPlatform="Camunda Cloud"
+                  modeler:executionPlatformVersion="8.6.0">
+  <bpmn:process id="payment-process" name="Payment Processing" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_PaymentSubmitted" name="Payment submitted">
+      <bpmn:outgoing>Flow_to_validate</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:serviceTask id="Task_ValidatePayment" name="Validate Payment">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="validate-payment" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_to_validate</bpmn:incoming>
+      <bpmn:outgoing>Flow_to_fraud</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_FraudCheck" name="Fraud Check">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="fraud-check" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_to_fraud</bpmn:incoming>
+      <bpmn:outgoing>Flow_to_fraud_gw</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_Fraud" name="Fraud?">
+      <bpmn:incoming>Flow_to_fraud_gw</bpmn:incoming>
+      <bpmn:outgoing>Flow_fraud_reject</bpmn:outgoing>
+      <bpmn:outgoing>Flow_fraud_ok</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="EndEvent_Rejected" name="Rejected">
+      <bpmn:incoming>Flow_fraud_reject</bpmn:incoming>
+      <bpmn:incoming>Flow_approval_rejected</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:exclusiveGateway id="Gateway_HighValue" name="Amount &gt; threshold?">
+      <bpmn:incoming>Flow_fraud_ok</bpmn:incoming>
+      <bpmn:outgoing>Flow_needs_approval</bpmn:outgoing>
+      <bpmn:outgoing>Flow_skip_approval</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:userTask id="Task_ManagerApproval" name="Manager Approval">
+      <bpmn:extensionElements>
+        <zeebe:assignmentDefinition candidateGroups="payment-managers"/>
+        <zeebe:taskDefinition type="manager-approval"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_needs_approval</bpmn:incoming>
+      <bpmn:outgoing>Flow_after_approval</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:boundaryEvent id="Timer_ApprovalTimeout" name="24h timeout" attachedToRef="Task_ManagerApproval" cancelActivity="true">
+      <bpmn:outgoing>Flow_approval_timeout</bpmn:outgoing>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>PT24H</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+
+    <bpmn:serviceTask id="Task_EscalateApproval" name="Escalate Approval">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="escalate-approval" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_approval_timeout</bpmn:incoming>
+      <bpmn:outgoing>Flow_escalated_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:endEvent id="EndEvent_Escalated" name="Escalated">
+      <bpmn:incoming>Flow_escalated_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:exclusiveGateway id="Gateway_Approval" name="Approved?">
+      <bpmn:incoming>Flow_after_approval</bpmn:incoming>
+      <bpmn:outgoing>Flow_approval_ok</bpmn:outgoing>
+      <bpmn:outgoing>Flow_approval_rejected</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:exclusiveGateway id="Gateway_JoinApproval" name="Continue">
+      <bpmn:incoming>Flow_skip_approval</bpmn:incoming>
+      <bpmn:incoming>Flow_approval_ok</bpmn:incoming>
+      <bpmn:outgoing>Flow_to_parallel</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:parallelGateway id="Gateway_ParallelChecks" name="Parallel checks">
+      <bpmn:incoming>Flow_to_parallel</bpmn:incoming>
+      <bpmn:outgoing>Flow_to_account</bpmn:outgoing>
+      <bpmn:outgoing>Flow_to_credit</bpmn:outgoing>
+    </bpmn:parallelGateway>
+
+    <bpmn:serviceTask id="Task_AccountValidation" name="Account Validation">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="account-validation" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_to_account</bpmn:incoming>
+      <bpmn:outgoing>Flow_account_done</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:serviceTask id="Task_CreditCheck" name="Credit Check">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="credit-check" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_to_credit</bpmn:incoming>
+      <bpmn:outgoing>Flow_credit_done</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:parallelGateway id="Gateway_JoinChecks" name="Join">
+      <bpmn:incoming>Flow_account_done</bpmn:incoming>
+      <bpmn:incoming>Flow_credit_done</bpmn:incoming>
+      <bpmn:outgoing>Flow_to_process</bpmn:outgoing>
+    </bpmn:parallelGateway>
+
+    <bpmn:serviceTask id="Task_ProcessPayment" name="Process Payment / Bank">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="process-payment" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_to_process</bpmn:incoming>
+      <bpmn:outgoing>Flow_to_wait_bank</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:boundaryEvent id="Error_BankBusiness" name="BANK_DECLINED" attachedToRef="Task_ProcessPayment">
+      <bpmn:outgoing>Flow_bank_declined</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorDef_Bank" errorRef="Error_BankDeclined"/>
+    </bpmn:boundaryEvent>
+
+    <bpmn:intermediateCatchEvent id="Event_WaitBankCallback" name="Wait bank callback">
+      <bpmn:incoming>Flow_to_wait_bank</bpmn:incoming>
+      <bpmn:outgoing>Flow_to_notify</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MsgDef_Bank" messageRef="Message_BankCallback"/>
+    </bpmn:intermediateCatchEvent>
+
+    <bpmn:boundaryEvent id="Timer_BankWait" name="Bank SLA 30s" attachedToRef="Event_WaitBankCallback" cancelActivity="true">
+      <bpmn:outgoing>Flow_bank_timeout</bpmn:outgoing>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>PT30S</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+
+    <bpmn:userTask id="Task_ManualReview" name="Manual Review / Incident">
+      <bpmn:extensionElements>
+        <zeebe:assignmentDefinition candidateGroups="payment-ops"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_bank_timeout</bpmn:incoming>
+      <bpmn:incoming>Flow_bank_declined</bpmn:incoming>
+      <bpmn:outgoing>Flow_manual_done</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:serviceTask id="Task_Notify" name="Send Notification">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="notify-payment" retries="3"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_to_notify</bpmn:incoming>
+      <bpmn:incoming>Flow_manual_done</bpmn:incoming>
+      <bpmn:outgoing>Flow_to_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:endEvent id="EndEvent_Completed" name="Completed">
+      <bpmn:incoming>Flow_to_end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="Flow_to_validate" sourceRef="StartEvent_PaymentSubmitted" targetRef="Task_ValidatePayment"/>
+    <bpmn:sequenceFlow id="Flow_to_fraud" sourceRef="Task_ValidatePayment" targetRef="Task_FraudCheck"/>
+    <bpmn:sequenceFlow id="Flow_to_fraud_gw" sourceRef="Task_FraudCheck" targetRef="Gateway_Fraud"/>
+    <bpmn:sequenceFlow id="Flow_fraud_reject" name="fraud=true" sourceRef="Gateway_Fraud" targetRef="EndEvent_Rejected">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=fraudDetected=true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_fraud_ok" name="ok" sourceRef="Gateway_Fraud" targetRef="Gateway_HighValue">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=fraudDetected=false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_needs_approval" name="high value" sourceRef="Gateway_HighValue" targetRef="Task_ManagerApproval">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=requiresApproval=true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_skip_approval" name="auto" sourceRef="Gateway_HighValue" targetRef="Gateway_JoinApproval">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=requiresApproval=false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_after_approval" sourceRef="Task_ManagerApproval" targetRef="Gateway_Approval"/>
+    <bpmn:sequenceFlow id="Flow_approval_timeout" sourceRef="Timer_ApprovalTimeout" targetRef="Task_EscalateApproval"/>
+    <bpmn:sequenceFlow id="Flow_escalated_end" sourceRef="Task_EscalateApproval" targetRef="EndEvent_Escalated"/>
+    <bpmn:sequenceFlow id="Flow_approval_ok" name="approved" sourceRef="Gateway_Approval" targetRef="Gateway_JoinApproval">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=approved=true</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_approval_rejected" name="rejected" sourceRef="Gateway_Approval" targetRef="EndEvent_Rejected">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">=approved=false</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_to_parallel" sourceRef="Gateway_JoinApproval" targetRef="Gateway_ParallelChecks"/>
+    <bpmn:sequenceFlow id="Flow_to_account" sourceRef="Gateway_ParallelChecks" targetRef="Task_AccountValidation"/>
+    <bpmn:sequenceFlow id="Flow_to_credit" sourceRef="Gateway_ParallelChecks" targetRef="Task_CreditCheck"/>
+    <bpmn:sequenceFlow id="Flow_account_done" sourceRef="Task_AccountValidation" targetRef="Gateway_JoinChecks"/>
+    <bpmn:sequenceFlow id="Flow_credit_done" sourceRef="Task_CreditCheck" targetRef="Gateway_JoinChecks"/>
+    <bpmn:sequenceFlow id="Flow_to_process" sourceRef="Gateway_JoinChecks" targetRef="Task_ProcessPayment"/>
+    <bpmn:sequenceFlow id="Flow_to_wait_bank" sourceRef="Task_ProcessPayment" targetRef="Event_WaitBankCallback"/>
+    <bpmn:sequenceFlow id="Flow_bank_declined" sourceRef="Error_BankBusiness" targetRef="Task_ManualReview"/>
+    <bpmn:sequenceFlow id="Flow_bank_timeout" sourceRef="Timer_BankWait" targetRef="Task_ManualReview"/>
+    <bpmn:sequenceFlow id="Flow_to_notify" sourceRef="Event_WaitBankCallback" targetRef="Task_Notify"/>
+    <bpmn:sequenceFlow id="Flow_manual_done" sourceRef="Task_ManualReview" targetRef="Task_Notify"/>
+    <bpmn:sequenceFlow id="Flow_to_end" sourceRef="Task_Notify" targetRef="EndEvent_Completed"/>
+  </bpmn:process>
+
+  <bpmn:message id="Message_BankCallback" name="bank-callback">
+    <bpmn:extensionElements>
+      <zeebe:subscription correlationKey="=paymentId"/>
+    </bpmn:extensionElements>
+  </bpmn:message>
+  <bpmn:error id="Error_BankDeclined" name="BANK_DECLINED" errorCode="BANK_DECLINED"/>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="payment-process">
+      <bpmndi:BPMNShape id="Start_di" bpmnElement="StartEvent_PaymentSubmitted" dc:bounds="152,102,36,36"/>
+      <bpmndi:BPMNShape id="Validate_di" bpmnElement="Task_ValidatePayment" dc:bounds="240,80,100,80"/>
+      <bpmndi:BPMNShape id="Fraud_di" bpmnElement="Task_FraudCheck" dc:bounds="390,80,100,80"/>
+      <bpmndi:BPMNShape id="FraudGw_di" bpmnElement="Gateway_Fraud" dc:bounds="545,95,50,50"/>
+      <bpmndi:BPMNShape id="Reject_di" bpmnElement="EndEvent_Rejected" dc:bounds="552,212,36,36"/>
+      <bpmndi:BPMNShape id="High_di" bpmnElement="Gateway_HighValue" dc:bounds="655,95,50,50"/>
+      <bpmndi:BPMNShape id="Approval_di" bpmnElement="Task_ManagerApproval" dc:bounds="740,200,100,80"/>
+      <bpmndi:BPMNShape id="ApprovalGw_di" bpmnElement="Gateway_Approval" dc:bounds="905,215,50,50"/>
+      <bpmndi:BPMNShape id="JoinAppr_di" bpmnElement="Gateway_JoinApproval" dc:bounds="905,95,50,50"/>
+      <bpmndi:BPMNShape id="Par_di" bpmnElement="Gateway_ParallelChecks" dc:bounds="1005,95,50,50"/>
+      <bpmndi:BPMNShape id="Account_di" bpmnElement="Task_AccountValidation" dc:bounds="1090,40,100,80"/>
+      <bpmndi:BPMNShape id="Credit_di" bpmnElement="Task_CreditCheck" dc:bounds="1090,160,100,80"/>
+      <bpmndi:BPMNShape id="Join_di" bpmnElement="Gateway_JoinChecks" dc:bounds="1245,95,50,50"/>
+      <bpmndi:BPMNShape id="Process_di" bpmnElement="Task_ProcessPayment" dc:bounds="1340,80,100,80"/>
+      <bpmndi:BPMNShape id="Wait_di" bpmnElement="Event_WaitBankCallback" dc:bounds="1492,102,36,36"/>
+      <bpmndi:BPMNShape id="Notify_di" bpmnElement="Task_Notify" dc:bounds="1590,80,100,80"/>
+      <bpmndi:BPMNShape id="End_di" bpmnElement="EndEvent_Completed" dc:bounds="1742,102,36,36"/>
+      <bpmndi:BPMNShape id="Manual_di" bpmnElement="Task_ManualReview" dc:bounds="1470,220,100,80"/>
+      <bpmndi:BPMNShape id="Escalate_di" bpmnElement="Task_EscalateApproval" dc:bounds="740,320,100,80"/>
+      <bpmndi:BPMNShape id="EscEnd_di" bpmnElement="EndEvent_Escalated" dc:bounds="912,342,36,36"/>
+      <bpmndi:BPMNEdge id="e1" bpmnElement="Flow_to_validate">
+        <di:waypoint x="188" y="120"/><di:waypoint x="240" y="120"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e2" bpmnElement="Flow_to_fraud">
+        <di:waypoint x="340" y="120"/><di:waypoint x="390" y="120"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="e3" bpmnElement="Flow_to_fraud_gw">
+        <di:waypoint x="490" y="120"/><di:waypoint x="545" y="120"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
