@@ -1,0 +1,47 @@
+server:
+  port: 8094
+
+spring:
+  application:
+    name: camunda-payment-platform
+  datasource:
+    url: jdbc:h2:mem:payments;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: false
+
+# Default: in-memory orchestration (no Zeebe required for unit/API demos).
+# Activate real Camunda 8 with: --spring.profiles.active=zeebe
+payment:
+  orchestration-mode: in-memory
+  high-value-threshold: 100000
+  bank:
+    fail-rate: 0.0
+    timeout-ms: 200
+
+# Camunda SDK disabled until zeebe profile is on
+camunda:
+  client:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.vibhu.payment: INFO
+    io.camunda: WARN

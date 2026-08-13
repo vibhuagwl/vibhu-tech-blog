@@ -1,0 +1,23 @@
+# Real Camunda 8 / Zeebe connection.
+# Start stack: docker compose up -d
+# Then: mvn spring-boot:run -Dspring-boot.run.profiles=zeebe
+
+payment:
+  orchestration-mode: zeebe
+
+camunda:
+  client:
+    enabled: true
+    mode: self-managed
+    zeebe:
+      grpc-address: ${ZEEBE_GRPC_ADDRESS:http://localhost:26500}
+      rest-address: ${ZEEBE_REST_ADDRESS:http://localhost:8088}
+      prefer-rest-over-grpc: false
+    auth:
+      # local docker often uses plaintext / no OIDC
+      method: none
+
+zeebe:
+  client:
+    security:
+      plaintext: true

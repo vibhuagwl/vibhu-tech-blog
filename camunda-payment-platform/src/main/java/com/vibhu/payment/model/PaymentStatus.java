@@ -1,0 +1,15 @@
+package com.vibhu.payment.model;
+
+public enum PaymentStatus {
+  STARTED,
+  VALIDATED,
+  FRAUD_REJECTED,
+  AWAITING_APPROVAL,
+  APPROVED,
+  REJECTED,
+  PROCESSING,
+  AWAITING_BANK,
+  COMPLETED,
+  MANUAL_REVIEW,
+  FAILED
+}
