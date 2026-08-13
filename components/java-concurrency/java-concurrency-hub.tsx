@@ -52,7 +52,7 @@ export default function JavaConcurrencyHub(){
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={CONCURRENCY_TOC}/>
-        <div className="min-w-0 space-y-16">
+        <div className="min-w-0 space-y-5">
           <Section id="overview" title="Overview" lead="Concurrent Bank / Payment Platform story maps every API to a teller, line, vault key, or badge.">
             <div className="grid gap-3 md:grid-cols-3">
               {REMEMBER.slice(0,6).map(([n,a])=>(

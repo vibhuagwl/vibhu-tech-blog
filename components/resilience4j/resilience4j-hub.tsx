@@ -97,7 +97,7 @@ export default function Resilience4jHub() {
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={R4J_TOC} />
-        <div className="min-w-0 space-y-16">
+        <div className="min-w-0 space-y-5">
           <Section
             id="overview"
             title="Big Picture — Payment Path"

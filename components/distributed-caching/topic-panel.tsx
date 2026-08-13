@@ -29,7 +29,7 @@ export default function TopicPanel({t}:{t:CacheTopic}){
       </button>
 
       {open && (
-        <div className="space-y-4 border-t border-slate-200 px-5 py-5 dark:border-slate-800">
+        <div className="space-y-3 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
           <div className="flex flex-wrap gap-2">
             {([
               ['problem','Problem'],

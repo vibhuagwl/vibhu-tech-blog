@@ -43,7 +43,7 @@ export default function DistributedCachingHub(){
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={CACHE_TOC}/>
-        <div className="min-w-0 space-y-16">
+        <div className="min-w-0 space-y-5">
           <Section id="overview" title="Production Problem — Payment API" lead="10k RPS without cache = 10k DB queries/sec.">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid chart={`flowchart TB

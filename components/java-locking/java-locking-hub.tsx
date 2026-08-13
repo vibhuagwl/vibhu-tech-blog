@@ -69,7 +69,7 @@ export default function JavaLockingHub(){
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={LOCKING_TOC}/>
 
-        <div className="min-w-0 space-y-16">
+        <div className="min-w-0 space-y-5">
           <Section id="overview" title="Locking Overview" lead="Protect shared mutable state — or don't share it.">
             <div className="grid gap-3 md:grid-cols-3">
               {[
