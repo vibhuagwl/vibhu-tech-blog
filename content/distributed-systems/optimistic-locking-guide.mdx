@@ -1,0 +1,688 @@
+---
+slug: optimistic-locking-guide
+title: "Optimistic Locking — What, When, and Every Way to Implement It"
+description: "Interview-ready guide to optimistic locking: definition, types, when to use, pros/cons, all implementation ways in SQL, NoSQL, Java, and Spring — with Mermaid diagrams and a real profile-update example."
+category: Distributed Systems
+difficulty: Staff
+tags: [Optimistic Locking, Version Column, CAS, Spring Data JPA, PostgreSQL, MongoDB, DynamoDB, Java, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-13"
+updatedAt: "2026-08-13"
+---
+
+## How to use this page
+
+Learn **optimistic locking** end-to-end: what it is, main types, when to use it, every common implementation path (SQL / NoSQL / Java / Spring), and one real-time example you can whiteboard.
+
+| If you have | Read |
+|---|---|
+| **5 min** | Definition → [main types](#main-types-of-optimistic-locking) → when to use → pros/cons |
+| **10 min** | All ways catalog + SQL version column + Spring `@Version` |
+| **20 min** | Full real-time example + retry policy + NoSQL CAS |
+
+Sibling page: [Pessimistic locking guide](/distributed-systems/pessimistic-locking-guide) · Related: [PostgreSQL locking](/distributed-systems/postgresql-locking-deep-dive) · [Spring Boot locking implementations](/distributed-systems/spring-boot-locking-implementations) · [NoSQL locking](/distributed-systems/nosql-locking-and-comparisons)
+
+---
+
+## What is optimistic locking?
+
+**Optimistic locking** assumes conflict is **rare**. Transactions **read freely without locking**. At write time they check that the data is still the version they read; if another writer won, the update fails and the app retries or aborts.
+
+```text
+READ (no lock)  →  decide / think  →  WRITE IF version unchanged  →  success
+                                              ↓ conflict
+                                         retry or fail
+```
+
+Contrast with **pessimistic locking**: lock the row first, then update; others wait.
+
+| | Optimistic | Pessimistic |
+|---|---|---|
+| When protection applies | **At update** (version / condition) | **Before** update (`FOR UPDATE`) |
+| Conflict handling | Detect → retry / abort | Wait / `NOWAIT` fail |
+| Best when | Low–medium contention, long think time | Hot rows, short critical money/stock |
+| Typical API | `@Version` / `UPDATE … WHERE version = ?` | `SELECT … FOR UPDATE` |
+
+### Mental model diagram
+
+<Mermaid chart={`sequenceDiagram
+  autonumber
+  participant T1 as Tx1
+  participant DB as Database
+  participant T2 as Tx2
+
+  T1->>DB: SELECT row version=3
+  T2->>DB: SELECT row version=3
+  Note over T1,T2: both read freely · no lock
+  T1->>DB: UPDATE SET data, version=4 WHERE id AND version=3
+  DB-->>T1: 1 row updated · OK
+  T2->>DB: UPDATE SET data, version=4 WHERE id AND version=3
+  DB-->>T2: 0 rows · conflict
+  Note over T2: OptimisticLockException · retry or fail
+`} />
+
+**Say this:** “Optimistic locking lets everyone read. The write is a compare-and-swap on a version (or hash). If I lose the race I retry — I never hold a DB lock while the user thinks.”
+
+### One-line definition
+
+> Optimistic locking means a transaction **reads without locking** and **commits only if the resource has not changed** since that read, assuming conflicts are uncommon.
+
+---
+
+## Main types of optimistic locking
+
+| Type | How it detects conflict | Common usage |
+|---|---|---|
+| **Version-based** | Checks a version number | JPA / Hibernate (`@Version`) |
+| **Timestamp-based** | Checks `updated_at` timestamp | Legacy / custom systems |
+| **Value / Field-based** | Compares original field values in `WHERE` | SQL / custom implementations |
+| **ETag-based** | Checks HTTP `ETag` / `If-Match` | REST APIs |
+| **Compare-and-Swap (CAS)** | Updates only if expected value matches | Concurrent / distributed systems |
+
+**Interview line:** “All optimistic types are CAS in disguise — version, timestamp, field snapshot, or ETag is just the expected token.”
+
+Deeper breakdown below: **detection token** (what you compare) and **conflict strategy** (what you do on loss).
+
+### Detection tokens (what proves “still the same”)
+
+| Type | Lock / check behavior | Other transactions | SQL / JPA / API |
+|---|---|---|---|
+| **Version-based (integer)** | Write succeeds only if `version` matches; then `version++` | Loser gets 0 rows / exception | `@Version` · `UPDATE … WHERE version = ?` |
+| **Timestamp-based (`updated_at`)** | Write if timestamp unchanged | Same idea; clock skew risk | `@Version` on `Instant` (careful) or manual column |
+| **Value / Field-based** | `UPDATE … WHERE col1=? AND col2=? …` (original values) | Heavy on wide rows; precise for few fields | Manual SQL CAS |
+| **ETag-based** | HTTP `ETag` maps to version/hash; `If-Match` on write | Client must refresh on 409 / 412 | REST APIs |
+| **CAS (generic)** | Update only if expected token/value matches | Umbrella for all rows above | Redis / Dynamo condition / SQL |
+| **Document revision (NoSQL)** | `_rev` / conditional expression | Native in Couch/Dynamo-style APIs | Mongo `version` / Dynamo condition |
+| **Optimistic Force Increment** | Force version bump even if entity “unchanged” | Marks logical touch under optimistic control | `LockModeType.OPTIMISTIC_FORCE_INCREMENT` |
+
+<Mermaid chart={`flowchart LR
+  subgraph Tokens["Detection tokens"]
+    V[Integer version]
+    T[Timestamp]
+    H[Hash / ETag]
+    R[Doc revision]
+  end
+  V --> C[CAS write]
+  T --> C
+  H --> C
+  R --> C
+  C -->|rows=1| OK[Commit]
+  C -->|rows=0| Conflict[Retry or fail]
+`} />
+
+### Conflict strategies (what happens on loss)
+
+| Strategy | Behavior | When to use |
+|---|---|---|
+| **Fail fast** | Return 409 / domain error to client | User edits; client must refresh |
+| **Automatic retry** | Re-read + re-apply + rewrite (N times) | Idempotent server-side logic |
+| **Merge / 3-way** | Combine non-overlapping field changes | Collaborative docs (hard) |
+| **Last-write-wins** | Skip check (not true optimistic locking) | Only when loss is acceptable |
+| **Escalate to pessimistic** | On repeated conflicts, `FOR UPDATE` | Hot row discovered under load |
+
+### Granularity of the optimistic check
+
+| Scope | Behavior | Notes |
+|---|---|---|
+| **Row / document** | Whole aggregate versioned | Default JPA `@Version` on entity — **usual choice** |
+| **Field-level / column set** | CAS only on changed columns | Reduces false conflicts; more code |
+| **Aggregate root only** | Child rows covered by parent version | DDD-style consistency boundary |
+| **Soft delete + version** | Version still bumps on delete | Prevents resurrect races |
+
+```text
+Most common in Spring apps:
+
+  Entity row + integer @Version + fail or retry
+```
+
+**Interview line:** “Optimistic locking is CAS on a version token. I prefer an integer `@Version` on the aggregate root, fail with a clear conflict to the client, and retry only when the use-case is idempotent.”
+
+### Mode map for Spring / JPA
+
+| Goal | Pick |
+|---|---|
+| Normal entity update | `@Version` + flush/update |
+| Ensure version bumps on read-only “touch” | `OPTIMISTIC_FORCE_INCREMENT` |
+| Explicit check at find time | `LockModeType.OPTIMISTIC` on `find` |
+| Hot wallet / last item | Prefer [pessimistic](/distributed-systems/pessimistic-locking-guide) instead |
+
+---
+
+## When to use optimistic locking
+
+Use it when **most** of these are true:
+
+1. Conflicts on the **same row** are uncommon.
+2. Work between read and write may be **long** (UI form, validation, external read).
+3. Losing and **retrying** is acceptable (or the user can refresh).
+4. You want **high read concurrency** with no lock waits.
+
+### Good fits
+
+| Domain | Why optimistic helps |
+|---|---|
+| User profile / settings | Rare concurrent edits |
+| CMS / product catalog | Many readers, few writers |
+| Order metadata (non-payment) | Occasional admin race |
+| Configuration / feature flags | Low write rate |
+| Mobile “edit then save” | Think time outside DB |
+
+### Bad fits (prefer pessimistic / atomic / queue)
+
+| Situation | Better approach |
+|---|---|
+| Flash-sale stock = 1 | Pessimistic `FOR UPDATE` or atomic decrement |
+| Wallet / ledger debit | Pessimistic short txn |
+| High conflict on one hot key | Pessimistic or queue single-writer |
+| Non-idempotent side effects mid-retry | Redesign — retries must be safe |
+| Need to block readers from dirty mid-states | Different isolation / workflow design |
+
+---
+
+## Pros and cons
+
+| Pros | Cons |
+|---|---|
+| No lock waits → better throughput under low conflict | Conflict storms under high contention |
+| Safe across long think time | Must handle retry carefully |
+| Simple Spring `@Version` support | Lost update if you forget the `WHERE version` clause |
+| Works well multi-pod (DB enforces CAS) | Timestamp tokens suffer clock issues |
+| No deadlock from lock ordering | User-visible 409s need good UX |
+
+---
+
+## All ways to implement (catalog)
+
+### A. SQL databases
+
+| # | Way | Mechanism |
+|---:|---|---|
+| 1 | Integer `version` column + CAS `UPDATE` | Classic optimistic |
+| 2 | `updated_at` / rowversion column | Time or engine rowversion (SQL Server) |
+| 3 | Hash/ETag of selected columns in `WHERE` | No dedicated version column |
+| 4 | `UPDATE … WHERE` business predicate | e.g. `stock = :expected` |
+| 5 | Serializable isolation + retry | DB detects anomaly (heavier) |
+| 6 | JSON patch with version key | Document-in-SQL patterns |
+
+### B. NoSQL / external stores
+
+| # | Way | Mechanism |
+|---:|---|---|
+| 7 | MongoDB document `version` / conditional update | `findOneAndUpdate` with version match |
+| 8 | CouchDB / Cloudant `_rev` | Built-in MVCC revisions |
+| 9 | DynamoDB `ConditionExpression` | Attribute compare / version |
+| 10 | Cassandra LWT `IF` | Compare-and-set |
+| 11 | Redis `WATCH` + `MULTI`/`EXEC` | Optimistic in Redis |
+| 12 | Elasticsearch `if_seq_no` / `if_primary_term` | Sequence-number CAS |
+
+### C. Java
+
+| # | Way | Mechanism |
+|---:|---|---|
+| 13 | Manual JDBC CAS `UPDATE` | Full control |
+| 14 | JPA `@Version` on entity field | Automatic on flush |
+| 15 | `EntityManager.find(…, LockModeType.OPTIMISTIC)` | Check at read/flush |
+| 16 | `OPTIMISTIC_FORCE_INCREMENT` | Force version bump |
+| 17 | Catch `OptimisticLockException` / `ObjectOptimisticLockingFailureException` | Retry loop |
+
+### D. Spring Framework / Spring Data
+
+| # | Way | Mechanism |
+|---:|---|---|
+| 18 | `@Version` on entity + `save()` | Most common |
+| 19 | Spring Data repository save under `@Transactional` | Flush triggers CAS |
+| 20 | `@Query` update with version predicate | Explicit JPQL/SQL |
+| 21 | `JdbcTemplate` CAS update + check `rows == 1` | Transparent SQL |
+| 22 | Retry with Spring Retry / Resilience4j | Bounded automatic retry |
+| 23 | Return HTTP **409 Conflict** from API | Client-driven refresh |
+| 24 | ETag / `If-Match` on REST | HTTP-level optimistic concurrency |
+| 25 | Combine `@Version` + domain events after success | Side effects only once |
+
+**Rule:** If `UPDATE` does not include the version (or equivalent predicate), you **do not have** optimistic locking — you have lost-update risk.
+
+---
+
+## SQL implementation (detail)
+
+### Classic version column (PostgreSQL / MySQL)
+
+```sql
+CREATE TABLE profiles (
+  id         TEXT PRIMARY KEY,
+  email      TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  version    INT  NOT NULL DEFAULT 0
+);
+
+-- Tx read
+SELECT id, email, display_name, version
+FROM profiles
+WHERE id = 'u-1';
+-- version = 3
+
+-- Tx write (CAS)
+UPDATE profiles
+SET email = 'new@example.com',
+    display_name = 'Ada',
+    version = version + 1
+WHERE id = 'u-1'
+  AND version = 3;
+
+-- rows = 1 → success; rows = 0 → conflict
+```
+
+### SQL Server `rowversion`
+
+```sql
+-- rowversion column auto-changes on update
+UPDATE dbo.Profiles
+SET Email = @email
+WHERE Id = @id AND RowVer = @rowVer;
+```
+
+### Predicate CAS without version column
+
+```sql
+UPDATE inventory
+SET stock = stock - 1
+WHERE sku = 'SKU-1' AND stock = 5;   -- expected stock from read
+```
+
+Useful for single-field races; prefer an explicit `version` for richer entities.
+
+### Detection in the app
+
+```text
+if (updatedRows != 1) throw OptimisticConflict();
+```
+
+---
+
+## NoSQL implementation (detail)
+
+### MongoDB
+
+```javascript
+db.profiles.updateOne(
+  { _id: "u-1", version: 3 },
+  { $set: { email: "new@example.com" }, $inc: { version: 1 } }
+);
+// matchedCount 0 → conflict
+```
+
+Or `findOneAndUpdate` with the same filter.
+
+### DynamoDB
+
+```text
+UpdateItem
+  SET email = :e, version = version + 1
+  ConditionExpression: version = :expected
+```
+
+### Cassandra LWT
+
+```sql
+UPDATE profiles SET email = 'new@example.com', version = 4
+WHERE id = 'u-1' IF version = 3;
+```
+
+### Redis `WATCH`
+
+```text
+WATCH profile:u-1
+GET profile:u-1
+MULTI
+SET profile:u-1 <newjson>
+EXEC   -- null EXEC → someone wrote · retry
+```
+
+### Quick NoSQL decision
+
+| Store | Native optimistic tool | Notes |
+|---|---|---|
+| MongoDB | Filter on `version` + `$inc` | Simple and common |
+| DynamoDB | `ConditionExpression` | Preferred pattern |
+| Cassandra | LWT `IF` | Higher latency |
+| Redis | `WATCH`/`MULTI` | Good for caches; not primary ledger |
+| CouchDB | `_rev` | Built-in |
+
+---
+
+## Java implementation
+
+### JDBC CAS
+
+```java
+public void updateEmail(Connection conn, String id, String email, int expectedVersion)
+    throws SQLException {
+  try (PreparedStatement ps = conn.prepareStatement(
+      """
+      UPDATE profiles
+      SET email = ?, version = version + 1
+      WHERE id = ? AND version = ?
+      """)) {
+    ps.setString(1, email);
+    ps.setString(2, id);
+    ps.setInt(3, expectedVersion);
+    int rows = ps.executeUpdate();
+    if (rows != 1) {
+      throw new OptimisticConflict("profile " + id);
+    }
+  }
+}
+```
+
+### JPA `@Version`
+
+```java
+@Entity
+@Table(name = "profiles")
+public class Profile {
+  @Id
+  private String id;
+  private String email;
+  private String displayName;
+
+  @Version
+  private long version; // managed by JPA/Hibernate
+}
+```
+
+```java
+@Transactional
+public void rename(String id, String newName) {
+  Profile p = em.find(Profile.class, id);
+  p.setDisplayName(newName);
+  // on flush/commit: UPDATE … WHERE id=? AND version=?
+}
+```
+
+### JPA optimistic lock modes
+
+| `LockModeType` | Meaning |
+|---|---|
+| `OPTIMISTIC` | Ensure version unchanged at flush (for read then later write) |
+| `OPTIMISTIC_FORCE_INCREMENT` | Force version increment at flush/commit |
+| `PESSIMISTIC_*` | **Not** optimistic — see [pessimistic guide](/distributed-systems/pessimistic-locking-guide) |
+
+```java
+Profile p = em.find(Profile.class, id, LockModeType.OPTIMISTIC);
+// … later in same persistence context …
+em.flush(); // checks version
+```
+
+---
+
+## Spring Framework — all common ways
+
+### 1) Entity `@Version` + repository (preferred)
+
+```java
+@Entity
+@Getter @Setter
+public class Profile {
+  @Id private String id;
+  private String email;
+  private String displayName;
+  @Version private long version;
+}
+
+public interface ProfileRepository extends JpaRepository<Profile, String> {}
+
+@Service
+@RequiredArgsConstructor
+public class ProfileService {
+  private final ProfileRepository repo;
+
+  @Transactional
+  public Profile update(String id, String email, String displayName) {
+    Profile p = repo.findById(id).orElseThrow();
+    p.setEmail(email);
+    p.setDisplayName(displayName);
+    return p; // dirty checking + version CAS on flush
+  }
+}
+```
+
+### 2) Catch Spring’s optimistic failure
+
+```java
+@Transactional
+public Profile updateWithRetry(String id, String email) {
+  int attempts = 0;
+  while (true) {
+    try {
+      Profile p = repo.findById(id).orElseThrow();
+      p.setEmail(email);
+      return repo.saveAndFlush(p);
+    } catch (ObjectOptimisticLockingFailureException ex) {
+      if (++attempts >= 3) throw ex;
+      // loop re-reads fresh version
+    }
+  }
+}
+```
+
+Or declarative:
+
+```java
+@Retryable(
+    retryFor = ObjectOptimisticLockingFailureException.class,
+    maxAttempts = 3)
+@Transactional
+public Profile update(String id, String email) { … }
+```
+
+### 3) Explicit `@Query` CAS
+
+```java
+@Modifying
+@Query("""
+  update Profile p
+  set p.email = :email, p.version = p.version + 1
+  where p.id = :id and p.version = :version
+  """)
+int updateEmail(@Param("id") String id,
+                @Param("email") String email,
+                @Param("version") long version);
+```
+
+```java
+if (repo.updateEmail(id, email, version) != 1) {
+  throw new ObjectOptimisticLockingFailureException(Profile.class, id);
+}
+```
+
+### 4) `JdbcTemplate`
+
+```java
+@Transactional
+public void updateEmail(String id, String email, long version) {
+  int rows = jdbc.update(
+      """
+      UPDATE profiles
+      SET email = ?, version = version + 1
+      WHERE id = ? AND version = ?
+      """,
+      email, id, version);
+  if (rows != 1) {
+    throw new ObjectOptimisticLockingFailureException("Profile", id);
+  }
+}
+```
+
+### 5) REST `ETag` / `If-Match` (HTTP optimistic)
+
+```text
+GET  /profiles/u-1          → ETag: "3"
+PUT  /profiles/u-1
+     If-Match: "3"
+     body…
+       → 200 + ETag "4"   or   412 Precondition Failed
+```
+
+Map `ETag` ↔ `@Version`. Great for web/mobile clients.
+
+### 6) API layer mapping
+
+```java
+@PatchMapping("/profiles/{id}")
+public ProfileDto patch(@PathVariable String id,
+                        @RequestBody ProfilePatch body,
+                        @RequestHeader("If-Match") long version) {
+  try {
+    return service.patch(id, body, version);
+  } catch (ObjectOptimisticLockingFailureException ex) {
+    throw new ResponseStatusException(HttpStatus.CONFLICT, "Profile was updated elsewhere");
+  }
+}
+```
+
+### Spring rules interviewers push on
+
+| Rule | Why |
+|---|---|
+| Always have `@Version` (or equivalent `WHERE`) | Otherwise lost updates |
+| Side effects (email, payment) **after** successful CAS | Retries must not double-charge |
+| Bound retries (2–3) | Avoid livelock on hot rows |
+| Prefer 409 + client refresh for human edits | Clearer than silent overwrite |
+| Hot rows → switch to pessimistic | Optimistic thrashing is worse than a short lock |
+
+---
+
+## Real-time implementation — concurrent profile edit
+
+**Problem:** Two devices edit the same user profile. Only the first save should win; the second must refresh.
+
+### Flow
+
+```text
+Device A reads version=3
+Device B reads version=3
+Device A saves → version=4
+Device B saves → 0 rows → HTTP 409 → reload version=4 → user merges
+```
+
+### Sequence diagram
+
+<Mermaid chart={`sequenceDiagram
+  autonumber
+  participant A as Device A
+  participant B as Device B
+  participant API as Spring API
+  participant DB as PostgreSQL
+
+  A->>API: GET /profiles/u-1
+  API->>DB: SELECT version=3
+  API-->>A: body + ETag 3
+  B->>API: GET /profiles/u-1
+  API-->>B: body + ETag 3
+  A->>API: PUT If-Match 3 new email
+  API->>DB: UPDATE WHERE version=3
+  DB-->>API: 1 row
+  API-->>A: 200 ETag 4
+  B->>API: PUT If-Match 3 new name
+  API->>DB: UPDATE WHERE version=3
+  DB-->>API: 0 rows
+  API-->>B: 409 Conflict
+  B->>API: GET /profiles/u-1
+  API-->>B: fresh version 4
+`} />
+
+### Spring code sketch
+
+```java
+@Entity
+public class Profile {
+  @Id private String id;
+  private String email;
+  private String displayName;
+  @Version private long version;
+}
+
+@Service
+@RequiredArgsConstructor
+public class ProfileService {
+  private final ProfileRepository repo;
+
+  @Transactional(readOnly = true)
+  public Profile get(String id) {
+    return repo.findById(id).orElseThrow();
+  }
+
+  @Transactional
+  public Profile replace(String id, String email, String displayName, long expectedVersion) {
+    Profile p = repo.findById(id).orElseThrow();
+    if (p.getVersion() != expectedVersion) {
+      throw new ObjectOptimisticLockingFailureException(Profile.class, id);
+    }
+    p.setEmail(email);
+    p.setDisplayName(displayName);
+    return repo.saveAndFlush(p);
+  }
+}
+```
+
+Early version check improves UX; Hibernate still enforces `@Version` on flush as the real safety net.
+
+### Why this is production-safe
+
+| Risk | Mitigation |
+|---|---|
+| Lost update | `version` predicate on write |
+| Double notification | Send email only after successful flush |
+| Retry loop on bots | Cap retries; return 409 to humans |
+| Clock skew | Prefer integer version over timestamps |
+
+---
+
+## Optimistic vs pessimistic vs atomic (pick one)
+
+<Mermaid chart={`flowchart TD
+  Q{Conflict likelihood + criticality?}
+  Q -->|Rare conflicts · long think time| O[Optimistic @Version / CAS]
+  Q -->|Hot row · money/stock| P[Pessimistic FOR UPDATE short txn]
+  Q -->|Single-field atomic change| A[Atomic UPDATE stock = stock - 1 WHERE stock >= 1]
+  O --> O1[Retry or HTTP 409]
+  P --> P1[Never hold during HTTP]
+  A --> A1[No read-modify-write in app]
+`} />
+
+| Approach | Multi-pod safe? | Holds row lock while thinking? |
+|---|---|---|
+| Optimistic `@Version` | Yes | No |
+| Pessimistic `FOR UPDATE` | Yes | Yes (keep txn short) |
+| Atomic SQL predicate | Yes | Brief write lock only |
+| JVM `synchronized` | No | N/A |
+
+---
+
+## Interview cheat sheet
+
+| Question | Crisp answer |
+|---|---|
+| What is optimistic locking? | Write only if the version you read is unchanged |
+| How in SQL? | `UPDATE … SET version = version+1 WHERE id=? AND version=?` |
+| How in Spring? | `@Version` on entity; handle `ObjectOptimisticLockingFailureException` |
+| When? | Low contention, long think time, retries OK |
+| Biggest mistake? | Updating without a version predicate |
+| vs pessimistic? | Optimistic detects at write; pessimistic prevents concurrent writes |
+| HTTP mapping? | ETag / If-Match → 409 or 412 |
+| Hot row thrashing? | Escalate to pessimistic or single-writer queue |
+
+### Spoken answer (20 seconds)
+
+> I use **optimistic locking** with an integer **`@Version`** on the aggregate. Readers never block. On save, the `UPDATE` includes `WHERE version = :read`. Zero rows means conflict — for UI I return **409** so the client refreshes; for idempotent server logic I retry a few times. For wallets and flash-sale stock I switch to **pessimistic** `FOR UPDATE` instead.
+
+---
+
+## Takeaways
+
+1. Optimistic = **read free, CAS write** on a version/token.
+2. Spring’s main tool = **`@Version`** + handle `ObjectOptimisticLockingFailureException`.
+3. List ways by layer: SQL version/CAS, NoSQL conditions, JPA modes, Spring Data/JdbcTemplate/ETag.
+4. Retries must be **idempotent**; side effects after successful commit only.
+5. Hot contested rows → [pessimistic locking](/distributed-systems/pessimistic-locking-guide), not endless optimistic retries.
+
+Practice next: [Pessimistic locking guide](/distributed-systems/pessimistic-locking-guide) · [PostgreSQL locking](/distributed-systems/postgresql-locking-deep-dive) · [Spring Boot locking implementations](/distributed-systems/spring-boot-locking-implementations)

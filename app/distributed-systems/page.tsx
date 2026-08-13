@@ -14,6 +14,7 @@ const LOCKING_ORDER=[
   'zookeeper-etcd-locking',
   'postgresql-locking-deep-dive',
   'pessimistic-locking-guide',
+  'optimistic-locking-guide',
   'transactions-2pc-3pc-saga',
   'kafka-locking-and-idempotency',
   'concurrency-deadlocks-and-timeouts',
@@ -33,6 +34,7 @@ export default function Distributed(){
   const rest=posts.filter((p)=>!LOCKING_ORDER.includes(p.slug));
   const interview=bySlug.get('2pl-3pl-money-transfer-interview');
   const pessimistic=bySlug.get('pessimistic-locking-guide');
+  const optimistic=bySlug.get('optimistic-locking-guide');
   const index=bySlug.get('distributed-locking-master-index');
 
   return (
@@ -54,7 +56,12 @@ export default function Distributed(){
           )}
           {pessimistic && (
             <Link href={`/distributed-systems/${pessimistic.slug}`} className="rounded-full bg-amber-600 px-3 py-1 font-semibold text-white">
-              Pessimistic locking guide →
+              Pessimistic locking →
+            </Link>
+          )}
+          {optimistic && (
+            <Link href={`/distributed-systems/${optimistic.slug}`} className="rounded-full bg-violet-600 px-3 py-1 font-semibold text-white">
+              Optimistic locking →
             </Link>
           )}
           {index && (
