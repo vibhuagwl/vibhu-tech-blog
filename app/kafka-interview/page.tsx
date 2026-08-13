@@ -36,6 +36,12 @@ const PAGES=[
     title:'Realtime Case',
     blurb:'Controller → producer → broker → consumer → retry/DLQ with sequence diagrams, curl, and failure matrix.',
   },
+  {
+    href:'/hadron-dlq',
+    number:'06',
+    title:'Hadron CashLines DLQ',
+    blurb:'Neptune → Kafka → Hadron: retry topics, ordering, idempotency, DLQ DB, replay APIs, and Staff interview story.',
+  },
 ];
 
 export default function KafkaInterview(){
@@ -74,6 +80,7 @@ export default function KafkaInterview(){
           <li>Open <strong>Realtime Case</strong> — learn the payment flow with diagrams.</li>
           <li>Open <strong>Kafka Code</strong> — click `PaymentController` and `SettlementKafkaConfig`.</li>
           <li>Skim <strong>Optimization</strong> then <strong>Properties</strong> — same knobs, same story.</li>
+          <li>Open <strong>Hadron CashLines DLQ</strong> — Neptune → retry → DLQ → replay with ordering and idempotency.</li>
           <li>Say the <strong>Cheatsheet & Interview</strong> 30-second answer out loud.</li>
         </ol>
       </section>

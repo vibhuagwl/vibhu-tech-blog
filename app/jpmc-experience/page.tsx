@@ -41,6 +41,11 @@ export default function JpmcExperience(){
             </Link>
           </li>
           <li>
+            <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/hadron-dlq">
+              CashLines DLQ lab (retry · ordering · replay) →
+            </Link>
+          </li>
+          <li>
             <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-kafka-replay-tool">
               Kafka replay tool story →
             </Link>

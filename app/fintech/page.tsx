@@ -15,6 +15,11 @@ export default function FinTech(){
           Use the left catalog to open each topic. Payments, ledgers, reconciliation, idempotency and failure recovery —
           the concepts that matter when a retry can create a real financial consequence.
         </p>
+        <p className="mt-4 text-sm">
+          <Link href="/hadron-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Hadron CashLines DLQ lab →
+          </Link>
+        </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} topics</span>
         </div>

@@ -1,0 +1,49 @@
+# Real Kafka + PostgreSQL. Start with:
+#   docker compose up -d kafka postgres
+#   mvn spring-boot:run -Dspring-boot.run.profiles=kafka
+spring:
+  autoconfigure:
+    exclude: []
+  datasource:
+    url: ${HADRON_DB_URL:jdbc:postgresql://127.0.0.1:5433/hadron}
+    username: ${HADRON_DB_USER:hadron}
+    password: ${HADRON_DB_PASSWORD:hadron}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:127.0.0.1:9092}
+    consumer:
+      group-id: hadron-cashline-consumer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        isolation.level: read_committed
+        max.poll.interval.ms: 300000
+        max.poll.records: 50
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        linger.ms: 5
+        compression.type: lz4
+
+hadron:
+  kafka:
+    enabled: true
+  retry:
+    delays:
+      - 5s
+      - 30s
+      - 5m

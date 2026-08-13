@@ -1,0 +1,66 @@
+server:
+  port: 8095
+
+spring:
+  application:
+    name: hadron-cashlines-dlq
+  datasource:
+    url: jdbc:h2:mem:hadron;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  h2:
+    console:
+      enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+hadron:
+  kafka:
+    enabled: false
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:127.0.0.1:9092}
+    group-id: hadron-cashline-consumer
+    topic-partitions: 4
+  retry:
+    max-attempts: 3
+    # Lab delays so you can watch retry → DLQ without waiting 5 minutes.
+    # Production (application-prod.yml): 5s, 30s, 5m.
+    delays:
+      - 200ms
+      - 400ms
+      - 800ms
+    blocking-in-memory: false
+  dlq:
+    retention-days: 90
+    payload-max-bytes: 262144
+  poller:
+    batch-size: 100
+    enabled: true
+  security:
+    require-replay-actor: true
+    mask-payload-in-logs: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics,info
+  metrics:
+    tags:
+      application: hadron-cashlines-dlq
+
+logging:
+  pattern:
+    console: "%d{ISO8601} [%thread] %-5level correlationId=%X{correlationId} eventId=%X{eventId} cashlineId=%X{cashlineId} traceId=%X{traceId} - %msg%n"
+  level:
+    com.vibhu.hadron: INFO
+    org.springframework.kafka: INFO

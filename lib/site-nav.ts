@@ -51,6 +51,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     description:'Kafka, Redis, and payment correctness',
     topics:[
       {href:'/kafka-interview',label:'Kafka',blurb:'Architecture, optimization, properties, realtime cases'},
+      {href:'/hadron-dlq',label:'Hadron CashLines DLQ',blurb:'Kafka · Retry · Ordering · Replay · Interview'},
       {href:'/redis-interview',label:'Redis',blurb:'Caching, HA, locks, Staff interview bank'},
       {href:'/distributed-caching',label:'Distributed Caching',blurb:'Spring · Redis · Caffeine · stampede · Architect'},
       {href:'/fintech',label:'FinTech',blurb:'Payments, idempotency, ledgers'},
