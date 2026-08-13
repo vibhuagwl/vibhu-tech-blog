@@ -39,7 +39,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+<<<<<<< HEAD
       url: `${BASE}/load-balancing/`,
+=======
+      url: `${BASE}/distributed-locking/`,
+>>>>>>> origin/main
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.9,

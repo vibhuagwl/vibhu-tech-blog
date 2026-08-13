@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: spring-distributed-lock-demo
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+
+app:
+  lock:
+    redis-enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+
+server:
+  port: 8080
