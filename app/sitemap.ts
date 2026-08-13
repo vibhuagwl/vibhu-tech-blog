@@ -51,7 +51,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+<<<<<<< HEAD
       url: `${BASE}/resilience4j/`,
+=======
+      url: `${BASE}/db-sharding/`,
+>>>>>>> origin/main
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.9,
