@@ -20,6 +20,7 @@ import StickyToc from './sticky-toc';
 import TopicPanel from './topic-panel';
 import InterviewMode from './interview-mode';
 import CodePanel from './code-panel';
+import SequenceWalkthrough, {LabCallMap} from './sequence-walkthrough';
 import OAuthCodeExplorer from '@/components/oauth-code-explorer';
 import type {DemoSourceFile,DemoTreeNode} from '@/lib/oauth-demo-source';
 
@@ -172,6 +173,17 @@ Cache = DON'T ASK the same question repeatedly
 Fallback = honest PENDING — never fake SUCCESS`}
                 tone="ok"
               />
+            </div>
+          </Section>
+
+          <Section
+            id="code-sequences"
+            title="Code Walkthrough — Sequence Diagrams"
+            lead="Do not memorize the page. Click a flow: HTTP → Spring class → Resilience4j aspect → bank stub → response. Same lab as spring-resilience4j-lab/ on port 8087."
+          >
+            <SequenceWalkthrough />
+            <div className="mt-6">
+              <LabCallMap />
             </div>
           </Section>
 
