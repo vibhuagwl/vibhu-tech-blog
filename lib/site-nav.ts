@@ -33,6 +33,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     description:'Production incidents and runtime performance',
     topics:[
       {href:'/realtime-issues',label:'Real-Time Issues',blurb:'Stuck threads, DB, Kafka, migrations, lead stories'},
+      {href:'/production-troubleshooting',label:'Prod Troubleshooting',blurb:'Incident playbook · JVM · DB · AWS · 50 scenarios'},
       {href:'/performance',label:'Performance',blurb:'Latency, scale, cache, JVM, backpressure'},
       {href:'/jpmc-experience',label:'JPMC Experience',blurb:'Hadron, tax, RSU, Kafka, platform delivery'},
       {href:'/spring-security',label:'Spring Security',blurb:'OAuth, CSRF, CORS, OIDC, XSS, SQLi, DDoS, JPA N+1'},
