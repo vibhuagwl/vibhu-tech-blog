@@ -42,6 +42,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     topics:[
       {href:'/kafka-interview',label:'Kafka',blurb:'Architecture, optimization, properties, realtime cases'},
       {href:'/redis-interview',label:'Redis',blurb:'Caching, HA, locks, Staff interview bank'},
+      {href:'/distributed-caching',label:'Distributed Caching',blurb:'Spring · Redis · Caffeine · stampede · Architect'},
       {href:'/fintech',label:'FinTech',blurb:'Payments, idempotency, ledgers'},
     ],
   },
