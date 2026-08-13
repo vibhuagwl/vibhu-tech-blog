@@ -26,6 +26,12 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Fail on merge conflict markers
+        run: |
+          if git grep -nE '^(<<<<<<<|=======|>>>>>>>)' -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.yml' '*.yaml' '*.json' ':!.github/workflows/deploy.yml'; then
+            echo 'Merge conflict markers found in source; refusing to deploy.'
+            exit 1
+          fi
       - name: Build
         run: npm run build
       - name: Setup Pages
