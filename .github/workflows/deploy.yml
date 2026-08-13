@@ -34,8 +34,13 @@ jobs:
           fi
       - name: Build
         run: npm run build
+      - name: Keep GitHub Pages from running Jekyll on the export
+        run: touch out/.nojekyll
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # Stop "Deploy from branch" / Jekyll from overwriting the Next.js export.
+          enablement: true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

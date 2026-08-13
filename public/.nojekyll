@@ -1,0 +1,2 @@
+# Tells GitHub Pages not to run Jekyll.
+# Required so the Next.js `_next/` asset folder is published (Jekyll skips `_` paths).

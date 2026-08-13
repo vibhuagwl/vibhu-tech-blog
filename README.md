@@ -33,7 +33,9 @@ Learn through real-world stories, architecture diagrams, capacity estimates, fai
 - Tailwind CSS
 - MDX (`content/**`) + gray-matter
 - Mermaid diagrams
-- Static export → GitHub Pages
+- Static export → GitHub Pages (`https://vibhuagwl.github.io/vibhu-tech-blog/`)
+
+GitHub Pages must use **Source: GitHub Actions** (not “Deploy from a branch”). Branch/Jekyll deploys publish the repo README and 404 the Next.js routes (`/resilience4j/`, etc.). The deploy workflow sets this automatically.
 
 ## Content workflow
 
@@ -59,6 +61,7 @@ Categories drive Learn filters and left-nav section catalogs.
 ```bash
 npm install
 npm run dev
+# Open http://localhost:3000/vibhu-tech-blog/  (bare / is 404 — expected)
 npm run build
 ```
 
