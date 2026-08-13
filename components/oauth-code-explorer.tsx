@@ -3,26 +3,8 @@
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
 import {ChevronDown,ChevronRight,Copy,Check,FileCode2,Folder} from 'lucide-react';
-import hljs from 'highlight.js/lib/core';
-import java from 'highlight.js/lib/languages/java';
-import xml from 'highlight.js/lib/languages/xml';
-import yaml from 'highlight.js/lib/languages/yaml';
-import sql from 'highlight.js/lib/languages/sql';
-import bash from 'highlight.js/lib/languages/bash';
-import json from 'highlight.js/lib/languages/json';
-import markdown from 'highlight.js/lib/languages/markdown';
-import properties from 'highlight.js/lib/languages/properties';
+import {highlightCode,normalizeLanguage} from '@/lib/syntax-highlight';
 import type {DemoSourceFile,DemoTreeNode} from '@/lib/oauth-demo-source';
-
-hljs.registerLanguage('java',java);
-hljs.registerLanguage('xml',xml);
-hljs.registerLanguage('yaml',yaml);
-hljs.registerLanguage('sql',sql);
-hljs.registerLanguage('bash',bash);
-hljs.registerLanguage('json',json);
-hljs.registerLanguage('markdown',markdown);
-hljs.registerLanguage('properties',properties);
-hljs.registerLanguage('html',xml);
 
 const HLJS_LANG:Record<string,string>={
   java:'java',
@@ -35,21 +17,14 @@ const HLJS_LANG:Record<string,string>={
   properties:'properties',
   html:'html',
   text:'plaintext',
+  javascript:'javascript',
+  typescript:'typescript',
+  python:'python',
 };
 
 function highlight(code:string,language:string){
-  const lang=HLJS_LANG[language] ?? 'plaintext';
-  try{
-    if(lang==='plaintext' || !hljs.getLanguage(lang)){
-      return hljs.highlight(code,{language:'plaintext'}).value;
-    }
-    return hljs.highlight(code,{language:lang}).value;
-  }catch{
-    return code
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;');
-  }
+  const lang=normalizeLanguage(HLJS_LANG[language] ?? language) ?? 'plaintext';
+  return highlightCode(code,lang).html;
 }
 
 function Tree({

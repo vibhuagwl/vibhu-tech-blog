@@ -2,6 +2,7 @@
 
 import {useMemo,useState} from 'react';
 import {ALL_INTERVIEW,CHALLENGES,RAPID_QS,SCENARIO_QS} from '@/lib/java-concurrency/interview';
+import HighlightedCode from '@/components/highlighted-code';
 
 export function InterviewMode(){
   const [mode,setMode]=useState<'core'|'scenario'|'rapid'>('core');
@@ -53,7 +54,7 @@ export function Challenges(){
     <div className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800">
       <div className="text-xs font-bold uppercase tracking-[.12em] text-slate-500">{idx+1}/{CHALLENGES.length}</div>
       <h3 className="mt-2 text-lg font-bold">{c.title}</h3>
-      <pre className="mt-3 overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{c.code}</pre>
+      <HighlightedCode code={c.code} language="java" className="mt-3 rounded-xl bg-slate-950 p-4 text-xs"/>
       <ul className="mt-3 list-disc pl-5 text-sm text-slate-600 dark:text-slate-300">
         {c.prompts.map((p)=><li key={p}>{p}</li>)}
       </ul>

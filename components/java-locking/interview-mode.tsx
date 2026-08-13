@@ -2,6 +2,7 @@
 
 import {useState} from 'react';
 import {INTERVIEW_QUESTIONS} from '@/lib/java-locking/interview';
+import HighlightedCode from '@/components/highlighted-code';
 
 export default function InterviewMode(){
   const [idx,setIdx]=useState(0);
@@ -37,7 +38,9 @@ export default function InterviewMode(){
             <p className="mt-2">{q.detailed}</p>
           </div>
           {q.code && (
-            <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{q.code}</pre>
+            <div className="overflow-hidden rounded-xl bg-slate-950">
+              <HighlightedCode code={q.code} language="java" className="p-4 text-xs"/>
+            </div>
           )}
           <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-950 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100">
             <strong>Common mistake: </strong>{q.mistake}
