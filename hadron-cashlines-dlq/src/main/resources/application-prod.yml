@@ -1,0 +1,52 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${HADRON_DB_URL}
+    username: ${HADRON_DB_USER}
+    password: ${HADRON_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${HADRON_DB_POOL:30}
+      connection-timeout: 3000
+      leak-detection-threshold: 20000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP}
+    consumer:
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
+        max.poll.interval.ms: 300000
+        session.timeout.ms: 45000
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+
+hadron:
+  kafka:
+    enabled: true
+  retry:
+    max-attempts: 3
+    delays:
+      - 5s
+      - 30s
+      - 5m
+    blocking-in-memory: false
+  dlq:
+    retention-days: 90
+    payload-max-bytes: 262144
+  security:
+    require-replay-actor: true
+    mask-payload-in-logs: true
+
+logging:
+  level:
+    root: INFO
+    com.vibhu.hadron: INFO
+    org.springframework.kafka: WARN

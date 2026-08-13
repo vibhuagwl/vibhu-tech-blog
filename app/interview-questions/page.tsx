@@ -42,6 +42,12 @@ const banks=[
     blurb:'Five pages: Spring Kafka code, optimization, properties, cheatsheet & interview, realtime payment case.',
   },
   {
+    href:'/hadron-dlq',
+    label:'Hadron CashLines DLQ',
+    level:'Staff',
+    blurb:'Neptune → Kafka → Hadron: retry topics, DLQ persistence, ordering, idempotency, replay, interview bank.',
+  },
+  {
     href:'/redis-interview',
     label:'Redis Interview',
     level:'Staff',
