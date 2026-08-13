@@ -21,7 +21,7 @@ export default function SiteFooter() {
                 VA
               </span>
               <div>
-                <div className="text-lg font-bold tracking-[-.03em] text-[var(--ink)]">Vibhu Tech</div>
+                <div className="text-lg font-bold tracking-[-.03em] text-[var(--ink)]">Vibhu Tech Lab</div>
                 <div className="text-[11px] font-bold uppercase tracking-[.14em] text-[var(--muted)]">
                   Senior Interview Hub
                 </div>
