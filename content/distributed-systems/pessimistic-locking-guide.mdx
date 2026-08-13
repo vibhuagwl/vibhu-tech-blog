@@ -16,7 +16,7 @@ Learn **pessimistic locking** end-to-end: what it is, when to use it, every comm
 
 | If you have | Read |
 |---|---|
-| **5 min** | Definition → vs optimistic → when to use → pros/cons |
+| **5 min** | Definition → [main types](#main-types-of-pessimistic-locking) → when to use → pros/cons |
 | **10 min** | All ways catalog + SQL `FOR UPDATE` + Spring `@Lock` |
 | **20 min** | Full real-time example + NoSQL + deadlock rules |
 
@@ -65,6 +65,62 @@ Contrast with **optimistic locking**: read freely, write with a version/conditio
 `} />
 
 **Say this:** “Pessimistic locking serializes writers on a resource up front. I take the lock in the same short DB transaction that mutates the invariant — never around HTTP calls.”
+
+### One-line definition
+
+> Pessimistic locking means a transaction **locks a resource before using/updating it**, assuming another transaction may try to access it concurrently.
+
+---
+
+## Main types of pessimistic locking
+
+Two axes: **lock mode** (what others may do) and **lock granularity** (how much is locked).
+
+### Lock modes (behavior)
+
+| Type | Lock behavior | Other transactions | SQL / JPA |
+|---|---|---|---|
+| **Pessimistic Read / Shared Lock** | Allows multiple readers | Can read, but cannot modify | `FOR SHARE` · `LockModeType.PESSIMISTIC_READ` |
+| **Pessimistic Write / Exclusive Lock** | Only one transaction gets write access | Others cannot write (read rules depend on DB/isolation) | `FOR UPDATE` · `LockModeType.PESSIMISTIC_WRITE` |
+| **Pessimistic Force Increment** | Exclusive read/write **and** bump `@Version` | Used with versioned entities when you must force a version change even if columns look unchanged | `LockModeType.PESSIMISTIC_FORCE_INCREMENT` |
+
+<Mermaid chart={`flowchart LR
+  subgraph Modes["Lock modes"]
+    R[Pessimistic Read<br/>shared]
+    W[Pessimistic Write<br/>exclusive]
+    F[Force Increment<br/>exclusive + version++]
+  end
+  R -->|"many readers OK"| X[Writers blocked]
+  W -->|"one writer"| Y[Other writers wait/fail]
+  F -->|"one writer"| Z[Version always increments]
+`} />
+
+### Lock granularity (scope)
+
+| Type | Lock behavior | Other transactions | When you see it |
+|---|---|---|---|
+| **Row-level lock** | Locks specific rows | Other rows remain accessible | Default for `FOR UPDATE` in Postgres/InnoDB — **preferred for OLTP** |
+| **Page-level lock** | Locks a database page (group of rows) | Rows on that page contend together | Some engines / edge cases — less common to choose explicitly |
+| **Table-level lock** | Locks entire table | Concurrent DML on the table is restricted | `LOCK TABLE`, DDL, coarse batch jobs — **avoid for hot APIs** |
+| **Database-level lock** | Locks entire database / global resource | Extremely restrictive | Maintenance, migrations, rare admin ops |
+
+```text
+Finest → coarsest (prefer left for online traffic)
+
+  Row  →  Page  →  Table  →  Database
+```
+
+**Interview line:** “I almost always want **row-level pessimistic write** (`FOR UPDATE` / `PESSIMISTIC_WRITE`). Shared locks are for stable reads; table/database locks are too coarse for request traffic.”
+
+### Mode × granularity — what Spring apps usually pick
+
+| Goal | Pick |
+|---|---|
+| Debit wallet / decrement stock | **Row + Pessimistic Write** |
+| Read parent while blocking deletes | **Row + Pessimistic Read** (or `FOR KEY SHARE` in Postgres) |
+| Must bump version under exclusive lock | **Row + Pessimistic Force Increment** |
+| Overnight rebuild of a small table | Table lock *maybe* — prefer batch with row locks |
+| Multi-pod mutual exclusion outside one row | Not DB granularity — Redis/etcd lease (see catalog below) |
 
 ---
 
@@ -351,6 +407,8 @@ public void debit(EntityManager em, String id, BigDecimal amount) {
 ```
 
 ### JPA lock modes (memorize)
+
+Maps 1:1 to the [modes table](#lock-modes-behavior) above:
 
 | `LockModeType` | Meaning |
 |---|---|
