@@ -43,7 +43,7 @@ export default function Home() {
       <section className="home-hero" aria-label="Introduction">
         <div className="home-hero__bg" aria-hidden="true" />
         <div className="home-hero__inner">
-          <p className="home-hero__brand">Vibhu Tech Lab</p>
+          <p className="home-hero__brand">Vibhu Architect</p>
           <span className="home-hero__rule" aria-hidden="true" />
           <h1 className="home-hero__headline">
             Structured preparation for Senior, Staff, and Principal interviews.

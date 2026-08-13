@@ -18,9 +18,9 @@ const mono=IBM_Plex_Mono({
 });
 
 export const metadata:Metadata={
-  title:{default:'Vibhu Tech Lab — Senior Engineering Interview Hub',template:'%s · Vibhu Tech Lab'},
+  title:{default:'Vibhu Architect — Senior Engineering Interview Hub',template:'%s · Vibhu Architect'},
   description:
-    'Vibhu Tech Lab: professional interview preparation for Senior, Staff, and Principal engineers — Java, Spring Boot, microservices, Kafka, AWS, system design, and production engineering.',
+    'Vibhu Architect: professional interview preparation for Senior, Staff, and Principal engineers — Java, Spring Boot, microservices, Kafka, AWS, system design, and production engineering.',
   metadataBase:new URL('https://vibhuagwl.github.io/vibhu-tech-blog'),
 };
 
