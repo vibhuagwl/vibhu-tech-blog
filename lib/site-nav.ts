@@ -21,6 +21,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/system-design',label:'System Design',blurb:'HLD problems, estimation, Staff follow-ups'},
       {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking, messaging, resilience, consistency'},
       {href:'/distributed-locking',label:'Distributed Locking',blurb:'Redis · DB · ZK · fencing · Spring Architect'},
+      {href:'/load-balancing',label:'Load Balancing',blurb:'L4/L7 · ALB/NLB · algorithms · API GW · AWS'},
       {href:'/design-patterns',label:'Design Patterns',blurb:'23 GoF patterns with revision and mock interview'},
       {href:'/complexity',label:'Complexity',blurb:'Big-O from Java code, interview framing'},
     ],
