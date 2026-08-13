@@ -44,7 +44,7 @@ export default function Home() {
         <div className="home-hero__bg" aria-hidden="true" />
         <div className="home-hero__grid" aria-hidden="true" />
         <div className="home-hero__inner">
-          <p className="home-hero__brand">Vibhu Tech</p>
+          <p className="home-hero__brand">Vibhu Tech Lab</p>
           <span className="home-hero__rule" aria-hidden="true" />
           <h1 className="home-hero__headline">
             Structured preparation for Senior, Staff, and Principal interviews.
