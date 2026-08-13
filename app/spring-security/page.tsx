@@ -7,11 +7,14 @@ const items=[
   {href:'/spring-csrf-demo',title:'CSRF Protection',blurb:'Session CSRF, CookieCsrfTokenRepository for SPAs, forged POST → 403, and when JWT APIs disable CSRF.'},
   {href:'/spring-cors-demo',title:'CORS Security',blurb:'End-to-end CORS: allowlist, preflight OPTIONS, credentials, blocked evil origins, and a second-origin frontend.'},
   {href:'/idanywhere-demo',title:'IDAnywhere OIDC SSO',blurb:'OIDC vs ADFS vs IDAnywhere; Okta/Keycloak profiles; internal token flow and sequence diagrams.'},
+  {href:'/spring-xss-demo',title:'XSS Defense',blurb:'Reflected vs stored XSS, Thymeleaf th:text vs th:utext, HtmlUtils escape — diagrams and bad/good lab.'},
+  {href:'/spring-sql-injection-demo',title:'SQL Injection',blurb:'String-concat SQL vs PreparedStatement / JdbcTemplate — OR 1=1 demo, root cause, Spring fixes.'},
+  {href:'/spring-ddos-demo',title:'DDoS Defenses',blurb:'Volumetric vs application-layer floods; rate limiting → 429; CDN/WAF/app layers (defense-only).'},
 ];
 
 export const metadata={
   title:'Spring Security',
-  description:'Spring Security interview hub: who calls whom, REST endpoint memory sheet, OAuth + JWT, Authn/Authz, CSRF, CORS, and IDAnywhere OIDC SSO.',
+  description:'Spring Security interview hub: OAuth, CSRF, CORS, OIDC, plus XSS, SQL injection, and DDoS defense labs with diagrams and code.',
 };
 
 export default function SpringSecurityHubPage(){
@@ -25,8 +28,8 @@ export default function SpringSecurityHubPage(){
           Spring Security hub
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-          All Spring Security code demos in one place — plus a short interview memory sheet for
-          REST endpoints and how components talk to each other.
+          Spring Security labs in one place — OAuth/OIDC, CSRF, CORS — plus XSS, SQL injection, and
+          DDoS defense guides with diagrams and a runnable lab.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
           <a href="#interview-memory" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">

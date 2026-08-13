@@ -32,7 +32,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/realtime-issues',label:'Real-Time Issues',blurb:'Stuck threads, DB, Kafka, migrations, lead stories'},
       {href:'/performance',label:'Performance',blurb:'Latency, scale, cache, JVM, backpressure'},
       {href:'/jpmc-experience',label:'JPMC Experience',blurb:'Hadron, tax, RSU, Kafka, platform delivery'},
-      {href:'/spring-security',label:'Spring Security',blurb:'OAuth, JWT, CSRF, CORS, Authn/Authz, OIDC demos'},
+      {href:'/spring-security',label:'Spring Security',blurb:'OAuth, CSRF, CORS, OIDC, XSS, SQLi, DDoS demos'},
     ],
   },
   {
