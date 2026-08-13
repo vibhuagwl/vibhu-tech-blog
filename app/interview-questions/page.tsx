@@ -145,7 +145,7 @@ export default function Interview(){
     <main className="mx-auto max-w-7xl px-5 py-14">
       <div className="max-w-3xl">
         <p className="eyebrow">Interview Practice</p>
-        <h1 className="mt-3 text-4xl font-bold tracking-[-.035em] text-slate-900 md:text-5xl dark:text-white">
+        <h1 className="mt-3 text-4xl font-extrabold tracking-[-.04em] text-[var(--ink)] md:text-5xl">
           Practice the follow-up, not just the diagram.
         </h1>
         <p className="mt-5 text-lg leading-8 text-slate-600 dark:text-slate-300">

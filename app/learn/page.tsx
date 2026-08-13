@@ -26,27 +26,29 @@ export default function Learn(){
   return (
     <main className="mx-auto max-w-7xl px-5 py-14">
       <div className="max-w-3xl">
-        <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Learning Path</div>
-        <h1 className="mt-3 text-5xl font-black tracking-[-.05em]">FAANG-ready system design from first principles.</h1>
-        <p className="mt-5 text-lg leading-8 text-slate-600">
+        <p className="eyebrow">Learning Path</p>
+        <h1 className="mt-3 text-4xl font-extrabold tracking-[-.04em] text-[var(--ink)] md:text-5xl">
+          FAANG-ready system design from first principles.
+        </h1>
+        <p className="mt-5 text-lg leading-8 text-[var(--muted)]">
           Follow the curriculum path or jump by topic. Every article emphasizes decisions, bottlenecks, failure modes and trade-offs —
           depth aimed at Senior through Staff/Principal interviews.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/system-design/system-design-master-index" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white">Master Index</Link>
-          <Link href="/system-design/30-day-system-design-plan" className="rounded-lg border px-4 py-2 text-sm font-bold">30-Day Plan</Link>
-          <Link href="/system-design/60-day-system-design-plan" className="rounded-lg border px-4 py-2 text-sm font-bold">60-Day Plan</Link>
-          <Link href="/behavioral-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Behavior Interview</Link>
-          <Link href="/leadership-principles" className="rounded-lg border px-4 py-2 text-sm font-bold">Leadership Principles</Link>
-          <Link href="/complexity" className="rounded-lg border px-4 py-2 text-sm font-bold">Complexity</Link>
-          <Link href="/kafka-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Kafka Hub</Link>
-          <Link href="/redis-interview" className="rounded-lg border px-4 py-2 text-sm font-bold">Redis Interview</Link>
-          <Link href="/design-patterns" className="rounded-lg border px-4 py-2 text-sm font-bold">Design Patterns</Link>
-          <Link href="/java-compiler" className="rounded-lg border px-4 py-2 text-sm font-bold">Java Compiler</Link>
-          <Link href="/realtime-issues" className="rounded-lg border px-4 py-2 text-sm font-bold">Real-Time Issues</Link>
-          <Link href="/performance" className="rounded-lg border px-4 py-2 text-sm font-bold">Performance</Link>
-          <Link href="/jpmc-experience" className="rounded-lg border px-4 py-2 text-sm font-bold">JPMC Experience</Link>
-          <Link href="/spring-security" className="rounded-lg border px-4 py-2 text-sm font-bold">Spring Security</Link>
+          <Link href="/system-design/system-design-master-index" className="btn-primary">Master Index</Link>
+          <Link href="/system-design/30-day-system-design-plan" className="btn-secondary">30-Day Plan</Link>
+          <Link href="/system-design/60-day-system-design-plan" className="btn-secondary">60-Day Plan</Link>
+          <Link href="/behavioral-interview" className="btn-secondary">Behavior Interview</Link>
+          <Link href="/leadership-principles" className="btn-secondary">Leadership Principles</Link>
+          <Link href="/complexity" className="btn-secondary">Complexity</Link>
+          <Link href="/kafka-interview" className="btn-secondary">Kafka Hub</Link>
+          <Link href="/redis-interview" className="btn-secondary">Redis Interview</Link>
+          <Link href="/design-patterns" className="btn-secondary">Design Patterns</Link>
+          <Link href="/java-compiler" className="btn-secondary">Java Compiler</Link>
+          <Link href="/realtime-issues" className="btn-secondary">Real-Time Issues</Link>
+          <Link href="/performance" className="btn-secondary">Performance</Link>
+          <Link href="/jpmc-experience" className="btn-secondary">JPMC Experience</Link>
+          <Link href="/spring-security" className="btn-secondary">Spring Security</Link>
         </div>
       </div>
 

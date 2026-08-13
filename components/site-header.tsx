@@ -191,7 +191,7 @@ export default function SiteHeader(){
             <span className="site-brand__mark">VA</span>
             <span className="site-brand__text">
               <span className="site-brand__name">Vibhu Tech</span>
-              <span className="site-brand__tag">Interview Hub</span>
+              <span className="site-brand__tag">Senior Hub</span>
             </span>
           </Link>
         </div>

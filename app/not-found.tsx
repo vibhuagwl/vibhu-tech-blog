@@ -1,20 +1,18 @@
 import Link from 'next/link';
 
-export default function NotFound(){
+export default function NotFound() {
   return (
-    <main className="mx-auto max-w-3xl px-5 py-24 text-center">
-      <div className="text-sm font-semibold uppercase tracking-widest text-blue-700">404</div>
-      <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+    <main className="mx-auto max-w-2xl px-5 py-24 text-center">
+      <p className="eyebrow">404</p>
+      <h1 className="mt-4 text-4xl font-extrabold tracking-[-.04em] text-[var(--ink)]">
         This page does not exist.
       </h1>
-      <p className="mt-4 text-slate-500">
-        The article may have moved, or the URL may be incorrect.
-      </p>
+      <p className="mt-4 text-[var(--muted)]">The article may have moved, or the URL may be incorrect.</p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
-        <Link href="/" className="inline-block rounded-lg bg-slate-900 px-5 py-3 text-sm font-semibold text-white">
+        <Link href="/" className="btn-primary">
           Back to home
         </Link>
-        <Link href="/search" className="inline-block rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-800 dark:border-slate-700 dark:text-slate-100">
+        <Link href="/search" className="btn-secondary">
           Search topics
         </Link>
       </div>
