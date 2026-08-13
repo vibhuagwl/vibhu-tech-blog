@@ -96,7 +96,7 @@ export default function DbShardingHub() {
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={SHARD_TOC} />
-        <div className="min-w-0 space-y-16">
+        <div className="min-w-0 space-y-5">
           <Section
             id="overview"
             title="500M Transactions Problem"

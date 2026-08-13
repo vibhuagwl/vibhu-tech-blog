@@ -64,7 +64,7 @@ export default function LoadBalancingHub(){
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={LB_TOC}/>
-        <div className="min-w-0 space-y-16">
+        <div className="min-w-0 space-y-5">
           <Section id="overview" title="The Problem" lead="A load balancer distributes traffic across healthy instances so one Spring Boot pod is not a bottleneck.">
             <div className="grid gap-3 md:grid-cols-2">
               <div className="overflow-hidden rounded-2xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30">
