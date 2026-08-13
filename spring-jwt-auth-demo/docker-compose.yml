@@ -1,0 +1,29 @@
+services:
+  jwt-auth:
+    build: .
+    ports:
+      - "8092:8092"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PORT: "8092"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_PREVIOUS_SECRET: ${JWT_PREVIOUS_SECRET:-}
+      DB_URL: jdbc:postgresql://db:5432/jwtauth
+      DB_USERNAME: ${DB_USERNAME:-app}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: jwtauth
+      POSTGRES_USER: ${DB_USERNAME:-app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-app} -d jwtauth"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

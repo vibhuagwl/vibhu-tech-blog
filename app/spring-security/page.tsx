@@ -2,6 +2,7 @@ import Link from 'next/link';
 import SpringSecurityInterviewMemory from '@/components/spring-security-interview-memory';
 
 const items=[
+  {href:'/spring-jwt-demo',title:'JWT Access + Refresh',blurb:'First-party JWT: BCrypt login, HS256 access token, opaque refresh rotation, JwtAuthenticationFilter, tests, curl.'},
   {href:'/oauth-jwt-demo',title:'OAuth + JWT Code',blurb:'Browse full Spring Security source for authorization server, resource server, JWT, and OAuth flows.'},
   {href:'/spring-auth-demo',title:'Authn + Authz Code',blurb:'Spring Security form login and HTTP Basic without OAuth.'},
   {href:'/spring-csrf-demo',title:'CSRF Protection',blurb:'Session CSRF, CookieCsrfTokenRepository for SPAs, forged POST → 403, and when JWT APIs disable CSRF.'},
@@ -15,7 +16,7 @@ const items=[
 
 export const metadata={
   title:'Spring Security',
-  description:'Spring interview hub: OAuth, CSRF, CORS, OIDC, XSS, SQL injection, DDoS defense, and JPA N+1 — memory sheet, diagrams, and runnable labs.',
+  description:'Spring interview hub: JWT access/refresh, OAuth, CSRF, CORS, OIDC, XSS, SQL injection, DDoS defense, and JPA N+1 — memory sheet, diagrams, and runnable labs.',
 };
 
 export default function SpringSecurityHubPage(){
@@ -29,7 +30,7 @@ export default function SpringSecurityHubPage(){
           Spring Security hub
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-          Spring Security labs in one place — OAuth/OIDC, CSRF, CORS — plus XSS, SQL injection,
+          Spring Security labs in one place — first-party JWT, OAuth/OIDC, CSRF, CORS — plus XSS, SQL injection,
           DDoS defense, and the JPA <strong>N+1</strong> guide with diagrams and runnable labs.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">

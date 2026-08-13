@@ -39,6 +39,10 @@ export default function SpringAuthDemoPage(){
             Sequence diagrams →
           </a>
           <span className="text-slate-300">·</span>
+          <Link href="/spring-jwt-demo" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
+            First-party JWT lab →
+          </Link>
+          <span className="text-slate-300">·</span>
           <Link href="/oauth-jwt-demo" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             OAuth + JWT lab →
           </Link>
