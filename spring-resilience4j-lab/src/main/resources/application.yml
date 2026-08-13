@@ -1,56 +1,92 @@
 spring:
   application:
     name: spring-resilience4j-lab
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=30s
 
 server:
   port: 8087
 
+# Starting points — derive from SLA, p99 latency, RPS, thread pool, error budget.
+# Do not copy these numbers into production unchanged.
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,circuitbreakers,retries,ratelimiters,bulkheads
+        include: health,info,prometheus,metrics,circuitbreakers,circuitbreakerevents,retries,retryevents,ratelimiters,bulkheads,timelimiters
   endpoint:
     health:
-      show-details: always
+      show-details: when_authorized
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 resilience4j:
   circuitbreaker:
-    instances:
-      payment:
+    configs:
+      default:
         slidingWindowType: COUNT_BASED
         slidingWindowSize: 10
         minimumNumberOfCalls: 5
         failureRateThreshold: 50
+        slowCallRateThreshold: 80
+        slowCallDurationThreshold: 2s
         waitDurationInOpenState: 5s
         permittedNumberOfCallsInHalfOpenState: 2
         automaticTransitionFromOpenToHalfOpenEnabled: true
         recordExceptions:
           - com.vibhu.resilience.BankUnavailableException
-  retry:
+        ignoreExceptions:
+          - com.vibhu.resilience.BusinessException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
+          - io.github.resilience4j.bulkhead.BulkheadFullException
     instances:
       payment:
+        baseConfig: default
+  retry:
+    configs:
+      default:
         maxAttempts: 3
         waitDuration: 50ms
         enableExponentialBackoff: true
         exponentialBackoffMultiplier: 2
+        enableRandomizedWait: true
+        randomizedWaitFactor: 0.5
         retryExceptions:
           - com.vibhu.resilience.BankUnavailableException
+        ignoreExceptions:
+          - com.vibhu.resilience.BusinessException
+    instances:
+      payment:
+        baseConfig: default
   ratelimiter:
     instances:
       paymentApi:
         limitForPeriod: 50
         limitRefreshPeriod: 1s
-        timeoutDuration: 0
+        timeoutDuration: 0s
   bulkhead:
     instances:
       payment:
         maxConcurrentCalls: 20
-        maxWaitDuration: 0
+        maxWaitDuration: 0s
+  thread-pool-bulkhead:
+    instances:
+      fraud:
+        maxThreadPoolSize: 4
+        coreThreadPoolSize: 2
+        queueCapacity: 8
+        keepAliveDuration: 20ms
   timelimiter:
     instances:
       payment:
         timeoutDuration: 2s
+        cancelRunningFuture: true
+      fraud:
+        timeoutDuration: 500ms
         cancelRunningFuture: true
 
 logging:
