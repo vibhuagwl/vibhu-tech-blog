@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: spring-resilience4j-lab
+
+server:
+  port: 8087
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,circuitbreakers,retries,ratelimiters,bulkheads
+  endpoint:
+    health:
+      show-details: always
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      payment:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 2
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        recordExceptions:
+          - com.vibhu.resilience.BankUnavailableException
+  retry:
+    instances:
+      payment:
+        maxAttempts: 3
+        waitDuration: 50ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - com.vibhu.resilience.BankUnavailableException
+  ratelimiter:
+    instances:
+      paymentApi:
+        limitForPeriod: 50
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0
+  bulkhead:
+    instances:
+      payment:
+        maxConcurrentCalls: 20
+        maxWaitDuration: 0
+  timelimiter:
+    instances:
+      payment:
+        timeoutDuration: 2s
+        cancelRunningFuture: true
+
+logging:
+  level:
+    com.vibhu.resilience: INFO
+    io.github.resilience4j: INFO
