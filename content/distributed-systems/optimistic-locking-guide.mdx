@@ -71,16 +71,27 @@ Contrast with **pessimistic locking**: lock the row first, then update; others w
 
 ## Main types of optimistic locking
 
-Two axes: **detection token** (what you compare) and **conflict strategy** (what you do on loss).
+| Type | How it detects conflict | Common usage |
+|---|---|---|
+| **Version-based** | Checks a version number | JPA / Hibernate (`@Version`) |
+| **Timestamp-based** | Checks `updated_at` timestamp | Legacy / custom systems |
+| **Value / Field-based** | Compares original field values in `WHERE` | SQL / custom implementations |
+| **ETag-based** | Checks HTTP `ETag` / `If-Match` | REST APIs |
+| **Compare-and-Swap (CAS)** | Updates only if expected value matches | Concurrent / distributed systems |
+
+**Interview line:** “All optimistic types are CAS in disguise — version, timestamp, field snapshot, or ETag is just the expected token.”
+
+Deeper breakdown below: **detection token** (what you compare) and **conflict strategy** (what you do on loss).
 
 ### Detection tokens (what proves “still the same”)
 
 | Type | Lock / check behavior | Other transactions | SQL / JPA / API |
 |---|---|---|---|
-| **Version column (integer)** | Write succeeds only if `version` matches; then `version++` | Loser gets 0 rows / exception | `@Version` · `UPDATE … WHERE version = ?` |
-| **Timestamp / `updated_at`** | Write if timestamp unchanged | Same idea; clock skew risk | `@Version` on `Instant` (careful) or manual column |
-| **Hash / checksum of fields** | Write if hash of read snapshot matches | Good when no dedicated version column | App-computed ETag-style |
-| **Full-row compare (all columns)** | `UPDATE … WHERE col1=? AND col2=? …` | Heavy; rare for wide rows | Manual CAS |
+| **Version-based (integer)** | Write succeeds only if `version` matches; then `version++` | Loser gets 0 rows / exception | `@Version` · `UPDATE … WHERE version = ?` |
+| **Timestamp-based (`updated_at`)** | Write if timestamp unchanged | Same idea; clock skew risk | `@Version` on `Instant` (careful) or manual column |
+| **Value / Field-based** | `UPDATE … WHERE col1=? AND col2=? …` (original values) | Heavy on wide rows; precise for few fields | Manual SQL CAS |
+| **ETag-based** | HTTP `ETag` maps to version/hash; `If-Match` on write | Client must refresh on 409 / 412 | REST APIs |
+| **CAS (generic)** | Update only if expected token/value matches | Umbrella for all rows above | Redis / Dynamo condition / SQL |
 | **Document revision (NoSQL)** | `_rev` / conditional expression | Native in Couch/Dynamo-style APIs | Mongo `version` / Dynamo condition |
 | **Optimistic Force Increment** | Force version bump even if entity “unchanged” | Marks logical touch under optimistic control | `LockModeType.OPTIMISTIC_FORCE_INCREMENT` |
 
