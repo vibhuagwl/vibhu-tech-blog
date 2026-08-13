@@ -36,6 +36,10 @@ export default function OAuthJwtDemoPage(){
             Interview guide →
           </Link>
           <span className="text-slate-300">·</span>
+          <Link href="/spring-jwt-demo" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
+            First-party JWT (no OAuth) →
+          </Link>
+          <span className="text-slate-300">·</span>
           <a href="#auth-code" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Sequence diagrams →
           </a>

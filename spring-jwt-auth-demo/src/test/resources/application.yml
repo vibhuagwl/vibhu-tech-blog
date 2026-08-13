@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:jwtauthtest;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+security:
+  jwt:
+    issuer: spring-jwt-auth-demo
+    audience: spring-jwt-auth-api
+    access-token-expiration: 15m
+    refresh-token-expiration: 7d
+    clock-skew: 30s
+    secret: test-hmac-key-must-be-at-least-32b!
+    previous-secret: ""
+    secret-source: env
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+  login:
+    max-attempts: 5
+    lock-duration: 15m
+  rate-limit:
+    auth-requests-per-minute: 1000
+
+logging:
+  level:
+    com.vibhu.security.jwt: WARN

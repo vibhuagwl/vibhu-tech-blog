@@ -2,6 +2,18 @@ import Link from 'next/link';
 
 const labs = [
   {
+    href: '/spring-jwt-demo',
+    title: 'JWT access + refresh',
+    oneLiner: 'Client → API :8092  POST /api/auth/login → Bearer JWT on /api/**',
+    glue: 'Bearer JWT + opaque refresh',
+    remember: [
+      'POST /api/auth/register · login · refresh · logout',
+      'GET /api/users/me  (USER|ADMIN)  ·  GET /api/admin/users  (ADMIN)',
+      'Access 15m HS256 · refresh 7d hashed, rotated',
+    ],
+    say: 'App is the IdP. AuthenticationManager checks the password; the filter validates JWT. Not OAuth.',
+  },
+  {
     href: '/oauth-jwt-demo',
     title: 'OAuth + JWT',
     oneLiner: 'Browser → Client :8082 → AS :9000 → (Gateway :8080) → RS :8081',

@@ -1,0 +1,54 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: spring-jwt-auth-demo
+  datasource:
+    url: jdbc:h2:mem:jwtauth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+# HMAC secret MUST come from the environment in any non-local profile.
+# Local default is 32+ bytes so `mvn spring-boot:run` works; never ship it.
+security:
+  jwt:
+    issuer: spring-jwt-auth-demo
+    audience: spring-jwt-auth-api
+    access-token-expiration: 15m
+    refresh-token-expiration: 7d
+    clock-skew: 30s
+    secret: ${JWT_SECRET:local-dev-only-hmac-key-32bytes-min!!}
+    previous-secret: ${JWT_PREVIOUS_SECRET:}
+    secret-source: env
+    aws-region: ${AWS_REGION:us-east-1}
+    aws-secret-id: ${JWT_AWS_SECRET_ID:prod/jwt-auth}
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://127.0.0.1:3000
+  login:
+    max-attempts: 5
+    lock-duration: 15m
+  rate-limit:
+    auth-requests-per-minute: 20
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  pattern:
+    console: "%d{ISO8601} [%X{requestId}] %-5level %logger{36} - %msg%n"
+  level:
+    org.springframework.security: INFO
+    com.vibhu.security.jwt: INFO

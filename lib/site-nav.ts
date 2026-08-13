@@ -40,7 +40,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/cost-optimization',label:'Cloud Cost Optimization',blurb:'FinOps · capacity · NAT · amplification · TCO · Architect'},
       {href:'/performance',label:'Performance',blurb:'Latency, scale, cache, JVM, backpressure'},
       {href:'/jpmc-experience',label:'JPMC Experience',blurb:'Hadron, tax, RSU, Kafka, platform delivery'},
-      {href:'/spring-security',label:'Spring Security',blurb:'OAuth, CSRF, CORS, OIDC, XSS, SQLi, DDoS, JPA N+1'},
+      {href:'/spring-security',label:'Spring Security',blurb:'JWT, OAuth, CSRF, CORS, OIDC, XSS, SQLi, DDoS, JPA N+1'},
     ],
   },
   {
