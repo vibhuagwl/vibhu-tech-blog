@@ -10,11 +10,12 @@ const items=[
   {href:'/spring-xss-demo',title:'XSS Defense',blurb:'Reflected vs stored XSS, Thymeleaf th:text vs th:utext, HtmlUtils escape — diagrams and bad/good lab.'},
   {href:'/spring-sql-injection-demo',title:'SQL Injection',blurb:'String-concat SQL vs PreparedStatement / JdbcTemplate — OR 1=1 demo, root cause, Spring fixes.'},
   {href:'/spring-ddos-demo',title:'DDoS Defenses',blurb:'Volumetric vs application-layer floods; rate limiting → 429; CDN/WAF/app layers (defense-only).'},
+  {href:'/spring-n-plus-one',title:'JPA N+1 Problem',blurb:'Root cause of 1+N queries, detection, JOIN FETCH, EntityGraph, @BatchSize, DTO projections — diagrams + runnable lab.'},
 ];
 
 export const metadata={
   title:'Spring Security',
-  description:'Spring Security interview hub: OAuth, CSRF, CORS, OIDC, plus XSS, SQL injection, and DDoS defense labs with diagrams and code.',
+  description:'Spring interview hub: OAuth, CSRF, CORS, OIDC, XSS, SQL injection, DDoS defense, and JPA N+1 — memory sheet, diagrams, and runnable labs.',
 };
 
 export default function SpringSecurityHubPage(){
@@ -28,8 +29,8 @@ export default function SpringSecurityHubPage(){
           Spring Security hub
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-          Spring Security labs in one place — OAuth/OIDC, CSRF, CORS — plus XSS, SQL injection, and
-          DDoS defense guides with diagrams and a runnable lab.
+          Spring Security labs in one place — OAuth/OIDC, CSRF, CORS — plus XSS, SQL injection,
+          DDoS defense, and the JPA <strong>N+1</strong> guide with diagrams and runnable labs.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
           <a href="#interview-memory" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
