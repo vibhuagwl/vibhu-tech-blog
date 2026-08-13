@@ -10,6 +10,6 @@ export async function GET(){
     const link=`${base}${path}`;
     return `<item><title><![CDATA[${p.title}]]></title><link>${link}</link><guid>${link}</guid><description><![CDATA[${p.description}]]></description><pubDate>${new Date(p.publishedAt).toUTCString()}</pubDate></item>`;
   }).join('');
-  const xml=`<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Senior Engineering Interview Hub</title><link>${base}</link><description>System design, distributed systems, Kafka, Redis, and production engineering interview preparation.</description>${items}</channel></rss>`;
+  const xml=`<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Vibhu Architect</title><link>${base}</link><description>System design, distributed systems, Kafka, Redis, and production engineering interview preparation.</description>${items}</channel></rss>`;
   return new Response(xml,{headers:{'Content-Type':'application/rss+xml; charset=utf-8'}});
 }
