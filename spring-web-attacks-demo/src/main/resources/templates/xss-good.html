@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>XSS good</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<main class="wrap">
+  <p class="ok" th:text="${mode}">mode</p>
+  <h1>Hello, <span th:text="${name}">name</span></h1>
+  <p>Script tags render as text — not executed.</p>
+  <p><a th:href="@{/}">Home</a></p>
+</main>
+</body>
+</html>

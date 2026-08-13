@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>XSS bad</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<main class="wrap">
+  <p class="warn" th:text="${mode}">mode</p>
+  <!-- th:utext intentionally unsafe for the lab -->
+  <h1>Hello, <span th:utext="${name}">name</span></h1>
+  <p>Try: <code>/xss/bad?name=%3Cscript%3Ealert(1)%3C/script%3E</code></p>
+  <p><a th:href="@{/}">Home</a> · <a th:href="@{/xss/good(name=${name})}">Safe version</a></p>
+</main>
+</body>
+</html>
