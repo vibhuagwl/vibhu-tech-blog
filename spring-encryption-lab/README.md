@@ -51,3 +51,57 @@ keyId|iv|ciphertext   (Base64url parts, AES-GCM)
 ```
 
 Rotation: encrypt with `crypto.active-key-id`; decrypt by `keyId` in the package; re-encrypt via `/api/crypto/reencrypt`.
+
+## End-to-end sequence (AES-GCM)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client
+  participant C as CryptoController
+  participant AES as AesEncryptionService
+  participant KP as ConfigAesKeyProvider
+  participant JCE as Cipher AES/GCM
+
+  Client->>C: POST /api/crypto/encrypt
+  C->>AES: encrypt(plaintext)
+  AES->>KP: requireKey(activeKeyId v2)
+  AES->>JCE: random IV + GCM encrypt
+  JCE-->>AES: ciphertext + auth tag
+  AES-->>Client: keyId / iv / ciphertext
+
+  Client->>C: POST /api/crypto/decrypt
+  C->>AES: decrypt(packed)
+  AES->>KP: requireKey(keyId from package)
+  AES->>JCE: GCM decrypt + verify tag
+  alt tag valid
+    AES-->>Client: plaintext
+  else tampered
+    AES-->>Client: 400 crypto_failed
+  end
+```
+
+## End-to-end sequence (customer searchable field)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client
+  participant API as CustomerController
+  participant Svc as CustomerService
+  participant HMAC as HmacService
+  participant Conv as EncryptedStringConverter
+  participant DB as H2
+
+  Client->>API: POST /api/customers
+  API->>Svc: create(name, account, pan)
+  Svc->>HMAC: lookupDigest(normalized account)
+  Svc->>DB: save entity
+  Conv->>DB: AES-GCM columns for account and PAN
+
+  Client->>API: GET /api/customers/by-account
+  Svc->>HMAC: same lookupDigest
+  Svc->>DB: findByAccountNumberLookup
+  Conv-->>API: decrypt matched row only
+```
+

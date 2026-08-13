@@ -186,13 +186,28 @@ public class EnvelopeEncryptionService {
     problem: 'Expose safe encrypt/decrypt APIs without leaking keys, plaintext, or stack traces.',
     whenToUse: 'Use a dedicated service/controller layer around crypto primitives, with DTOs and redacted logs.',
     whenAvoid: 'Avoid sprinkling Cipher code across controllers, entities, and repositories.',
-    mermaid: `flowchart TB
-  C[CryptoController :8093] --> S[AesEncryptionService]
-  C --> H[HybridEncryptionService]
-  C --> SIG[RsaSignatureService]
-  C --> MAC[HmacService]
-  S --> KP[AesKeyProvider]
-  KP --> CFG[CryptoProperties or KMS]`,
+    mermaid: `sequenceDiagram
+  autonumber
+  participant Client
+  participant C as CryptoController
+  participant AES as AesEncryptionService
+  participant H as HybridEncryptionService
+  participant SIG as RsaSignatureService
+  participant KP as AesKeyProvider
+
+  Client->>C: POST /api/crypto/encrypt
+  C->>AES: encrypt(plaintext)
+  AES->>KP: requireKey(activeKeyId)
+  AES-->>C: keyId|iv|ciphertext
+  C-->>Client: EncryptResponse
+
+  Client->>C: POST /api/crypto/hybrid/encrypt
+  C->>H: encryptForServer
+  H-->>C: encryptedDek + payload
+  C-->>Client: HybridPacket
+
+  Client->>C: POST /api/crypto/payments/signed
+  C->>SIG: verify then process`,
     code: `package com.vibhu.crypto.controller;
 
 import com.vibhu.crypto.crypto.AesEncryptionService;
@@ -332,14 +347,22 @@ public class Customer {
     problem: 'Support exact customer lookup by email or account number without decrypting every row.',
     whenToUse: 'Use keyed HMAC lookup columns for exact equality search when deterministic matching is required.',
     whenAvoid: 'Avoid deterministic encryption or HMAC for low-cardinality values like gender or yes/no flags.',
-    mermaid: `flowchart TD
-  IN[email] --> N[normalize lowercase trim]
-  N --> H[HMAC lookup key]
-  H --> IDX[(indexed lookup_hash)]
-  IN --> AES[AES-GCM random IV]
-  AES --> C[(encrypted_email)]
-  IDX --> ROW[Find row]
-  ROW --> DEC[Decrypt only matched row]`,
+    mermaid: `sequenceDiagram
+  autonumber
+  participant Client
+  participant API as CustomerController
+  participant Svc as CustomerService
+  participant HMAC as HmacService
+  participant Conv as EncryptedStringConverter
+  participant DB as customers table
+
+  Client->>API: GET /api/customers/by-account
+  API->>Svc: findByAccountNumber
+  Svc->>HMAC: lookupDigest(normalized account)
+  Svc->>DB: WHERE account_number_lookup = digest
+  DB-->>Conv: account_number_enc
+  Conv-->>API: decrypt only the matched row
+  Note over DB: equality on AES-GCM ciphertext would miss`,
     code: `package com.vibhu.crypto.service;
 
 import com.vibhu.crypto.crypto.AesEncryptionService;

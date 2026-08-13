@@ -198,18 +198,30 @@ public class TimedEncryptionService {
     problem: 'Design a payment microservice flow where PAN/token, customer PII, webhooks, JWT, TLS, and key rotation all fit together.',
     whenToUse: 'Use this as the system design answer for fintech, banking, and regulated data interviews.',
     whenAvoid: 'Avoid inventing a single crypto service that all data must synchronously call without fallback or ownership boundaries.',
-    mermaid: `flowchart TB
-  U[User] --> TLS[TLS API Gateway]
-  TLS --> AUTH[JWT verification]
-  AUTH --> PAY[Payment Service]
-  PAY --> TOK[Tokenize PAN externally]
-  PAY --> AES[AES-GCM PII keyId|iv|ciphertext]
-  AES --> DB[(Customer DB)]
-  PAY --> HMAC[HMAC webhook verify]
-  PAY --> KMS[KMS envelope keys]
-  PAY --> BUS[Kafka encrypted event]
-  BUS --> CONS[Consumer decrypts allowed fields]
-  KMS --> ROT[Key rotation runbook]`,
+    mermaid: `sequenceDiagram
+  autonumber
+  participant App as Mobile App
+  participant GW as API Gateway
+  participant Pay as Payment Service
+  participant Tok as Tokenization
+  participant AES as AesEncryptionService
+  participant DB as Encrypted DB
+  participant KMS as Envelope / KMS
+  participant Bus as Kafka
+  participant Bank as Bank Adapter
+
+  App->>GW: TLS 1.3 HTTPS payment
+  GW->>GW: verify JWT kid / JWKS
+  GW->>Pay: authenticated request
+  Pay->>Pay: RsaSignatureService.verify
+  Pay->>Tok: tokenize PAN (do not store)
+  Pay->>AES: encrypt PII AES-GCM
+  AES->>DB: ciphertext plus HMAC lookup
+  Pay->>KMS: wrap event DEK
+  Pay->>Bus: encrypted payment event
+  Pay->>Bank: mTLS + signed bank payload
+  Bank-->>Pay: bank reference
+  Pay-->>App: 201 accepted`,
     code: `package com.vibhu.crypto.service;
 
 import com.vibhu.crypto.crypto.AesEncryptionService;

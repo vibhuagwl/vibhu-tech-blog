@@ -21,6 +21,7 @@ import {
 import {PRODUCTION_MISTAKES} from '@/lib/encryption/mistakes';
 import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
+import SequenceWalkthrough, {LabCallMap} from './sequence-walkthrough';
 import StickyToc from './sticky-toc';
 import TopicPanel from './topic-panel';
 
@@ -165,14 +166,25 @@ Start with:
 
 com.vibhu.crypto.crypto.AesEncryptionService
 com.vibhu.crypto.crypto.HybridEncryptionService
-com.vibhu.crypto.crypto.EnvelopeEncryptionService
-com.vibhu.crypto.crypto.TenantEncryptionService
+com.vibhu.crypto.kms.EnvelopeEncryptionService
+com.vibhu.crypto.tenant.TenantEncryptionService
 com.vibhu.crypto.crypto.EncryptedStringConverter
 com.vibhu.crypto.crypto.HmacService
 com.vibhu.crypto.crypto.RsaSignatureService
 com.vibhu.crypto.config.RsaKeyConfig`}
                 tone="ok"
               />
+            </div>
+          </Section>
+
+          <Section
+            id="code-sequences"
+            title="End-to-End Sequence Diagrams — How the Lab Code Runs"
+            lead="Read these before the topic cards. Each diagram is the actual Spring Boot path: HTTP request → controller → crypto service → JCE/KMS-shaped helper → response. Click a flow, then open the matching class in the lab explorer."
+          >
+            <SequenceWalkthrough />
+            <div className="mt-6">
+              <LabCallMap />
             </div>
           </Section>
 

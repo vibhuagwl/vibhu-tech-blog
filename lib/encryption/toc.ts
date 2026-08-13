@@ -2,6 +2,7 @@ import type {TocItem} from './types';
 
 export const ENCRYPTION_TOC: TocItem[] = [
   {id: 'overview', label: 'Big Picture · Payment Data'},
+  {id: 'code-sequences', label: 'E2E Sequence Diagrams'},
   {id: 'encoding-vs-encryption', label: 'Encoding vs Encryption'},
   {id: 'decision-matrix', label: 'Decision Matrix'},
   {id: 'aes', label: 'AES'},
