@@ -4,6 +4,7 @@ import {useState} from 'react';
 import Mermaid from '@/components/mermaid';
 import type {TopicCard} from '@/lib/java-concurrency/types';
 import CodePanel from './code-panel';
+import HighlightedCode from '@/components/highlighted-code';
 
 type Tab='overview'|'code'|'execution'|'internals'|'interview';
 
@@ -73,7 +74,9 @@ export default function TopicPanel({t}:{t:TopicCard}){
             <div className="space-y-4">
               {t.brokenCode && <CodePanel title="Broken / anti-pattern" code={t.brokenCode} tone="danger"/>}
               <CodePanel title="Working program" code={t.fixedCode} tone="ok"/>
-              <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{t.expectedOutput}</pre>
+              <div className="overflow-hidden rounded-xl bg-slate-950">
+                <HighlightedCode code={t.expectedOutput} language="plaintext" className="p-4 text-xs"/>
+              </div>
             </div>
           )}
 
@@ -89,7 +92,9 @@ export default function TopicPanel({t}:{t:TopicCard}){
           {tab==='internals' && (
             <div className="space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
               <p>{t.internals}</p>
-              <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{t.whatHappensInternally}</pre>
+              <div className="overflow-hidden rounded-xl bg-slate-950">
+                <HighlightedCode code={t.whatHappensInternally} language="java" className="p-4 text-xs"/>
+              </div>
             </div>
           )}
 

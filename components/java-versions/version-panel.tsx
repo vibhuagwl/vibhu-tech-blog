@@ -4,6 +4,7 @@ import {useState} from 'react';
 import type {VersionSection} from '@/lib/java-versions/types';
 import StatusBadge from './status-badge';
 import CodeCompare from './code-compare';
+import HighlightedCode from '@/components/highlighted-code';
 
 function BulletList({items}:{items:string[]}){
   return (
@@ -84,13 +85,13 @@ export default function VersionPanel({section}:{section:VersionSection}){
                   {f.codeBefore && (
                     <div className="overflow-hidden rounded-xl bg-slate-950">
                       <div className="border-b border-slate-800 px-3 py-2 text-[11px] font-bold uppercase tracking-[.12em] text-slate-400">Before</div>
-                      <pre className="overflow-x-auto p-4 text-[.82rem] text-slate-100">{f.codeBefore}</pre>
+                      <HighlightedCode code={f.codeBefore} language="java" className="p-4 text-[.82rem]"/>
                     </div>
                   )}
                   {f.code && (
                     <div className="overflow-hidden rounded-xl bg-slate-950">
                       <div className="border-b border-slate-800 px-3 py-2 text-[11px] font-bold uppercase tracking-[.12em] text-emerald-300/80">Modern</div>
-                      <pre className="overflow-x-auto p-4 text-[.82rem] text-slate-100">{f.code}</pre>
+                      <HighlightedCode code={f.code} language="java" className="p-4 text-[.82rem]"/>
                     </div>
                   )}
                 </div>
