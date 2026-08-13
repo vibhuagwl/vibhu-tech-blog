@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: spring-distributed-cache-demo
+  cache:
+    type: caffeine
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+app:
+  cache:
+    redis-enabled: false
+    kafka-enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,caches
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.vibhu.spring.cache: INFO
