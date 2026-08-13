@@ -2,6 +2,7 @@ import type {TocItem} from './types';
 
 export const R4J_TOC: TocItem[] = [
   {id: 'overview', label: 'Big Picture · Payments'},
+  {id: 'module-classroom', label: 'All Modules · Types · Code'},
   {id: 'code-sequences', label: 'Code Walkthrough Sequences'},
   {id: 'modules', label: 'Modules Map'},
   {id: 'failures', label: 'What Can Fail'},

@@ -15,26 +15,35 @@ export const TOPICS_B: R4jTopic[] = [
   ORD --> FRD[Fraud Pool]
   NOT --> EXH[Exhausted]
   PAY --> OK[Still serving]`,
-    code: `// Semaphore — same thread, limit concurrency
+    code: `// TYPE 1 — Semaphore (sync payment, same Tomcat thread)
 resilience4j.bulkhead:
   instances:
     payment:
       maxConcurrentCalls: 20
-      maxWaitDuration: 0
+      maxWaitDuration: 0s          # 0 = BulkheadFullException immediately
+      fairCallHandlingEnabled: false
 
-// ThreadPool — isolate threads (async)
+@Bulkhead(name="payment") // default SEMAPHORE
+public PaymentResult charge(PayRequest r) { return bank.charge(r); }
+
+// TYPE 2 — ThreadPool (fraud vendor, dedicated workers)
 resilience4j.thread-pool-bulkhead:
   instances:
-    notification:
-      maxThreadPoolSize: 10
-      coreThreadPoolSize: 5
-      queueCapacity: 50
+    fraud:
+      coreThreadPoolSize: 2
+      maxThreadPoolSize: 4
+      queueCapacity: 8
 
-@Bulkhead(name="payment", type=Bulkhead.Type.SEMAPHORE)
-public PaymentResult pay(...) { ... }
+@Bulkhead(name="fraud", type=Bulkhead.Type.THREADPOOL)
+@TimeLimiter(name="fraud")
+public CompletableFuture<String> screen(String customerId) { ... }
 
-// Prefer SEMAPHORE for sync RestClient
-// Prefer THREADPOOL for async / TimeLimiter combo`,
+// Uses in one app (yes, together):
+//  - isolate by dependency (payment vs notify vs fraud)
+//  - isolate by tenant
+//  - isolate by operation (capture vs refund)
+// Size: maxConcurrent ≈ RPS × p99 seconds
+// RL = starts per second; BH = in-flight now`,
     failure: 'maxWaitDuration long → request pile-up looks like success until latency cliff.',
     production: 'Size pools from p99 latency × RPS + headroom; alert on rejected calls.',
     interview30s: 'Bulkhead = compartments — payment threads survive notification meltdown.',
@@ -55,18 +64,28 @@ public PaymentResult pay(...) { ... }
   T1[Tenant A 100/s]
   T2[Tenant B 100/s]
   T3[Tenant C 100/s]`,
-    code: `resilience4j.ratelimiter:
+    code: `// Implementations
+// 1) AtomicRateLimiter (default, lock-free) — use this
+// 2) SemaphoreBasedRateLimiter — older, more locking
+
+resilience4j.ratelimiter:
   instances:
     paymentApi:
-      limitForPeriod: 100
-      limitRefreshPeriod: 1s
-      timeoutDuration: 0  # fail-fast
+      limitForPeriod: 50          # tokens each period
+      limitRefreshPeriod: 1s      # refill interval
+      timeoutDuration: 0s         # 0 = fail-fast RequestNotPermitted
 
-// 10 app instances × 100 = 1000 cluster QPS!
-// Need Redis/GCRA/API GW/Envoy for distributed limits
+// timeoutDuration > 0 → thread waits for next refill (avoid on Tomcat)
 
 @RateLimiter(name="paymentApi")
-public ...`,
+public PaymentResult charge(PayRequest r) { return bank.charge(r); }
+
+// 10 pods × 50/s = 500/s to the bank
+// Cluster-wide: API Gateway / Envoy / Redis GCRA
+// Per tenant: RateLimiterRegistry.rateLimiter("tenant-"+id)
+
+// Contrast (not R4j internals):
+// token-bucket / leaky-bucket / sliding window → often at the gateway`,
     failure: 'Local RL gives false confidence under horizontal scale.',
     production: 'GW/mesh for edge; app RL as second line; tenant-aware keys.',
     interview30s: 'R4j RateLimiter is per JVM — multiply by instances for true load.',

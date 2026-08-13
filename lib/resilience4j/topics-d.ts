@@ -17,14 +17,17 @@ export const TOPICS_D: R4jTopic[] = [
     code: `@Cacheable("fxRates")
 public BigDecimal usdInr() { return bankFx.fetch(); }
 
-// Resilience4j Cache module wraps javax.cache.
-// This lab uses Spring Cache + Caffeine — same idea, production-typical.
+// Types
+// 1) Resilience4j Cache = decorator over JCache (Ehcache/Hazelcast/Caffeine-jcache)
+// 2) Spring Cache + Caffeine — this lab (local per pod)
+// 3) Redis / distributed — multi-pod same FX
+// 4) Cache-aside (app miss → bank → put) vs read-through (loader)
 
 Pitfalls:
   stampede → singleflight / lock on miss
   stale FX → bound TTL + mark as indicative
   memory → maximumSize
-  distributed → Redis, not a local Caffeine for multi-pod consistency`,
+  never cache captures / balances / "paid?"`,
     failure: 'Cached "account closed=false" for 10 minutes after freeze.',
     production: 'FX/holiday calendars: cache. Payment capture: never cache as source of truth.',
     interview30s: 'Cache cuts duplicate reads; R4j Cache is JCache. Payments still need a real store for money.',

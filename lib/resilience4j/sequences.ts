@@ -282,4 +282,71 @@ export const CODE_SEQUENCES: CodeSequence[] = [
   Note over Client: UI shows processing — not success
   Act->>Act: /actuator/circuitbreakers state OPEN`,
   },
+  {
+    id: 'bh-types',
+    title: 'Bulkhead types',
+    endpoint: 'Semaphore on charge() vs ThreadPool on FraudCheckClient.screen()',
+    classes: ['PaymentGatewayClient', 'FraudCheckClient', 'Bulkhead.Type.SEMAPHORE', 'Bulkhead.Type.THREADPOOL'],
+    why: 'Two bulkheads, two jobs. Semaphore caps in-flight on the request thread. ThreadPool moves fraud off Tomcat.',
+    mermaid: `sequenceDiagram
+  autonumber
+  participant Tomcat
+  participant Sem as Semaphore payment
+  participant Pool as ThreadPool fraud
+  participant Bank
+  participant Vendor as Fraud vendor
+
+  Tomcat->>Sem: acquire 1 of 20
+  Sem->>Bank: same thread
+  Bank-->>Tomcat: CAPTURED
+
+  Tomcat->>Pool: submit screen
+  Pool->>Vendor: fraud-pool thread
+  Vendor-->>Tomcat: CLEAR
+  Note over Tomcat,Vendor: Slow vendor cannot occupy all Tomcat threads`,
+  },
+  {
+    id: 'rl-refresh',
+    title: 'RateLimiter refresh',
+    endpoint: 'paymentApi limitForPeriod=50 every 1s, timeoutDuration=0',
+    classes: ['AtomicRateLimiter', 'RequestNotPermitted', '@RateLimiter(paymentApi)'],
+    why: 'R4j is local permit refresh, not a global gateway token bucket. Call 51 in the same second fail-fast.',
+    mermaid: `sequenceDiagram
+  autonumber
+  participant Calls as Calls 1 to 50
+  participant Extra as Call 51
+  participant RL as AtomicRateLimiter
+  participant Bank
+
+  Note over RL: T=0s  50 permits
+  Calls->>RL: acquire
+  RL->>Bank: allowed
+  Extra->>RL: acquire
+  RL-->>Extra: RequestNotPermitted
+  Note over RL: T=1s  50 new permits
+  Extra->>RL: later call
+  RL->>Bank: allowed`,
+  },
+  {
+    id: 'all-modules',
+    title: 'All modules in one app',
+    endpoint: 'orders + fraud + fx + actuator',
+    classes: ['PaymentGatewayClient', 'FraudCheckClient', 'FxRateService', 'Micrometer'],
+    why: 'Yes you can implement all together. Different methods get different stacks.',
+    mermaid: `sequenceDiagram
+  autonumber
+  participant C as Client
+  participant Pay as Retry+CB+RL+SemBH
+  participant Fraud as TP-BH+TimeLimiter
+  participant FX as Cache
+  participant Mic as Micrometer
+
+  C->>Pay: POST /api/orders
+  Pay-->>C: CAPTURED or PENDING
+  C->>Fraud: screen inside placeOrder
+  Fraud-->>Pay: CLEAR
+  C->>FX: GET /api/fx
+  FX-->>C: cached rate
+  Mic-->>Mic: scrape all instance metrics`,
+  },
 ];
