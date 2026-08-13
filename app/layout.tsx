@@ -1,12 +1,12 @@
 import type {Metadata} from 'next';
-import {Source_Sans_3,IBM_Plex_Mono} from 'next/font/google';
+import {Manrope,IBM_Plex_Mono} from 'next/font/google';
 import SiteHeader from '@/components/site-header';
 import SiteFooter from '@/components/site-footer';
 import './globals.css';
 
-const sans=Source_Sans_3({
+const sans=Manrope({
   subsets:['latin'],
-  variable:'--font-source-sans',
+  variable:'--font-manrope',
   display:'swap',
 });
 
@@ -18,8 +18,9 @@ const mono=IBM_Plex_Mono({
 });
 
 export const metadata:Metadata={
-  title:{default:'Senior Engineering Interview Hub | Vibhu Agarwal',template:'%s | Vibhu Agarwal'},
-  description:'Engineering knowledge for senior developers: Java, Spring Boot, microservices, Kafka, system design, and production troubleshooting — with interview-ready answers.',
+  title:{default:'Vibhu Tech — Senior Engineering Interview Hub',template:'%s · Vibhu Tech'},
+  description:
+    'Professional interview preparation for Senior, Staff, and Principal engineers: Java, Spring Boot, microservices, Kafka, AWS, system design, and production engineering.',
   metadataBase:new URL('https://vibhuagwl.github.io/vibhu-tech-blog'),
 };
 
@@ -32,6 +33,7 @@ export default function RootLayout({children}:{children:React.ReactNode}){
         <script dangerouslySetInnerHTML={{__html:themeBoot}}/>
       </head>
       <body className="font-sans antialiased">
+        <div className="site-atmosphere" aria-hidden="true"/>
         <SiteHeader/>
         {children}
         <SiteFooter/>
