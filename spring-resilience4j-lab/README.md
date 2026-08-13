@@ -30,3 +30,29 @@ curl -sS http://127.0.0.1:8087/actuator/circuitbreakers
 Modes: `OK`, `ERROR`, `FLAKY`, `SLOW`, `DOWN`, `REJECT`. Fallback returns **PENDING**, never fake CAPTURED.
 
 Default Spring AOP nesting: Retry → CircuitBreaker → RateLimiter → TimeLimiter → Bulkhead → method.
+
+## Code walkthrough (no memorizing)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client
+  participant API as OrderController
+  participant Ord as OrderService
+  participant Pay as PaymentGatewayClient
+  participant Bank as PaymentBankStub
+
+  Client->>API: POST /api/orders
+  API->>Ord: placeOrder
+  Ord->>Pay: charge
+  Note over Pay: Retry → CB → RateLimiter → Bulkhead
+  Pay->>Bank: charge
+  alt OK
+    Bank-->>Client: CAPTURED
+  else bank down / CB open
+    Pay-->>Client: PENDING fallback
+  end
+```
+
+Full clickable sequences live on the site hub `/resilience4j` → **Code Walkthrough Sequences**.
+
