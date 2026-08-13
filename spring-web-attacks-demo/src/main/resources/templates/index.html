@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Web attacks lab</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+</head>
+<body>
+<main class="wrap">
+  <h1>XSS · SQL injection · DDoS defenses</h1>
+  <p>Educational lab — compare bad vs safe paths. Do not use patterns from <code>/bad</code> in production.</p>
+  <section>
+    <h2>XSS</h2>
+    <ul>
+      <li><a th:href="@{/xss/bad(name='&lt;b&gt;raw&lt;/b&gt;')}">/xss/bad</a> — unescaped</li>
+      <li><a th:href="@{/xss/good(name='&lt;b&gt;raw&lt;/b&gt;')}">/xss/good</a> — escaped</li>
+      <li><a th:href="@{/xss/api/bad(name='&lt;script&gt;alert(1)&lt;/script&gt;')}">/xss/api/bad</a></li>
+      <li><a th:href="@{/xss/api/good(name='&lt;script&gt;alert(1)&lt;/script&gt;')}">/xss/api/good</a></li>
+    </ul>
+  </section>
+  <section>
+    <h2>SQL injection</h2>
+    <ul>
+      <li><a th:href="@{/sqli/bad(q='electronics')}">/sqli/bad?q=electronics</a></li>
+      <li><a th:href="@{/sqli/bad(q='electronics'' OR ''1''=''1')}">/sqli/bad?q=…OR…</a> (returns all rows)</li>
+      <li><a th:href="@{/sqli/good(q='electronics'' OR ''1''=''1')}">/sqli/good</a> (empty / no match)</li>
+    </ul>
+  </section>
+  <section>
+    <h2>DDoS defense (rate limit)</h2>
+    <ul>
+      <li><a th:href="@{/ddos/ping}">/ddos/ping</a> — burst until HTTP 429</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

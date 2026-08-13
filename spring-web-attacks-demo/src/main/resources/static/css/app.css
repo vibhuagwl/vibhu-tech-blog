@@ -1,0 +1,8 @@
+:root { font-family: ui-sans-serif, system-ui, sans-serif; color: #0f172a; }
+body { margin: 0; background: #f8fafc; }
+.wrap { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+.warn { color: #b45309; font-weight: 700; }
+.ok { color: #047857; font-weight: 700; }
+a { color: #1d4ed8; }
+code { background: #e2e8f0; padding: 0.1rem 0.35rem; border-radius: 4px; }
+section { margin-top: 1.5rem; }

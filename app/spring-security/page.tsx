@@ -7,12 +7,15 @@ const items=[
   {href:'/spring-csrf-demo',title:'CSRF Protection',blurb:'Session CSRF, CookieCsrfTokenRepository for SPAs, forged POST → 403, and when JWT APIs disable CSRF.'},
   {href:'/spring-cors-demo',title:'CORS Security',blurb:'End-to-end CORS: allowlist, preflight OPTIONS, credentials, blocked evil origins, and a second-origin frontend.'},
   {href:'/idanywhere-demo',title:'IDAnywhere OIDC SSO',blurb:'OIDC vs ADFS vs IDAnywhere; Okta/Keycloak profiles; internal token flow and sequence diagrams.'},
+  {href:'/spring-xss-demo',title:'XSS Defense',blurb:'Reflected vs stored XSS, Thymeleaf th:text vs th:utext, HtmlUtils escape — diagrams and bad/good lab.'},
+  {href:'/spring-sql-injection-demo',title:'SQL Injection',blurb:'String-concat SQL vs PreparedStatement / JdbcTemplate — OR 1=1 demo, root cause, Spring fixes.'},
+  {href:'/spring-ddos-demo',title:'DDoS Defenses',blurb:'Volumetric vs application-layer floods; rate limiting → 429; CDN/WAF/app layers (defense-only).'},
   {href:'/spring-n-plus-one',title:'JPA N+1 Problem',blurb:'Root cause of 1+N queries, detection, JOIN FETCH, EntityGraph, @BatchSize, DTO projections — diagrams + runnable lab.'},
 ];
 
 export const metadata={
   title:'Spring Security',
-  description:'Spring interview hub: Security demos (OAuth, CSRF, CORS, OIDC) plus JPA N+1 — endpoints memory sheet, diagrams, and runnable labs.',
+  description:'Spring interview hub: OAuth, CSRF, CORS, OIDC, XSS, SQL injection, DDoS defense, and JPA N+1 — memory sheet, diagrams, and runnable labs.',
 };
 
 export default function SpringSecurityHubPage(){
@@ -26,8 +29,8 @@ export default function SpringSecurityHubPage(){
           Spring Security hub
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-          Spring Security labs in one place — plus a short interview memory sheet for REST endpoints,
-          and the JPA <strong>N+1</strong> problem guide (common Staff follow-up alongside Security).
+          Spring Security labs in one place — OAuth/OIDC, CSRF, CORS — plus XSS, SQL injection,
+          DDoS defense, and the JPA <strong>N+1</strong> guide with diagrams and runnable labs.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
           <a href="#interview-memory" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
