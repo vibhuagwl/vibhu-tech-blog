@@ -26,6 +26,7 @@ export default function sitemap():MetadataRoute.Sitemap{
     {url:`${base}/interview-questions`, lastModified:new Date()},
     {url:`${base}/about`, lastModified:new Date()},
     {url:`${base}/java-compiler`, lastModified:new Date()},
+    {url:`${base}/java-locking`, lastModified:new Date()},
     {url:`${base}/spring-security`, lastModified:new Date()},
     {url:`${base}/oauth-jwt-demo`, lastModified:new Date()},
     {url:`${base}/spring-auth-demo`, lastModified:new Date()},
