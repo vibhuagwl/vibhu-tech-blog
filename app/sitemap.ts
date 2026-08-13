@@ -1,59 +1,54 @@
-import {MetadataRoute} from 'next';
-import {getAllPosts,getPostsByCategories,SECTION_CATEGORIES} from '@/lib/posts';
+import type { MetadataRoute } from "next";
 
-export const dynamic='force-static';
+const BASE = "https://vibhutechblog.github.io/vibhu-tech-blog";
 
-export default function sitemap():MetadataRoute.Sitemap{
-  const base='https://vibhuagwl.github.io/vibhu-tech-blog';
-  const sections=[
-    {path:'/system-design', key:'system-design' as const},
-    {path:'/distributed-systems', key:'distributed-systems' as const},
-    {path:'/fintech', key:'fintech' as const},
-    {path:'/behavior', key:'behavior' as const},
-    {path:'/behavioral-interview', key:'behavioral-interview' as const},
-    {path:'/leadership-principles', key:'leadership-principles' as const},
-    {path:'/complexity', key:'complexity' as const},
-    {path:'/kafka-interview', key:'kafka-interview' as const},
-    {path:'/redis-interview', key:'redis-interview' as const},
-    {path:'/realtime-issues', key:'realtime-issues' as const},
-    {path:'/performance', key:'performance' as const},
-    {path:'/jpmc-experience', key:'jpmc-experience' as const},
-  ];
+export const dynamic = "force-static";
 
+export default function sitemap(): MetadataRoute.Sitemap {
+  const now = new Date();
   return [
-    {url:base, lastModified:new Date()},
-    {url:`${base}/learn`, lastModified:new Date()},
-    {url:`${base}/interview-questions`, lastModified:new Date()},
-    {url:`${base}/about`, lastModified:new Date()},
-    {url:`${base}/java-compiler`, lastModified:new Date()},
-<<<<<<< HEAD
-    {url:`${base}/java-versions`, lastModified:new Date()},
-=======
-    {url:`${base}/java-locking`, lastModified:new Date()},
->>>>>>> origin/main
-    {url:`${base}/spring-security`, lastModified:new Date()},
-    {url:`${base}/oauth-jwt-demo`, lastModified:new Date()},
-    {url:`${base}/spring-auth-demo`, lastModified:new Date()},
-    {url:`${base}/spring-csrf-demo`, lastModified:new Date()},
-    {url:`${base}/spring-cors-demo`, lastModified:new Date()},
-    {url:`${base}/spring-xss-demo`, lastModified:new Date()},
-    {url:`${base}/spring-sql-injection-demo`, lastModified:new Date()},
-    {url:`${base}/spring-ddos-demo`, lastModified:new Date()},
-    {url:`${base}/spring-n-plus-one`, lastModified:new Date()},
-    {url:`${base}/idanywhere-demo`, lastModified:new Date()},
-    {url:`${base}/spring-kafka-payments-demo`, lastModified:new Date()},
-    {url:`${base}/design-patterns`, lastModified:new Date()},
-    ...sections.flatMap(({path,key})=>[
-      {url:`${base}${path}`, lastModified:new Date()},
-      ...getPostsByCategories([...SECTION_CATEGORIES[key]]).map((p)=>({
-        url:`${base}${path}/${p.slug}`,
-        lastModified:new Date(p.publishedAt),
-      })),
-    ]),
-    // Keep canonical system-design URLs for all posts that remain in that catalog
-    ...getPostsByCategories([...SECTION_CATEGORIES['system-design']]).map((p)=>({
-      url:`${base}/system-design/${p.slug}`,
-      lastModified:new Date(p.publishedAt),
-    })),
+    { url: `${BASE}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
+    {
+      url: `${BASE}/java-compiler/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE}/java-versions/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE}/java-locking/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE}/java-concurrency/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
+      url: `${BASE}/spring-boot-kafka-demo/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE}/spring-boot-kafka-security/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${BASE}/spring-boot-kafka-deployment/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
   ];
 }
