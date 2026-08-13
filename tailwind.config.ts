@@ -6,7 +6,7 @@ export default {
   theme:{
     extend:{
       fontFamily:{
-        sans:['var(--font-source-sans)','ui-sans-serif','system-ui','sans-serif'],
+        sans:['var(--font-manrope)','ui-sans-serif','system-ui','sans-serif'],
         mono:['var(--font-ibm-mono)','ui-monospace','SFMono-Regular','Menlo','monospace'],
       },
       colors:{
