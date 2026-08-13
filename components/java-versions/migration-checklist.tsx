@@ -40,7 +40,7 @@ export default function MigrationChecklist(){
       </div>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-900">
         <div
-          className="h-full bg-blue-600 transition-all"
+          className="h-full bg-slate-700 transition-all"
           style={{width:`${(done/CHECKLIST.length)*100}%`}}
         />
       </div>

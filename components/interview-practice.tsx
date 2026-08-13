@@ -73,7 +73,7 @@ export default function InterviewPractice({items}:{items:PracticeItem[]}){
             <ul className="mt-3 space-y-2">
               {item.points.map((point)=>(
                 <li key={point} className="flex gap-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" aria-hidden="true"/>
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-700" aria-hidden="true"/>
                   {point}
                 </li>
               ))}

@@ -17,7 +17,7 @@ export default function DesignPatternsHubPage(){
   return (
     <main className="mx-auto max-w-6xl px-5 py-12">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Design Pattern Tab
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -33,7 +33,7 @@ export default function DesignPatternsHubPage(){
           <Link key={item.href} href={item.href} className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-950">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">{item.title}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">{item.blurb}</p>
-            <div className="mt-4 text-sm font-semibold text-blue-700 dark:text-blue-400">Open →</div>
+            <div className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Open →</div>
           </Link>
         ))}
       </section>

@@ -22,7 +22,7 @@ export default function SpringSecurityHubPage(){
   return (
     <main className="mx-auto max-w-6xl px-5 py-12">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Spring Security Tab
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -33,11 +33,11 @@ export default function SpringSecurityHubPage(){
           DDoS defense, and the JPA <strong>N+1</strong> guide with diagrams and runnable labs.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
-          <a href="#interview-memory" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#interview-memory" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Interview memory (endpoints) →
           </a>
           <span className="text-slate-300">·</span>
-          <a href="#labs" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#labs" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Labs →
           </a>
         </div>
@@ -57,7 +57,7 @@ export default function SpringSecurityHubPage(){
             <Link key={item.href} href={item.href} className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-950">
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{item.title}</h3>
               <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">{item.blurb}</p>
-              <div className="mt-4 text-sm font-semibold text-blue-700 dark:text-blue-400">Open →</div>
+              <div className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Open →</div>
             </Link>
           ))}
         </div>

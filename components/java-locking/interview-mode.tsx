@@ -16,7 +16,7 @@ export default function InterviewMode(){
       </div>
       <p className="mt-3 text-lg font-semibold leading-8 text-slate-900 dark:text-white">{q.question}</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" onClick={()=>setRevealed(true)} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">
+        <button type="button" onClick={()=>setRevealed(true)} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white">
           Reveal
         </button>
         <button

@@ -47,7 +47,7 @@ export default function StickyToc({items}: {items: TocItem[]}) {
                 className={[
                   'block border-l-2 py-1.5 pl-3 text-[13px] leading-snug transition',
                   active === item.id
-                    ? 'border-blue-600 font-semibold text-slate-900 dark:text-white'
+                    ? 'border-slate-700 font-semibold text-slate-900 dark:text-white'
                     : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800 dark:hover:text-slate-200',
                 ].join(' ')}
               >

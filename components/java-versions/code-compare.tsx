@@ -43,7 +43,7 @@ export default function CodeCompare({pair}: {pair: CodePair}) {
               className={[
                 'rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wide',
                 mode === m
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-slate-900 text-white'
                   : 'bg-white text-slate-600 dark:bg-slate-950 dark:text-slate-300',
               ].join(' ')}
             >

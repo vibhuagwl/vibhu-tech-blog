@@ -71,7 +71,7 @@ export default function ApiGatewayHub() {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Staff · Principal · Architect · Spring Cloud Gateway · AWS API Gateway
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
@@ -85,11 +85,11 @@ export default function ApiGatewayHub() {
           Lab:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-api-gateway-lab/</code>
           {' · '}
-          <Link href="/load-balancing" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/load-balancing" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Load Balancing
           </Link>
           {' · '}
-          <Link href="/resilience4j" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/resilience4j" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Resilience4j
           </Link>
         </p>

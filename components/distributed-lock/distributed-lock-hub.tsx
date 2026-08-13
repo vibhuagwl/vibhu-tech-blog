@@ -24,7 +24,7 @@ export default function DistributedLockHub(){
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Staff · Principal · Architect · Spring Boot · Banking
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
@@ -35,9 +35,9 @@ export default function DistributedLockHub(){
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           ~90% visual/code. JVM locks:{' '}
-          <Link href="/java-locking" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">Java Locking</Link>
+          <Link href="/java-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Java Locking</Link>
           {' '}· deep 2PL/3PL lab:{' '}
-          <Link href="/distributed-systems/distributed-locking" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">Distributed Systems</Link>
+          <Link href="/distributed-systems/distributed-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Distributed Systems</Link>
           {' '}· demo:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-distributed-lock-demo/</code>
         </p>

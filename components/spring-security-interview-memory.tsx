@@ -73,7 +73,7 @@ export default function SpringSecurityInterviewMemory() {
   return (
     <section id="interview-memory" className="mt-14 scroll-mt-24">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Interview memory
         </p>
         <h2 className="mt-2 text-3xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -99,7 +99,7 @@ export default function SpringSecurityInterviewMemory() {
             key={t.label}
             className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950"
           >
-            <div className="text-[11px] font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">
+            <div className="text-[11px] font-semibold uppercase tracking-[.12em] text-slate-600 dark:text-slate-300">
               {t.label}
             </div>
             <pre className="mt-3 overflow-x-auto whitespace-pre-wrap font-mono text-sm leading-6 text-slate-800 dark:text-slate-200">
@@ -159,7 +159,7 @@ export default function SpringSecurityInterviewMemory() {
             </p>
             <Link
               href={lab.href}
-              className="mt-3 inline-block text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400"
+              className="mt-3 inline-block text-sm font-semibold text-slate-700 hover:underline dark:text-slate-300"
             >
               Open lab →
             </Link>

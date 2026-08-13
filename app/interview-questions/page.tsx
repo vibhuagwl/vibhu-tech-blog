@@ -169,13 +169,13 @@ export default function Interview(){
               className="rounded-xl border border-slate-200 bg-white p-5 transition hover:border-blue-200 dark:border-slate-800 dark:bg-slate-950"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">
+                <span className="text-[10px] font-semibold uppercase tracking-[.12em] text-slate-600 dark:text-slate-300">
                   {b.label}
                 </span>
                 <DifficultyBadge difficulty={b.level}/>
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-500">{b.blurb}</p>
-              <div className="mt-3 text-sm font-semibold text-blue-700 dark:text-blue-400">Open bank →</div>
+              <div className="mt-3 text-sm font-semibold text-slate-600 dark:text-slate-300">Open bank →</div>
             </Link>
           ))}
         </div>
@@ -193,7 +193,7 @@ export default function Interview(){
             </div>
             <h2 className="mt-3 text-xl font-bold tracking-tight text-slate-900 dark:text-white">{prep.title}</h2>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{prep.description}</p>
-            <div className="mt-4 text-sm font-semibold text-blue-700 dark:text-blue-400">
+            <div className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
               Read the full preparation guide →
             </div>
           </Link>
@@ -209,7 +209,7 @@ export default function Interview(){
               href={hrefForPost(p.category,p.slug)}
               key={p.slug}
             >
-              <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">
+              <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-slate-600 dark:text-slate-300">
                 {p.category}
               </div>
               <div className="mt-2 font-semibold text-slate-900 dark:text-white">{p.title}</div>

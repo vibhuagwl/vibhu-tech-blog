@@ -44,7 +44,7 @@ export default function MechanismPanel({m}:{m:Mechanism}){
                 type="button"
                 onClick={()=>setTab(id)}
                 className={`rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${
-                  tab===id?'bg-blue-600 text-white':'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'
+                  tab===id?'bg-slate-900 text-white':'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'
                 }`}
               >
                 {label}

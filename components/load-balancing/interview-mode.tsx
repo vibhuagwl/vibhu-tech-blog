@@ -25,7 +25,7 @@ export default function InterviewMode(){
           ['rapid',RAPID.length],
         ] as const).map(([m,n])=>(
           <button key={m} type="button" onClick={()=>{setMode(m);setIdx(0);setRevealed(false);}}
-            className={`rounded-md px-3 py-1.5 text-xs font-bold uppercase ${mode===m?'bg-blue-600 text-white':'bg-slate-100 dark:bg-slate-900'}`}>
+            className={`rounded-md px-3 py-1.5 text-xs font-bold uppercase ${mode===m?'bg-slate-900 text-white':'bg-slate-100 dark:bg-slate-900'}`}>
             {m} ({n})
           </button>
         ))}
@@ -34,7 +34,7 @@ export default function InterviewMode(){
         <>
           <p className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">{q.question}</p>
           <div className="mt-3 flex gap-2">
-            <button type="button" onClick={()=>setRevealed(true)} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">Reveal</button>
+            <button type="button" onClick={()=>setRevealed(true)} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white">Reveal</button>
             <button type="button" onClick={()=>{setIdx((i)=>(i+1)%list.length);setRevealed(false);}} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900">Next</button>
           </div>
           {revealed && (

@@ -25,7 +25,7 @@ export default function ScenarioBrowser() {
               setIdx(0);
             }}
             className={`rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
-              layer === l ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'
+              layer === l ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'
             }`}
           >
             {l}
@@ -72,7 +72,7 @@ export default function ScenarioBrowser() {
             <button
               type="button"
               onClick={() => setIdx((i) => (i + 1) % list.length)}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+              className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
             >
               Next scenario
             </button>

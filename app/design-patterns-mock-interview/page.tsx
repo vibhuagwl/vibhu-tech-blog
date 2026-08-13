@@ -70,7 +70,7 @@ export default function DesignPatternsMockInterviewPage(){
   return (
     <main className="mx-auto max-w-5xl px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Mock interview
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -94,7 +94,7 @@ export default function DesignPatternsMockInterviewPage(){
       <section className="mt-10 space-y-5">
         {qa.map((item, index)=>(
           <article key={item.pattern} className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
-            <div className="text-[11px] font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">Question {index+1} · {item.pattern}</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[.12em] text-slate-600 dark:text-slate-300">Question {index+1} · {item.pattern}</div>
             <h2 className="mt-2 text-xl font-bold text-slate-900 dark:text-white">{item.question}</h2>
             <div className="mt-4 rounded-xl bg-slate-50 p-4 dark:bg-slate-900">
               <div className="text-xs font-semibold uppercase tracking-[.12em] text-slate-500">Model answer</div>

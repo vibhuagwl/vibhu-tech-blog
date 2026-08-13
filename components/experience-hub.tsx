@@ -25,7 +25,7 @@ export default function ExperienceHub({
   return (
     <div>
       <header className="rounded-2xl border border-slate-200 bg-white p-6 md:p-10 dark:border-slate-800 dark:bg-slate-950">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Experience hub
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.035em] text-slate-900 md:text-5xl dark:text-white">
@@ -43,7 +43,7 @@ export default function ExperienceHub({
             <Link
               key={s.id}
               href={s.href}
-              className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-blue-200 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               {s.number} {s.title}
             </Link>
@@ -80,7 +80,7 @@ export default function ExperienceHub({
                   {MODE_LABEL[s.mode]}
                 </span>
               </div>
-              <h3 className="mt-2 text-lg font-semibold text-slate-900 group-hover:text-blue-700 dark:text-white">
+              <h3 className="mt-2 text-lg font-semibold text-slate-900 group-hover:text-slate-700 dark:text-white">
                 {s.title}
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">{s.blurb}</p>

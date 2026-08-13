@@ -58,7 +58,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {plans.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -71,7 +71,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {fundamentals.filter((p)=>!plans.includes(p)).map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -84,7 +84,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {building.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.category}</div>
+                <div className="text-xs font-bold text-slate-600">{p.category}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -97,7 +97,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {distributed.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.category}</div>
+                <div className="text-xs font-bold text-slate-600">{p.category}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -110,7 +110,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {designs.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -123,7 +123,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {fintech.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -136,7 +136,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {behavior.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -149,7 +149,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {behavioralInterview.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -162,7 +162,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {leadership.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -175,7 +175,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {complexity.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -188,7 +188,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {jpmcExperience.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -201,7 +201,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {kafkaInterview.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -214,7 +214,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {redisInterview.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -227,7 +227,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {realtimeIssues.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -240,7 +240,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {performance.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">{p.difficulty}</div>
+                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>
@@ -253,7 +253,7 @@ export default function Learn(){
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             {sheets.map((p)=>(
               <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-blue-600">Revision</div>
+                <div className="text-xs font-bold text-slate-600">Revision</div>
                 <h3 className="mt-2 font-bold">{p.title}</h3>
                 <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               </Link>

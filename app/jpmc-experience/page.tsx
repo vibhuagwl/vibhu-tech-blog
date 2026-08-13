@@ -36,32 +36,32 @@ export default function JpmcExperience(){
         <p className="mt-2 text-sm text-slate-500">Common interview intents — pick one and go deep.</p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           <li>
-            <Link className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-hadron-cashlines">
+            <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-hadron-cashlines">
               Cashlines end-to-end →
             </Link>
           </li>
           <li>
-            <Link className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-kafka-replay-tool">
+            <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-kafka-replay-tool">
               Kafka replay tool story →
             </Link>
           </li>
           <li>
-            <Link className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-deloitte-tax">
+            <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-deloitte-tax">
               Deloitte tax integration →
             </Link>
           </li>
           <li>
-            <Link className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-star-stories">
+            <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-star-stories">
               STAR stories bank →
             </Link>
           </li>
           <li>
-            <Link className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-top-100-questions">
+            <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-top-100-questions">
               Top 100 questions →
             </Link>
           </li>
           <li>
-            <Link className="text-sm font-semibold text-blue-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-cheat-sheet">
+            <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/jpmc-experience/jpmc-cheat-sheet">
               One-page cheat sheet →
             </Link>
           </li>

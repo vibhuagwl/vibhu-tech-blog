@@ -42,7 +42,7 @@ export default function KafkaInterview(){
   return (
     <main>
       <header className="max-w-3xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Kafka Tab
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -63,7 +63,7 @@ export default function KafkaInterview(){
             <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-400">{page.number}</div>
             <h2 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{page.title}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">{page.blurb}</p>
-            <div className="mt-4 text-sm font-semibold text-blue-700 dark:text-blue-400">Open →</div>
+            <div className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Open →</div>
           </Link>
         ))}
       </section>

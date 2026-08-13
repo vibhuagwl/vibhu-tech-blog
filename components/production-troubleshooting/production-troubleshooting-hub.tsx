@@ -73,7 +73,7 @@ export default function ProductionTroubleshootingHub() {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Staff · Principal · Architect · Java · Spring · AWS · Incident Commander
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
@@ -85,15 +85,15 @@ export default function ProductionTroubleshootingHub() {
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           Related:{' '}
-          <Link href="/load-balancing" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/load-balancing" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Load Balancing
           </Link>
           {' · '}
-          <Link href="/db-sharding" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/db-sharding" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             DB Sharding
           </Link>
           {' · '}
-          <Link href="/performance" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/performance" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Performance
           </Link>
         </p>
