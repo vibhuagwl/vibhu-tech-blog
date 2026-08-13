@@ -1,0 +1,628 @@
+---
+slug: pessimistic-locking-guide
+title: "Pessimistic Locking — What, When, and Every Way to Implement It"
+description: "Interview-ready guide to pessimistic locking: definition, when to use, pros/cons, all implementation ways in SQL, NoSQL, Java, and Spring — with Mermaid diagrams and a real inventory debit example."
+category: Distributed Systems
+difficulty: Staff
+tags: [Pessimistic Locking, FOR UPDATE, Spring Data JPA, PostgreSQL, MySQL, MongoDB, Redis, Java, Interview]
+readingTime: 18 min
+publishedAt: "2026-08-13"
+updatedAt: "2026-08-13"
+---
+
+## How to use this page
+
+Learn **pessimistic locking** end-to-end: what it is, when to use it, every common implementation path (SQL / NoSQL / Java / Spring), and one real-time inventory example you can whiteboard.
+
+| If you have | Read |
+|---|---|
+| **5 min** | Definition → vs optimistic → when to use → pros/cons |
+| **10 min** | All ways catalog + SQL `FOR UPDATE` + Spring `@Lock` |
+| **20 min** | Full real-time example + NoSQL + deadlock rules |
+
+Related: [PostgreSQL locking deep dive](/distributed-systems/postgresql-locking-deep-dive) · [Spring Boot locking implementations](/distributed-systems/spring-boot-locking-implementations) · [2PL + 3PL money transfer](/distributed-systems/2pl-3pl-money-transfer-interview) · [NoSQL locking](/distributed-systems/nosql-locking-and-comparisons)
+
+---
+
+## What is pessimistic locking?
+
+**Pessimistic locking** assumes conflict is likely. You **lock the row (or document) before you change it**, so other writers wait (or fail) until you commit or roll back.
+
+```text
+READ + LOCK  →  decide  →  WRITE  →  COMMIT (lock released)
+     ↑
+ other writers blocked here
+```
+
+Contrast with **optimistic locking**: read freely, write with a version/condition; on conflict, retry.
+
+| | Pessimistic | Optimistic |
+|---|---|---|
+| When lock is taken | **Before** the update | **At** update time (version check) |
+| Conflict handling | Wait / fail immediately | Detect conflict → retry / abort |
+| Best when | Hot rows, short critical sections, money/stock | Low contention, long think time |
+| Typical API | `SELECT … FOR UPDATE` | `@Version` / `UPDATE … WHERE version = ?` |
+
+### Mental model diagram
+
+<Mermaid chart={`sequenceDiagram
+  autonumber
+  participant T1 as Tx1
+  participant DB as Database
+  participant T2 as Tx2
+
+  T1->>DB: BEGIN
+  T1->>DB: SELECT row FOR UPDATE
+  DB-->>T1: row locked
+  T2->>DB: SELECT same row FOR UPDATE
+  Note over T2,DB: waits or NOWAIT error
+  T1->>DB: UPDATE balance
+  T1->>DB: COMMIT
+  Note over DB: lock released
+  DB-->>T2: lock granted
+  T2->>DB: UPDATE or see new balance
+  T2->>DB: COMMIT
+`} />
+
+**Say this:** “Pessimistic locking serializes writers on a resource up front. I take the lock in the same short DB transaction that mutates the invariant — never around HTTP calls.”
+
+---
+
+## When to use pessimistic locking
+
+Use it when **all** of these are true:
+
+1. The invariant is **critical** (balance ≥ 0, stock ≥ 0, seat not double-booked).
+2. Contention on the **same row/key** is real (flash sale, wallet, inventory).
+3. The critical section is **short** (milliseconds in the DB — no remote I/O while holding the lock).
+4. You need a **stable read** of the row before deciding the write (check-then-act).
+
+### Good fits
+
+| Domain | Why pessimistic helps |
+|---|---|
+| Bank / wallet debit | Prevent two concurrent debits overdrawing |
+| Inventory decrement | Last item must sell once |
+| Booking a seat / slot | Prevent double booking |
+| Workflow state machine | Illegal transitions under race |
+| Job claim queues | `SKIP LOCKED` workers claim distinct rows |
+
+### Bad fits (prefer optimistic / atomic / queue)
+
+| Situation | Better approach |
+|---|---|
+| Long human think time | Optimistic versioning |
+| Holding lock during HTTP / Kafka / email | Move I/O **outside** the transaction |
+| Low contention catalog updates | `@Version` optimistic |
+| Cross-service distributed work | Saga / outbox — not a long DB lock |
+| Need coordination across many pods on non-DB work | Redis lease + fencing (separate from DB pessimistic) |
+
+---
+
+## Pros and cons
+
+| Pros | Cons |
+|---|---|
+| Strong correctness for hot rows | Waiters block → latency under load |
+| Simple mental model: lock → mutate → commit | Deadlocks if lock order differs |
+| No retry storms from version conflicts | Connection held while waiting |
+| Works well with short transactions | Easy to misuse (lock then call HTTP) |
+| `NOWAIT` / `SKIP LOCKED` give control | Not portable identically across all DBs |
+
+---
+
+## All ways to implement (catalog)
+
+Complete checklist — pick by layer.
+
+### A. SQL databases
+
+| # | Way | Mechanism |
+|---:|---|---|
+| 1 | `SELECT … FOR UPDATE` | Exclusive row lock until txn ends |
+| 2 | `FOR UPDATE NOWAIT` | Fail immediately if locked |
+| 3 | `FOR UPDATE SKIP LOCKED` | Skip locked rows (workers / queues) |
+| 4 | `FOR UPDATE WAIT n` | MySQL: wait up to n seconds |
+| 5 | `FOR NO KEY UPDATE` / `FOR SHARE` / `FOR KEY SHARE` | Weaker PostgreSQL row modes |
+| 6 | `UPDATE …` under serializable / RR (engine-specific) | Write locks as part of DML |
+| 7 | Table lock (`LOCK TABLE`) | Coarse — usually avoid in OLTP |
+| 8 | Advisory locks (`pg_advisory_xact_lock`) | App-level named locks in Postgres |
+| 9 | Stored procedure with locked read | Keep lock + logic in DB |
+
+### B. NoSQL / external stores
+
+| # | Way | Mechanism |
+|---:|---|---|
+| 10 | MongoDB `findAndModify` / `findOneAndUpdate` with condition | Atomic document update (optimistic-leaning; can emulate exclusive claim) |
+| 11 | MongoDB transactions + document lock semantics | Multi-doc txn with write conflicts |
+| 12 | Redis `SET key NX PX` + Lua unlock | Distributed lease (pessimistic-style exclusive claim) |
+| 13 | Redis `WATCH` / `MULTI` | Optimistic in Redis; not classic row lock |
+| 14 | DynamoDB conditional `UpdateItem` | ConditionExpression — optimistic/atomic |
+| 15 | Cassandra LWT (`IF EXISTS`) | Lightweight transactions — compare-and-set |
+| 16 | etcd / ZooKeeper ephemeral locks | Consensus lease for cross-process exclusion |
+
+### C. Java (single process — not enough alone for multi-pod)
+
+| # | Way | Mechanism |
+|---:|---|---|
+| 17 | `synchronized` / `ReentrantLock` | JVM monitor — **one pod only** |
+| 18 | JDBC `ResultSet.TYPE_FORWARD_ONLY` + `CONCUR_UPDATABLE` | Rare; prefer SQL `FOR UPDATE` |
+| 19 | JDBC explicit SQL `FOR UPDATE` in a transaction | Portable pessimistic pattern |
+| 20 | JPA `LockModeType.PESSIMISTIC_*` via `EntityManager` | Standard JPA lock modes |
+
+### D. Spring Framework / Spring Data
+
+| # | Way | Mechanism |
+|---:|---|---|
+| 21 | `@Lock(LockModeType.PESSIMISTIC_WRITE)` on repository method | Most common Spring path |
+| 22 | `@Lock(PESSIMISTIC_READ)` / `PESSIMISTIC_FORCE_INCREMENT` | Shared / force version bump |
+| 23 | `EntityManager.find(id, LockModeType.PESSIMISTIC_WRITE)` | Programmatic |
+| 24 | `entityManager.lock(entity, mode)` after find | Lock already-loaded entity |
+| 25 | `@QueryHints` (`javax.persistence.lock.timeout`) | Timeout / NOWAIT behavior |
+| 26 | Spring Data `@Query("… FOR UPDATE")` native query | Explicit SQL |
+| 27 | `JdbcTemplate` / `NamedParameterJdbcTemplate` + `FOR UPDATE` | Full SQL control |
+| 28 | `TransactionTemplate` / `@Transactional` boundary | Lock lifetime = txn lifetime |
+| 29 | Hibernate `@PessimisticLock` / lock mode hints | Provider-specific |
+| 30 | Combine DB pessimistic + Redis lease | Cross-service coordination + ledger lock |
+
+**Rule:** In Kubernetes, **17 alone is wrong** for money/stock. Use **21–28** (DB) and optionally **12/16** for cross-service coordination.
+
+---
+
+## SQL implementation (detail)
+
+### PostgreSQL — primary pattern
+
+```sql
+BEGIN;
+
+SELECT id, balance
+FROM accounts
+WHERE id = 'A'
+FOR UPDATE;          -- exclusive row lock
+
+-- decide using locked balance
+UPDATE accounts
+SET balance = balance - 7000
+WHERE id = 'A' AND balance >= 7000;
+
+COMMIT;              -- lock released
+```
+
+Variants:
+
+```sql
+SELECT … FOR UPDATE NOWAIT;       -- error if locked
+SELECT … FOR UPDATE SKIP LOCKED;  -- skip busy rows (job queues)
+SELECT … FOR UPDATE OF accounts;  -- lock only listed tables in a join
+SELECT … FOR NO KEY UPDATE;       -- weaker write lock (Postgres)
+SELECT … FOR SHARE;               -- shared lock
+```
+
+### MySQL / InnoDB
+
+```sql
+START TRANSACTION;
+
+SELECT id, stock
+FROM inventory
+WHERE sku = 'SKU-1'
+FOR UPDATE;
+
+UPDATE inventory
+SET stock = stock - 1
+WHERE sku = 'SKU-1' AND stock >= 1;
+
+COMMIT;
+```
+
+```sql
+SELECT … FOR UPDATE NOWAIT;
+SELECT … FOR UPDATE SKIP LOCKED;
+SELECT … FOR UPDATE WAIT 3;   -- MySQL 8+
+```
+
+### SQL Server
+
+```sql
+BEGIN TRAN;
+
+SELECT id, qty
+FROM dbo.Inventory WITH (UPDLOCK, ROWLOCK, HOLDLOCK)
+WHERE Sku = @sku;
+
+UPDATE dbo.Inventory SET qty = qty - 1 WHERE Sku = @sku AND qty >= 1;
+
+COMMIT;
+```
+
+### Oracle
+
+```sql
+SELECT id, balance
+FROM accounts
+WHERE id = :id
+FOR UPDATE NOWAIT;
+```
+
+### Deadlock rule (always say this)
+
+Lock multiple rows in a **stable order** (e.g. sorted account ids). Same order in every service.
+
+<Mermaid chart={`flowchart TD
+  A[Need rows X and Y] --> B[Sort ids]
+  B --> C[FOR UPDATE first id]
+  C --> D[FOR UPDATE second id]
+  D --> E[Mutate both]
+  E --> F[COMMIT]
+`} />
+
+---
+
+## NoSQL implementation (detail)
+
+NoSQL rarely has `FOR UPDATE` identical to Postgres. You usually get **atomic conditional updates** or **external leases**.
+
+### MongoDB — atomic claim / decrement
+
+```javascript
+// Atomic decrement if stock > 0 (single document)
+db.inventory.findOneAndUpdate(
+  { sku: "SKU-1", stock: { $gte: 1 } },
+  { $inc: { stock: -1 }, $set: { updatedAt: new Date() } },
+  { returnDocument: "after" }
+);
+```
+
+Multi-document work → MongoDB multi-doc transactions (write conflicts abort one txn). That is closer to pessimistic serialization at the txn layer.
+
+### Redis — exclusive lease (pessimistic-style)
+
+```text
+SET lock:sku:SKU-1 <token> NX PX 30000
+-- do short work / or call DB with fencing
+-- Lua: delete only if token matches
+```
+
+Use Redis when many pods must exclude each other **outside** a single DB row, or before an expensive operation. Still put **money/stock truth** in the database.
+
+### DynamoDB — condition (atomic, usually optimistic)
+
+```text
+UpdateItem
+  SET stock = stock - 1
+  ConditionExpression: stock >= :one
+```
+
+### Cassandra — LWT
+
+```sql
+UPDATE inventory SET stock = 4 WHERE sku = 'SKU-1' IF stock = 5;
+```
+
+### Quick NoSQL decision
+
+| Store | Closest to pessimistic row lock | Notes |
+|---|---|---|
+| MongoDB | `findOneAndUpdate` / txn | Prefer single-doc atomic ops |
+| Redis | `SET NX PX` lease | Lease ≠ ledger; add fencing |
+| DynamoDB | Conditional update | CAS style |
+| Cassandra | LWT `IF` | Higher latency; limited scope |
+
+---
+
+## Java implementation
+
+### JDBC (explicit — clear in interviews)
+
+```java
+public void debit(Connection conn, String accountId, BigDecimal amount) throws SQLException {
+  conn.setAutoCommit(false);
+  try (PreparedStatement ps = conn.prepareStatement(
+      "SELECT balance FROM accounts WHERE id = ? FOR UPDATE")) {
+    ps.setString(1, accountId);
+    ResultSet rs = ps.executeQuery();
+    if (!rs.next()) throw new NotFound();
+    BigDecimal bal = rs.getBigDecimal(1);
+    if (bal.compareTo(amount) < 0) throw new InsufficientFunds();
+
+    try (PreparedStatement up = conn.prepareStatement(
+        "UPDATE accounts SET balance = balance - ? WHERE id = ?")) {
+      up.setBigDecimal(1, amount);
+      up.setString(2, accountId);
+      up.executeUpdate();
+    }
+    conn.commit();
+  } catch (Exception e) {
+    conn.rollback();
+    throw e;
+  }
+}
+```
+
+### JPA `EntityManager` (no Spring Data)
+
+```java
+@Transactional
+public void debit(EntityManager em, String id, BigDecimal amount) {
+  Account a = em.find(Account.class, id, LockModeType.PESSIMISTIC_WRITE);
+  a.debit(amount); // throws if insufficient
+}
+```
+
+### JPA lock modes (memorize)
+
+| `LockModeType` | Meaning |
+|---|---|
+| `PESSIMISTIC_WRITE` | Exclusive — others cannot update (maps to `FOR UPDATE`) |
+| `PESSIMISTIC_READ` | Shared — block writers (maps to `FOR SHARE` where supported) |
+| `PESSIMISTIC_FORCE_INCREMENT` | Exclusive + force `@Version` increment |
+| `OPTIMISTIC` / `OPTIMISTIC_FORCE_INCREMENT` | Version checks — **not** pessimistic |
+
+---
+
+## Spring Framework — all common ways
+
+### 1) Spring Data JPA `@Lock` (preferred)
+
+```java
+public interface AccountRepository extends JpaRepository<Account, String> {
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select a from Account a where a.id = :id")
+  Optional<Account> findByIdForUpdate(@Param("id") String id);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "0")) // NOWAIT-ish
+  @Query("select a from Account a where a.id = :id")
+  Optional<Account> findByIdForUpdateNowait(@Param("id") String id);
+}
+```
+
+```java
+@Service
+public class WalletService {
+  private final AccountRepository accounts;
+
+  @Transactional
+  public void transfer(String from, String to, BigDecimal amount) {
+    // sorted lock order → fewer deadlocks
+    String first = from.compareTo(to) <= 0 ? from : to;
+    String second = first.equals(from) ? to : from;
+
+    Account a = accounts.findByIdForUpdate(first).orElseThrow();
+    Account b = accounts.findByIdForUpdate(second).orElseThrow();
+
+    Account src = from.equals(a.getId()) ? a : b;
+    Account dst = src == a ? b : a;
+    src.debit(amount);
+    dst.credit(amount);
+  }
+}
+```
+
+### 2) `EntityManager` programmatic lock
+
+```java
+@PersistenceContext EntityManager em;
+
+@Transactional
+public void reserve(String sku) {
+  Inventory inv = em.find(Inventory.class, sku, LockModeType.PESSIMISTIC_WRITE);
+  inv.reserveOne();
+}
+```
+
+### 3) Native `@Query` with `FOR UPDATE`
+
+```java
+@Query(value = "SELECT * FROM inventory WHERE sku = :sku FOR UPDATE", nativeQuery = true)
+Inventory lockSku(@Param("sku") String sku);
+```
+
+### 4) `JdbcTemplate`
+
+```java
+@Transactional
+public void decrement(String sku) {
+  Integer stock = jdbc.queryForObject(
+      "SELECT stock FROM inventory WHERE sku = ? FOR UPDATE",
+      Integer.class, sku);
+  if (stock == null || stock < 1) throw new OutOfStock();
+  jdbc.update("UPDATE inventory SET stock = stock - 1 WHERE sku = ?", sku);
+}
+```
+
+### 5) Lock timeout hint (Hibernate)
+
+```java
+@QueryHints({
+  @QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000") // ms
+})
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+@Query("select i from Inventory i where i.sku = :sku")
+Optional<Inventory> lock(@Param("sku") String sku);
+```
+
+### 6) Worker queue with `SKIP LOCKED` (Spring + SQL)
+
+```java
+@Transactional
+public Optional<Job> claimNext() {
+  List<Job> jobs = jdbc.query(
+      """
+      SELECT id, payload FROM jobs
+      WHERE status = 'READY'
+      ORDER BY id
+      FOR UPDATE SKIP LOCKED
+      LIMIT 1
+      """,
+      (rs, n) -> new Job(rs.getLong(1), rs.getString(2)));
+  if (jobs.isEmpty()) return Optional.empty();
+  jdbc.update("UPDATE jobs SET status = 'RUNNING' WHERE id = ?", jobs.get(0).id());
+  return Optional.of(jobs.get(0));
+}
+```
+
+### Spring rules that interviewers push on
+
+| Rule | Why |
+|---|---|
+| `@Transactional` on the service method that locks | Lock lasts only for the DB transaction |
+| No HTTP/Feign/WebClient inside that txn | Avoid lock held for network RTT |
+| Sort multi-row locks | Prevent deadlocks |
+| Keep transactions tiny | Throughput + pool health |
+| Prefer DB invariant (`stock >= 1`) | Defense even if app bug races |
+
+---
+
+## Real-time implementation — flash-sale inventory
+
+**Problem:** SKU has 1 item. Two checkout pods call `reserve` at the same time. Only one customer may win.
+
+### Components
+
+```text
+Checkout API (many pods)
+   → InventoryService.reserve(sku)   @Transactional
+        → SELECT stock FOR UPDATE
+        → UPDATE stock = stock - 1 WHERE stock >= 1
+   → then (AFTER commit) call Payment / Kafka
+```
+
+### Sequence diagram
+
+<Mermaid chart={`sequenceDiagram
+  autonumber
+  participant C1 as Checkout pod-1
+  participant C2 as Checkout pod-2
+  participant S as InventoryService
+  participant DB as PostgreSQL
+
+  C1->>S: reserve SKU-1
+  S->>DB: BEGIN
+  S->>DB: SELECT stock FOR UPDATE
+  DB-->>S: stock = 1 locked
+  C2->>S: reserve SKU-1
+  S->>DB: SELECT stock FOR UPDATE
+  Note over C2,DB: waiter blocked
+  S->>DB: UPDATE stock = 0
+  S->>DB: COMMIT
+  Note over DB: lock released
+  DB-->>C2: lock granted stock = 0
+  S->>DB: stock check fails
+  S->>DB: ROLLBACK
+  S-->>C2: OutOfStock
+  S-->>C1: Reserved
+  Note over C1: only NOW call payment API
+`} />
+
+### Spring code (complete sketch)
+
+```java
+@Entity
+@Table(name = "inventory")
+public class Inventory {
+  @Id private String sku;
+  private int stock;
+
+  public void reserveOne() {
+    if (stock < 1) throw new OutOfStock(sku);
+    stock -= 1;
+  }
+}
+
+public interface InventoryRepository extends JpaRepository<Inventory, String> {
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select i from Inventory i where i.sku = :sku")
+  Optional<Inventory> findForUpdate(@Param("sku") String sku);
+}
+
+@Service
+@RequiredArgsConstructor
+public class InventoryService {
+  private final InventoryRepository repo;
+
+  @Transactional
+  public Reserved reserve(String sku, String orderId) {
+    Inventory inv = repo.findForUpdate(sku).orElseThrow();
+    inv.reserveOne();
+    return new Reserved(sku, orderId);
+  }
+}
+
+@RestController
+@RequiredArgsConstructor
+class CheckoutController {
+  private final InventoryService inventory;
+  private final PaymentClient payments; // HTTP
+
+  @PostMapping("/checkout")
+  public ResponseEntity<?> checkout(@RequestBody OrderReq req) {
+    Reserved r = inventory.reserve(req.sku(), req.orderId()); // txn ends here
+    payments.charge(req); // OUTSIDE DB lock — critical
+    return ResponseEntity.ok(r);
+  }
+}
+```
+
+### Why this is “real-time safe”
+
+| Risk | Mitigation |
+|---|---|
+| Double sell | `FOR UPDATE` + in-txn decrement |
+| Lock held during payment | Payment **after** `@Transactional` returns |
+| Retry double reserve | Idempotency key / reservation row unique on `orderId` |
+| Deadlock with cart rows | Always lock `sku` then `order` in fixed order |
+
+---
+
+## Pessimistic vs Redis lock vs optimistic (pick one)
+
+<Mermaid chart={`flowchart TD
+  Q{What are you protecting?}
+  Q -->|DB row invariant balance/stock| P[Pessimistic FOR UPDATE short txn]
+  Q -->|Cross-pod critical section non-DB| R[Redis SET NX PX + fencing]
+  Q -->|Low contention long think time| O[Optimistic version column]
+  P --> X[Never hold during HTTP]
+  R --> Y[Do not use Redis as ledger truth]
+  O --> Z[Retry on version conflict]
+`} />
+
+| Approach | Multi-pod safe? | Source of truth |
+|---|---|---|
+| JVM `synchronized` | No | Process heap |
+| Spring `@Lock` + SQL | Yes (same DB) | Database |
+| Redis lease | Yes (exclusion) | Lease only — not balances |
+| Optimistic `@Version` | Yes | Database |
+
+---
+
+## Interview cheat sheet
+
+| Question | Crisp answer |
+|---|---|
+| What is pessimistic locking? | Lock the row before update so writers serialize |
+| How in SQL? | `SELECT … FOR UPDATE` inside a transaction |
+| How in Spring? | `@Lock(PESSIMISTIC_WRITE)` + `@Transactional` |
+| When? | Hot row + short critical section + strong invariant |
+| Biggest mistake? | Holding the lock while calling HTTP / sleeping |
+| Deadlocks? | Sort lock keys; keep txns short; monitor `pg_locks` |
+| `NOWAIT` vs `SKIP LOCKED`? | Fail fast vs claim next free row for workers |
+| NoSQL? | Atomic conditional update or external lease — rarely identical `FOR UPDATE` |
+
+### Spoken answer (20 seconds)
+
+> For inventory and wallets I use **pessimistic locking**: `SELECT … FOR UPDATE` in a **short Spring `@Transactional`** method via `@Lock(PESSIMISTIC_WRITE)`. I lock rows in sorted order, mutate, commit, and only then call payment or Kafka. Under low contention I switch to optimistic `@Version`. For cross-service exclusion I may add a Redis lease with fencing — but the **ledger truth stays in the database**.
+
+---
+
+## Takeaways
+
+1. Pessimistic = **lock first**, then change — best for hot, critical rows.
+2. Lifetime of the lock = **database transaction** — keep it tiny.
+3. Spring’s main tool = `@Lock(PESSIMISTIC_WRITE)` (+ JDBC/`FOR UPDATE` when you need SQL control).
+4. List ways by layer: SQL modes, NoSQL atomics/leases, JPA lock modes, Spring Data/JdbcTemplate.
+5. Never confuse JVM locks with database pessimistic locks in a multi-pod system.
+
+Practice next: [2PL + 3PL money transfer](/distributed-systems/2pl-3pl-money-transfer-interview) · [PostgreSQL locking](/distributed-systems/postgresql-locking-deep-dive) · [Spring Boot locking implementations](/distributed-systems/spring-boot-locking-implementations)
