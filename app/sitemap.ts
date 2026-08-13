@@ -51,11 +51,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
-<<<<<<< HEAD
+      url: `${BASE}/api-gateway/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
       url: `${BASE}/resilience4j/`,
-=======
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    },
+    {
       url: `${BASE}/db-sharding/`,
->>>>>>> origin/main
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.9,
