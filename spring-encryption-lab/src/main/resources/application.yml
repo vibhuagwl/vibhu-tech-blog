@@ -1,0 +1,40 @@
+server:
+  port: 8093
+
+spring:
+  application:
+    name: spring-encryption-lab
+  datasource:
+    url: jdbc:h2:mem:crypto;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: false
+
+# Local only — production: KMS / Secrets Manager. Never commit real keys.
+crypto:
+  active-key-id: v2
+  keys:
+    v1: ${CRYPTO_KEY_V1:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+    v2: ${CRYPTO_KEY_V2:YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODk=}
+  lookup-hmac-secret: ${CRYPTO_LOOKUP_HMAC:local-lookup-hmac-secret-32bytes!!}
+  rsa:
+    # Generated at startup for the lab when blank (see RsaKeyConfig).
+    public-pem: ${CRYPTO_RSA_PUBLIC:}
+    private-pem: ${CRYPTO_RSA_PRIVATE:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    com.vibhu.crypto: INFO
