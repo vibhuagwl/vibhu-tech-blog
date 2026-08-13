@@ -20,7 +20,7 @@ export default function SpringCsrfDemoPage(){
   return (
     <main className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-3xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Spring Security · CSRF Protection
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -31,23 +31,23 @@ export default function SpringCsrfDemoPage(){
           plus the runnable <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm dark:bg-slate-900">spring-csrf-demo/</code> source.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
-          <a href="#csrf-live-example" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#csrf-live-example" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Live attack image →
           </a>
           <span className="text-slate-300">·</span>
-          <a href="#csrf-error" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#csrf-error" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             403 response →
           </a>
           <span className="text-slate-300">·</span>
-          <a href="#csrf-fix" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#csrf-fix" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             How to fix →
           </a>
           <span className="text-slate-300">·</span>
-          <a href="#csrf-source" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#csrf-source" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Source explorer →
           </a>
           <span className="text-slate-300">·</span>
-          <Link href="/spring-security" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/spring-security" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Spring Security hub →
           </Link>
         </div>

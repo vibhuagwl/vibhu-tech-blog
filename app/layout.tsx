@@ -33,7 +33,6 @@ export default function RootLayout({children}:{children:React.ReactNode}){
         <script dangerouslySetInnerHTML={{__html:themeBoot}}/>
       </head>
       <body className="font-sans antialiased">
-        <div className="site-atmosphere" aria-hidden="true"/>
         <SiteHeader/>
         {children}
         <SiteFooter/>

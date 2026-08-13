@@ -21,7 +21,7 @@ export default function SpringNPlusOnePage(){
   return (
     <main className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-3xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Spring · JPA / Hibernate
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -33,17 +33,17 @@ export default function SpringNPlusOnePage(){
           <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm dark:bg-slate-900">spring-n-plus-one-demo/</code>.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
-          <a href="#what" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">What →</a>
+          <a href="#what" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">What →</a>
           <span className="text-slate-300">·</span>
-          <a href="#root-cause" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">Root cause →</a>
+          <a href="#root-cause" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">Root cause →</a>
           <span className="text-slate-300">·</span>
-          <a href="#fixes" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">Fixes →</a>
+          <a href="#fixes" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">Fixes →</a>
           <span className="text-slate-300">·</span>
-          <a href="#n1-problem" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">Diagrams →</a>
+          <a href="#n1-problem" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">Diagrams →</a>
           <span className="text-slate-300">·</span>
-          <a href="#source" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">Source →</a>
+          <a href="#source" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">Source →</a>
           <span className="text-slate-300">·</span>
-          <Link href="/spring-security" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/spring-security" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Spring hub →
           </Link>
         </div>

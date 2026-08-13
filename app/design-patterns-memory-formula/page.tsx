@@ -51,7 +51,7 @@ export default function DesignPatternsMemoryFormulaPage(){
   return (
     <main className="mx-auto max-w-7xl px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Memory formula
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -62,7 +62,7 @@ export default function DesignPatternsMemoryFormulaPage(){
           Use the cards below like flash cards before interviews.
         </p>
         <div className="mt-5 text-sm">
-          <a href="/vibhu-tech-blog/design-patterns-poster" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="/vibhu-tech-blog/design-patterns-poster" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Open visual poster →
           </a>
         </div>

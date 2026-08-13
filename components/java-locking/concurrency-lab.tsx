@@ -96,7 +96,7 @@ export default function ConcurrencyLab(){
         type="button"
         disabled={pending}
         onClick={()=>start(()=>setResult(simulate(threads,ops,lock,critical)))}
-        className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
       >
         {pending?'Running…':'Run experiment'}
       </button>

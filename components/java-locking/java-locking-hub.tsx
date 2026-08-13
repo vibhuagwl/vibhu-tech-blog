@@ -44,7 +44,7 @@ export default function JavaLockingHub(){
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Staff · Principal · Interview · Production
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
@@ -55,11 +55,11 @@ export default function JavaLockingHub(){
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           90% practical. Not a textbook. For multi-JVM locks see{' '}
-          <Link href="/distributed-systems" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/distributed-systems" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Distributed Systems
           </Link>
           . Run snippets in the{' '}
-          <Link href="/java-compiler" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/java-compiler" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Java Compiler
           </Link>
           .
@@ -77,7 +77,7 @@ export default function JavaLockingHub(){
                 ['DB locks', '@Version / SELECT FOR UPDATE — durable rows'],
                 ['Distributed locks', 'Lease + fencing across pods'],
               ].map(([t,b])=>(
-                <div key={t} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <div key={t} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                   <div className="font-bold text-slate-900 dark:text-white">{t}</div>
                   <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{b}</p>
                 </div>
@@ -229,13 +229,13 @@ Race condition
 
           <Section id="contention-granularity" title="Lock Contention & Granularity">
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <h3 className="font-bold">Coarse</h3>
                 <pre className="mt-2 text-xs text-slate-600 dark:text-slate-300">{`Entire service → one lock
 + simple
 - high contention`}</pre>
               </div>
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <h3 className="font-bold">Fine</h3>
                 <pre className="mt-2 text-xs text-slate-600 dark:text-slate-300">{`Account-A → Lock-A
 Account-B → Lock-B
@@ -290,7 +290,7 @@ Account-B → Lock-B
           <Section id="production-problems" title="Production Problems You Will Actually See">
             <div className="space-y-3">
               {PROD_PROBLEMS.map((p)=>(
-                <details key={p.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <details key={p.id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                   <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{p.title}</summary>
                   <div className="mt-3 space-y-1 text-sm leading-7 text-slate-600 dark:text-slate-300">
                     <div><strong>Bad:</strong> {p.bad}</div>
@@ -322,7 +322,7 @@ Account-B → Lock-B
               {SCENARIO_PICKS.map((s)=>(
                 <div key={s.id} className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800">
                   <p className="font-semibold text-slate-900 dark:text-white">{s.scenario}</p>
-                  <p className="mt-2 text-sm text-blue-700 dark:text-blue-400">{s.answer}</p>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{s.answer}</p>
                   <p className="mt-1 text-sm text-slate-500">{s.why}</p>
                   <div className="mt-3"><CodePanel title="Sketch" code={s.code}/></div>
                 </div>

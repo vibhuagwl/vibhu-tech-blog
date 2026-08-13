@@ -61,7 +61,7 @@ export default function DesignPatternsPosterPage(){
   return (
     <main className="mx-auto max-w-7xl px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Visual poster
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">

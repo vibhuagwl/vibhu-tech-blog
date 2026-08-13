@@ -162,7 +162,7 @@ export default function SearchClient({
       <div className="mt-6 space-y-3">
         {results.map((p)=>(
           <Link href={hrefForPost(p.category,p.slug)} className="block rounded-xl border border-slate-200 bg-white p-5 transition hover:border-blue-200 dark:border-slate-800 dark:bg-slate-950" key={p.slug}>
-            <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">
+            <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-slate-600 dark:text-slate-300">
               {p.category} · {p.difficulty}
             </div>
             <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{p.title}</h2>

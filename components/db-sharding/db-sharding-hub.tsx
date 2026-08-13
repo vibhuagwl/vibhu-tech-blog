@@ -70,7 +70,7 @@ export default function DbShardingHub() {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Staff · Principal · Architect · Java · Spring · SQL/NoSQL · AWS · DR
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
@@ -84,11 +84,11 @@ export default function DbShardingHub() {
           ~90% diagrams/SQL/Java. Lab:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">db-sharding-lab/</code>
           {' · '}
-          <Link href="/distributed-caching" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/distributed-caching" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Caching
           </Link>
           {' · '}
-          <Link href="/load-balancing" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/load-balancing" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Load Balancing
           </Link>
         </p>

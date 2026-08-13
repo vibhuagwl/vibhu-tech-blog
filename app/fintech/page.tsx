@@ -9,7 +9,7 @@ export default function FinTech(){
   return (
     <main>
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_10px_40px_rgba(15,23,42,.04)] md:p-10 dark:border-slate-800 dark:bg-slate-950">
-        <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">FinTech System Design</div>
+        <div className="text-xs font-black uppercase tracking-[.16em] text-slate-600">FinTech System Design</div>
         <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Design financial systems for correctness under uncertainty.</h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
           Use the left catalog to open each topic. Payments, ledgers, reconciliation, idempotency and failure recovery —
@@ -25,7 +25,7 @@ export default function FinTech(){
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {posts.map((p)=>(
             <Link key={p.slug} href={`/fintech/${p.slug}`} className="card p-6 transition hover:-translate-y-0.5">
-              <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">{p.difficulty} · {p.readingTime}</div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{p.difficulty} · {p.readingTime}</div>
               <h3 className="mt-3 text-xl font-bold">{p.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">{p.description}</p>
             </Link>

@@ -31,7 +31,7 @@ export default function StickyToc({items}:{items:TocItem[]}){
 
   return (
     <nav aria-label="Distributed caching sections" className="hidden xl:block">
-      <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/95">
+      <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
         <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-500">Caching</div>
         <input
           value={query}
@@ -47,7 +47,7 @@ export default function StickyToc({items}:{items:TocItem[]}){
                 className={[
                   'block border-l-2 py-1.5 pl-3 text-[13px] leading-snug transition',
                   active===item.id
-                    ? 'border-blue-600 font-semibold text-slate-900 dark:text-white'
+                    ? 'border-slate-700 font-semibold text-slate-900 dark:text-white'
                     : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800 dark:hover:text-slate-200',
                 ].join(' ')}
               >

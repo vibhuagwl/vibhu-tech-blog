@@ -54,7 +54,7 @@ export default function InterviewMode({
             key={t}
             type="button"
             onClick={()=>{setTopic(t);setIdx(0);setRevealed(false);}}
-            className={`rounded-md px-2.5 py-1 text-xs font-semibold ${topic===t?'bg-blue-600 text-white':'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'}`}
+            className={`rounded-md px-2.5 py-1 text-xs font-semibold ${topic===t?'bg-slate-900 text-white':'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'}`}
           >
             {t}
           </button>
@@ -99,7 +99,7 @@ export default function InterviewMode({
             <button
               type="button"
               onClick={()=>setRevealed(true)}
-              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+              className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
             >
               Reveal Answer
             </button>

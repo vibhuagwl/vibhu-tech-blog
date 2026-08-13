@@ -24,7 +24,7 @@ export default function DistributedCachingHub(){
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Staff · Principal · Architect · Spring · Redis · 25+ years
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
@@ -35,7 +35,7 @@ export default function DistributedCachingHub(){
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           ~90% diagrams/code/scenarios. Companion Redis depth:{' '}
-          <Link href="/redis-interview" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">Redis Interview</Link>
+          <Link href="/redis-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Redis Interview</Link>
           {' '}· lab:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-distributed-cache-demo/</code>
         </p>
@@ -89,7 +89,7 @@ public Payment get(String id) {
   D --> MC[Memcached]`}/>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2 text-sm">
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <div className="font-bold">Local</div>
                 <ul className="mt-2 list-disc pl-5 text-slate-600 dark:text-slate-300">
                   <li>No network · micro-latency</li>
@@ -97,7 +97,7 @@ public Payment get(String id) {
                   <li>Choose for ultra-hot, pod-local</li>
                 </ul>
               </div>
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <div className="font-bold">Distributed</div>
                 <ul className="mt-2 list-disc pl-5 text-slate-600 dark:text-slate-300">
                   <li>Shared · network hop</li>
@@ -168,13 +168,13 @@ public Payment get(String id) {
           <Section id="architect-qs" title="30-Minute Architect Revision">
             <div className="grid gap-3 md:grid-cols-2">
               {THIRTY_MIN.map((t)=>(
-                <a key={t.id} href={`#${t.id}`} className="rounded-2xl border border-slate-200 p-4 hover:border-blue-400 dark:border-slate-800">
+                <a key={t.id} href={`#${t.id}`} className="rounded-2xl border border-slate-200 p-4 hover:border-slate-500 dark:border-slate-800">
                   <div className="font-bold">{t.title}</div>
                   <ul className="mt-2 list-disc pl-4 text-sm text-slate-600 dark:text-slate-300">
                     {t.facts.map((f)=><li key={f}>{f}</li>)}
                   </ul>
                   <div className="mt-2 text-xs text-rose-600">Trap: {t.trap}</div>
-                  <div className="mt-1 text-xs text-blue-700 dark:text-blue-400">Q: {t.q}</div>
+                  <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">Q: {t.q}</div>
                 </a>
               ))}
             </div>

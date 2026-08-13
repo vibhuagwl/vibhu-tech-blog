@@ -46,7 +46,7 @@ export default function CodePanel({
           </button>
           <Link
             href="/java-compiler"
-            className="rounded-md px-2 py-1 text-xs font-semibold text-teal-300 hover:bg-slate-800"
+            className="rounded-md px-2 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
           >
             Run
           </Link>

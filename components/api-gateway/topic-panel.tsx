@@ -18,7 +18,7 @@ export default function TopicPanel({t}: {t: GwTopic}) {
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-2xl font-bold tracking-[-.02em] text-slate-900 dark:text-white">{t.title}</h2>
             {t.badge && (
-              <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-blue-800 dark:bg-blue-950 dark:text-blue-100">
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-700 dark:bg-slate-900 dark:text-slate-200">
                 {t.badge}
               </span>
             )}
@@ -45,7 +45,7 @@ export default function TopicPanel({t}: {t: GwTopic}) {
                 type="button"
                 onClick={() => setTab(id)}
                 className={`rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${
-                  tab === id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'
+                  tab === id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'
                 }`}
               >
                 {label}

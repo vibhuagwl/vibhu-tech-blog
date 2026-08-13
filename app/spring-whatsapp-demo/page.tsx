@@ -19,7 +19,7 @@ export default function SpringWhatsappDemoPage(){
   return (
     <main className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-3xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Source explorer
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -30,7 +30,7 @@ export default function SpringWhatsappDemoPage(){
           message-service REST, persist-before-delivery, outbox, idempotency, presence, local delivery coordinator, and Kafka delivery-worker.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
-          <Link href="/system-design/design-whatsapp" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/system-design/design-whatsapp" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             WhatsApp HLD guide →
           </Link>
         </div>

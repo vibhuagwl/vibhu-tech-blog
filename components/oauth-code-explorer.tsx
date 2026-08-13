@@ -96,7 +96,7 @@ function TreeNode({
         className={[
           'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-900',
           selected
-            ? 'bg-blue-50 font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
+            ? 'bg-blue-50 font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-slate-300'
             : 'font-medium text-slate-600 dark:text-slate-300',
         ].join(' ')}
         aria-current={selected?'page':undefined}

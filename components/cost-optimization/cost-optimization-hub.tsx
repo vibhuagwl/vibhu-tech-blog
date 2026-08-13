@@ -75,7 +75,7 @@ export default function CostOptimizationHub() {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Staff · Principal · Architect · Java · Spring · AWS · FinOps
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
@@ -88,15 +88,15 @@ export default function CostOptimizationHub() {
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           Related:{' '}
-          <Link href="/production-troubleshooting" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/production-troubleshooting" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Prod Troubleshooting
           </Link>
           {' · '}
-          <Link href="/api-gateway" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/api-gateway" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             API Gateway
           </Link>
           {' · '}
-          <Link href="/db-sharding" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/db-sharding" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             DB Sharding
           </Link>
         </p>
@@ -181,7 +181,7 @@ Business → Traffic → SLA → Data profile
               <p className="mt-2 text-xs text-slate-500">*Illustrative savings — verify with your Cost Explorer baseline.</p>
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <div className="text-[11px] font-bold uppercase tracking-[.12em] text-slate-500">Architecture review</div>
                 <ul className="mt-3 space-y-1 text-sm text-slate-600 dark:text-slate-300">
                   {REVIEW_CHECKLIST.map((c) => (
@@ -189,7 +189,7 @@ Business → Traffic → SLA → Data profile
                   ))}
                 </ul>
               </div>
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                 <div className="text-[11px] font-bold uppercase tracking-[.12em] text-slate-500">Cost-aware code review</div>
                 <ul className="mt-3 space-y-1 text-sm text-slate-600 dark:text-slate-300">
                   {CODE_REVIEW_COST.map((c) => (

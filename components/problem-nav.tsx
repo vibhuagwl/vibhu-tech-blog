@@ -116,7 +116,7 @@ export default function ProblemNav({
     <>
       <div className="border-b border-slate-200/80 px-4 pb-4 pt-4 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white dark:bg-blue-600">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white dark:bg-slate-900">
             <Layers3 size={18}/>
           </div>
           <div>
@@ -165,10 +165,10 @@ export default function ProblemNav({
                       ].join(' ')}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className={`text-sm font-semibold leading-5 ${active?'text-blue-700 dark:text-blue-300':'text-slate-800 dark:text-slate-100'}`}>
+                        <div className={`text-sm font-semibold leading-5 ${active?'text-slate-800 dark:text-slate-200':'text-slate-800 dark:text-slate-100'}`}>
                           {p.title}
                         </div>
-                        {active && <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-blue-600"/>}
+                        {active && <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-slate-700"/>}
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${difficultyClass(p.difficulty)}`}>

@@ -83,7 +83,7 @@ export default function RealtimeIssues(){
   return (
     <main>
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_10px_40px_rgba(15,23,42,.04)] md:p-10 dark:border-slate-800 dark:bg-slate-950">
-        <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">Staff+ · Principal · Architect</div>
+        <div className="text-xs font-black uppercase tracking-[.16em] text-slate-600">Staff+ · Principal · Architect</div>
         <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Real-time production issues — diagnose like you were on-call.</h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
           Incident playbooks for Java/Spring Boot: stuck threads, multi‑GB files, 30 YOE interview bank,
@@ -93,7 +93,7 @@ export default function RealtimeIssues(){
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} guides</span>
           {index && (
-            <Link href={`/realtime-issues/${index.slug}`} className="rounded-full bg-blue-600 px-3 py-1 font-semibold text-white">
+            <Link href={`/realtime-issues/${index.slug}`} className="rounded-full bg-slate-900 px-3 py-1 font-semibold text-white">
               Start with the index →
             </Link>
           )}
@@ -105,7 +105,7 @@ export default function RealtimeIssues(){
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {list.map((p)=>(
             <Link key={p.slug} href={`/realtime-issues/${p.slug}`} className="card p-6 transition hover:-translate-y-0.5">
-              <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">{p.difficulty} · {p.readingTime}</div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{p.difficulty} · {p.readingTime}</div>
               <h3 className="mt-3 text-xl font-bold">{p.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">{p.description}</p>
             </Link>

@@ -21,7 +21,7 @@ export default function IdAnywhereDemoPage(){
   return (
     <main className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-3xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Spring Security · OIDC SSO
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
@@ -32,23 +32,23 @@ export default function IdAnywhereDemoPage(){
           use Okta or Keycloak by swapping <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm dark:bg-slate-900">issuer-uri</code>.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
-          <a href="#relationship" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#relationship" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             OIDC ↔ ADFS ↔ IDAnywhere →
           </a>
           <span className="text-slate-300">·</span>
-          <a href="#ways" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#ways" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Implementation ways →
           </a>
           <span className="text-slate-300">·</span>
-          <a href="#internal" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#internal" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Internal sequence →
           </a>
           <span className="text-slate-300">·</span>
-          <a href="#okta-keycloak" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <a href="#okta-keycloak" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Okta / Keycloak →
           </a>
           <span className="text-slate-300">·</span>
-          <Link href="/spring-security" className="font-semibold text-blue-700 hover:underline dark:text-blue-400">
+          <Link href="/spring-security" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Spring Security hub →
           </Link>
         </div>

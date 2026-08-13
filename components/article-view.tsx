@@ -120,9 +120,9 @@ export default async function ArticleView({
       <div className="min-w-0">
           <nav aria-label="Breadcrumb" className="mb-5 text-sm text-slate-500">
             <ol className="flex flex-wrap items-center gap-1.5">
-              <li><Link href="/" className="hover:text-blue-700">Home</Link></li>
+              <li><Link href="/" className="hover:text-slate-800">Home</Link></li>
               <li aria-hidden="true">/</li>
-              <li><Link href={sectionHref} className="hover:text-blue-700">{sectionLabel}</Link></li>
+              <li><Link href={sectionHref} className="hover:text-slate-800">{sectionLabel}</Link></li>
               <li aria-hidden="true">/</li>
               <li className="truncate font-medium text-slate-700 dark:text-slate-300" aria-current="page">
                 {p.title}
@@ -232,7 +232,7 @@ export default async function ArticleView({
                     href={allowed.has(r.category)?`${basePath}/${r.slug}`:hrefForPost(r.category,r.slug)}
                     className="card p-5 transition hover:border-blue-200"
                   >
-                    <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">
+                    <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-slate-600 dark:text-slate-300">
                       {r.category}
                     </div>
                     <div className="mt-2 font-semibold text-slate-900 dark:text-white">{r.title}</div>

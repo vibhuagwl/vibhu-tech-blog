@@ -73,7 +73,7 @@ function TreeNode({
         className={[
           'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-900',
           selected
-            ? 'bg-blue-50 font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
+            ? 'bg-blue-50 font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-slate-300'
             : 'font-medium text-slate-600 dark:text-slate-300',
         ].join(' ')}
       >
@@ -93,7 +93,7 @@ export default function ProjectExplorer({paths,activePath,onSelect,onNewFile}:Pr
         <button
           type="button"
           onClick={onNewFile}
-          className="rounded-md px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+          className="rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900"
         >
           New file
         </button>

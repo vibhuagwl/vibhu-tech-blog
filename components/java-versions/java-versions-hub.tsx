@@ -81,7 +81,7 @@ export default function JavaVersionsHub(){
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-blue-700 dark:text-blue-400">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
           Staff · Principal · Architect · 25+ years
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
@@ -106,11 +106,11 @@ export default function JavaVersionsHub(){
           <StatusBadge status="REMOVED"/>
         </div>
         <div className="mt-6 flex flex-wrap gap-3 text-sm font-semibold">
-          <a href="#timeline" className="text-blue-700 hover:underline dark:text-blue-400">Timeline</a>
-          <a href="#java-21" className="text-blue-700 hover:underline dark:text-blue-400">Virtual Threads</a>
-          <a href="#migrate-8-25" className="text-blue-700 hover:underline dark:text-blue-400">8→25 Roadmap</a>
-          <a href="#interview-mode" className="text-blue-700 hover:underline dark:text-blue-400">Interview Mode</a>
-          <a href="#cheat-sheet" className="text-blue-700 hover:underline dark:text-blue-400">Cheat Sheet</a>
+          <a href="#timeline" className="text-slate-700 hover:underline dark:text-slate-300">Timeline</a>
+          <a href="#java-21" className="text-slate-700 hover:underline dark:text-slate-300">Virtual Threads</a>
+          <a href="#migrate-8-25" className="text-slate-700 hover:underline dark:text-slate-300">8→25 Roadmap</a>
+          <a href="#interview-mode" className="text-slate-700 hover:underline dark:text-slate-300">Interview Mode</a>
+          <a href="#cheat-sheet" className="text-slate-700 hover:underline dark:text-slate-300">Cheat Sheet</a>
         </div>
       </header>
 
@@ -226,7 +226,7 @@ Request N ───┘── Virtual Threads
                 ['Watch', 'Pinning via synchronized/native; ThreadLocal proliferation'],
                 ['Observe', 'JFR pinning, DB pool pending, downstream p99, carriers'],
               ].map(([t,b])=>(
-                <div key={t} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <div key={t} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                   <div className="text-xs font-bold uppercase tracking-[.12em] text-slate-500">{t}</div>
                   <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">{b}</p>
                 </div>
@@ -299,8 +299,8 @@ Request N ───┘── Virtual Threads
           <Section id="concurrency-evolution" title="Concurrency Evolution" lead="From executors to virtual threads — pick the model for the workload.">
             <div className="grid gap-3 md:grid-cols-3">
               {CONCURRENCY_TIMELINE.map((c)=>(
-                <div key={c.era} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                  <div className="text-xs font-bold uppercase tracking-[.12em] text-blue-700 dark:text-blue-400">{c.era}</div>
+                <div key={c.era} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+                  <div className="text-xs font-bold uppercase tracking-[.12em] text-slate-600 dark:text-slate-300">{c.era}</div>
                   <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
                     {c.items.map((i)=><li key={i}>{i}</li>)}
                   </ul>
@@ -551,7 +551,7 @@ Request N ───┘── Virtual Threads
           <Section id="scenarios" title="Scenario-Based Questions" lead={`${SCENARIOS.length} production scenarios — expand for model answers.`}>
             <div className="space-y-3">
               {SCENARIOS.map((s)=>(
-                <details key={s.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <details key={s.id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
                   <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">
                     {s.title}
                   </summary>
@@ -658,7 +658,7 @@ Still incubator: Vector API.
               </p>
               <Link
                 href="/java-compiler"
-                className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                className="mt-4 inline-flex rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
               >
                 Open Java Compiler IDE →
               </Link>

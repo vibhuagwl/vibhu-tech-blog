@@ -29,7 +29,7 @@ export default function SystemDesign(){
   return (
     <main>
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_10px_40px_rgba(15,23,42,.04)] md:p-10 dark:border-slate-800 dark:bg-slate-950">
-        <div className="text-xs font-black uppercase tracking-[.16em] text-blue-600">System Design</div>
+        <div className="text-xs font-black uppercase tracking-[.16em] text-slate-600">System Design</div>
         <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Design systems from first principles.</h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
           Use the left catalog to jump between problems. Every guide follows the interview progression:
@@ -50,7 +50,7 @@ export default function SystemDesign(){
             <Link key={item.href} href={item.href} className="card p-6 transition hover:-translate-y-0.5">
               <h3 className="text-xl font-bold">{item.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">{item.blurb}</p>
-              <div className="mt-4 text-sm font-semibold text-blue-700 dark:text-blue-400">Open →</div>
+              <div className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Open →</div>
             </Link>
           ))}
         </div>
@@ -61,7 +61,7 @@ export default function SystemDesign(){
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {designs.map((p)=>(
             <Link key={p.slug} href={`/system-design/${p.slug}`} className="card p-6 transition hover:-translate-y-0.5">
-              <div className="text-[10px] font-black uppercase tracking-wider text-blue-600">{p.difficulty} · {p.readingTime}</div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{p.difficulty} · {p.readingTime}</div>
               <h3 className="mt-3 text-xl font-bold">{p.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">{p.description}</p>
             </Link>
