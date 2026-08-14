@@ -730,7 +730,11 @@ Dashboards: URP, offline, ISR, disk, idle%, p99`}
               <Link href="/kafka-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Kafka hub
               </Link>
-              . Remaining major surface for a separate board: Consumer + consumer groups.
+              {' · '}
+              <Link href="/kafka-consumer" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Consumer board
+              </Link>
+              .
             </p>
           </Section>
         </div>

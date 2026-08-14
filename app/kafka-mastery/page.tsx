@@ -3,9 +3,9 @@ import {Suspense} from 'react';
 import KafkaMasteryHub from '@/components/kafka-mastery/kafka-mastery-hub';
 
 export const metadata: Metadata = {
-  title: 'Kafka Interview Mastery — Producer, Consumer, Cluster, Monitoring, Sizing',
+  title: 'Kafka Interview Mastery — Monitoring, Sizing, Spoken Answers',
   description:
-    'Interview-focused Kafka board: dedicated producer and consumer sections, cluster and controller, optimization, all properties, prod monitoring, instance counts, syncing, and partition sizing.',
+    'Kafka interview drills only: monitoring, instance counts, replica syncing, partition sizing, and spoken-answer practice. Producer, consumer, and cluster live on dedicated boards.',
 };
 
 export default function KafkaMasteryPage() {

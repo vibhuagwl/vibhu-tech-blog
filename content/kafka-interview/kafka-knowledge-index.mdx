@@ -1,74 +1,13 @@
 ---
 slug: kafka-knowledge-index
-title: "Kafka Knowledge — Fundamentals Learning Map"
-description: "Progressive Kafka fundamentals: architecture, topics, partitions, producers, consumers, offsets, replication, delivery semantics, and internals — story-first, not textbook dumps."
+title: "Kafka Knowledge Index (moved)"
+description: "Knowledge track moved into the Kafka hub and dedicated boards."
 category: "Kafka Interview"
 difficulty: Senior
-tags: [Kafka, Knowledge, Architecture, Learning Path, Interview]
-readingTime: 10 min
+tags: [Kafka]
+readingTime: 1 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-## What this section is for
-
-**Learn** how Kafka works before you optimize, configure, or defend it in an interview.
-
-Do not start with a 200-page mega article.
-
-Use this map. Open one focused topic at a time.
-
-## Learning path
-
-```text
-Why Kafka exists
-      ↓
-Architecture (broker → topic → partition → replica)
-      ↓
-Producer path
-      ↓
-Consumer groups & offsets
-      ↓
-Replication / ISR / controller
-      ↓
-Delivery semantics
-      ↓
-Internals that matter in production
-```
-
-## Start here
-
-| Topic | Focus |
-|---|---|
-| [What is Kafka? Why it exists](/kafka-interview/kafka-knowledge-what-is-kafka) | Problem → log model → when not to use Kafka |
-| [Consumer groups (story)](/kafka-interview/kafka-knowledge-consumer-groups) | Why parallel consumption exists |
-| [Architecture interview bank](/kafka-interview/kafka-architecture-interview) | Broker, controller, ISR, KRaft |
-| [Partitions & ordering](/kafka-interview/kafka-partitions-ordering-interview) | Ordering guarantees and keys |
-| [Producer deep dive](/kafka-interview/kafka-producer-interview) | Send path, acks, idempotence |
-| [Consumer deep dive](/kafka-interview/kafka-consumer-interview) | Poll, commit, concurrency |
-| [Offsets](/kafka-interview/kafka-offset-management-interview) | Commit semantics and recovery |
-
-## Concept checklist
-
-Work through these concepts in order. Prefer short, story-driven pages over giant dumps.
-
-1. What problem Kafka solves
-2. Topics and partitions
-3. Brokers and replicas
-4. Leaders / followers / ISR
-5. Producers and partitioning
-6. Consumers and consumer groups
-7. Offsets and commit strategies
-8. Replication and durability
-9. Controller / KRaft
-10. Retention and log segments
-11. Delivery semantics (at-most / at-least / exactly-once)
-12. Rebalancing and assignment
-13. Dead letter / poison messages
-14. Transactions (when needed)
-
-## Related sections
-
-- Need production stories → [Real-World Experience](/kafka-interview/kafka-experience-index)
-- Need tuning → [Optimization](/kafka-interview/kafka-optimization-index)
-- Need property details → [Configuration](/kafka-interview/kafka-configuration-index)
-- Interview tomorrow → [Cheat Sheet](/kafka-interview/kafka-cheat-sheet)
+**→ [Kafka hub](/kafka-interview)** · [Producer](/kafka-producer) · [Consumer](/kafka-consumer) · [Cluster](/kafka-cluster)

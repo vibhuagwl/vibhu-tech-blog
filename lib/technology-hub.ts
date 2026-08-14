@@ -58,7 +58,7 @@ export const KAFKA_HUB={
       id:'mastery',
       number:'00',
       title:'Interview Mastery',
-      blurb:'Producer · consumer · cluster · optimization · properties · monitoring · sizing.',
+      blurb:'Interview drills: monitoring, instance counts, syncing, partitions, spoken answers.',
       href:'/kafka-mastery',
       mode:'learn' as const,
     },

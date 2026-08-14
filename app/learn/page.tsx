@@ -16,7 +16,6 @@ export default function Learn(){
   const behavioralInterview=posts.filter((p)=>p.category==='Behavioral Interview');
   const leadership=posts.filter((p)=>p.category==='Leadership Principles');
   const complexity=posts.filter((p)=>p.category==='Complexity');
-  const kafkaInterview=posts.filter((p)=>p.category==='Kafka Interview');
   const redisInterview=posts.filter((p)=>p.category==='Redis Interview');
   const realtimeIssues=posts.filter((p)=>p.category==='Real-Time Issues');
   const performance=posts.filter((p)=>p.category==='Performance');
@@ -42,12 +41,7 @@ export default function Learn(){
           <Link href="/leadership-principles" className="btn-secondary">Leadership Principles</Link>
           <Link href="/complexity" className="btn-secondary">Complexity</Link>
           <Link href="/dsa" className="btn-secondary">DSA Islands & Window</Link>
-          <Link href="/kafka-interview" className="btn-secondary">Kafka Hub</Link>
-          <Link href="/kafka-producer" className="btn-secondary">Kafka Producer</Link>
-          <Link href="/kafka-consumer" className="btn-secondary">Kafka Consumer</Link>
-          <Link href="/kafka-cluster" className="btn-secondary">Kafka Cluster</Link>
-          <Link href="/kafka-mastery" className="btn-secondary">Kafka Mastery</Link>
-          <Link href="/kafka-internals" className="btn-secondary">Kafka Internals</Link>
+          <Link href="/kafka-interview" className="btn-secondary">Kafka</Link>
           <Link href="/hadron-dlq" className="btn-secondary">Hadron DLQ</Link>
           <Link href="/multi-tenant" className="btn-secondary">Multi-Tenant SaaS</Link>
           <Link href="/bloom-filter" className="btn-secondary">Bloom Filter</Link>
@@ -208,15 +202,22 @@ export default function Learn(){
         </section>
 
         <section>
-          <h2 className="text-2xl font-black">11 — Kafka (Knowledge · Experience · Interview)</h2>
+          <h2 className="text-2xl font-black">11 — Kafka</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
-            {kafkaInterview.map((p)=>(
-              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
-                <h3 className="mt-2 font-bold">{p.title}</h3>
-                <p className="mt-2 text-sm text-slate-500">{p.description}</p>
-              </Link>
-            ))}
+            <Link href="/kafka-interview" className="card p-5">
+              <div className="text-xs font-bold text-slate-600">Staff</div>
+              <h3 className="mt-2 font-bold">Kafka interview hub</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                One home for producer, consumer, cluster, mastery drills, properties, optimization, code, and internals.
+              </p>
+            </Link>
+            <Link href="/hadron-dlq" className="card p-5">
+              <div className="text-xs font-bold text-slate-600">Staff</div>
+              <h3 className="mt-2 font-bold">Hadron CashLines DLQ</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                Neptune → retry → DLQ → replay with ordering and idempotency.
+              </p>
+            </Link>
           </div>
         </section>
 

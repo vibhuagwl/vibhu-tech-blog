@@ -1,83 +1,13 @@
 ---
 slug: kafka-experience-rebalance
-title: "Kafka Consumer Rebalance Incident — Production Walkthrough"
-description: "Production rebalance storm walkthrough: session timeouts, stop-the-world processing pauses, root cause, fix, and interview narrative."
+title: "Rebalance Experience (moved)"
+description: "Rebalance depth lives on the Consumer board."
 category: "Kafka Interview"
-difficulty: Principal
-tags: [Kafka, Experience, Rebalance, Consumer, Production Incident]
-readingTime: 10 min
+difficulty: Senior
+tags: [Kafka]
+readingTime: 1 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-## Incident
-
-A Kafka consumer group entered a rebalance loop during a deploy + traffic peak.
-
-## Business impact
-
-- Throughput collapsed during each rebalance
-- Lag spiked in waves
-- On-call saw “flapping” membership
-
-## Symptoms
-
-- Frequent `REBALANCE` logs
-- Consumers repeatedly join/leave
-- Processing pauses aligned with rebalances
-- Session timeout warnings
-
-## Investigation
-
-```text
-Deploy overlap?
-  → yes, rolling restart widened membership churn
-
-Heartbeat / session settings?
-  → session.timeout.ms tight relative to GC pauses
-
-Processing blocking the poll thread?
-  → yes, heavy work on the listener thread
-
-max.poll.interval.ms?
-  → occasionally exceeded on large batches
-```
-
-## Root cause
-
-Stop-the-world processing on the consumer poll thread plus rolling deploys caused heartbeats/poll deadlines to be missed, which triggered repeated rebalances.
-
-## Decision
-
-Prefer stabilizing membership and poll loop before changing cluster topology.
-
-## Implementation
-
-- Move heavy work off the poll thread / bound processing time
-- Tune poll interval and batch size together
-- Stagger deploys; avoid simultaneous consumer restarts
-- Add rebalance rate metric to the pager path
-
-## Validation
-
-- Rebalance rate dropped to near-zero outside deploys
-- Lag recovered smoothly after each rolling update
-
-## Result
-
-Deploy-time lag blips remained small and self-healed.
-
-## Prevention
-
-- Treat rebalances as first-class reliability events
-- Never block the poll loop on slow I/O
-- Practice rolling restart drills in staging
-
-## Interview version
-
-> “Rebalances looked like a Kafka outage but were membership instability: blocking work on the poll thread missed poll/heartbeat deadlines during deploys. We bounded processing, tuned poll settings together, staggered restarts, and monitored rebalance rate so lag spikes stopped compounding.”
-
-## Related
-
-- [Consumer optimization](/kafka-interview/kafka-optimization-consumer)
-- [Lag incident](/kafka-interview/kafka-experience-consumer-lag)
-- [Experience map](/kafka-interview/kafka-experience-index)
+**→ [Kafka Consumer board](/kafka-consumer)**

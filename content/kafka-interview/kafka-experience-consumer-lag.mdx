@@ -1,102 +1,13 @@
 ---
 slug: kafka-experience-consumer-lag
-title: "Kafka Consumer Lag Incident — Production Walkthrough"
-description: "Staff/Principal production story: payment consumer lag spike, investigation path, root cause, fix, validation, prevention, and interview-ready narrative."
+title: "Consumer Lag Experience (moved)"
+description: "Lag diagnosis lives on the Consumer board and mastery monitoring drill."
 category: "Kafka Interview"
-difficulty: Principal
-tags: [Kafka, Experience, Consumer Lag, Production Incident, Payments]
-readingTime: 12 min
+difficulty: Senior
+tags: [Kafka]
+readingTime: 1 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-## Incident
-
-Payment event consumers fell behind during a traffic spike after a partner bank API slowed from ~80ms to ~1.5s p95.
-
-## Business impact
-
-- Settlement delayed
-- Ops dashboards showed growing “pending postings”
-- Customer balances lagged for some products
-
-## Symptoms
-
-- Consumer group lag climbing continuously
-- Pod CPU moderate, not saturated
-- Kafka broker metrics healthy
-- Downstream HTTP client latency and timeout rate elevated
-- Occasional rebalances when poll loop exceeded max poll interval
-
-## Investigation
-
-We checked in this order:
-
-```text
-1. Lag by partition
-2. Processing time per record
-3. Downstream dependency latency
-4. max.poll.records / max.poll.interval.ms
-5. Partition count vs consumer count
-6. Rebalance rate
-7. Error / retry rate
-8. Broker ISR / disk (ruled out quickly)
-```
-
-Kafka was not “slow.” The **consumer processing path** was slow.
-
-## Root cause
-
-Each poll fetched a large batch. Each record synchronously called a slow bank API.
-
-```text
-Poll 500 records
-  → each waits ~1.5s on bank API
-  → poll loop exceeds max.poll.interval.ms
-  → rebalance
-  → more lag
-```
-
-## Decision
-
-Options considered:
-
-1. Blindly add consumers — rejected (partition-limited; did not fix per-record blocking)
-2. Increase partitions immediately — deferred (needs careful keying/order review)
-3. Bound poll size + isolate slow dependency + async/bulkhead — chosen
-4. Drop work — rejected (payments)
-
-## Implementation
-
-- Reduced `max.poll.records` to keep poll cycles short
-- Added bulkhead/timeouts/circuit breaker around bank API
-- Added lag and processing-time SLOs with alerts
-- Planned partition increase as a separate change with ownership of key design
-
-## Validation
-
-- Lag stopped climbing within the canary consumer group
-- Rebalance rate returned to baseline
-- p95 end-to-end posting latency recovered
-- No increase in duplicate postings (idempotency keys held)
-
-## Result
-
-Recovered posting freshness without a risky emergency partition rewrite.
-
-## Prevention
-
-- Treat slow dependencies as first-class consumer risk
-- Alert on lag **and** processing time, not lag alone
-- Load-test consumers with dependency latency injection
-- Document poll/interval relationship in runbooks
-
-## Interview version
-
-> “We saw rising payment consumer lag while brokers looked healthy. Investigation showed downstream bank API latency elongated each poll cycle until we hit max.poll.interval and rebalanced. We reduced max.poll.records, bulkheaded the dependency, and restored lag control, then planned partition scaling separately because consumer count alone cannot exceed partition parallelism.”
-
-## Related
-
-- [Troubleshooting lag playbook](/kafka-interview/kafka-troubleshooting-consumer-lag)
-- [max.poll.records](/kafka-interview/kafka-config-max-poll-records)
-- [Consumer optimization](/kafka-interview/kafka-optimization-consumer)
-- [Experience map](/kafka-interview/kafka-experience-index)
+**→ [Kafka Consumer board](/kafka-consumer)** · [Mastery monitoring](/kafka-mastery#monitoring)

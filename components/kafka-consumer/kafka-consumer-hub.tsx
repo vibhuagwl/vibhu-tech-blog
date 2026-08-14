@@ -683,10 +683,14 @@ Never commit-before-process`}
               {' · '}
               <span className="font-semibold text-slate-800 dark:text-slate-200">Consumer</span>
               {' · '}
-              <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Mastery / cluster track
+              <Link href="/kafka-cluster" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Cluster board
               </Link>
-              . Next curriculum glue: one end-to-end Kafka master board connecting Producer → Broker/KRaft → Consumer.
+              {' · '}
+              <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Interview mastery drills
+              </Link>
+              .
             </p>
           </Section>
         </div>

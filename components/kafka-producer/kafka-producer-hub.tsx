@@ -925,8 +925,8 @@ txn only if multi-partition atomic needed`}
             </div>
             <p className="mt-6 text-sm leading-7 text-slate-500">
               Next:{' '}
-              <Link href="/kafka-mastery#consumer" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Consumer (mastery)
+              <Link href="/kafka-consumer" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Consumer board
               </Link>
               {' · '}
               <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">

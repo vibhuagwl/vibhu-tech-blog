@@ -1,82 +1,13 @@
 ---
 slug: kafka-knowledge-what-is-kafka
-title: "What is Kafka? Why Kafka Exists"
-description: "Story-first introduction: the production problem Kafka solves, how the log model helps, and when Kafka is the wrong tool."
+title: "What is Kafka (moved)"
+description: "Intro moved into the Kafka hub / boards."
 category: "Kafka Interview"
-difficulty: Intermediate
-tags: [Kafka, Knowledge, Architecture, Fundamentals, Story]
-readingTime: 6 min
+difficulty: Senior
+tags: [Kafka]
+readingTime: 1 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-## The problem
-
-Services need to exchange events:
-
-- orders created
-- payments authorized
-- inventory reserved
-
-Point-to-point HTTP chains become fragile:
-
-- one slow service stalls others
-- retries create duplicates
-- no durable replay
-- fan-out means N integrations
-
-## Why Kafka exists
-
-Kafka is a **durable, distributed commit log** for event streams.
-
-Producers append. Consumers read at their own pace. Multiple consumer groups can independently process the same topic.
-
-```text
-Produce once
-  → durable log
-  → many independent consumers
-  → replay when needed
-```
-
-## How it works (short)
-
-```text
-Topic
-  └── Partitions (ordered logs)
-        └── Replicas (fault tolerance)
-```
-
-Producers write to partition leaders. Consumers in a group share partitions for parallel processing.
-
-## Real-world example
-
-A checkout service publishes `OrderPlaced`.
-
-Inventory, fraud, analytics, and email each run as **separate consumer groups**. One failing email worker does not block inventory.
-
-## Production consideration
-
-Kafka shines when you need:
-
-- durability and replay
-- fan-out
-- decoupled produce/consume rates
-
-It is weaker when you need:
-
-- request/response RPC semantics
-- ad-hoc queries (use a database)
-- tiny volumes where a queue is enough
-
-## Common mistake
-
-Calling every async hop “event-driven” and putting Kafka in the middle without ownership of schemas, lag SLOs, and failure policies.
-
-## Interview answer (30s)
-
-> Kafka is a distributed event log. It exists to durable-buffer and fan-out streams so producers and consumers scale independently, with replay when processing fails.
-
-## Key takeaways
-
-- Log ≠ queue (multiple groups, replay)
-- Partitions = parallelism + ordering scope
-- Next: [Consumer groups](/kafka-interview/kafka-knowledge-consumer-groups) · [Knowledge map](/kafka-interview/kafka-knowledge-index)
+**→ [Kafka hub](/kafka-interview)** · [Producer](/kafka-producer) · [Cluster](/kafka-cluster)
