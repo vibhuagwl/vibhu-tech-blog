@@ -48,6 +48,12 @@ const banks=[
     blurb:'Interview curriculum: producer, consumer, cluster, optimization, properties, monitoring, sizing.',
   },
   {
+    href:'/kafka-producer',
+    label:'Kafka Producer Board',
+    level:'Staff',
+    blurb:'Complete producer: send() lifecycle, accumulator, acks, idempotence, PID/seq, transactions, Spring, failure matrix.',
+  },
+  {
     href:'/kafka-cluster',
     label:'Kafka Cluster & Broker',
     level:'Staff',

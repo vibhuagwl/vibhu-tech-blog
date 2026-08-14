@@ -8,7 +8,7 @@ export default function KafkaInterviewLayout({children}:{children:React.ReactNod
       config={{
         eyebrow:'Kafka Tab',
         title:'Kafka',
-        description:'Mastery · Cluster board · Producer · Consumer · Monitoring',
+        description:'Mastery · Producer · Cluster boards · Consumer · Monitoring',
         browseLabel:'Browse Kafka pages',
         filterPlaceholder:'Filter…',
         basePath:'/kafka-interview',
