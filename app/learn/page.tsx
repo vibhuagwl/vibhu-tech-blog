@@ -48,6 +48,7 @@ export default function Learn(){
           <Link href="/rate-limiter" className="btn-secondary">Rate Limiter</Link>
           <Link href="/redis-interview" className="btn-secondary">Redis Interview</Link>
           <Link href="/design-patterns" className="btn-secondary">Design Patterns</Link>
+          <Link href="/microservices-patterns" className="btn-secondary">Microservices Patterns</Link>
           <Link href="/java-compiler" className="btn-secondary">Java Compiler</Link>
           <Link href="/realtime-issues" className="btn-secondary">Real-Time Issues</Link>
           <Link href="/performance" className="btn-secondary">Performance</Link>

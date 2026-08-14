@@ -30,6 +30,12 @@ const banks=[
     blurb:'One hub for all 23 GoF patterns: source repo, revision cards, memory formula, poster, and mock interview.',
   },
   {
+    href:'/microservices-patterns',
+    label:'Microservices Patterns',
+    level:'Staff',
+    blurb:'154 implementation cards: saga, outbox, resilience, Kafka, caching, GoF, EIP — 500 interview prompts.',
+  },
+  {
     href:'/spring-security',
     label:'Spring Security',
     level:'Staff',
