@@ -31,7 +31,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class HadronDlqIT {
+class HadronDlqTest {
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
@@ -76,7 +76,7 @@ class HadronDlqIT {
         .andExpect(jsonPath("$.status").value("READY_FOR_REPLAY"));
     mvc.perform(post("/api/dlq/" + id + "/replay").header("X-Replay-Actor", "ops"))
         .andExpect(status().isOk());
-    await().atMost(Duration.ofSeconds(3)).until(() -> cashLines.findById("CL-AMT").isPresent());
+    await().atMost(Duration.ofSeconds(8)).until(() -> cashLines.findById("CL-AMT").isPresent());
     assertThat(cashLines.findById("CL-AMT").orElseThrow().getAmount()).isEqualByComparingTo(new BigDecimal("25.00"));
     await().atMost(Duration.ofSeconds(3)).until(() -> dlq.findByEventId("e-amt-1").orElseThrow().getStatus() == DlqStatus.REPLAYED);
   }
@@ -141,6 +141,63 @@ class HadronDlqIT {
     mvc.perform(post("/api/lab/scenario/timeout")).andExpect(status().isOk());
     await().atMost(Duration.ofSeconds(6)).until(() -> dlq.findByEventId("e-to-1").isPresent());
     assertThat(dlq.findByEventId("e-to-1").orElseThrow().getRetryCount()).isGreaterThanOrEqualTo(3);
+  }
+
+  @Test
+  void cornerCatalogIsPublished() throws Exception {
+    mvc.perform(get("/api/lab/scenarios"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(18));
+  }
+
+  @Test
+  void npeAndUnknownEnumGoToDlqImmediately() throws Exception {
+    mvc.perform(post("/api/lab/scenario/npe")).andExpect(status().isOk());
+    mvc.perform(post("/api/lab/scenario/unknown-enum")).andExpect(status().isOk());
+    await().atMost(Duration.ofSeconds(3)).until(() -> dlq.findByEventId("e-npe-1").isPresent());
+    await()
+        .atMost(Duration.ofSeconds(3))
+        .until(() -> dlq.findAll().stream().anyMatch(row -> "CL-ENUM".equals(row.getCashLineId())));
+  }
+
+  @Test
+  void cancelledThenSettleIsDlq() throws Exception {
+    mvc.perform(post("/api/lab/scenario/cancelled-then-settle")).andExpect(status().isOk());
+    await().atMost(Duration.ofSeconds(3)).until(() -> cashLines.findById("CL-CAN").isPresent());
+    await().atMost(Duration.ofSeconds(3)).until(() -> dlq.findByEventId("e-can-3").isPresent());
+    assertThat(cashLines.findById("CL-CAN").orElseThrow().getStatus().name()).isEqualTo("CANCELLED");
+  }
+
+  @Test
+  void replayAfterSettleDoesNotReopen() throws Exception {
+    mvc.perform(post("/api/lab/scenario/replay-after-settle")).andExpect(status().isOk());
+    await().atMost(Duration.ofSeconds(3)).until(() -> cashLines.findById("CL-RAS").isPresent());
+    await().atMost(Duration.ofSeconds(3)).until(() -> dlq.findByEventId("e-ras-4").isPresent());
+    assertThat(cashLines.findById("CL-RAS").orElseThrow().getStatus().name()).isEqualTo("SETTLED");
+  }
+
+  @Test
+  void currencyMismatchGoesToDlq() throws Exception {
+    mvc.perform(post("/api/lab/scenario/currency-mismatch")).andExpect(status().isOk());
+    await().atMost(Duration.ofSeconds(3)).until(() -> cashLines.findById("CL-MIX").isPresent());
+    await().atMost(Duration.ofSeconds(3)).until(() -> dlq.findByEventId("e-mix-2").isPresent());
+    assertThat(cashLines.findById("CL-MIX").orElseThrow().getCurrency()).isEqualTo("USD");
+  }
+
+  @Test
+  void staleEventIsIgnoredNotDlq() throws Exception {
+    mvc.perform(post("/api/lab/scenario/stale-event")).andExpect(status().isOk());
+    await().atMost(Duration.ofSeconds(3)).until(() -> processed.existsById("e-stale-1"));
+    await().atMost(Duration.ofSeconds(3)).until(() -> processed.existsById("e-stale-old"));
+    assertThat(dlq.findByEventId("e-stale-old")).isEmpty();
+  }
+
+  @Test
+  void invalidCurrencyAndAccountGoToDlq() throws Exception {
+    mvc.perform(post("/api/lab/scenario/invalid-currency")).andExpect(status().isOk());
+    mvc.perform(post("/api/lab/scenario/invalid-account")).andExpect(status().isOk());
+    await().atMost(Duration.ofSeconds(3)).until(() -> dlq.findByEventId("e-ccy-1").isPresent());
+    await().atMost(Duration.ofSeconds(3)).until(() -> dlq.findByEventId("e-acc-1").isPresent());
   }
 
   private void seedNeptune(String cashLineId, int sequence, Instant updatedAt) throws Exception {

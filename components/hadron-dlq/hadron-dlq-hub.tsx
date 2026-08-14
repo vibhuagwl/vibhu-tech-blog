@@ -12,18 +12,19 @@ import {
   CLOSING,
   COST_MODEL,
   DECISION_MATRIX,
-  FAILURE_CASES,
   FIVE_MIN,
   MEMORY_SENTENCE,
   SIXTY_SEC,
   TWO_MINUTE_STORY,
 } from '@/lib/hadron-dlq/comparison';
 import {PRODUCTION_MISTAKES} from '@/lib/hadron-dlq/mistakes';
+import {DLQ_CORNER_CASES} from '@/lib/hadron-dlq/corner-cases';
 import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
 import SequenceWalkthrough, {LabCallMap} from './sequence-walkthrough';
 import StickyToc from './sticky-toc';
 import TopicPanel from './topic-panel';
+import CornerCaseCatalog from './corner-case-catalog';
 
 function Section({
   id,
@@ -179,11 +180,25 @@ export default function HadronDlqHub({
             <MiniTable headers={['Situation', 'Retry', 'DLQ', 'Why']} rows={DECISION_MATRIX} />
           </Section>
 
-          <Section id="failures" title="24. Financial corner cases">
+          <Section
+            id="failures"
+            title="24. Dead-letter corner cases"
+            lead={`Every Kafka/Hadron failure needs a decision: retry, DLQ now, DLQ after cap, park later events, ignore as duplicate/stale, or conflict on replay. ${DLQ_CORNER_CASES.length} cases below — filter by family or classifier decision. Expand a card for detection, recovery, lab curl, and the interview trap.`}
+          >
             <MiniTable
-              headers={['Problem', 'Detection', 'Action', 'Retry?', 'DLQ?', 'Idempotency?', 'Ordering', 'Recovery']}
-              rows={FAILURE_CASES}
+              headers={['Case', 'Decision', 'Retry', 'DLQ', 'Ordering', 'Lab']}
+              rows={DLQ_CORNER_CASES.map((c) => [
+                c.title,
+                c.classify,
+                c.classify === 'RETRY' || c.classify === 'DLQ_AFTER_CAP' ? 'Yes/capped' : c.classify === 'PARK' ? 'Park' : 'No',
+                c.classify === 'DLQ_NOW' || c.classify === 'DLQ_AFTER_CAP' ? 'Yes' : c.classify === 'PARK' ? 'Maybe prior' : 'No',
+                c.holdCashLine ? 'Hold CashLine' : '—',
+                c.lab ? 'lab' : '—',
+              ])}
             />
+            <div className="mt-8">
+              <CornerCaseCatalog />
+            </div>
           </Section>
 
           <Section id="cost" title="Cost of unbounded retry">
@@ -247,7 +262,16 @@ curl -sS -X POST http://127.0.0.1:8095/api/dlq/1/correct \\
   -H 'Content-Type: application/json' -H 'X-Replay-Actor: ops' \\
   -d '{"eventId":"e-amt-1","cashLineId":"CL-AMT","eventType":"CASHLINE_CREATED","sequenceNumber":1,"version":1,"participantId":"P-NEPTUNE","accountId":"ACC-1001","currency":"USD","amount":25,"transactionType":"DRAWDOWN"}'
 curl -sS -X POST http://127.0.0.1:8095/api/dlq/1/replay -H 'X-Replay-Actor: ops'
-curl -sS http://127.0.0.1:8095/api/cashlines/CL-AMT`}
+curl -sS http://127.0.0.1:8095/api/cashlines/CL-AMT
+
+# Corner cases (full catalog: GET /api/lab/scenarios)
+curl -sS http://127.0.0.1:8095/api/lab/scenarios
+curl -sS -X POST http://127.0.0.1:8095/api/lab/scenario/npe
+curl -sS -X POST http://127.0.0.1:8095/api/lab/scenario/cancelled-then-settle
+curl -sS -X POST http://127.0.0.1:8095/api/lab/scenario/replay-after-settle
+curl -sS -X POST http://127.0.0.1:8095/api/lab/scenario/stale-event
+curl -sS -X POST http://127.0.0.1:8095/api/lab/scenario/currency-mismatch
+curl -sS http://127.0.0.1:8095/api/dlq`}
             />
             {files.length > 0 && (
               <div className="mt-6">

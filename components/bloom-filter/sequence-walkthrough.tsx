@@ -2,7 +2,7 @@
 
 import {useState} from 'react';
 import Mermaid from '@/components/mermaid';
-import {CODE_SEQUENCES} from '@/lib/hadron-dlq/sequences';
+import {CODE_SEQUENCES} from '@/lib/bloom-filter/sequences';
 import CodePanel from './code-panel';
 
 export default function SequenceWalkthrough() {
@@ -52,42 +52,15 @@ export default function SequenceWalkthrough() {
 export function LabCallMap() {
   return (
     <CodePanel
-      title="HTTP map (Spring app :8095)"
+      title="HTTP map (Spring app :8097)"
       tone="ok"
-      code={`POST /api/cashlines/events          CashLineProducer → cashline-events
-GET  /api/cashlines/{id}            CashLine table
-
-GET  /api/lab/scenarios               catalog of corner cases
-POST /api/lab/scenario/success
-POST /api/lab/scenario/poison
-POST /api/lab/scenario/unknown-enum
-POST /api/lab/scenario/npe
-POST /api/lab/scenario/invalid-amount
-POST /api/lab/scenario/invalid-business
-POST /api/lab/scenario/unknown-participant
-POST /api/lab/scenario/invalid-currency
-POST /api/lab/scenario/invalid-account
-POST /api/lab/scenario/transient-then-ok
-POST /api/lab/scenario/timeout
-POST /api/lab/scenario/deadlock
-POST /api/lab/scenario/duplicate
-POST /api/lab/scenario/out-of-order
-POST /api/lab/scenario/stale-event
-POST /api/lab/scenario/cancelled-then-settle
-POST /api/lab/scenario/replay-after-settle
-POST /api/lab/scenario/currency-mismatch
-
-GET  /api/dlq
-GET  /api/dlq/{id}
-POST /api/dlq/{id}/correct          fix payload → READY_FOR_REPLAY
-POST /api/dlq/{id}/replay           claim REPLAYING → Kafka
-POST /api/dlq/replay/{cashlineId}
-POST /api/dlq/replay/batch
-POST /api/dlq/{id}/resolve
-
-POST /api/neptune/seed
-POST /api/neptune/poll              cursor (updated_at, id)
-GET  /actuator/prometheus`}
+      code={`GET  /api/users/{id}              Bloom → cache → DB
+GET  /api/lab/users/{id}          bypass Bloom (penetration demo)
+POST /api/users                   create + bloom.add
+GET  /api/bloom/stats             m,k,FPP,lookups
+GET  /api/bloom/might-contain?id=
+POST /api/bloom/rebuild           reload ids from DB
+GET  /actuator/prometheus         bloom.* + user.* metrics`}
     />
   );
 }

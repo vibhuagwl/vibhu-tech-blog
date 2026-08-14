@@ -54,6 +54,12 @@ const banks=[
     blurb:'JWT tenant bind, shared schema + RLS, hybrid DBs, Redis/Kafka isolation, 40+ interview prompts.',
   },
   {
+    href:'/bloom-filter',
+    label:'Bloom Filter',
+    level:'Staff',
+    blurb:'Bit arrays, FPP math, Spring cache penetration, SSTables, Kafka hint+truth, 30 interview prompts.',
+  },
+  {
     href:'/redis-interview',
     label:'Redis Interview',
     level:'Staff',

@@ -55,6 +55,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/hadron-dlq',label:'Hadron CashLines DLQ',blurb:'Kafka · Retry · Ordering · Replay · Interview'},
       {href:'/redis-interview',label:'Redis',blurb:'Caching, HA, locks, Staff interview bank'},
       {href:'/distributed-caching',label:'Distributed Caching',blurb:'Spring · Redis · Caffeine · stampede · Architect'},
+      {href:'/bloom-filter',label:'Bloom Filter',blurb:'Bits · FPP · Spring · SSTable · Kafka · Architect'},
       {href:'/fintech',label:'FinTech',blurb:'Payments, idempotency, ledgers'},
     ],
   },
