@@ -38,7 +38,7 @@ const CURRICULUM=[
     blurb:'End-to-end: producer → broker → controller → cluster → consumer — bottlenecks, knobs, trade-offs.',
   },
   {
-    href:'/kafka-interview/kafka-properties',
+    href:'/kafka-properties',
     number:'05',
     title:'Properties',
     blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs — plus payment must-set GO/NO-GO.',

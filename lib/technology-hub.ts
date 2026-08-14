@@ -17,7 +17,6 @@ export type HubTopic={
 export const KAFKA_SIDEBAR_ORDER=[
   'kafka-realtime-case',
   'kafka-optimization-index',
-  'kafka-properties',
   'kafka-cheat-sheet',
 ];
 
@@ -107,7 +106,7 @@ export const KAFKA_HUB={
       number:'03',
       title:'Properties',
       blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs with GO/NO-GO.',
-      href:'/kafka-interview/kafka-properties',
+      href:'/kafka-properties',
       mode:'learn' as const,
     },
     {
