@@ -150,10 +150,6 @@ export default function KafkaMasteryHub() {
             Cluster
           </Link>
           {' · '}
-          <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Internals
-          </Link>
-          {' · '}
           <Link href="/spring-kafka-payments-demo" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Spring code
           </Link>
@@ -340,10 +336,6 @@ to “keep accepting writes”`}
               <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Cluster board → replication
               </Link>
-              {' · '}
-              <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Internals board
-              </Link>
             </p>
           </Section>
 
@@ -409,8 +401,8 @@ to “keep accepting writes”`}
                 Realtime case
               </Link>
               {' · '}
-              <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Internals
+              <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Cluster
               </Link>
               {' · '}
               <Link href="/hadron-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">

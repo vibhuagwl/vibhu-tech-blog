@@ -61,12 +61,6 @@ const CURRICULUM=[
     title:'Hadron CashLines DLQ',
     blurb:'Neptune → retry → DLQ → replay with ordering and idempotency.',
   },
-  {
-    href:'/kafka-internals',
-    number:'09',
-    title:'Internals Board',
-    blurb:'Partition writes, replication walkthrough, consumer crash replay.',
-  },
 ];
 
 export default function KafkaInterview(){
@@ -112,7 +106,7 @@ export default function KafkaInterview(){
           <li>Open <strong>§03 Cluster</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
           <li>Open <strong>§00 Mastery</strong> — monitoring, instance counts, syncing, partitions, spoken answers.</li>
           <li>Skim <strong>§05 Properties</strong> and <strong>§04 Optimization</strong> for must-set baselines.</li>
-          <li>Walk <strong>§07 Realtime Case</strong> once so you have a payment story.</li>
+          <li>Walk <strong>§06 Realtime Case</strong> once so you have a payment story.</li>
           <li>Practice the Mastery <strong>spoken-answer deck</strong> (Senior → Rapid).</li>
         </ol>
       </section>

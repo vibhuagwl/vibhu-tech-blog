@@ -137,8 +137,8 @@ export default function KafkaProducerHub() {
             Interview mastery
           </Link>
           {' · '}
-          <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Internals
+          <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Cluster
           </Link>
           {' · '}
           <Link href="/spring-kafka-payments-demo" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
@@ -929,8 +929,8 @@ txn only if multi-partition atomic needed`}
                 Consumer board
               </Link>
               {' · '}
-              <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Internals board
+              <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Cluster board
               </Link>
               {' · '}
               <Link href="/spring-kafka-payments-demo" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
