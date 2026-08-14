@@ -1,0 +1,55 @@
+import type {FailureRow} from './types';
+
+export const FAILURE_MATRIX: FailureRow[] = [
+  {failure: 'Leader crash after append, before ACK', ack: 'No', retry: 'Yes (metadata refresh)', dup: 'No if idempotent; yes if not', loss: 'No if ISR had it / acks=all; possible with acks=1', order: 'Preserved if idempotent', exception: 'Timeout / disconnect / NotLeader'},
+  {failure: 'ACK lost on network', ack: 'Client sees fail', retry: 'Yes', dup: 'No if idempotent', loss: 'No if broker committed', order: 'OK with idempotence', exception: 'TimeoutException'},
+  {failure: 'Follower crash (ISR still ≥ minISR)', ack: 'Yes', retry: 'No', dup: 'No', loss: 'No', order: 'None', exception: '—'},
+  {failure: 'ISR < min.insync.replicas + acks=all', ack: 'No', retry: 'Until delivery timeout', dup: 'No', loss: 'Produce fails (good)', order: 'N/A', exception: 'NotEnoughReplicas'},
+  {failure: 'Broker throttle / quota', ack: 'Delayed', retry: 'May', dup: 'No if idempotent', loss: 'No', order: 'Latency ↑', exception: 'ThrottleTime in response'},
+  {failure: 'Record too large', ack: 'No', retry: 'No', dup: 'No', loss: 'This record fails', order: 'N/A', exception: 'RecordTooLargeException'},
+  {failure: 'Serialization error', ack: 'No', retry: 'No', dup: 'No', loss: 'This record fails', order: 'N/A', exception: 'SerializationException'},
+  {failure: 'AuthN failure', ack: 'No', retry: 'No', dup: 'No', loss: 'Fails closed', order: 'N/A', exception: 'AuthenticationException'},
+  {failure: 'AuthZ / ACL deny', ack: 'No', retry: 'No', dup: 'No', loss: 'Fails closed', order: 'N/A', exception: 'AuthorizationException / TopicAuthorization'},
+  {failure: 'TLS handshake fail', ack: 'No', retry: 'Reconnect backoff', dup: 'No', loss: 'Until fixed', order: 'N/A', exception: 'SslAuthenticationException'},
+  {failure: 'Unknown topic / invalid metadata', ack: 'No', retry: 'Metadata refresh', dup: 'No', loss: 'Until topic exists', order: 'N/A', exception: 'UnknownTopicOrPartition / Timeout'},
+  {failure: 'BufferPool exhausted past max.block.ms', ack: 'No', retry: 'No (send fails)', dup: 'No', loss: 'App must backpressure', order: 'N/A', exception: 'TimeoutException'},
+  {failure: 'Producer fenced (txn)', ack: 'No', retry: 'No', dup: 'Prevented', loss: 'Zombie stopped', order: 'N/A', exception: 'ProducerFencedException'},
+  {failure: 'OutOfOrderSequenceException', ack: 'No', retry: 'Depends / fatal-ish', dup: 'Risk if mishandled', loss: 'Session may reset', order: 'Broken sequence', exception: 'OutOfOrderSequenceException'},
+  {failure: 'DuplicateSequence (broker)', ack: 'Success path', retry: 'N/A', dup: 'Suppressed', loss: 'No', order: 'OK', exception: 'Handled internally'},
+  {failure: 'Transaction timeout', ack: 'Abort path', retry: 'App must abort/retry txn', dup: 'Aborted invisible if read_committed', loss: 'Uncommitted work dropped', order: 'N/A', exception: 'Timeout / InvalidTxnState'},
+  {failure: 'Coordinator crash mid-txn', ack: 'Pending', retry: 'FindCoordinator + recover', dup: 'Controlled by markers', loss: 'Uncommitted aborted', order: 'N/A', exception: 'Timeout / disconnect'},
+  {failure: 'Stale metadata → wrong leader', ack: 'No', retry: 'Yes after refresh', dup: 'No if idempotent', loss: 'No', order: 'OK', exception: 'NotLeaderOrFollower'},
+  {failure: 'DNS / bootstrap all down', ack: 'No', retry: 'Until max.block / delivery', dup: 'No', loss: 'Cannot produce', order: 'N/A', exception: 'TimeoutException'},
+  {failure: 'unclean leader election (misconfig)', ack: 'Maybe', retry: '—', dup: 'Possible weirdness', loss: 'YES possible', order: 'Can lose offsets', exception: 'Silent durability bug'},
+];
+
+export const TROUBLESHOOT: {title: string; symptoms: string; causes: string; fix: string}[] = [
+  {title: 'Producer timeout', symptoms: 'TimeoutException, rising request-latency', causes: 'Broker slow, ISR thin, network, linger+load', fix: 'Check URP/minISR, disk, network; tune delivery/request timeouts intentionally'},
+  {title: 'Throughput cliff', symptoms: 'send-rate drop, buffer wait ↑', causes: 'Batch too small, compression CPU, broker throttle, GC', fix: 'Metrics: queue-time, throttle-time, GC; raise linger carefully'},
+  {title: 'Latency 10ms → 500ms', symptoms: 'p99 spike', causes: 'linger, ISR, slow disk, retry storms, DNS', fix: 'Break down queue-time vs request-latency; fix broker first'},
+  {title: 'Duplicates seen downstream', symptoms: 'Same event twice', causes: 'Non-idempotent retries OR two app sends OR consumer replay', fix: 'Idempotent producer + business idempotency key'},
+  {title: 'Out-of-order per key', symptoms: 'Offsets reorder for key', causes: 'max.in.flight>1 without idempotence; multi writers', fix: 'Idempotence; single writer per key; in-flight≤5'},
+  {title: 'Hot partition', symptoms: 'One partition bytes ≫ others', causes: 'Skewed key / low cardinality', fix: 'Re-key, salt carefully, isolate whales'},
+  {title: 'Buffer exhaustion', symptoms: 'max.block.ms timeouts', causes: 'Produce > broker accept; buffer.memory small', fix: 'Backpressure app; scale brokers; tune memory'},
+  {title: 'Record too large', symptoms: 'RecordTooLargeException', causes: 'Payload > max.request.size / broker max', fix: 'Shrink payload; object-store pattern; align limits'},
+  {title: 'Not enough replicas', symptoms: 'NotEnoughReplicasException', causes: 'ISR < minISR', fix: 'Restore brokers; do not lower minISR casually'},
+  {title: 'Producer fencing', symptoms: 'ProducerFencedException', causes: 'Another instance same transactional.id', fix: 'Unique txn id per live instance; stop zombies'},
+  {title: 'Retry storm', symptoms: 'retry-rate ↑, broker load ↑', causes: 'Persistent error treated retriable', fix: 'Classify fatal vs retriable; circuit break'},
+  {title: 'Auth / TLS failures', symptoms: 'Auth exceptions at start', causes: 'ACL, cert expiry, wrong truststore', fix: 'Rotate certs; grant WRITE+IDEMPOTENT_WRITE'},
+  {title: 'Metadata flapping', symptoms: 'NotLeader loops', causes: 'Controller / rapid leadership changes', fix: 'Stabilize cluster; check controller metrics'},
+  {title: 'Compression CPU spike', symptoms: 'High CPU, low send-rate', causes: 'gzip on huge batches', fix: 'lz4/zstd; right-size batches'},
+  {title: 'Connection churn', symptoms: 'creation-rate ↑', causes: 'Idle timeouts, LB resets, DNS', fix: 'Fix network path; connections.max.idle'},
+];
+
+export const CHAOS: string[][] = [
+  ['Kill partition leader', 'Clients refresh metadata; idempotent retries safe'],
+  ['Kill follower', 'ISR shrinks; acks=all may fail if < minISR'],
+  ['Inject 500ms RTT', 'Latency ↑; batches may grow; watch delivery timeout'],
+  ['Drop Produce responses', 'Timeout → retry; dup suppressed if idempotent'],
+  ['Restart txn coordinator', 'In-flight txns recover or abort; clients FindCoordinator'],
+  ['Expire TLS cert', 'New connections fail; rolling outage'],
+  ['Fill buffer.memory', 'send blocks → TimeoutException after max.block.ms'],
+  ['Throttle producer quota', 'ThrottleTime; throughput falls; latency rises'],
+  ['Block DNS briefly', 'Bootstrap/reconnect delays'],
+  ['Fence via second txn.id user', 'Original producer hits ProducerFencedException'],
+];

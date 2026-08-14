@@ -209,6 +209,13 @@ key = accountId:paymentId`}
               Kafka does not cap producers at partition count. Each pod creates its own producer client. Scale on
               RPS/CPU; keep batching so you do not open one network request per HTTP call.
             </p>
+            <p className="mt-3 text-sm leading-7 text-slate-500">
+              Full producer deep board:{' '}
+              <Link href="/kafka-producer" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Kafka Producer Complete
+              </Link>
+              {' '}— send() internals, PID/epoch/seq, transactions, config profiles, failure matrix, Spring.
+            </p>
           </Section>
 
           <Section

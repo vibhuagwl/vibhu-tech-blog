@@ -63,6 +63,14 @@ export const KAFKA_HUB={
       mode:'learn' as const,
     },
     {
+      id:'producer',
+      number:'P1',
+      title:'Producer Board',
+      blurb:'Complete producer: send() internals, idempotence, transactions, configs, failures, Spring.',
+      href:'/kafka-producer',
+      mode:'learn' as const,
+    },
+    {
       id:'code',
       number:'01',
       title:'Kafka Code',
