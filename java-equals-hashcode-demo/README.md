@@ -1,17 +1,18 @@
-# Java equals() & hashCode() map lab
+# Java custom objects as Map keys — lab
 
-Runnable companion for `/java-equals-hashcode`.
+Companion for `/java-equals-hashcode`.
 
 ```bash
-javac -d out src/EqHashMapLab.java
+javac -d out src/*.java
 java -cp out EqHashMapLab
+java -cp out CornerCasesLab
 ```
 
-Covers seven equals/hashCode modes on:
+## Labs
 
-- `HashMap`
-- `LinkedHashMap`
-- `ConcurrentHashMap`
-- `TreeMap` (Comparator by name)
+| Class | Covers |
+|---|---|
+| `EqHashMapLab` | Seven equals×hashCode modes × HashMap / LinkedHashMap / ConcurrentHashMap / TreeMap |
+| `CornerCasesLab` | Mutable key, equals vs compareTo, IdentityHashMap, LRU, CHM putIfAbsent, Integer.compare |
 
-Experiment: `put(a)`, `put(b)`, `put(a)`, `get(new a)`.
+Java 21+.

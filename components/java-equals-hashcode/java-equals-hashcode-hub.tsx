@@ -2,6 +2,25 @@
 
 import Link from 'next/link';
 import Mermaid from '@/components/mermaid';
+import {
+  CHM_ATOMICS,
+  CHEAT_SHEET,
+  COMPARATOR_CORNERS,
+  CORE_ROWS,
+  ENUM_CODE,
+  EQ_VS_CMP,
+  EXERCISES,
+  FAILURES,
+  HASHMAP_LOOKUP,
+  HASHTABLE_NOTE,
+  IDENTITY_CODE,
+  LRU_CODE,
+  PERF_ROWS,
+  RECORD_CODE,
+  SKIPLIST_NOTE,
+  TREEMAP_CODE,
+  USE_CASES,
+} from '@/lib/java-equals-hashcode/advanced';
 import {COMBOS, CONTRACT_RULES, MAP_COMPARE, QUICK_FACTS} from '@/lib/java-equals-hashcode/combos';
 import {EQHC_TOC} from '@/lib/java-equals-hashcode/toc';
 import CodePanel from './code-panel';
@@ -65,31 +84,31 @@ export default function JavaEqualsHashcodeHub() {
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Java 21 · Interview · HashMap · LinkedHashMap · ConcurrentHashMap · TreeMap
+          Senior · Lead · Java 21 · Custom objects as Map keys
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          equals() &amp; hashCode() — Complete Map Lab
+          Custom Objects as Keys — Complete Collections Lab
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Every equals × hashCode combination interviewers use — verified on HashMap, LinkedHashMap,
-          ConcurrentHashMap, and TreeMap. Experiment: put(a), put(b), put(a), get(new a).
+          HashMap, ConcurrentHashMap, LinkedHashMap, TreeMap, Hashtable, ConcurrentSkipListMap — plus
+          IdentityHashMap, EnumMap, records, mutable-key failures, Comparators, exercises, and interview
+          drills. OpenJDK-verified combo matrix included.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
-          hashCode finds the bucket. equals finds the entry. TreeMap ignores hashCode and uses compareTo /
-          Comparator instead — that is why broken equals/hashCode still “works” on TreeMap if ordering is by name.
+          Hash maps: hashCode → bucket → equals. Sorted maps: compareTo/Comparator (hashCode unused for
+          placement). compare==0 must agree with equals — or TreeMap/SkipList silently drop keys.
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
-          Run the demo in{' '}
           <Link href="/java-compiler" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Java Compiler
           </Link>
           {' · '}
-          <Link href="/java-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Java Locking
-          </Link>
-          {' · '}
           <Link href="/complexity/hashmap-hashset-complexity" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             HashMap complexity
+          </Link>
+          {' · '}
+          <Link href="/java-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Java Locking
           </Link>
         </p>
       </header>
@@ -97,24 +116,16 @@ export default function JavaEqualsHashcodeHub() {
       <div className="mt-10 grid gap-10 xl:grid-cols-[280px_minmax(0,1fr)]">
         <StickyToc items={EQHC_TOC} />
         <div className="min-w-0 space-y-16">
-          <Section
-            id="overview"
-            title="00. Overview"
-            lead="Curriculum inspired by classic equals/hashCode interview drills — expanded to four Map implementations with OpenJDK 21 verified outputs."
-          >
+          <Section id="overview" title="00. Overview" lead="Interview-grade map of every structure that accepts a custom key.">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid
-                chart={`flowchart LR
-  put[put key] --> hc[hashCode]
-  hc --> bucket[bucket / bin]
-  bucket --> eq[equals walk]
-  eq -->|match| replace[replace value]
-  eq -->|no match| insert[new Entry]
-  get[get key] --> hc2[hashCode]
-  hc2 --> bucket2[bucket]
-  bucket2 --> eq2[equals]
-  eq2 -->|yes| value[return value]
-  eq2 -->|no| null[null]`}
+                chart={`flowchart TB
+  key[Custom key object] --> hm[HashMap / LHM / CHM / Hashtable]
+  key --> sorted[TreeMap / ConcurrentSkipListMap]
+  key --> special[IdentityHashMap / EnumMap]
+  hm --> he[hashCode + equals]
+  sorted --> cmp[compareTo / Comparator]
+  special --> id[== or ordinal]`}
               />
             </div>
             <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
@@ -124,25 +135,29 @@ export default function JavaEqualsHashcodeHub() {
             </ul>
           </Section>
 
-          <Section id="contract" title="01. equals / hashCode contract" lead="Break the contract and HashMap silently lies.">
+          <Section id="core" title="01. Core concepts" lead="How maps locate keys — hashing vs ordering.">
+            <MiniTable headers={['Concept', 'Role', 'Rule']} rows={CORE_ROWS} />
+            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Mutable keys: if a field used in hashCode/equals/compare changes after put, the entry can be
+              lost or the tree corrupted. Prefer final fields or records.
+            </p>
+          </Section>
+
+          <Section id="contract" title="02. equals / hashCode contract">
             <MiniTable headers={['Rule', 'Meaning']} rows={CONTRACT_RULES} />
             <div className="mt-4">
               <CodePanel
-                title="Canonical Employee key (Java 21)"
+                title="Canonical key"
                 tone="ok"
                 code={`public final class Employee {
   private final String name;
   public Employee(String name) { this.name = name; }
-
   @Override public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     return Objects.equals(name, ((Employee) o).name);
   }
-
-  @Override public int hashCode() {
-    return Objects.hashCode(name);
-  }
+  @Override public int hashCode() { return Objects.hashCode(name); }
 }
 // Prefer: public record Employee(String name) {}`}
               />
@@ -150,26 +165,9 @@ export default function JavaEqualsHashcodeHub() {
           </Section>
 
           <Section
-            id="buckets"
-            title="02. HashMap buckets & Entry"
-            lead="Bucket array → Entry chain (or tree). hashCode selects index; equals walks the chain."
-          >
-            <CodePanel
-              title="Mental model"
-              code={`bucket[] = array of bins
-bin = linked nodes (or tree when collisions grow)
-put: hash → index → walk equals → replace or append
-get: hash → index → walk equals → value or null
-
-If hashCodes differ for “equal” keys:
-  get never visits the bin where put stored the entry.`}
-            />
-          </Section>
-
-          <Section
             id="combos"
             title="03. All equals × hashCode combinations"
-            lead="Seven classic overrides. For each: HashMap / LinkedHashMap / ConcurrentHashMap / TreeMap results after put(a), put(b), put(a), get(new a)."
+            lead="Classic interview experiment: put(a), put(b), put(a), get(new a) — verified on four maps."
           >
             <div className="space-y-8">
               {COMBOS.map((c) => (
@@ -203,140 +201,148 @@ If hashCodes differ for “equal” keys:
             </div>
           </Section>
 
-          <Section
-            id="hashmap"
-            title="04. HashMap results"
-            lead="Baseline: hash-based map. Correct both → size 2 + successful get. Any missing half of the pair → size 3 + null get (except the pathological always-equal case)."
-          >
-            <MiniTable
-              headers={['Combo', 'size', 'get']}
-              rows={COMBOS.map((c) => {
-                const r = c.results.find((x) => x.map === 'HashMap')!;
-                return [c.title, String(r.size), r.get];
-              })}
-            />
-          </Section>
-
-          <Section
-            id="linked"
-            title="05. LinkedHashMap"
-            lead="Same equals/hashCode behavior as HashMap. Extra: insertion-order iteration (or access-order LRU mode)."
-          >
-            <CodePanel
-              title="Order difference (combo: neither overridden)"
-              code={`// HashMap iteration order: unspecified
-// LinkedHashMap after put(a), put(b), put(a2):
-//   Emp[a]=emp1, Emp[b]=emp2, Emp[a]=emp1 OVERRIDDEN
-// size still 3; get(new a) still null`}
-            />
-            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Do not confuse “ordered entries” with “logical key equality.” Order does not fix a broken contract.
-            </p>
-          </Section>
-
-          <Section
-            id="chm"
-            title="06. ConcurrentHashMap"
-            lead="Key equality rules match HashMap. Differences: no null keys/values; concurrent internals; not a drop-in for TreeMap."
-          >
-            <MiniTable
-              headers={['Combo', 'CHM size', 'CHM get', 'Matches HashMap?']}
-              rows={COMBOS.map((c) => {
-                const h = c.results.find((x) => x.map === 'HashMap')!;
-                const r = c.results.find((x) => x.map === 'ConcurrentHashMap')!;
-                return [c.title, String(r.size), r.get, h.size === r.size && h.get === r.get ? 'Yes' : 'Check'];
-              })}
-            />
+          <Section id="hashmap" title="04. HashMap deep dive" lead="hashCode → bucket → equals. Null key allowed (one). Not thread-safe.">
+            <CodePanel title="Lookup process" tone="ok" code={HASHMAP_LOOKUP} />
             <div className="mt-4">
-              <CodePanel
-                title="Null keys"
-                tone="danger"
-                code={`new ConcurrentHashMap<Employee,String>().put(null, "x"); // NPE
-// HashMap allows one null key — CHM does not.`}
+              <MiniTable
+                headers={['Combo', 'size', 'get']}
+                rows={COMBOS.map((c) => {
+                  const r = c.results.find((x) => x.map === 'HashMap')!;
+                  return [c.title, String(r.size), r.get];
+                })}
               />
             </div>
           </Section>
 
-          <Section
-            id="treemap"
-            title="07. TreeMap — compareTo owns equality"
-            lead="TreeMap does not use hashCode to place keys. With Comparable by name, broken equals/hashCode still yields size=2 and successful get."
-          >
-            <CodePanel
-              title="TreeMap key"
-              tone="ok"
-              code={`final class Employee implements Comparable<Employee> {
-  private final String name;
-  public Employee(String name) { this.name = name; }
-  @Override public int compareTo(Employee o) {
-    return name.compareTo(o.name); // defines TreeMap "sameness"
-  }
-  // equals/hashCode may be broken — TreeMap still replaces "a"
-}
-// Or: new TreeMap<>(Comparator.comparing(Employee::name))`}
-            />
-            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Staff rule: <code className="text-xs">compareTo == 0</code> should agree with{' '}
-              <code className="text-xs">equals</code>. If they disagree, SortedMap/SortedSet contracts break.
-              Without Comparable and without a Comparator, TreeMap throws ClassCastException.
+          <Section id="chm" title="05. ConcurrentHashMap" lead="Same key equality as HashMap; concurrent atomics; no nulls.">
+            <CodePanel title="Atomic ops" tone="ok" code={CHM_ATOMICS} />
+            <div className="mt-4">
+              <MiniTable
+                headers={['Combo', 'CHM size', 'CHM get']}
+                rows={COMBOS.map((c) => {
+                  const r = c.results.find((x) => x.map === 'ConcurrentHashMap')!;
+                  return [c.title, String(r.size), r.get];
+                })}
+              />
+            </div>
+          </Section>
+
+          <Section id="linked" title="06. LinkedHashMap + LRU" lead="Same equals/hashCode; preserves insertion or access order.">
+            <CodePanel title="LRU (access-order)" tone="ok" code={LRU_CODE} />
+            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+              Order does not fix a broken key contract — size/get failures match HashMap.
             </p>
           </Section>
 
-          <Section id="matrix" title="08. Cross-map matrix" lead="Pick the structure for the job — then still get equals/hashCode (or compareTo) right.">
-            <MiniTable headers={['Map', 'Lookup basis', 'Null key', 'Order', 'Concurrency']} rows={MAP_COMPARE} />
+          <Section id="treemap" title="07. TreeMap" lead="Completely different mechanism: ordering, not hashing.">
+            <CodePanel title="Comparable + Comparator" tone="ok" code={TREEMAP_CODE} />
           </Section>
 
-          <Section id="prefer" title="09. Preferred key types" lead="Prefer types that already implement the contract.">
-            <CodePanel
-              title="Good keys"
-              tone="ok"
-              code={`String, Integer, Long, UUID, enum, record Employee(String id)
-// Bad: mutable POJO, arrays (use Arrays.equals/hashCode carefully),
-//      identity-only keys when you need business equality`}
-            />
+          <Section id="skiplist" title="08. ConcurrentSkipListMap">
+            <CodePanel title="Notes" code={SKIPLIST_NOTE} />
           </Section>
 
-          <Section id="pitfalls" title="10. Pitfalls & anti-patterns">
-            <ul className="grid gap-2 md:grid-cols-2">
-              {[
-                'Override equals without hashCode (or vice versa)',
-                'Mutable fields in hashCode/equals after put',
-                'hashCode() { return 1; } in production',
-                'equals always true',
-                'Relying on TreeMap to “fix” HashMap mistakes',
-                'Using ConcurrentHashMap as a distributed cache',
-                'compareTo inconsistent with equals',
-                'instanceof equals with subclasses that add state',
-                'Using float/double keys without care',
-                'Assuming LinkedHashMap changes equality',
-              ].map((p) => (
-                <li
-                  key={p}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:text-slate-300"
-                >
-                  {p}
-                </li>
-              ))}
-            </ul>
+          <Section id="hashtable" title="09. Hashtable">
+            <CodePanel title="Legacy" code={HASHTABLE_NOTE} />
+          </Section>
+
+          <Section id="identity" title="10. IdentityHashMap" lead="Corner case: reference equality, not equals().">
+            <CodePanel title="== vs equals" tone="danger" code={IDENTITY_CODE} />
+          </Section>
+
+          <Section id="enummap" title="11. EnumMap">
+            <CodePanel title="Ordinal array map" tone="ok" code={ENUM_CODE} />
+          </Section>
+
+          <Section id="records" title="12. Records as keys" lead="Immutable + generated equals/hashCode — still need ordering for TreeMap.">
+            <CodePanel title="record EmployeeKey" tone="ok" code={RECORD_CODE} />
           </Section>
 
           <Section
-            id="demo"
-            title="11. Runnable demo"
-            lead="Source under java-equals-hashcode-demo/ — run all combos on all four maps."
+            id="eq-vs-cmp"
+            title="13. equals vs compareTo corner case"
+            lead="a.equals(b)==false but a.compareTo(b)==0 — HashMap keeps both; TreeMap collapses."
           >
+            <CodePanel title="Inconsistency demo" tone="danger" code={EQ_VS_CMP} />
+          </Section>
+
+          <Section id="comparators" title="14. Comparator corner cases">
+            <MiniTable headers={['Topic', 'Pattern', 'Risk / fix']} rows={COMPARATOR_CORNERS} />
+          </Section>
+
+          <Section id="failures" title="15. Failure scenarios" lead="Expect → actual → why → fix.">
+            <div className="space-y-4">
+              {FAILURES.map((f) => (
+                <div key={f.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{f.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                    <strong>Expect:</strong> {f.expect}
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    <strong>Actual:</strong> {f.actual}
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    <strong>Why:</strong> {f.why}
+                  </p>
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                    <strong>Fix:</strong> {f.fix}
+                  </p>
+                  <div className="mt-3">
+                    <CodePanel title="Code" code={f.code} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          <Section id="usecases" title="16. Real-world choices">
+            <MiniTable headers={['Map', 'Use when']} rows={USE_CASES} />
+          </Section>
+
+          <Section id="perf" title="17. Performance matrix" lead="Averages assume good hashes / balanced compares. Caveats matter in interviews.">
+            <MiniTable headers={['Map', 'Key mechanism', 'Ordering', 'Avg lookup', 'Thread-safe']} rows={PERF_ROWS} />
+            <div className="mt-4">
+              <MiniTable headers={['Map', 'Lookup basis', 'Null key', 'Order', 'Concurrency']} rows={MAP_COMPARE} />
+            </div>
+          </Section>
+
+          <Section id="exercises" title="18. Coding exercises" lead="Level 1 → 10 production design.">
+            <div className="space-y-4">
+              {EXERCISES.map((e) => (
+                <div key={e.level} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <h3 className="font-semibold text-slate-900 dark:text-white">
+                    Level {e.level}: {e.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{e.problem}</p>
+                  <p className="text-xs text-slate-500">
+                    Expected: {e.expected} · Constraints: {e.constraints} · Complexity: {e.complexity}
+                  </p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <CodePanel title="Starter" code={e.starter} />
+                    <CodePanel title="Solution" tone="ok" code={e.solution} />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">Edges: {e.edges}</p>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          <Section id="cheatsheet" title="19. Cheat sheet">
+            <CodePanel title="Final sheet" tone="ok" code={CHEAT_SHEET} />
+          </Section>
+
+          <Section id="demo" title="20. Runnable demo" lead="java-equals-hashcode-demo — expand with EqHashMapLab + corner cases.">
             <CodePanel
               title="Build & run"
               tone="ok"
               code={`cd java-equals-hashcode-demo
-javac -d out src/EqHashMapLab.java
+javac -d out src/*.java
 java -cp out EqHashMapLab
-
-# Or paste Employee snippets into /java-compiler`}
+java -cp out CornerCasesLab`}
             />
           </Section>
 
-          <Section id="interview" title="12. Interview drills">
+          <Section id="interview" title="21. Interview bank" lead="30+ Senior / Architect / Rapid prompts.">
             <InterviewMode />
           </Section>
         </div>
