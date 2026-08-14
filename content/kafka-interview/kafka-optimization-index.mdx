@@ -1,65 +1,91 @@
 ---
 slug: kafka-optimization-index
-title: "Kafka Optimization"
-description: "One payment story for producer, consumer, and broker tuning — with diagrams and real Spring Kafka settings, not theory."
+title: "Kafka Optimization — End-to-End"
+description: "Producer → Broker → Controller → Cluster → Consumer optimization for production and interviews — bottlenecks, knobs, trade-offs, and a Staff+ checklist."
 category: "Kafka Interview"
-difficulty: Senior
-tags: [Kafka, Optimization, Producer, Consumer, Performance, Spring Kafka]
-readingTime: 12 min
+difficulty: Principal
+tags: [Kafka, Optimization, Producer, Consumer, Broker, Controller, Cluster, Performance, Spring Kafka]
+readingTime: 25 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-**Story:** checkout floods `payment-api`. Settlement lags. You tune **one layer at a time** using the same Spring demo.
-
-**Code:** [Browse spring-kafka-payments-demo →](/spring-kafka-payments-demo) · **Realtime case:** [payment → DLQ →](/kafka-interview/kafka-realtime-case)
-
----
-
-## Box — remember this first
+Look at Kafka performance **end-to-end**, not just producer/consumer knobs:
 
 ```text
-Producer:  BATCH → COMPRESS → SEND → RETRY
-Consumer:  POLL → PROCESS → COMMIT
-Broker:    DISK · NET · PAGE CACHE · PARTITIONS
-Rule:      find the bottleneck → change one layer → measure
+Producer → Broker → Controller → Cluster → Consumer → Application
+```
+
+**Boards:** [Producer](/kafka-producer) · [Consumer](/kafka-consumer) · [Cluster](/kafka-cluster) · [Mastery](/kafka-mastery)  
+**Code:** [spring-kafka-payments-demo](/spring-kafka-payments-demo) · **Properties:** [full configs](/kafka-interview/kafka-properties)
+
+> Staff+ rule: start from a **symptom** (produce p99 up, lag growing, disk saturated, rebalance storm), find the bottleneck, change **one** layer, measure again.
+
+---
+
+## Box — pipeline first
+
+```text
+Producer
+   ↓
+Partitioning / keying
+   ↓
+Broker (disk · page cache · network · threads)
+   ↓
+Replication / ISR
+   ↓
+Controller (KRaft metadata)
+   ↓
+Consumer fetch / poll
+   ↓
+Application processing + commit
 ```
 
 <Mermaid chart={`flowchart TD
-    A[Slow payment settlement?] --> B{Where is time?}
-    B -->|produce p99 high| P[Tune producer batching]
-    B -->|consumer lag rising| C[Tune poll + processing]
-    B -->|broker disk / ISR| K[Tune broker + partitions]
-    P --> M[Measure again]
-    C --> M
-    K --> M`} />
+  Slow[Slow settlement / high latency?] --> Where{Where is time?}
+  Where -->|produce p99| P[Producer batch compress acks]
+  Where -->|URP disk net| B[Broker hardware + threads]
+  Where -->|leader flaps metadata| K[Controller / KRaft]
+  Where -->|skewed leaders partitions| C[Cluster balance]
+  Where -->|lag CPU low or high| Cons[Consumer fetch + processing]
+  Where -->|rebalance storms| R[Rebalance timeouts]
+  P --> M[Measure]
+  B --> M
+  K --> M
+  C --> M
+  Cons --> M
+  R --> M`} />
 
 ---
 
-## Sequence — where latency hides
+## 1. Producer optimization
 
-<Mermaid chart={`sequenceDiagram
-    autonumber
-    participant API as payment-api
-    participant Acc as Producer accumulator
-    participant Broker as Kafka
-    participant W as settlement-worker
-    participant Bank as Bank API
+| Area | Optimization |
+|---|---|
+| `batch.size` | Increase to improve batching and throughput |
+| `linger.ms` | Small delay (2–20 ms, often 10–50 for payments) improves batching |
+| `compression.type` | `lz4` / `snappy` / `zstd` — less network and disk I/O |
+| `acks` | `all` for durability; `1` for lower latency |
+| `enable.idempotence` | On for safe retries / duplicate protection |
+| `buffer.memory` | Raise for high-throughput producers |
+| `max.in.flight.requests.per.connection` | Keep ≤5 with idempotence |
+| `delivery.timeout.ms` | Total time for send success including retries |
+| `request.timeout.ms` | Per-request broker wait |
+| `retries` | Appropriate retry budget (often high / MAX with idempotence) |
+| Partitions | More partitions → more producer parallelism across leaders |
+| Keying | Keys distribute load; bad keys create hot partitions |
+| Async send | Prefer asynchronous `send()` + callback / Future |
+| Serialization | Efficient serializers; avoid extra conversions |
+| Message size | Keep records reasonably small |
+| `max.request.size` | Raise only when larger records are required |
 
-    API->>Acc: send event
-    Note over Acc: linger.ms + batch.size + zstd
-    Acc->>Broker: flush batch
-    Broker-->>W: deliver
-    W->>Bank: settle
-    Note over W: poll budget vs bank latency
-    W->>W: manual commit`} />
+**Typical high-throughput approach:**
 
----
+```text
+Async + batching + linger + compression + idempotence + enough partitions
+```
 
-## Producer optimization — one story
-
-Checkout sends many tiny payments. Without batching, the producer sprays one request per message.
-
-**From the demo (`payment-api`):**
+**Payment demo baseline (`payment-api`):**
 
 ```yaml
 spring:
@@ -67,7 +93,6 @@ spring:
     producer:
       acks: all
       retries: 10
-      transaction-id-prefix: payment-api-tx-
       properties:
         enable.idempotence: true
         compression.type: zstd
@@ -77,26 +102,175 @@ spring:
         max.in.flight.requests.per.connection: 5
 ```
 
-### Memory table
-
-| Goal | Turn this | Trade-off |
+| Goal | Turn | Trade-off |
 |---|---|---|
-| More throughput | raise `linger.ms` + `batch.size`, keep `zstd` | latency ↑ |
-| Lower latency | lower `linger.ms`, smaller batches | throughput ↓ |
-| Safer writes | `acks=all` + idempotence | slightly slower |
-| Order under retry | keep `max.in.flight` ≤ 5 with idempotence | less parallel in-flight |
+| Throughput ↑ | raise `linger.ms` + `batch.size`, keep compression | latency ↑ |
+| Latency ↓ | lower linger, smaller batches | throughput ↓ |
+| Durability | `acks=all` + idempotence | p99 ↑ slightly |
+| Order under retry | `max.in.flight` ≤ 5 with idempotence | less in-flight parallelism |
 
-### Interview line (30s)
+**30s:** Decide throughput vs latency first. For payments keep `acks=all` + idempotence, then batch + compress. Never max every knob without measuring produce p99.
 
-> I decide throughput vs latency first. For payments capture I keep `acks=all` and idempotence, then let the accumulator batch with `linger.ms` and `batch.size`, and compress with `zstd`. I never max every knob without measuring produce p99.
+Deep board: [Producer](/kafka-producer)
 
 ---
 
-## Consumer optimization — one story
+## 2. Broker optimization
 
-Lag climbs because the worker talks to a slow bank and polls too many records.
+The broker is where **disk, network, CPU, and memory** usually bite.
 
-**From the demo (`settlement-worker`):**
+| Area | Optimization |
+|---|---|
+| Disk | Fast SSD / NVMe; sequential I/O wins |
+| Network | Enough bandwidth for produce + fetch + replication |
+| `num.network.threads` | Tune for network workload |
+| `num.io.threads` | Tune for disk workload |
+| `num.replica.fetchers` | Raise when replication is the bottleneck |
+| Default `num.partitions` | Avoid huge defaults; create topics intentionally |
+| Replication factor | Usually **3** in production |
+| `min.insync.replicas` | Commonly **2** with RF=3 |
+| `log.segment.bytes` | Tune segment roll size |
+| `log.retention.*` | Control disk usage / replay window |
+| Compression | Prefer **producer-side** compression |
+| Page cache | Leave OS memory for page cache — do not give JVM everything |
+| JVM heap | Modest, stable heap; Kafka loves page cache |
+| GC | Predictable GC; avoid long pauses |
+| Fetch / request sizes | Align `message.max.bytes` and replica fetch limits |
+| Disk balancing | Spread partitions across disks and brokers |
+
+**Common production durability set:**
+
+```text
+RF=3 + min.insync.replicas=2 + producer acks=all
+```
+
+Deep board: [Cluster & Broker](/kafka-cluster)
+
+---
+
+## 3. Cluster optimization
+
+Cluster-level work is **partition distribution, replication, capacity, and balance**.
+
+### Partition distribution
+
+Avoid skew:
+
+```text
+Broker 1 → 10,000 partitions
+Broker 2 → 2,000 partitions
+Broker 3 → 2,000 partitions
+```
+
+Prefer balanced counts **and** balanced **leaders** (not just partition count):
+
+```text
+Broker 1 → ~4,667
+Broker 2 → ~4,667
+Broker 3 → ~4,666
+```
+
+### Replication (important topics)
+
+```text
+replication.factor = 3
+min.insync.replicas = 2
+producer acks = all
+```
+
+### Capacity — monitor
+
+```text
+CPU · Memory · Disk utilization · Disk I/O · Network
+Partition count · Leader count
+Under-replicated partitions · ISR changes
+Produce / fetch / request latency
+Consumer lag
+```
+
+### Partition count
+
+More partitions → more parallelism, but also more:
+
+- Metadata overhead  
+- Controller workload  
+- File handles / memory  
+- Recovery and rebalance time  
+- Replication overhead  
+
+**More partitions ≠ automatically better performance.** Size from measured parallelism ([Mastery partitions](/kafka-mastery#partitions)).
+
+---
+
+## 4. Controller optimization (KRaft)
+
+The controller owns **cluster metadata and coordination** — not the hot path of every produce, but critical for health.
+
+### Reduce unnecessary controller events
+
+Avoid excessive:
+
+- Broker restarts  
+- Partition reassignment storms  
+- Leader elections  
+- Mass partition creation  
+- Config thrash  
+
+### Monitor
+
+```text
+Controller availability / active controller
+Controller event queue depth
+Metadata propagation lag
+Leader election rate
+Broker registration failures
+Controller request latency
+```
+
+### KRaft production focus
+
+```text
+Controller quorum (odd: 3 or 5)
+Metadata log durability and disk
+Controller CPU / network
+Metadata propagation
+Quorum health
+```
+
+For larger environments, prefer **dedicated controller nodes** (`process.roles=controller`) so metadata work does not fight broker disk I/O.
+
+Deep board: [Cluster — KRaft / controller](/kafka-cluster)
+
+---
+
+## 5. Consumer optimization
+
+Heavily driven by **partitions + consumer count + processing time**.
+
+| Area | Optimization |
+|---|---|
+| Consumer count | Scale with partition count (useful members ≤ partitions) |
+| `fetch.min.bytes` | Raise for throughput (fewer tiny fetches) |
+| `fetch.max.wait.ms` | Allow broker to fill larger fetches |
+| `max.poll.records` | Bound work per poll |
+| `max.partition.fetch.bytes` | Per-partition fetch size |
+| `fetch.max.bytes` | Total fetch response size |
+| `enable.auto.commit` | Usually **false** for controlled processing |
+| Manual commit | Commit after successful, idempotent side effects |
+| Processing | Optimize downstream (bank, DB, pools) first |
+| Lag | Monitor continuously (per partition + max) |
+| Parallelism inside poll | Use carefully — do not blow `max.poll.interval.ms` |
+| Partitions | Increase when you need more parallel consumers |
+
+**Rule:**
+
+```text
+Max useful consumers in one group ≈ number of partitions
+```
+
+Example: 12 partitions → up to ~12 active consumers. With 20 pods, ~8 sit idle after rebalance.
+
+**Payment demo baseline (`settlement-worker`):**
 
 ```yaml
 spring:
@@ -111,69 +285,207 @@ spring:
         partition.assignment.strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
 ```
 
-```text
-1. Processing time per record
-2. max.poll.records
-3. max.poll.interval.ms
-4. Partition count
-5. Consumer count (≤ partitions)
-6. Downstream bank latency
-7. Rebalance rate
-```
-
-### Memory table
-
 | Symptom | First move |
 |---|---|
-| Lag rising, CPU low | check bank latency / timeouts |
-| Rebalances during slow settle | lower `max.poll.records`, raise poll interval carefully |
-| More pods, same lag | partitions already saturated — add partitions only then |
-| Duplicates after crash | keep manual commit + processed table |
+| Lag ↑, CPU low | Downstream slow — timeouts, pool, bulkhead |
+| Lag ↑, CPU high | Smaller `max.poll.records` / faster handler |
+| More pods, same lag | Partition-saturated — add partitions (planned) then pods |
+| Duplicates after crash | Manual commit + idempotent sink |
 
-### Interview line (30s)
-
-> Consumer tuning is finishing work between polls. I measure processing time and lag, then `max.poll.records` / poll interval, then partitions vs consumer count. Kafka knobs do not fix a slow bank by themselves.
+Deep board: [Consumer](/kafka-consumer)
 
 ---
 
-## Broker / cluster — keep it practical
+## 6. Rebalance optimization
 
-From `docker-compose.yml` in the demo:
+Frequent rebalances crush throughput.
 
-```yaml
-KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
-KAFKA_CFG_NUM_PARTITIONS: "6"
-KAFKA_CFG_MESSAGE_MAX_BYTES: "2097152"
+Tune together:
+
+```text
+session.timeout.ms
+heartbeat.interval.ms   (< session/3 typical)
+max.poll.interval.ms    (> longest processing batch)
+max.poll.records
 ```
 
-| Knob | Story |
-|---|---|
-| partitions = 6 | up to 6 parallel settlement workers |
-| auto-create off | no typo topics in prod |
-| message max | stop giant payload incidents |
-| RF / min ISR (prod) | durability with `acks=all` |
+Also:
+
+- Static membership (`group.instance.id`) on k8s  
+- Cooperative sticky assignor  
+- Stable instance identity  
+- Do not do unbounded work inside a single poll cycle  
+
+Shape:
+
+```text
+poll() → process (bounded) → commit
+```
+
+so you never exceed `max.poll.interval.ms`.
 
 ---
 
-## Corner cases (memorize)
+## 7. End-to-end profiles
 
-| Failure | Layer | What this story does |
+### High throughput
+
+```text
+Async producer
++ Larger batches + linger.ms
++ Compression
++ Enough partitions
++ Fast SSD + balanced brokers
++ Efficient fetch settings
++ Parallel consumers (≤ partitions)
+```
+
+### Low latency
+
+```text
+Small batches + low linger.ms
++ Light / appropriate compression
++ Fast network + disks
++ Low processing latency
++ Minimal consumer backlog
+```
+
+### High durability
+
+```text
+acks=all
++ enable.idempotence=true
++ RF=3
++ min.insync.replicas=2
++ unclean.leader.election.enable=false
+```
+
+---
+
+## 8. Interview trade-offs (must say out loud)
+
+**Throughput vs latency**
+
+```text
+larger batch + linger → higher throughput → potentially higher latency
+```
+
+**Durability vs latency**
+
+```text
+acks=all → better durability → potentially higher latency
+```
+
+**Partitions vs operational overhead**
+
+```text
+more partitions → more parallelism → more metadata / recovery / rebalance cost
+```
+
+**Compression**
+
+```text
+compression → less network + disk → more CPU
+```
+
+**Consumer parallelism**
+
+```text
+more partitions → more consumers can work in parallel → higher capacity
+```
+
+---
+
+## 9. Production optimization checklist
+
+Interview order when something is slow:
+
+```text
+1. Producer
+   ├── batching / linger / compression
+   ├── acks / idempotence / retries
+   └── produce p99
+
+2. Topic
+   ├── partition count + key distribution
+   ├── RF / minISR / retention
+   └── hot partitions?
+
+3. Broker
+   ├── CPU · memory / page cache
+   ├── disk I/O · network
+   └── network / io / replica fetcher threads
+
+4. Cluster
+   ├── partition + leader balance
+   ├── replication / ISR / URP
+   └── capacity headroom
+
+5. Controller
+   ├── KRaft quorum health
+   ├── metadata / elections
+   └── unnecessary events?
+
+6. Consumer
+   ├── fetch / poll records
+   ├── processing time + commit strategy
+   └── lag + rebalance rate
+
+7. Observability
+   ├── produce / broker / fetch latency
+   ├── consumer lag
+   ├── under-replicated · ISR shrink
+   └── disk · network utilization
+```
+
+---
+
+## Sequence — where latency hides (payment story)
+
+<Mermaid chart={`sequenceDiagram
+    autonumber
+    participant API as payment-api
+    participant Acc as Producer accumulator
+    participant Broker as Kafka broker
+    participant Ctrl as KRaft controller
+    participant W as settlement-worker
+    participant Bank as Bank API
+
+    API->>Acc: async send
+    Note over Acc: linger + batch + zstd + idempotence
+    Acc->>Broker: ProduceRequest acks=all
+    Note over Broker: page cache + ISR wait
+    Broker-->>API: ACK
+    Note over Ctrl: only on metadata / leader change
+    Broker-->>W: Fetch
+    W->>Bank: settle
+    Note over W: poll budget vs bank latency
+    W->>W: manual commit`} />
+
+---
+
+## Corner cases
+
+| Failure | Layer | Move |
 |---|---|---|
 | Chatty producer | producer | batch + linger + compression |
-| Duplicate send on retry | producer | idempotence |
+| Duplicate send on retry | producer | idempotence + `max.in.flight` ≤ 5 |
 | Slow bank | consumer | smaller poll + retries + DLQ |
 | Poison JSON | consumer | non-retryable → DLT |
-| Hot account | keying | `accountId:paymentId` orders, may concentrate load |
-| Rolling deploy rebalances | assignment | CooperativeStickyAssignor |
+| Hot account key | topic | re-key / shard whales |
+| Deploy rebalance storm | consumer | CooperativeSticky + static membership |
+| URP rising | broker / cluster | disk/net followers; do not enable unclean election |
+| Controller thrash | controller | stop restart/reassignment storms; check KRaft quorum |
 
 ---
 
-## GO checklist before you claim “optimized”
+## GO before you claim “optimized”
 
-- [ ] Measured produce p99 and consumer lag **before** changes  
-- [ ] Changed **one** layer (producer **or** consumer **or** broker)  
-- [ ] Verified poison + transient paths still hit DLQ correctly  
+- [ ] Named the **symptom** and the **bottleneck layer**  
+- [ ] Measured produce p99 / lag / URP / disk **before** changes  
+- [ ] Changed **one** layer; measured again  
 - [ ] Consumer count ≤ partition count  
-- [ ] Idempotence + manual commit + processed-table dedupe still on  
+- [ ] Durability story intact (`acks=all`, minISR, idempotence, manual commit where needed)  
+- [ ] Poison + transient paths still correct  
 
-**Next:** [Properties page](/kafka-interview/kafka-properties) · [Realtime case](/kafka-interview/kafka-realtime-case) · [Cheatsheet & interview](/kafka-interview/kafka-cheat-sheet)
+**Next:** [Properties](/kafka-interview/kafka-properties) · [Producer board](/kafka-producer) · [Consumer board](/kafka-consumer) · [Cluster board](/kafka-cluster) · [Mastery](/kafka-mastery) · [Cheatsheet](/kafka-interview/kafka-cheat-sheet)
