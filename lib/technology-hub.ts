@@ -17,7 +17,7 @@ export type HubTopic={
 export const KAFKA_SIDEBAR_ORDER=[
   'kafka-realtime-case',
   'kafka-optimization-index',
-  'kafka-cheat-sheet',
+  'kafka-properties',
 ];
 
 /**
@@ -110,16 +110,8 @@ export const KAFKA_HUB={
       mode:'learn' as const,
     },
     {
-      id:'cheatsheet',
-      number:'04',
-      title:'Cheatsheet & Interview',
-      blurb:'Memory formulas plus 30s/90s answers from the payment story.',
-      href:'/kafka-interview/kafka-cheat-sheet',
-      mode:'recall' as const,
-    },
-    {
       id:'realtime',
-      number:'05',
+      number:'04',
       title:'Realtime Case',
       blurb:'Controller → producer → consumer → DLQ with diagrams and curl.',
       href:'/kafka-interview/kafka-realtime-case',
@@ -127,7 +119,7 @@ export const KAFKA_HUB={
     },
     {
       id:'hadron',
-      number:'06',
+      number:'05',
       title:'Hadron DLQ',
       blurb:'Neptune → retry topics → DLQ DB → replay with ordering and idempotency.',
       href:'/hadron-dlq',
@@ -135,7 +127,7 @@ export const KAFKA_HUB={
     },
     {
       id:'internals',
-      number:'07',
+      number:'06',
       title:'Internals Board',
       blurb:'Partition writes, replication, production instance counts, consumer crash replay.',
       href:'/kafka-internals',

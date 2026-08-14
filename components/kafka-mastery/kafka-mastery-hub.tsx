@@ -417,8 +417,8 @@ to “keep accepting writes”`}
                 Hadron DLQ
               </Link>
               {' · '}
-              <Link href="/kafka-interview/kafka-cheat-sheet" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Cheatsheet
+              <Link href="/kafka-mastery#interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Spoken answers
               </Link>
             </p>
           </Section>
