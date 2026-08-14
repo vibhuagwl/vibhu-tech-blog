@@ -29,5 +29,6 @@ export const KAFKA_CLUSTER_TOC: TocItem[] = [
   {id: 'source', label: '25. Source-level flows'},
   {id: 'chaos', label: '26. Chaos & war games'},
   {id: 'design', label: '27. Production designs'},
-  {id: 'interview', label: '28. Interview & cheatsheets'},
+  {id: 'staff-gaps', label: '28. Staff zero-gap (KRaft deep)'},
+  {id: 'interview', label: '29. Interview & cheatsheets'},
 ];

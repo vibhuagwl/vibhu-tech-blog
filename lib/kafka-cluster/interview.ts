@@ -259,6 +259,68 @@ export const RAPID: InterviewQ[] = [
 
 export const STAFF: InterviewQ[] = [
   {
+    id: 'st0a',
+    topic: 'Staff · Metadata',
+    question: 'Walk metadata from controller commit to a broker’s MetadataCache. What if the broker is behind?',
+    answer30s:
+      'Raft commit → apply → publish → broker MetadataCache. A behind broker still serves existing leaders but must catch up via snapshot+log; it must not invent leaders.',
+    answer2m:
+      'Clients with stale metadata get NOT_LEADER and refresh. Propagation latency shows up as error storms after elections. Control plane lag ≠ data plane stop.',
+    followUps: ['How do snapshots shorten catch-up?', 'What metrics hint at publish lag?'],
+  },
+  {
+    id: 'st0b',
+    topic: 'Staff · Fencing',
+    question: 'Name the epochs that fence zombies in KRaft Kafka and what each protects.',
+    answer30s:
+      'Raft term/controller epoch (metadata commits), broker epoch (registration identity), leader epoch (partition appends). Together they stop stale controllers, brokers, and leaders.',
+    answer2m:
+      'Old controller cannot commit with an old term. Old broker process is fenced on re-register. Old leader truncates/fences via leader epoch checkpoints.',
+    followUps: ['Controller crash mid-election?', 'Unclean election interaction?'],
+    trick: '“Leader epoch alone is all of KRaft fencing.”',
+  },
+  {
+    id: 'st0c',
+    topic: 'Staff · Features',
+    question: 'How do feature levels interact with a rolling Kafka upgrade?',
+    answer30s:
+      'Roll binaries that support new features first; keep finalized level until every node is ready; then finalize. Some finalizes are one-way.',
+    answer2m:
+      'Supported ≠ finalized. Downgrade windows shrink after finalize. Always follow the official path for your minor/major — don’t invent finalize timing.',
+    followUps: ['What breaks if you finalize too early?'],
+  },
+  {
+    id: 'st0d',
+    topic: 'Staff · Reassignment',
+    question: 'Explain the safe partition reassignment state sequence.',
+    answer30s:
+      'Add new replica → catch up → enter ISR → move leadership if needed → remove old replica. Throttle the whole way.',
+    answer2m:
+      'State lives in metadata so controller failover can resume. Removing before ISR is how you create data-loss risk. PLE after moves fixes produce imbalance.',
+    followUps: ['What if controller dies mid-reassignment?'],
+  },
+  {
+    id: 'st0e',
+    topic: 'Staff · Elections',
+    question: 'Preferred replica election vs failure leader election — difference?',
+    answer30s:
+      'Failure election restores any ISR leader after loss. PLE moves leadership back to the preferred (first) replica for balance when it is in ISR.',
+    answer2m:
+      'Both are controller + metadata + epoch. PLE is not unclean. Auto leader balancing is usually repeated PLE, not a different safety model.',
+    followUps: ['When does PLE no-op?', 'Manual kafka-leader-election?'],
+    trick: '“PLE elects out-of-ISR preferred for availability.”',
+  },
+  {
+    id: 'st0f',
+    topic: 'Staff · Control plane',
+    question: 'Why can a cluster be “fine on bytes/s” and still fail the control plane?',
+    answer30s:
+      'Partition/topic churn, ISR flaps, and metadata size burn controller CPU, event queues, snapshot install time, and publish latency.',
+    answer2m:
+      'Size partitions for recovery/FD/controller—not only throughput. Dedicated controllers when metadata fights disk I/O. Watch election storms and admin latency.',
+    followUps: ['500k partitions failure modes?'],
+  },
+  {
     id: 'st1',
     topic: 'Staff',
     question: 'Leader fails immediately after a successful local append but before ISR ack. What happens?',

@@ -291,10 +291,16 @@ export const DECISIONS: string[][] = [
 ];
 
 export const CHEATS = {
-  mental: `Data plane: Produce/Fetch → partition leader → log → followers fetch → ISR → HW
-Control plane: KRaft quorum → metadata log → brokers' MetadataCache
+  mental: `Four layers: Client → Broker data plane → Storage → KRaft control plane
+Data plane: Produce/Fetch → leader → log → followers fetch → ISR → HW
+Control plane: Controller → Raft → metadata log → publish → MetadataCache
 Durability knobs: RF, ISR, minISR, unclean=false
 Memory: page cache > heap for logs`,
+  fourLayers: `Client/Admin
+Broker data plane (request → partition → log → replication)
+Storage (segments → indexes → page cache → disk)
+KRaft control plane (Raft → metadata → partition/replica state)
+Produce never goes through the controller`,
   broker: `Acceptor → Processor → RequestQueue → Handler
 → ReplicaManager → UnifiedLog → page cache/disk
 Controller not on Produce hot path`,
@@ -356,5 +362,11 @@ Chaos-test AZ loss and quorum loss`,
 9) Add broker (no auto-balance)
 10) Hot broker / hot partition
 11) Partition count costs
-12) Rolling upgrade`,
+12) Rolling upgrade
+13) Metadata propagation + behind broker
+14) Snapshots + fencing epochs
+15) Feature finalize / upgrade one-way
+16) Reassignment add→ISR→remove
+17) Failure election vs PLE
+18) Controller scale vs broker throughput`,
 };

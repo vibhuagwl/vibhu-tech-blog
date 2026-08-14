@@ -36,6 +36,23 @@ import {
   ZERO_COPY,
 } from '@/lib/kafka-cluster/content';
 import {CHAOS, ERROR_CODES, FAILURE_MATRIX, TROUBLESHOOT, WAR_LEADER_CRASH, WAR_QUORUM} from '@/lib/kafka-cluster/failures';
+import {
+  CONTROLLER_FAILOVER,
+  CONTROLLER_FAILOVER_NOTE,
+  CONTROLLER_SCALE,
+  CONTROLLER_SCALE_NOTE,
+  ELECTION_DISTINCTION,
+  ELECTION_TYPES,
+  FEATURE_LEVELS,
+  FOUR_LAYERS,
+  KRAFT_FENCING,
+  METADATA_PROPAGATION,
+  PARTITION_STATE,
+  REASSIGN_INTERNALS,
+  REPLICA_STATE,
+  SNAPSHOT_LIFECYCLE,
+  STAFF_GAP_CHEATS,
+} from '@/lib/kafka-cluster/staff-gaps';
 import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
 import StickyToc from './sticky-toc';
@@ -154,6 +171,9 @@ export default function KafkaClusterHub() {
             <div className="mt-4">
               <MiniTable headers={['Piece', 'Meaning']} rows={CLUSTER_PIECES} />
             </div>
+            <div className="mt-4">
+              <CodePanel title="Four-layer mental model (interview)" tone="ok" code={FOUR_LAYERS} />
+            </div>
           </Section>
 
           <Section id="broker-arch" title="01. Broker internal architecture" lead="Data plane lives here. Control plane is KRaft — do not put the controller on the hot Produce path in your mental model.">
@@ -190,6 +210,13 @@ export default function KafkaClusterHub() {
   Apply --> B[Broker MetadataCache]`}
               />
             </div>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-500">
+              Deep dive (snapshots, fencing epochs, feature finalize, controller failover mid-op):{' '}
+              <a href="#staff-gaps" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                §28 Staff zero-gap
+              </a>
+              .
+            </p>
           </Section>
 
           <Section id="controller" title="04. Controller duties and broker registration">
@@ -280,6 +307,15 @@ export default function KafkaClusterHub() {
             <div className="mt-4">
               <CodePanel title="Why leader epoch" code={EPOCH_WHY} />
             </div>
+            <div className="mt-4">
+              <MiniTable
+                headers={['Type', 'Trigger', 'Mechanism', 'Goal', 'Notes']}
+                rows={ELECTION_TYPES}
+              />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Failure election ≠ preferred election" code={ELECTION_DISTINCTION} />
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel title="Clean election" tone="ok" code={`Elect from ISR only
 unclean.leader.election.enable=false
@@ -293,17 +329,10 @@ Never default for payments`} />
           </Section>
 
           <Section id="reassign" title="13. Partition reassignment and cluster balance">
-            <CodePanel title="Why reassign" code={`Add/remove brokers
-Fix disk imbalance
-Evacuate a bad host
-Move leaders (PLE) for traffic balance
-
-Always throttle replication
-Watch URP + ISR during the move
-Nothing auto-balances on broker join`} />
+            <CodePanel title="Internals: add → catch up → ISR → remove" tone="ok" code={REASSIGN_INTERNALS} />
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
               Balance across partitions, leaders, disk, network, CPU, and racks. A “balanced” replica count with
-              all preferred leaders on two brokers is still a hotspot.
+              all preferred leaders on two brokers is still a hotspot — run preferred leader election after moves.
             </p>
           </Section>
 
@@ -586,10 +615,73 @@ Dashboards: URP, offline, ISR, disk, idle%, p99`}
             </div>
           </Section>
 
-          <Section id="interview" title="28. Interview drills and cheat sheets">
+          <Section
+            id="staff-gaps"
+            title="28. Staff zero-gap — KRaft deep internals"
+            lead="The remaining interview edge: metadata propagation, snapshots, fencing, feature levels, state machines, controller failover/scale."
+          >
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid
+                chart={`flowchart TB
+  Q[Controller quorum] --> ML[Metadata log]
+  ML --> C[Committed metadata]
+  C --> P[Metadata publisher]
+  P --> Cache[Broker MetadataCache]
+  Cache --> Cli[Client Metadata refresh]`}
+              />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="1. Metadata propagation" tone="ok" code={METADATA_PROPAGATION} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel title="2. Snapshot lifecycle" code={SNAPSHOT_LIFECYCLE} />
+              <CodePanel title="3. KRaft fencing" tone="danger" code={KRAFT_FENCING} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="4. Feature levels / metadata versioning" code={FEATURE_LEVELS} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel title="5. Partition state machine" code={PARTITION_STATE} />
+              <CodePanel title="6. Replica state machine" code={REPLICA_STATE} />
+            </div>
+            <div className="mt-4">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-[.12em] text-slate-500">
+                7. Controller failover corner cases
+              </h3>
+              <MiniTable headers={['Crash during…', 'How KRaft resumes safely']} rows={CONTROLLER_FAILOVER} />
+              <div className="mt-3">
+                <CodePanel title="Resume rule" code={CONTROLLER_FAILOVER_NOTE} />
+              </div>
+            </div>
+            <div className="mt-4">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-[.12em] text-slate-500">
+                8. Controller performance / scaling
+              </h3>
+              <MiniTable headers={['Pressure', 'Why it matters']} rows={CONTROLLER_SCALE} />
+              <div className="mt-3">
+                <CodePanel title="Two ceilings" tone="danger" code={CONTROLLER_SCALE_NOTE} />
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel title="9. Reassignment internals (recap)" code={REASSIGN_INTERNALS} />
+              <CodePanel title="10. Election types (recap)" code={ELECTION_DISTINCTION} />
+            </div>
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              <CodePanel title="Cheat · Propagation" code={STAFF_GAP_CHEATS.propagation} />
+              <CodePanel title="Cheat · Snapshot" code={STAFF_GAP_CHEATS.snapshot} />
+              <CodePanel title="Cheat · Fencing" code={STAFF_GAP_CHEATS.fencing} />
+              <CodePanel title="Cheat · Features" code={STAFF_GAP_CHEATS.features} />
+              <CodePanel title="Cheat · States" code={STAFF_GAP_CHEATS.states} />
+              <CodePanel title="Cheat · Reassign" code={STAFF_GAP_CHEATS.reassign} />
+              <CodePanel title="Cheat · Elections" code={STAFF_GAP_CHEATS.elections} />
+            </div>
+          </Section>
+
+          <Section id="interview" title="29. Interview drills and cheat sheets">
             <InterviewMode />
             <div className="mt-8 grid gap-3 md:grid-cols-2">
               <CodePanel title="01 Mental model" tone="ok" code={CHEATS.mental} />
+              <CodePanel title="01b Four layers" code={CHEATS.fourLayers} />
               <CodePanel title="02 Broker architecture" code={CHEATS.broker} />
               <CodePanel title="03 KRaft" code={CHEATS.kraft} />
               <CodePanel title="04 Controller" code={CHEATS.controller} />
@@ -638,6 +730,7 @@ Dashboards: URP, offline, ISR, disk, idle%, p99`}
               <Link href="/kafka-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Kafka hub
               </Link>
+              . Remaining major surface for a separate board: Consumer + consumer groups.
             </p>
           </Section>
         </div>
