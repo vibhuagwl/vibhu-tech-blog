@@ -98,7 +98,7 @@ export const KAFKA_HUB={
       id:'optimization',
       number:'02',
       title:'Optimization',
-      blurb:'Producer, consumer, and broker tuning in one storytelling page.',
+      blurb:'End-to-end: producer → broker → controller → cluster → consumer — bottlenecks and trade-offs.',
       href:'/kafka-interview/kafka-optimization-index',
       mode:'learn' as const,
     },

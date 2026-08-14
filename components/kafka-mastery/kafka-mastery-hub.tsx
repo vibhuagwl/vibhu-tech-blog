@@ -96,7 +96,7 @@ const DEEP_LINKS = [
     href: '/kafka-interview/kafka-optimization-index',
     n: '04',
     title: 'Optimization',
-    blurb: 'Tune one bottleneck at a time — producer, consumer, broker, controller.',
+    blurb: 'Tune one bottleneck at a time — producer → broker → controller → cluster → consumer.',
   },
   {
     href: '/kafka-interview/kafka-properties',

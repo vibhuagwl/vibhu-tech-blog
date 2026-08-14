@@ -35,7 +35,7 @@ const CURRICULUM=[
     href:'/kafka-interview/kafka-optimization-index',
     number:'04',
     title:'Optimization',
-    blurb:'Tune producer, consumer, broker, and controller — one bottleneck at a time.',
+    blurb:'End-to-end: producer → broker → controller → cluster → consumer — bottlenecks, knobs, trade-offs.',
   },
   {
     href:'/kafka-interview/kafka-properties',
