@@ -35,6 +35,7 @@ export type DsaProblem = {
 export type WindowFamily = {
   id: string;
   title: string;
+  shortLabel: string;
   blurb: string;
   invariant: string;
   problemIds: string[];

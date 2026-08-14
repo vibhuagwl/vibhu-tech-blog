@@ -95,8 +95,8 @@ export default function DsaHub() {
             </div>
             <p className="mt-4 text-sm leading-7 text-slate-500">
               {ISLAND_PROBLEMS.length} island / grid BFS-DFS problems · {SLIDING_WINDOW_PROBLEMS.length} sliding
-              window problems in {WINDOW_FAMILIES.length} families. Windows use a grouped catalog (search +
-              brute-force → optimized), not a pill cloud — that layout still works when the list grows past 100.
+              window problems in {WINDOW_FAMILIES.length} families. Click a name, then Problem / How it works / Java /
+              Remember.
             </p>
           </Section>
 
@@ -130,8 +130,8 @@ export default function DsaHub() {
 
           <Section
             id="sliding-window"
-            title="Sliding window — grouped catalog"
-            lead="Fixed windows add one and drop one. Variable windows grow right and shrink left. Count-exactly-K questions are atMost(K) minus atMost(K−1). Window max uses a decreasing deque, not a heap. Open a family on the left, then read brute force → optimized with time and space."
+            title="Sliding window — every problem statement"
+            lead="Fixed windows add one and drop one. Variable windows grow right and shrink left. Count-exactly-K questions are atMost(K) minus atMost(K−1). Window max uses a decreasing deque, not a heap. Filter by family so similar problems sit together; How it works walks brute force to optimized with time and space."
           >
             <div className="mb-5 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
               <table className="min-w-full text-xs">

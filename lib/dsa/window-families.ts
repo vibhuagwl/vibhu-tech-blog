@@ -5,6 +5,7 @@ export const WINDOW_FAMILIES: WindowFamily[] = [
   {
     id: 'fixed-sum',
     title: 'Fixed length — running sum',
+    shortLabel: 'Fixed sum',
     blurb: 'Every window has size K. Add the newcomer, drop the leaver.',
     invariant: 'Window length is constant. State is a running sum or count.',
     problemIds: ['max-sum-k', 'max-average', 'vowels-k', 'cards-points', 'grumpy'],
@@ -12,6 +13,7 @@ export const WINDOW_FAMILIES: WindowFamily[] = [
   {
     id: 'fixed-freq',
     title: 'Fixed length — set / frequency',
+    shortLabel: 'Frequency',
     blurb: 'Window of length K or |p|. HashSet or 26-count tells you if the block is valid.',
     invariant: 'Length is fixed. Compare frequency vectors or membership.',
     problemIds: ['contains-dup-ii', 'anagrams', 'perm-in-string'],
@@ -19,6 +21,7 @@ export const WINDOW_FAMILIES: WindowFamily[] = [
   {
     id: 'deque',
     title: 'Monotonic deque / window extrema',
+    shortLabel: 'Deque',
     blurb: 'Need min, max, first-negative, or median inside each window — not the sum.',
     invariant: 'Deque (or two heaps) stores candidates in order. Front is the answer.',
     problemIds: ['first-negative-k', 'sw-max', 'sw-median'],
@@ -26,6 +29,7 @@ export const WINDOW_FAMILIES: WindowFamily[] = [
   {
     id: 'longest',
     title: 'Longest window that still obeys a rule',
+    shortLabel: 'Longest',
     blurb: 'Grow right. Shrink left while the window is invalid. Track max length.',
     invariant: 'Maximize r−l+1 under a budget (distinct chars, zeros, cost, replacements).',
     problemIds: [
@@ -43,6 +47,7 @@ export const WINDOW_FAMILIES: WindowFamily[] = [
   {
     id: 'shortest',
     title: 'Shortest window that becomes valid',
+    shortLabel: 'Shortest',
     blurb: 'Grow until the constraint is met, then starve the left while it stays met.',
     invariant: 'Minimize r−l+1 among windows that cover a target or sum.',
     problemIds: ['min-window', 'min-size-sum'],
@@ -50,6 +55,7 @@ export const WINDOW_FAMILIES: WindowFamily[] = [
   {
     id: 'count',
     title: 'Count subarrays — atMost trick',
+    shortLabel: 'Count',
     blurb: 'Exactly K = atMost(K) − atMost(K−1). Each valid [L,R] contributes R−L+1 endings.',
     invariant: 'Count windows, do not just take min/max length.',
     problemIds: ['product-less-k', 'nice-subarrays', 'binary-sum', 'k-different', 'three-chars'],
