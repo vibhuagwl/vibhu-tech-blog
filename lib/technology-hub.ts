@@ -51,9 +51,17 @@ export const KAFKA_HUB={
   title:'Kafka',
   subtitle:'Practical Spring Kafka',
   description:
-    'Practical Kafka: code, internals board, optimization, properties, cheatsheet, realtime payment case, and Hadron DLQ.',
+    'Interview mastery board (producer, consumer, cluster, monitoring, sizing) plus code, optimization, properties, realtime, Hadron DLQ, and internals.',
   basePath:'/kafka-interview',
   sections:[
+    {
+      id:'mastery',
+      number:'00',
+      title:'Interview Mastery',
+      blurb:'Producer · consumer · cluster · optimization · properties · monitoring · sizing.',
+      href:'/kafka-mastery',
+      mode:'learn' as const,
+    },
     {
       id:'code',
       number:'01',

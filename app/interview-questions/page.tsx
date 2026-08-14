@@ -45,7 +45,13 @@ const banks=[
     href:'/kafka-interview',
     label:'Kafka',
     level:'Staff',
-    blurb:'Spring Kafka code, internals board, optimization, properties, cheatsheet, realtime payment case.',
+    blurb:'Interview curriculum: producer, consumer, cluster, optimization, properties, monitoring, sizing.',
+  },
+  {
+    href:'/kafka-mastery',
+    label:'Kafka Interview Mastery',
+    level:'Staff',
+    blurb:'One section each for producer, consumer, cluster/controller, properties, monitoring, instances, syncing, partitions.',
   },
   {
     href:'/kafka-internals',
