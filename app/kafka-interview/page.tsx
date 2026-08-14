@@ -50,10 +50,10 @@ const CURRICULUM=[
     blurb:'Memory formulas plus 30s/90s from the Spring payment story.',
   },
   {
-    href:'/kafka-interview/kafka-realtime-case',
+    href:'/kafka-interview/kafka-payments-dlq',
     number:'07',
-    title:'Realtime Case',
-    blurb:'Controller → producer → broker → consumer → retry/DLQ with diagrams.',
+    title:'Payment story + DLQ',
+    blurb:'Controller → producer → consumer → retry/DLQ with diagrams, curl, and Spring code.',
   },
   {
     href:'/spring-kafka-payments-demo',
@@ -118,7 +118,7 @@ export default function KafkaInterview(){
           <li>Open <strong>§03 Cluster</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
           <li>Open <strong>§00 Mastery</strong> — monitoring, instance counts, syncing, partitions, spoken answers.</li>
           <li>Skim <strong>§05 Properties</strong> and <strong>§04 Optimization</strong> for must-set baselines.</li>
-          <li>Walk <strong>§07 Realtime Case</strong> once so you have a payment story.</li>
+          <li>Walk <strong>§07 Payment story + DLQ</strong> once so you have a Spring payment narrative.</li>
           <li>Practice the Mastery <strong>spoken-answer deck</strong> (Senior → Rapid).</li>
         </ol>
       </section>

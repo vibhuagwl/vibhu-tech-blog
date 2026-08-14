@@ -30,7 +30,7 @@ export default function SpringKafkaPaymentsDemoPage(){
           producer controller, broker config, custom keys, batching, compression, manual commits, retries, DLQ, and consumer failure handling.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
-          <Link href="/realtime-issues/spring-kafka-dlq-payments" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
+          <Link href="/kafka-interview/kafka-payments-dlq" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Real-time guide →
           </Link>
           <span className="text-slate-300">·</span>

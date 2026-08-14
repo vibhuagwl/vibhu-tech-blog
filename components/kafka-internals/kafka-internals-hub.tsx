@@ -108,7 +108,7 @@ export default function KafkaInternalsHub() {
             Interview mastery
           </Link>
           {' · '}
-          <Link href="/kafka-interview/kafka-realtime-case" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+          <Link href="/kafka-interview/kafka-payments-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Realtime case
           </Link>
           {' · '}
@@ -499,7 +499,7 @@ write, 1042 is skipped forever
             </div>
             <p className="mt-6 text-sm leading-7 text-slate-500">
               Next:{' '}
-              <Link href="/kafka-interview/kafka-realtime-case" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+              <Link href="/kafka-interview/kafka-payments-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Realtime payment case
               </Link>
               {' · '}
