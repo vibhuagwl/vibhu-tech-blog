@@ -104,6 +104,10 @@ export default function KafkaInternalsHub() {
             Kafka
           </Link>
           {' · '}
+          <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Interview mastery
+          </Link>
+          {' · '}
           <Link href="/kafka-interview/kafka-realtime-case" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Realtime case
           </Link>

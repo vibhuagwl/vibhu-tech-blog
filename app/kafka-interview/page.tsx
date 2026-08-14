@@ -1,52 +1,115 @@
 import Link from 'next/link';
 
 export const metadata={
-  title:'Kafka — Code, Internals, Optimization, Properties, Cheatsheet, Realtime',
-  description:'Practical Kafka pages: Spring code, internals and production board, optimization, properties, cheatsheet, realtime payment case, and Hadron DLQ.',
+  title:'Kafka — Interview Mastery, Producer, Consumer, Cluster, Monitoring',
+  description:'Kafka interview hub: dedicated producer, consumer, cluster/controller, optimization, properties, monitoring, instance counts, syncing, and partition sizing — plus Spring code and realtime cases.',
 };
 
-const PAGES=[
+const MASTERY_SECTIONS=[
+  {
+    href:'/kafka-mastery#producer',
+    number:'01',
+    title:'Producer',
+    blurb:'Send path, keys, acks, batching, idempotence — how many producer instances in a distributed env.',
+  },
+  {
+    href:'/kafka-mastery#consumer',
+    number:'02',
+    title:'Consumer',
+    blurb:'Groups, poll/commit, lag, crash replay — how many consumer instances (≤ partitions).',
+  },
+  {
+    href:'/kafka-mastery#cluster',
+    number:'03',
+    title:'Cluster & controller',
+    blurb:'Brokers vs KRaft controller, topics, partitions, replicas, ISR.',
+  },
+  {
+    href:'/kafka-mastery#optimization',
+    number:'04',
+    title:'Optimization',
+    blurb:'Tune producer, consumer, broker, and controller — one bottleneck at a time.',
+  },
+  {
+    href:'/kafka-mastery#properties',
+    number:'05',
+    title:'All properties',
+    blurb:'Must-set producer, consumer, cluster, and controller configs with GO/NO-GO.',
+  },
+  {
+    href:'/kafka-mastery#monitoring',
+    number:'06',
+    title:'Monitoring in prod',
+    blurb:'Lag, under-replicated partitions, ISR, disk, rebalances, offline partitions.',
+  },
+  {
+    href:'/kafka-mastery#instances',
+    number:'07',
+    title:'Instance counts',
+    blurb:'Producers, consumers, brokers, controllers, clusters — what to say in the interview.',
+  },
+  {
+    href:'/kafka-mastery#syncing',
+    number:'08',
+    title:'How syncing works',
+    blurb:'Follower fetch, ISR, acks=all, high watermark — how replicas stay in sync.',
+  },
+  {
+    href:'/kafka-mastery#partitions',
+    number:'09',
+    title:'How many partitions',
+    blurb:'Production formula, examples, hot keys, and why “1000 for later” fails interviews.',
+  },
+];
+
+const LAB_PAGES=[
+  {
+    href:'/kafka-mastery',
+    number:'00',
+    title:'Interview Mastery Board',
+    blurb:'Full curriculum in one board — producer through partitions, plus spoken-answer drills.',
+  },
   {
     href:'/spring-kafka-payments-demo',
-    number:'01',
+    number:'A1',
     title:'Kafka Code',
-    blurb:'Browse the Spring microservices source: payment-api producer, settlement-worker consumer, DLQ, keys, batching, compression.',
+    blurb:'Spring payment-api producer + settlement-worker consumer source explorer.',
   },
   {
     href:'/kafka-interview/kafka-optimization-index',
-    number:'02',
-    title:'Optimization',
-    blurb:'One page for producer + consumer + broker tuning with diagrams and the payment story — not three separate theory pages.',
+    number:'A2',
+    title:'Optimization story',
+    blurb:'Payment-story tuning page (pairs with Mastery §04).',
   },
   {
     href:'/kafka-interview/kafka-properties',
-    number:'03',
-    title:'Properties',
-    blurb:'Producer, consumer, and broker must-set properties with demo values, corner cases, and GO/NO-GO.',
+    number:'A3',
+    title:'Properties story',
+    blurb:'Demo values and corner cases (pairs with Mastery §05).',
   },
   {
     href:'/kafka-interview/kafka-cheat-sheet',
-    number:'04',
+    number:'A4',
     title:'Cheatsheet & Interview',
-    blurb:'Memory formulas plus one interview story: 30s, 90s, and follow-ups from real Spring Kafka code.',
+    blurb:'Memory formulas plus 30s/90s from the Spring payment story.',
   },
   {
     href:'/kafka-interview/kafka-realtime-case',
-    number:'05',
+    number:'A5',
     title:'Realtime Case',
-    blurb:'Controller → producer → broker → consumer → retry/DLQ with sequence diagrams, curl, and failure matrix.',
+    blurb:'Controller → producer → broker → consumer → retry/DLQ with diagrams.',
   },
   {
     href:'/hadron-dlq',
-    number:'06',
+    number:'A6',
     title:'Hadron CashLines DLQ',
-    blurb:'Neptune → Kafka → Hadron: retry topics, ordering, idempotency, DLQ DB, replay APIs, and Staff interview story.',
+    blurb:'Neptune → retry → DLQ → replay with ordering and idempotency.',
   },
   {
     href:'/kafka-internals',
-    number:'07',
-    title:'Internals & Production Board',
-    blurb:'How Kafka writes a partition, how brokers replicate, how many instances you need in prod, and what happens when a consumer dies.',
+    number:'A7',
+    title:'Internals Board',
+    blurb:'Partition writes, replication walkthrough, consumer crash replay.',
   },
 ];
 
@@ -55,40 +118,71 @@ export default function KafkaInterview(){
     <main>
       <header className="max-w-3xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Kafka Tab
+          Kafka Tab · Interview Mastery
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
-          Kafka — practical pages
+          Kafka — win the interview round
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-          No giant topic dump. One Spring payment story, an internals board for production Kafka, real code, diagrams, and interview lines you can remember.
+          Dedicated sections for producer, consumer, cluster/controller, optimization, properties,
+          production monitoring, instance counts, syncing, and partition sizing. Open the mastery board
+          first if Kafka keeps getting you rejected.
+        </p>
+        <p className="mt-4">
+          <Link
+            href="/kafka-mastery"
+            className="inline-flex rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
+          >
+            Open Interview Mastery Board →
+          </Link>
         </p>
       </header>
 
-      <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {PAGES.map((page)=>(
-          <Link
-            key={page.href}
-            href={page.href}
-            className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-950"
-          >
-            <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-400">{page.number}</div>
-            <h2 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{page.title}</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">{page.blurb}</p>
-            <div className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Open →</div>
-          </Link>
-        ))}
+      <section className="mt-10">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Interview curriculum (one section each)</h2>
+        <p className="mt-2 text-sm text-slate-500">Jump straight to the section you get grilled on.</p>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {MASTERY_SECTIONS.map((page)=>(
+            <Link
+              key={page.href}
+              href={page.href}
+              className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-950"
+            >
+              <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-400">{page.number}</div>
+              <h3 className="mt-2 text-xl font-bold text-slate-900 dark:text-white">{page.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{page.blurb}</p>
+              <div className="mt-3 text-sm font-semibold text-slate-600 dark:text-slate-300">Open section →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-12">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Labs & deep pages</h2>
+        <p className="mt-2 text-sm text-slate-500">Code, stories, and boards that back the curriculum.</p>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {LAB_PAGES.map((page)=>(
+            <Link
+              key={page.href}
+              href={page.href}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-900/40"
+            >
+              <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-400">{page.number}</div>
+              <h3 className="mt-2 text-lg font-bold text-slate-900 dark:text-white">{page.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{page.blurb}</p>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section className="mt-10 rounded-xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">How to revise (15 minutes)</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">How to revise before an interview (45 minutes)</h2>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          <li>Open <strong>Realtime Case</strong> — learn the payment flow with diagrams.</li>
-          <li>Open <strong>Kafka Code</strong> — click `PaymentController` and `SettlementKafkaConfig`.</li>
-          <li>Skim <strong>Optimization</strong> then <strong>Properties</strong> — same knobs, same story.</li>
-          <li>Open <strong>Hadron CashLines DLQ</strong> — Neptune → retry → DLQ → replay with ordering and idempotency.</li>
-          <li>Open <strong>Internals & Production Board</strong> — replication, instance counts, partition writes, consumer crash replay.</li>
-          <li>Say the <strong>Cheatsheet & Interview</strong> 30-second answer out loud.</li>
+          <li>Open <strong>Interview Mastery</strong> — say the producer section out loud, then consumer, then cluster.</li>
+          <li>Drill <strong>§07 instance counts</strong> and <strong>§09 partitions</strong> — these fail candidates constantly.</li>
+          <li>Skim <strong>§06 monitoring</strong> — name lag, URP, ISR, disk, rebalances.</li>
+          <li>Walk <strong>Realtime Case</strong> once so you have a payment story.</li>
+          <li>Practice the Mastery <strong>spoken-answer deck</strong> (Senior → Rapid).</li>
         </ol>
       </section>
     </main>
