@@ -1,0 +1,33 @@
+server:
+  port: 8098
+
+spring:
+  application:
+    name: spring-rate-limiter-lab
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+
+rate-limit:
+  store: memory
+  default-fail-policy: FAIL_OPEN
+  payment-fail-policy: FAIL_CLOSED
+  filter-enabled: true
+  redis:
+    host: localhost
+    port: 6379
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

@@ -46,6 +46,7 @@ export default function Learn(){
           <Link href="/hadron-dlq" className="btn-secondary">Hadron DLQ</Link>
           <Link href="/multi-tenant" className="btn-secondary">Multi-Tenant SaaS</Link>
           <Link href="/bloom-filter" className="btn-secondary">Bloom Filter</Link>
+          <Link href="/rate-limiter" className="btn-secondary">Rate Limiter</Link>
           <Link href="/redis-interview" className="btn-secondary">Redis Interview</Link>
           <Link href="/design-patterns" className="btn-secondary">Design Patterns</Link>
           <Link href="/java-compiler" className="btn-secondary">Java Compiler</Link>

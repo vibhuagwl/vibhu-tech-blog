@@ -1,0 +1,28 @@
+import type {TocItem} from './types';
+
+export const RATE_LIMIT_TOC: TocItem[] = [
+  {id: 'requirements', label: '1. Requirements & Assumptions'},
+  {id: 'algorithms', label: '2. Rate-Limiting Algorithms'},
+  {id: 'selection', label: '3. Algorithm Selection'},
+  {id: 'architecture', label: '4. High-Level Architecture'},
+  {id: 'components', label: '5. Component Design'},
+  {id: 'class-diagram', label: '6. Class Diagram'},
+  {id: 'sequence', label: '7. Sequence Diagram'},
+  {id: 'data-model', label: '8. Data Model'},
+  {id: 'java', label: '9. Java 17 Implementation'},
+  {id: 'lua', label: '10. Redis Lua Script'},
+  {id: 'rest', label: '11. REST APIs'},
+  {id: 'concurrency', label: '12. Distributed Concurrency'},
+  {id: 'failure', label: '13. Failure Handling'},
+  {id: 'multilevel', label: '14. Multi-Level Rate Limiting'},
+  {id: 'config', label: '15. Dynamic Configuration'},
+  {id: 'observability', label: '16. Observability'},
+  {id: 'security', label: '17. Security'},
+  {id: 'scaling', label: '18. Scaling Strategy'},
+  {id: 'testing', label: '19. Testing Strategy'},
+  {id: 'scenarios', label: '20. Failure Scenarios'},
+  {id: 'tradeoffs', label: '21. Design Trade-offs'},
+  {id: 'five-min', label: '22. 5-Minute Interview Explanation'},
+  {id: 'followups', label: '23. Interview Follow-up Questions'},
+  {id: 'lab', label: 'Runnable Lab'},
+];

@@ -29,6 +29,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/complexity',label:'Complexity',blurb:'Big-O from Java code, interview framing'},
       {href:'/dsa',label:'DSA Islands & Window',blurb:'BFS/DFS islands · sliding window · Java'},
       {href:'/multi-tenant',label:'Multi-Tenant SaaS',blurb:'JWT · RLS · Redis · Kafka · Hybrid · Architect'},
+      {href:'/rate-limiter',label:'Distributed Rate Limiter',blurb:'Token bucket · Redis Lua · multi-level · 429 · Architect'},
     ],
   },
   {
