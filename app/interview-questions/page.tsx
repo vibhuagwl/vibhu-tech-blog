@@ -45,37 +45,7 @@ const banks=[
     href:'/kafka-interview',
     label:'Kafka',
     level:'Staff',
-    blurb:'Interview curriculum: producer, consumer, cluster, optimization, properties, monitoring, sizing.',
-  },
-  {
-    href:'/kafka-producer',
-    label:'Kafka Producer Board',
-    level:'Staff',
-    blurb:'Complete producer: send() lifecycle, accumulator, acks, idempotence, PID/seq, transactions, Spring, failure matrix.',
-  },
-  {
-    href:'/kafka-consumer',
-    label:'Kafka Consumer Board',
-    level:'Staff',
-    blurb:'Complete consumer: poll() internals, groups, rebalance, commits, lag, poison/DLQ, EOS, k8s, failure matrix.',
-  },
-  {
-    href:'/kafka-cluster',
-    label:'Kafka Cluster & Broker',
-    level:'Staff',
-    blurb:'KRaft, request path, replication, ISR, storage, multi-AZ, capacity, quotas, monitoring, failure war games.',
-  },
-  {
-    href:'/kafka-mastery',
-    label:'Kafka Interview Mastery',
-    level:'Staff',
-    blurb:'One section each for producer, consumer, cluster/controller, properties, monitoring, instances, syncing, partitions.',
-  },
-  {
-    href:'/kafka-internals',
-    label:'Kafka Internals Board',
-    level:'Staff',
-    blurb:'How Kafka writes partitions, replicates across brokers, sizes production instances, and redelivers after a consumer crash.',
+    blurb:'One hub: producer, consumer, cluster, mastery drills, properties, monitoring, internals, Hadron DLQ.',
   },
   {
     href:'/hadron-dlq',

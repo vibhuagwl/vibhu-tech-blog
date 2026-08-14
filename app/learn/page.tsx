@@ -42,12 +42,7 @@ export default function Learn(){
           <Link href="/leadership-principles" className="btn-secondary">Leadership Principles</Link>
           <Link href="/complexity" className="btn-secondary">Complexity</Link>
           <Link href="/dsa" className="btn-secondary">DSA Islands & Window</Link>
-          <Link href="/kafka-interview" className="btn-secondary">Kafka Hub</Link>
-          <Link href="/kafka-producer" className="btn-secondary">Kafka Producer</Link>
-          <Link href="/kafka-consumer" className="btn-secondary">Kafka Consumer</Link>
-          <Link href="/kafka-cluster" className="btn-secondary">Kafka Cluster</Link>
-          <Link href="/kafka-mastery" className="btn-secondary">Kafka Mastery</Link>
-          <Link href="/kafka-internals" className="btn-secondary">Kafka Internals</Link>
+          <Link href="/kafka-interview" className="btn-secondary">Kafka</Link>
           <Link href="/hadron-dlq" className="btn-secondary">Hadron DLQ</Link>
           <Link href="/multi-tenant" className="btn-secondary">Multi-Tenant SaaS</Link>
           <Link href="/bloom-filter" className="btn-secondary">Bloom Filter</Link>
