@@ -67,12 +67,6 @@ const CURRICULUM=[
     title:'Hadron CashLines DLQ',
     blurb:'Neptune → retry → DLQ → replay with ordering and idempotency.',
   },
-  {
-    href:'/kafka-internals',
-    number:'10',
-    title:'Internals Board',
-    blurb:'Partition writes, replication walkthrough, consumer crash replay.',
-  },
 ];
 
 export default function KafkaInterview(){

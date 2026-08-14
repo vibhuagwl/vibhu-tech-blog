@@ -51,7 +51,7 @@ export const KAFKA_HUB={
   title:'Kafka',
   subtitle:'Practical Spring Kafka',
   description:
-    'Interview mastery board (producer, consumer, cluster, monitoring, sizing) plus code, optimization, properties, realtime, Hadron DLQ, and internals.',
+    'Interview mastery board (producer, consumer, cluster, monitoring, sizing) plus code, optimization, properties, realtime, and Hadron DLQ.',
   basePath:'/kafka-interview',
   sections:[
     {
@@ -133,14 +133,6 @@ export const KAFKA_HUB={
       blurb:'Neptune → retry topics → DLQ DB → replay with ordering and idempotency.',
       href:'/hadron-dlq',
       mode:'experience' as const,
-    },
-    {
-      id:'internals',
-      number:'07',
-      title:'Internals Board',
-      blurb:'Partition writes, replication, production instance counts, consumer crash replay.',
-      href:'/kafka-internals',
-      mode:'learn' as const,
     },
   ] satisfies HubSection[],
 };

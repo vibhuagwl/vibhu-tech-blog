@@ -149,8 +149,8 @@ export default function KafkaConsumerHub() {
             Mastery
           </Link>
           {' · '}
-          <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Internals
+          <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Cluster
           </Link>
         </p>
       </header>
