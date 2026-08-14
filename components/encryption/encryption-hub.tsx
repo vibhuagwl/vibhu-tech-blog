@@ -18,8 +18,12 @@ import {
   MEMORY_SENTENCE,
   SIXTY_SEC,
 } from '@/lib/encryption/comparison';
+import {FIVE_ROOMS_SENTENCE} from '@/lib/encryption/famous-algorithms';
+import {PKI_SENTENCE} from '@/lib/encryption/pki';
 import {PRODUCTION_MISTAKES} from '@/lib/encryption/mistakes';
+import AlgorithmClassroom from './algorithm-classroom';
 import CodePanel from './code-panel';
+import PkiClassroom from './pki-classroom';
 import InterviewMode from './interview-mode';
 import SequenceWalkthrough, {LabCallMap} from './sequence-walkthrough';
 import StickyToc from './sticky-toc';
@@ -90,15 +94,19 @@ export default function EncryptionHub({
           Staff · Principal · Architect · Java · Spring Boot 3 · KMS · Payments
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          Encryption & Decryption in Spring Boot — Complete Production Guide
+          Encryption Algorithms — Five Rooms, PKI, Internals, Java
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Learn AES-GCM, RSA, ECC, hybrid and envelope encryption, JWT signing, TLS, KMS,
-          searchable fields, key rotation, and production mistakes through Java/Spring examples.
+          Too many algorithm names? Memorize five rooms — LOCK, SEAL, KEY, PRINT, PIPE — then
+          pick one famous default per room. PKI is the framework that binds a name to a key so
+          those rooms work between strangers. Internals, Java, and pros/cons live in the
+          classrooms below. Deep dives stay collapsed until you need them.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
-          {MEMORY_SENTENCE}
+          {FIVE_ROOMS_SENTENCE}
         </p>
+        <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">{MEMORY_SENTENCE}</p>
+        <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">{PKI_SENTENCE}</p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           Lab:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-encryption-lab/</code>
@@ -171,10 +179,28 @@ com.vibhu.crypto.tenant.TenantEncryptionService
 com.vibhu.crypto.crypto.EncryptedStringConverter
 com.vibhu.crypto.crypto.HmacService
 com.vibhu.crypto.crypto.RsaSignatureService
+com.vibhu.crypto.pki.PkiService
+com.vibhu.crypto.pki.PkiController
 com.vibhu.crypto.config.RsaKeyConfig`}
                 tone="ok"
               />
             </div>
+          </Section>
+
+          <Section
+            id="famous-algorithms"
+            title="Famous Algorithms — Five Rooms"
+            lead="Do not memorize thirty names. Memorize the house. Click a room, then an algorithm: how it works inside, copy-paste Java, pros/cons, and a one-line memory trick."
+          >
+            <AlgorithmClassroom />
+          </Section>
+
+          <Section
+            id="pki"
+            title="PKI — Certificates, CAs, and Trust"
+            lead="PKI is a framework of cryptographic technologies, digital certificates, certificate authorities, and trust mechanisms. It establishes identity, enables secure communication, and provides authentication, encryption, and digital signatures. Click a building block or an outcome, then internals / Java / pros-cons."
+          >
+            <PkiClassroom />
           </Section>
 
           <Section
@@ -198,6 +224,16 @@ com.vibhu.crypto.config.RsaKeyConfig`}
               rows={DECISION_MATRIX.map((r) => [r.need, r.primitive, r.format, r.note])}
             />
           </Section>
+
+          <div id="deep-dives" className="scroll-mt-28">
+            <h2 className="text-3xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
+              Deep dives
+            </h2>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600 dark:text-slate-300">
+              Production topics from the original guide. Cards start closed so the famous-algorithm
+              classroom stays the map. Open one when you need Spring/KMS/JWT detail.
+            </p>
+          </div>
 
           {TOPICS.map((t) => (
             <TopicPanel key={t.id} t={t} />

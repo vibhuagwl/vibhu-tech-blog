@@ -52,6 +52,7 @@ export default function Learn(){
           <Link href="/performance" className="btn-secondary">Performance</Link>
           <Link href="/jpmc-experience" className="btn-secondary">JPMC Experience</Link>
           <Link href="/spring-security" className="btn-secondary">Spring Security</Link>
+          <Link href="/encryption" className="btn-secondary">Encryption Algorithms</Link>
         </div>
       </div>
 

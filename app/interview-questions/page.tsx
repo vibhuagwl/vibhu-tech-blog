@@ -36,6 +36,12 @@ const banks=[
     blurb:'One hub for OAuth, Authn/Authz, CSRF, CORS, OIDC, XSS, SQL injection, DDoS defense, and JPA N+1 labs.',
   },
   {
+    href:'/encryption',
+    label:'Encryption Algorithms',
+    level:'Staff',
+    blurb:'Five rooms plus PKI: certificates, CAs, trust, TLS, sign, encrypt-to-cert, Java lab.',
+  },
+  {
     href:'/kafka-interview',
     label:'Kafka',
     level:'Staff',

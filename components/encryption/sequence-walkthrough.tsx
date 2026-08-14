@@ -78,6 +78,14 @@ POST /api/crypto/payments/signed    RsaSignatureService.verify
 POST /api/crypto/envelope/encrypt   EnvelopeEncryptionService
                                  → KEK wraps DEK, DEK encrypts data
 
+POST /api/crypto/pki/issue           PkiController.issue
+                                 → PkiService lab Root CA signs leaf
+                                 → X.509 PEM + serial + lab private PEM
+
+POST /api/crypto/pki/validate        PKIX chain + SAN hostname + CRL
+POST /api/crypto/pki/sign            RSA-PSS with leaf private key
+POST /api/crypto/pki/encrypt-to-cert RSA-OAEP wrap DEK + AES-GCM payload
+
 POST /api/crypto/reencrypt          decrypt with keyId, encrypt with active v2`}
     />
   );
