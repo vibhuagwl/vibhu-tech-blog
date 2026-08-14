@@ -42,6 +42,14 @@ curl -sS -X POST http://127.0.0.1:8095/api/neptune/seed \
   -H 'Content-Type: application/json' \
   -d '{"cashLineId":"CL-N1","participantId":"P-NEPTUNE","accountId":"ACC-1001","currency":"USD","amount":10,"eventType":"CASHLINE_CREATED","sequenceNumber":1}'
 curl -sS -X POST http://127.0.0.1:8095/api/neptune/poll
+
+# 7. Corner-case catalog (poison, NPE, enum, cancel, settle, stale, mismatch, ...)
+curl -sS http://127.0.0.1:8095/api/lab/scenarios | jq .
+curl -sS -X POST http://127.0.0.1:8095/api/lab/scenario/npe
+curl -sS -X POST http://127.0.0.1:8095/api/lab/scenario/cancelled-then-settle
+curl -sS -X POST http://127.0.0.1:8095/api/lab/scenario/replay-after-settle
+curl -sS -X POST http://127.0.0.1:8095/api/lab/scenario/stale-event
+curl -sS http://127.0.0.1:8095/api/dlq | jq .
 ```
 
 Lab retry delays are **200ms / 400ms / 800ms** so you can watch the pipeline. Production (`application-prod.yml`) uses **5s / 30s / 5m**.

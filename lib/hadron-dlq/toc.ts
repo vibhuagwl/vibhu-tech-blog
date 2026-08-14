@@ -25,7 +25,7 @@ export const HADRON_DLQ_TOC: TocItem[] = [
   {id: 'security', label: '21 Security'},
   {id: 'docker', label: '22 Docker'},
   {id: 'testing', label: '23 Tests'},
-  {id: 'failures', label: '24 Failure Scenarios'},
+  {id: 'failures', label: '24 DLQ Corner Cases'},
   {id: 'poison', label: 'Poison Messages'},
   {id: 'classifier', label: 'Exception Classifier'},
   {id: 'how-many-dlqs', label: 'How Many DLQs'},

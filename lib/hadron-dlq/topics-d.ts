@@ -122,7 +122,7 @@ mvc.perform(post("/api/dlq/"+id+"/replay"));`,
   ST[Stale event] --> IG[ignore seq <= last]`,
     code: `if (entity.getStatus() == SETTLED && eventType contains UPDATED)
   throw new InvalidCashLineException("Replay after settlement...");`,
-    failure: 'See comparison table: duplicate CashLine, crash mid-TX, offset reset, schema evolution, cancelled CashLine, currency/account mismatch, inactive participant.',
+    failure: 'See the hub catalog (24. Dead-letter corner cases): poison, timeout, deadlock, Event-101/102, ack-before-commit, concurrent replay, poller cursor, hot poison key, and the rest — each with Detection → Recovery → Alert.',
     production: 'Write the matrix before coding the classifier. The lab implements the happy subset and the dangerous ordering subset.',
     interview30s: 'I classify by whether time, data, or a human fixes it — and whether later events may proceed.',
     followUp: 'Offset reset is a replay of history. Idempotency + sequence make it a no-op for already applied ids.',

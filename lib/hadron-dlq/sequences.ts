@@ -132,4 +132,31 @@ export const CODE_SEQUENCES: CodeSequence[] = [
   E3->>W: park Event 3
   Note over E3: do NOT settle`,
   },
+  {
+    id: 'settle-block',
+    title: 'Replay after settle',
+    endpoint: 'POST /api/lab/scenario/replay-after-settle',
+    classes: ['CashLineService', 'CashLineStateMachine'],
+    why: 'UPDATE after SETTLED must not reopen the facility. State machine + explicit check DLQ the replay.',
+    mermaid: `sequenceDiagram
+  participant C as CREATE
+  participant U as UPDATE
+  participant S as SETTLE
+  participant R as UPDATE again
+  C->>C: VALIDATED
+  U->>U: PROCESSING
+  S->>S: SETTLED
+  R-->>R: InvalidCashLineException → DLQ`,
+  },
+  {
+    id: 'cancel',
+    title: 'Cancel then settle',
+    endpoint: 'POST /api/lab/scenario/cancelled-then-settle',
+    classes: ['CashLineService'],
+    why: 'Terminal CANCELLED rejects later money events. DLQ is evidence, not a reopen.',
+    mermaid: `flowchart TD
+  Cr[CREATE] --> Ca[CANCELLED]
+  Ca --> Se[SETTLED]
+  Se --> DLQ[DLQ now]`,
+  },
 ];
