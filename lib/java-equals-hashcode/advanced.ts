@@ -394,17 +394,16 @@ Comparator.comparingInt(Employee::id).reversed()`,
 ];
 
 export const CHEAT_SHEET = `HashMap / LinkedHashMap / ConcurrentHashMap / Hashtable
-  → hashCode() then equals()
+  → hash(h ^ (h >>> 16)) → bucket → equals()
+  → resize at loadFactor; treeify long collision bins (~O(log n) worst per bin)
 
 TreeMap / ConcurrentSkipListMap
-  → compareTo() OR Comparator
+  → compareTo() OR Comparator (+ NavigableMap floor/ceiling/subMap)
   → hashCode NOT used for placement
 
-IdentityHashMap
-  → reference ==
-
-EnumMap
-  → enum ordinal array
+IdentityHashMap → reference == / identityHashCode
+EnumMap        → ordinal array
+WeakHashMap    → weak keys (GC may drop entries)
 
 Mental model:
   equals()     → logical equality
@@ -414,6 +413,11 @@ Mental model:
 
 Golden rules:
   equal ⇒ same hashCode
-  compare==0 ⇔ equals (for SortedMap keys)
+  compare==0 ⇔ equals (SortedMap keys)
   Prefer immutable keys / records
-  Never mutate key fields after put`;
+  Never mutate key fields after put
+  getClass (or final) over instanceof for map keys
+  BigDecimal: equals ≠ compareTo (scale!)
+  Double: NaN equals NaN; +0.0 equals -0.0 is false
+  get()+put() ≠ computeIfAbsent
+  Avoid JPA entities / @Data-everything as keys`;

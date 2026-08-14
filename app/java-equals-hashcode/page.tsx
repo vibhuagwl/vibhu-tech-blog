@@ -3,9 +3,9 @@ import {Suspense} from 'react';
 import JavaEqualsHashcodeHub from '@/components/java-equals-hashcode/java-equals-hashcode-hub';
 
 export const metadata: Metadata = {
-  title: 'Custom Objects as Map Keys — HashMap, CHM, LinkedHashMap, TreeMap, SkipList',
+  title: 'Custom Map Keys Mastery — Hashing, Ordering, Concurrency, JPA, BigDecimal',
   description:
-    'Senior/Lead Java lab: custom keys in HashMap, ConcurrentHashMap, LinkedHashMap, TreeMap, Hashtable, ConcurrentSkipListMap, IdentityHashMap, EnumMap — equals/hashCode/compareTo, failures, LRU, exercises, interview bank.',
+    'Complete Senior/Lead Java lab: custom objects as keys across HashMap, CHM, LinkedHashMap, TreeMap, SkipList, Hashtable, IdentityHashMap, WeakHashMap, EnumMap — internals, inheritance, BigDecimal, Lombok, JPA, caching, exercises, interview bank.',
 };
 
 export default function JavaEqualsHashcodePage() {

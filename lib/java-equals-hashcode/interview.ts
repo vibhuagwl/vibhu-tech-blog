@@ -195,7 +195,43 @@ export const ARCHITECT: InterviewQ[] = [
     question: 'When is IdentityHashMap the right tool?',
     answer30s: 'When reference identity is the domain (graphs, serializers).',
     answer2m: 'If you wanted business equality you picked the wrong map.',
-    followUps: []},
+    followUps: [],
+  },
+  {
+    id: 'a6',
+    topic: 'BigDecimal',
+    question: 'Why is BigDecimal a TreeMap interview favorite?',
+    answer30s: 'equals cares about scale; compareTo is numerical — HashMap keeps both, TreeMap collapses.',
+    answer2m:
+      'new BigDecimal("1.0").equals(new BigDecimal("1.00")) is false but compareTo==0. Document stripTrailingZeros or Comparator policy.',
+    followUps: ['Would ConcurrentSkipListMap behave like TreeMap?'],
+  },
+  {
+    id: 'a7',
+    topic: 'Internals',
+    question: 'Why does HashMap XOR hash with hash>>>16?',
+    answer30s: 'Spread high bits into the index bits used by power-of-two tables.',
+    answer2m:
+      'Without spreading, keys differing only in high bits collide. Combined with treeify thresholds, this is the modern collision story.',
+    followUps: ['TREEIFY_THRESHOLD?', 'MIN_TREEIFY_CAPACITY?'],
+  },
+  {
+    id: 'a8',
+    topic: 'JPA',
+    question: 'Why are JPA entities risky as HashMap keys?',
+    answer30s: 'Generated ids, proxies, and mutable fields change identity across the lifecycle.',
+    answer2m:
+      'Prefer Map<UUID, Entity> or an immutable business key assigned at creation. Never hash lazy collections.',
+    followUps: ['equals before vs after persist?'],
+  },
+  {
+    id: 'a9',
+    topic: 'WeakHashMap',
+    question: 'Can WeakHashMap replace a production cache?',
+    answer30s: 'No — GC-driven eviction is unpredictable; value→key leaks are common.',
+    answer2m: 'Use Caffeine/Guava with size/time eviction. WeakHashMap is for specialized weakly-referenced metadata.',
+    followUps: [],
+  },
 ];
 
 export const RAPID: InterviewQ[] = [
@@ -209,6 +245,11 @@ export const RAPID: InterviewQ[] = [
   {id: 'r8', topic: 'Rapid', question: 'HashMap neither override — size a,b,a?', answer30s: '3', answer2m: 'get null.', followUps: []},
   {id: 'r9', topic: 'Rapid', question: 'Both correct — size?', answer30s: '2', answer2m: 'get works.', followUps: []},
   {id: 'r10', topic: 'Rapid', question: 'IdentityHashMap uses equals?', answer30s: 'No — ==.', answer2m: 'Reference identity.', followUps: []},
+  {id: 'r11', topic: 'Rapid', question: 'BigDecimal 1.0 equals 1.00?', answer30s: 'false', answer2m: 'compareTo==0; TreeMap collapses.', followUps: []},
+  {id: 'r12', topic: 'Rapid', question: 'TREEIFY_THRESHOLD?', answer30s: '8', answer2m: 'OpenJDK HashMap bin treeify hint.', followUps: []},
+  {id: 'r13', topic: 'Rapid', question: '+0.0 equals -0.0 for Double?', answer30s: 'false', answer2m: 'Different hashCodes too.', followUps: []},
+  {id: 'r14', topic: 'Rapid', question: 'WeakHashMap keys?', answer30s: 'Weak refs — GC can drop.', answer2m: 'Not a general cache.', followUps: []},
+  {id: 'r15', topic: 'Rapid', question: 'get+put vs computeIfAbsent?', answer30s: 'Racy vs atomic.', answer2m: 'Prefer computeIfAbsent.', followUps: []},
 ];
 
 export const ALL = [...SENIOR, ...ARCHITECT, ...RAPID];
