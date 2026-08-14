@@ -503,7 +503,7 @@ write, 1042 is skipped forever
                 Realtime payment case
               </Link>
               {' · '}
-              <Link href="/kafka-interview/kafka-properties" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+              <Link href="/kafka-properties" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Properties
               </Link>
               {' · '}

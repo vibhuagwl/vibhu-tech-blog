@@ -99,7 +99,7 @@ const DEEP_LINKS = [
     blurb: 'Tune one bottleneck at a time — producer → broker → controller → cluster → consumer.',
   },
   {
-    href: '/kafka-interview/kafka-properties',
+    href: '/kafka-properties',
     n: '05',
     title: 'Properties',
     blurb: 'Must-set baselines and full config reference — not duplicated here.',
