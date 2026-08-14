@@ -1,12 +1,14 @@
 'use client';
 
 import {useMemo, useState} from 'react';
-import {ALL, ARCHITECT, RAPID, SENIOR} from '@/lib/kafka-cluster/interview';
+import {ALL, ARCHITECT, RAPID, SENIOR, STAFF, TROUBLESHOOT_Q} from '@/lib/kafka-cluster/interview';
 
 export default function InterviewMode() {
-  const [mode, setMode] = useState<'senior' | 'architect' | 'rapid'>('senior');
+  const [mode, setMode] = useState<'senior' | 'architect' | 'staff' | 'troubleshoot' | 'rapid'>('senior');
   const list = useMemo(() => {
     if (mode === 'architect') return ARCHITECT;
+    if (mode === 'staff') return STAFF;
+    if (mode === 'troubleshoot') return TROUBLESHOOT_Q;
     if (mode === 'rapid') return RAPID;
     return SENIOR;
   }, [mode]);
@@ -21,6 +23,8 @@ export default function InterviewMode() {
           [
             ['senior', 'Senior'],
             ['architect', 'Architect'],
+            ['staff', 'Staff'],
+            ['troubleshoot', 'Troubleshoot'],
             ['rapid', 'Rapid'],
           ] as const
         ).map(([id, label]) => (

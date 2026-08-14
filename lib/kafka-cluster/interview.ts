@@ -102,6 +102,57 @@ export const SENIOR: InterviewQ[] = [
       'Check BytesIn per broker vs per partition. Fix with preferred leader election, reassignment, or re-keying. Adding consumers does not move leadership.',
     followUps: ['Hot partition vs hot broker?'],
   },
+  {
+    id: 's11',
+    topic: 'Threading',
+    question: 'NetworkProcessorAvgIdle vs RequestHandlerAvgIdle — what do they tell you?',
+    answer30s:
+      'Network idle low → socket/TLS/connection pressure. Handler idle low → append/fetch/disk/ISR wait pressure.',
+    answer2m:
+      'Raising the wrong thread pool multiplies contention. Always pair with queue sizes and disk latency.',
+    followUps: ['When would you raise num.replica.fetchers?'],
+  },
+  {
+    id: 's12',
+    topic: 'Page cache',
+    question: 'Why is Kafka broker memory not “just -Xmx”?',
+    answer30s:
+      'Logs live in OS page cache. Heap holds threads, metadata, buffers — oversized heap steals cache and hurts throughput.',
+    answer2m:
+      'Fetch hot path can sendfile from page cache. Size RAM for working set of active segments + replication.',
+    followUps: ['What does zero-copy buy you?'],
+  },
+  {
+    id: 's13',
+    topic: 'Epoch',
+    question: 'How do leader epochs prevent split-brain corruption?',
+    answer30s:
+      'Each leadership generation increments epoch. Stale leaders are fenced; replicas truncate divergent suffixes using epoch checkpoints.',
+    answer2m:
+      'After network partitions, an old leader cannot quietly append forever. This is core to safe recovery with unclean=false.',
+    followUps: ['Relate to fencing tokens on producers?'],
+  },
+  {
+    id: 's14',
+    topic: 'Reassignment',
+    question: 'What fails during an unthrottled partition reassignment?',
+    answer30s:
+      'Replication bandwidth eats disk/net; followers lag; ISR shrinks; client latency spikes.',
+    answer2m:
+      'Always throttle, watch URP, and schedule moves off peak. Prefer incremental moves over big-bang.',
+    followUps: ['How do you evacuate one disk?'],
+  },
+  {
+    id: 's15',
+    topic: 'Defaults',
+    question: 'Name three Kafka 4.x lab defaults that are dangerous in production.',
+    answer30s:
+      'default.replication.factor=1, min.insync.replicas=1, auto.create.topics.enable=true.',
+    answer2m:
+      'Also unclean=false is good — leave it. Override RF/minISR/auto-create explicitly; verify on your exact release docs.',
+    followUps: ['What about offsets.topic.replication.factor?'],
+    trick: 'Assuming RF=3 is the broker default.',
+  },
 ];
 
 export const ARCHITECT: InterviewQ[] = [
@@ -156,6 +207,36 @@ export const ARCHITECT: InterviewQ[] = [
       'Controllers and inter-broker protocol compatibility matter. Canary a broker. Have a rollback story — some upgrades are one-way after feature finalize.',
     followUps: ['Client version skew?'],
   },
+  {
+    id: 'a6',
+    topic: 'Financial',
+    question: 'Design Kafka for 100k+ tx/sec payments with no accidental data loss.',
+    answer30s:
+      'Multi-AZ RF=3 minISR=2 unclean=false; acks=all + idempotence; dedicated controllers; NVMe JBOD; quotas; observability; MM2 DR.',
+    answer2m:
+      'Every architectural number comes from bytes×RF and failure domains. Prove AZ loss with chaos. Prefer failing writes over silent loss.',
+    followUps: ['Where do you place controllers?'],
+  },
+  {
+    id: 'a7',
+    topic: 'K8s',
+    question: 'What breaks first when running Kafka on Kubernetes?',
+    answer30s:
+      'advertised.listeners, storage classes/PVs, zone anti-affinity, and resource limits that starve page cache.',
+    answer2m:
+      'StatefulSets need stable identity. Rolling restarts must honor controlled shutdown. Ephemeral disks are a data-loss machine.',
+    followUps: ['How do you do topology spread?'],
+  },
+  {
+    id: 'a8',
+    topic: 'Availability',
+    question: 'How do you target 99.99% availability for Kafka?',
+    answer30s:
+      'Multi-AZ RF with rack awareness, healthy quorum, rolling ops, fast detection, capacity headroom, and practiced recovery.',
+    answer2m:
+      'Four nines is an ops+design claim. Measure URP/offline SLOs. Control-plane quorum is part of the budget.',
+    followUps: ['What eats your error budget?'],
+  },
 ];
 
 export const RAPID: InterviewQ[] = [
@@ -169,6 +250,118 @@ export const RAPID: InterviewQ[] = [
   {id: 'r8', topic: 'Rapid', question: 'HW vs LEO?', answer30s: 'HW≤ISR; LEO local.', answer2m: 'Consumers use HW.', followUps: ['LSO?']},
   {id: 'r9', topic: 'Rapid', question: 'num.network.threads default?', answer30s: '3', answer2m: 'Per data listener.', followUps: ['Idle metric?']},
   {id: 'r10', topic: 'Rapid', question: 'Preferred leader?', answer30s: 'First replica in assignment.', answer2m: 'PLE rebalances produce load.', followUps: ['Hot broker?']},
+  {id: 'r11', topic: 'Rapid', question: 'Replica fetch direction?', answer30s: 'Follower pulls from leader.', answer2m: 'Not push replication.', followUps: ['num.replica.fetchers?']},
+  {id: 'r12', topic: 'Rapid', question: 'Segment roll triggers?', answer30s: 'Size and/or time.', answer2m: 'log.segment.bytes / .ms', followUps: ['Retention deletes?']},
+  {id: 'r13', topic: 'Rapid', question: 'JBOD vs one RAID for Kafka?', answer30s: 'Prefer multiple log.dirs.', answer2m: 'Isolate disk failure blast radius.', followUps: ['Disk full?']},
+  {id: 'r14', topic: 'Rapid', question: 'Who advances HW?', answer30s: 'Leader based on ISR progress.', answer2m: 'Not controller per message.', followUps: ['minISR?']},
+  {id: 'r15', topic: 'Rapid', question: 'process.roles values?', answer30s: 'broker, controller, or both.', answer2m: 'Split on large clusters.', followUps: ['Voters?']},
 ];
 
-export const ALL: InterviewQ[] = [...SENIOR, ...ARCHITECT, ...RAPID];
+export const STAFF: InterviewQ[] = [
+  {
+    id: 'st1',
+    topic: 'Staff',
+    question: 'Leader fails immediately after a successful local append but before ISR ack. What happens?',
+    answer30s:
+      'Depends on acks. acks=1 may have already acked the client with data not on followers — loss risk. acks=all waits; client retries after election.',
+    answer2m:
+      'New leader from ISR won’t have unreplicated tail. Idempotent producer retries safely. This is why payments use acks=all + minISR.',
+    followUps: ['Relate to HW vs LEO'],
+    trick: '“Leader append always means durable cluster-wide.”',
+  },
+  {
+    id: 'st2',
+    topic: 'Staff',
+    question: 'Controller fails during leader election — is the cluster safe?',
+    answer30s:
+      'Raft elects a new controller; in-flight metadata must be re-driven. Data plane keeps serving existing leaders.',
+    answer2m:
+      'Partitions mid-election may stay unavailable until the new controller completes. Quorum health is the control-plane SLO.',
+    followUps: ['What if majority is gone?'],
+  },
+  {
+    id: 'st3',
+    topic: 'Staff',
+    question: 'Network partition isolates a leader that still thinks it is leader. How does Kafka stay safe?',
+    answer30s:
+      'Controller/ISR path and leader epochs fence the stale leader; clients refresh to the new leader.',
+    answer2m:
+      'KRaft majority prevents unsafe metadata commits. Old leader cannot win a new epoch without quorum.',
+    followUps: ['Client behavior during the flap'],
+  },
+  {
+    id: 'st4',
+    topic: 'Staff',
+    question: 'Distinguish data loss vs unavailable vs delayed vs duplicate at the broker layer.',
+    answer30s:
+      'Loss: unreplicated data discarded (acks=1, unclean, RF=1). Unavailable: no leader/ISR. Delayed: lag/throttle. Duplicate: client retry without idempotence.',
+    answer2m:
+      'Broker durability knobs mainly bound loss and unavailability. Duplicates are mostly client/protocol concerns.',
+    followUps: ['Which metrics catch each?'],
+  },
+  {
+    id: 'st5',
+    topic: 'Staff',
+    question: 'Why can one partition stay hot after you add 10 brokers?',
+    answer30s:
+      'Ordering and key hashing pin a key to one partition; brokers don’t split a partition automatically.',
+    answer2m:
+      'Add partitions (breaks key→partition history), re-key, or isolate whale keys. Scale-out helps only when load is partition-spread.',
+    followUps: ['Impact of increasing partitions on ordering'],
+  },
+];
+
+export const TROUBLESHOOT_Q: InterviewQ[] = [
+  {
+    id: 't1',
+    topic: 'Troubleshoot',
+    question: 'ISR keeps shrinking — how do you triage in 5 minutes?',
+    answer30s:
+      'URP + IsrShrinks → find lagging broker → disk latency, CPU, net, GC → fix resource before touching unclean or lag knobs.',
+    answer2m:
+      'Check BytesIn imbalance and fetcher errors. If one disk is sick, evacuate that log.dir’s partitions.',
+    followUps: ['What metric proves catch-up?'],
+  },
+  {
+    id: 't2',
+    topic: 'Troubleshoot',
+    question: 'OfflinePartitionsCount > 0 — first actions?',
+    answer30s:
+      'Identify partitions with empty ISR / all replicas down. Restore brokers. Unclean only as conscious last resort.',
+    answer2m:
+      'Check AZ/rack placement mistakes. Prefer bringing replicas online over electing stale data.',
+    followUps: ['How do clients fail?'],
+  },
+  {
+    id: 't3',
+    topic: 'Troubleshoot',
+    question: 'RequestHandlerAvgIdle collapses — what next?',
+    answer30s:
+      'Disk append latency, ISR waits, too few io threads, or overload. Fix storage/load before blindly raising threads.',
+    answer2m:
+      'Pair with RequestQueueSize and produce p99. Network idle may still look fine.',
+    followUps: ['Contrast NetworkProcessorAvgIdle'],
+  },
+  {
+    id: 't4',
+    topic: 'Troubleshoot',
+    question: 'Broker restart takes 40 minutes — why?',
+    answer30s:
+      'Partition/segment count, unclean shutdown recovery, slow disks, cold page cache.',
+    answer2m:
+      'Use controlled.shutdown; budget partitions/broker; faster media; avoid kill -9.',
+    followUps: ['How does recovery interact with URP?'],
+  },
+  {
+    id: 't5',
+    topic: 'Troubleshoot',
+    question: 'Compacted topic not compacting — checklist?',
+    answer30s:
+      'Cleaner enabled? Threads? Dirty ratio? Disk busy? Errors in cleaner logs? Segment sizing?',
+    answer2m:
+      'Compaction is async and I/O heavy. Never assume “only latest key exists” without reading.',
+    followUps: ['Tombstone retention?'],
+  },
+];
+
+export const ALL: InterviewQ[] = [...SENIOR, ...ARCHITECT, ...RAPID, ...STAFF, ...TROUBLESHOOT_Q];

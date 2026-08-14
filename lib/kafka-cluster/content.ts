@@ -1,7 +1,7 @@
 /** Defaults verified against Apache Kafka 4.x broker configs (kafka.apache.org/43). Kafka 4.0 removed ZooKeeper mode. */
 
 export const VERSION_NOTE =
-  'Targets Apache Kafka 4.x / KRaft-only. Broker defaults often look like a single-node lab (RF=1, minISR=1, auto.create=true). Production MUST override. Always re-check docs for your exact release.';
+  'Targets Apache Kafka 4.x / KRaft-only (ZooKeeper mode removed). Documented broker defaults often look like a single-node lab (default.replication.factor=1, min.insync.replicas=1, auto.create.topics.enable=true). Production MUST override. For acks=all, the leader waits for the current ISR; min.insync.replicas is the floor on ISR size. Always re-check kafka.apache.org docs for your exact release — do not treat board text as a substitute for the config reference.';
 
 export const MEMORY_SENTENCE =
   'Clients talk to partition leaders on brokers. Brokers append to local logs (segments + indexes) via page cache. Followers fetch to stay in ISR. Controllers (KRaft Raft quorum) own metadata: leaders, ISR, topics, broker membership. Durability = RF × ISR × min.insync.replicas × unclean.election=false — not “we have 3 brokers” alone.';
@@ -240,6 +240,54 @@ export const ANTI: {bad: string; good: string}[] = [
   {bad: 'No reassignment throttle', good: 'Throttle replica move; protect ISR'},
   {bad: 'Combined controller starvation on huge cluster', good: 'Dedicated controller quorum'},
   {bad: 'Rolling upgrade without feature/compat plan', good: 'Docs upgrade path + canary'},
+  {bad: 'Blindly raise num.io.threads', good: 'Fix disk/ISR first; then tune with idle metrics'},
+  {bad: 'Blindly raise replication factor', good: 'Cost network×disk; only if durability needs it'},
+  {bad: 'No disk headroom', good: 'Alert 70/80/90%; keep 30%+ free'},
+  {bad: 'Ignore page cache pressure', good: 'Size RAM for active segments + replication'},
+  {bad: 'No quotas', good: 'Per-tenant byte/request quotas'},
+  {bad: 'No rack awareness', good: 'broker.rack on every broker'},
+  {bad: 'Unbounded topic creation automation', good: 'Budgets + rate limits + review'},
+  {bad: 'Ignore ISR shrink storms', good: 'Treat as early warning for disk/net'},
+  {bad: 'Ignore disk latency', good: 'p99 disk is a first-class SLO'},
+  {bad: 'No DR / multi-region plan', good: 'MM2/linking with honest RPO'},
+  {bad: 'Stretch RF across WAN', good: 'Separate clusters; async replicate'},
+  {bad: 'Ephemeral k8s disks', good: 'Persistent volumes; stable identity'},
+  {bad: 'kill -9 rolling restarts', good: 'controlled.shutdown + URP gates'},
+  {bad: 'One controller for “prod”', good: 'Odd quorum (3/5) across failure domains'},
+  {bad: 'Assume RF=3 default', good: 'Kafka 4.x default RF is 1 — override'},
+  {bad: 'No preferred leader election after moves', good: 'PLE to rebalance produce load'},
+  {bad: 'Mixing OS swap with Kafka', good: 'swappiness low; don’t swap the broker'},
+  {bad: 'No FD ulimit planning', good: 'Size for segments+indexes+sockets'},
+  {bad: 'Security as plaintext “temporarily”', good: 'TLS+SASL+ACL from day one in prod'},
+  {bad: 'Alert only on CPU', good: 'URP, offline, disk, idle%, quorum, p99'},
+];
+
+export const METRICS: string[][] = [
+  ['UnderReplicatedPartitions', '0 steady', 'Growing URP', 'Lagging replicas / disk / net', 'Fix I/O; never unclean first'],
+  ['OfflinePartitionsCount', '0', '>0', 'No electable ISR leader', 'Restore brokers; last-resort unclean'],
+  ['ActiveControllerCount', '1 in cluster', '0 or flapping', 'Quorum/controller health', 'Restore voters'],
+  ['IsrShrinksPerSec', 'Near 0', 'Sustained spikes', 'Lag / flaps', 'Stabilize resources'],
+  ['RequestHandlerAvgIdlePercent', 'High idle', 'Persistently low', 'Disk/ISR/overload', 'Fix root; careful io threads'],
+  ['NetworkProcessorAvgIdlePercent', 'High idle', 'Low', 'TLS/connections/net threads', 'Threads + connection limits'],
+  ['RequestQueueSize', 'Stable low', 'Climbing', 'Handler saturation', 'Disk/load triage'],
+  ['BytesIn / BytesOut', 'Per capacity plan', 'One broker skew', 'Leader imbalance / hot keys', 'PLE / reassign / re-key'],
+  ['LogFlushTime / disk latency', 'Within SLO', 'Rising p99', 'Storage saturation', 'Media / load / JBOD'],
+  ['LogCleaner metrics', 'Backlog draining', 'Stuck dirty ratio', 'Cleaner starved', 'Threads + I/O headroom'],
+  ['JVM GC pause', 'Short', 'Multi-100ms+', 'Heap mis-size', 'Shrink heap; favor page cache'],
+  ['ReplicaFetcher lag', 'Near 0', 'Growing', 'Slow follower path', 'Fetchers / disk / throttle'],
+];
+
+export const DECISIONS: string[][] = [
+  ['Brokers?', 'From bytes×RF vs disk+NIC ceilings + AZ count — not a lucky number'],
+  ['Partitions?', 'Consumer parallelism + key cardinality; cap per broker for recovery/FD'],
+  ['RF?', 'Usually 3 for multi-AZ prod; 1 only for disposable'],
+  ['Controllers?', '3 or 5 across AZs; dedicated when metadata fights data I/O'],
+  ['Disk?', 'Storage formula + 30%+; prefer JBOD NVMe for hot'],
+  ['Heap?', 'Modest; leave most RAM for page cache'],
+  ['Network/io threads?', 'Raise only when idle metrics prove that pool is the bottleneck'],
+  ['Add brokers?', 'When sustained resource ceilings hit — then reassign'],
+  ['Add partitions?', 'When parallelism/keys need it — expect remapping cost'],
+  ['Multi-region?', 'When RPO/RTO requires a second cluster — not stretched RF'],
 ];
 
 export const CHEATS = {
@@ -247,6 +295,19 @@ export const CHEATS = {
 Control plane: KRaft quorum → metadata log → brokers' MetadataCache
 Durability knobs: RF, ISR, minISR, unclean=false
 Memory: page cache > heap for logs`,
+  broker: `Acceptor → Processor → RequestQueue → Handler
+→ ReplicaManager → UnifiedLog → page cache/disk
+Controller not on Produce hot path`,
+  kraft: `Odd Raft quorum owns metadata log
+Active controller = Raft leader
+Majority loss freezes metadata commits
+Kafka 4.x: no ZooKeeper mode`,
+  controller: `Topics, leaders, ISR, brokers, reassignment, configs
+Brokers register + fence by epoch
+Not every Produce`,
+  partition: `Unit of order, parallelism, replication, storage
+Leader + RF−1 followers
+Preferred leader = first in assignment`,
   isr: `ISR = caught-up replicas
 Leave if lag beyond replica.lag.time.max.ms
 acks=all needs |ISR| ≥ min.insync.replicas
@@ -259,6 +320,31 @@ PLE restores preferred leaders for balance`,
 Roll by size/time
 Retention deletes closed segments
 Compaction keeps latest key`,
+  pagecache: `Logs in OS cache, not giant heaps
+Fetch may sendfile
+Broker RAM ≠ -Xmx`,
+  network: `advertised.listeners = what clients dial
+inter-broker listener for replica fetch
+Wrong advertised = classic k8s foot-gun`,
+  security: `TLS → SASL → ACL
+Rotate certs with overlap
+IDEMPOTENT_WRITE + CLUSTER_ACTION matter`,
+  capacity: `Storage = events×size×retention×RF + headroom
+Net = ingress + (RF-1)×repl + egress
+Partitions cost recovery/FD/controller`,
+  monitoring: `P0: offline, quorum, disk full, broker down
+P1: URP, ISR thrash, idle%, disk latency, p99
+Idle metrics beat guessing thread knobs`,
+  troubleshooting: `URP → lagging replica → disk/net/CPU
+Offline → empty ISR → restore / unclean last
+Latency → idle% + disk + ISR + quotas
+Slow restart → partitions/segments/unclean`,
+  dr: `Multi-AZ inside region with rack-aware RF
+Multi-region = second cluster + MM2/linking
+Honest RPO = link lag; offsets are local`,
+  design: `Math from bytes and failure domains
+Override lab defaults
+Chaos-test AZ loss and quorum loss`,
   interview: `1) Produce path inside broker
 2) ISR / HW / LEO / LSO
 3) Leader crash sequence

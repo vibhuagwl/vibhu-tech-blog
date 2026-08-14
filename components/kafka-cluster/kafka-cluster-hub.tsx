@@ -14,12 +14,14 @@ import {
   COMPACTION,
   CONFIG_CORE,
   CONTROLLER_DUTIES,
+  DECISIONS,
   ELECTION_FLOW,
   EPOCH_WHY,
   ISR_ROWS,
   KRAFT_ROWS,
   LISTENER_ROWS,
   MEMORY_SENTENCE,
+  METRICS,
   OFFSET_TYPES,
   PAGE_CACHE,
   PROTOCOL_APIS,
@@ -33,7 +35,7 @@ import {
   VERSION_NOTE,
   ZERO_COPY,
 } from '@/lib/kafka-cluster/content';
-import {CHAOS, FAILURE_MATRIX, TROUBLESHOOT, WAR_LEADER_CRASH, WAR_QUORUM} from '@/lib/kafka-cluster/failures';
+import {CHAOS, ERROR_CODES, FAILURE_MATRIX, TROUBLESHOOT, WAR_LEADER_CRASH, WAR_QUORUM} from '@/lib/kafka-cluster/failures';
 import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
 import StickyToc from './sticky-toc';
@@ -113,10 +115,6 @@ export default function KafkaClusterHub() {
           Hub:{' '}
           <Link href="/kafka-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Kafka
-          </Link>
-          {' · '}
-          <Link href="/kafka-producer" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Producer board
           </Link>
           {' · '}
           <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
@@ -235,12 +233,15 @@ export default function KafkaClusterHub() {
 
           <Section id="protocol" title="09. Wire protocol — broker view">
             <MiniTable headers={['API', 'Broker role']} rows={PROTOCOL_APIS} />
+            <div className="mt-4">
+              <MiniTable
+                headers={['Error', 'Meaning', 'Retry?', 'Ops response']}
+                rows={ERROR_CODES}
+              />
+            </div>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-500">
-              Deeper Produce/InitProducerId field lists live on the{' '}
-              <Link href="/kafka-producer#protocol" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Producer board §26
-              </Link>
-              . Brokers additionally own Fetch for replica fetchers and Metadata serving.
+              Brokers own Produce/Fetch for leaders and replica fetchers, plus Metadata serving. Client-side Produce
+              field evolution is covered in the producer mastery track when that board is available.
             </p>
           </Section>
 
@@ -450,23 +451,15 @@ P2: leader imbalance, cleaner backlog, quota throttle
 Also: BytesIn/Out, MessagesIn, NetworkProcessorAvgIdle,
 LogFlushTime, JVM GC, replica fetcher lag`}
             />
-            <div className="mt-4 space-y-3">
-              {TROUBLESHOOT.slice(0, 8).map((t) => (
-                <div key={t.title} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                    <strong>Symptoms:</strong> {t.symptoms}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                    <strong>Causes:</strong> {t.causes}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-emerald-800 dark:text-emerald-300">
-                    <strong>Fix:</strong> {t.fix}
-                  </p>
-                </div>
-              ))}
+            <div className="mt-4">
+              <MiniTable
+                headers={['Metric', 'Healthy idea', 'Warning', 'Root causes', 'Action']}
+                rows={METRICS}
+              />
             </div>
-            <p className="mt-3 text-sm text-slate-500">More playbooks in §26 chaos and the interview deck.</p>
+            <p className="mt-3 text-sm text-slate-500">
+              Thresholds are workload-relative — do not invent universal magic numbers. Full 40 playbooks in §26.
+            </p>
           </Section>
 
           <Section id="ops" title="24. Ops — upgrade, CLI, Kubernetes">
@@ -532,29 +525,41 @@ LogSegment, LogCleaner, SocketServer`}
             </div>
           </Section>
 
-          <Section id="chaos" title="26. Chaos and war games">
+          <Section id="chaos" title="26. Chaos, war games, and 40 production playbooks">
             <MiniTable headers={['Inject', 'Expected']} rows={CHAOS} />
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               <CodePanel title="Leader crash after write" tone="danger" code={WAR_LEADER_CRASH} />
               <CodePanel title="Controller quorum loss" tone="danger" code={WAR_QUORUM} />
             </div>
-            <div className="mt-4 space-y-3">
-              {TROUBLESHOOT.slice(8).map((t) => (
+            <div className="mt-6 space-y-3">
+              {TROUBLESHOOT.map((t) => (
                 <div key={t.title} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                    <strong>Symptoms:</strong> {t.symptoms} · <strong>Fix:</strong> {t.fix}
+                    <strong>Symptoms:</strong> {t.symptoms}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    <strong>Causes:</strong> {t.causes}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    <strong>Metrics:</strong> {t.metrics}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-emerald-800 dark:text-emerald-300">
+                    <strong>Fix:</strong> {t.fix}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    <strong>Prevention:</strong> {t.prevention}
                   </p>
                 </div>
               ))}
             </div>
           </Section>
 
-          <Section id="design" title="27. Production designs and anti-patterns">
+          <Section id="design" title="27. Production designs, decisions, and anti-patterns">
             <CodePanel
               title="Financial 100k+/s multi-AZ sketch"
               tone="ok"
-              code={`Brokers: 6–9 across 3 AZs (math from bytes×RF)
+              code={`Brokers: sized from bytes×RF across 3 AZs (often 6–9 — not a rule)
 Controllers: 3 dedicated across AZs
 RF=3, minISR=2, unclean=false, auto.create=false
 JBOD NVMe, headroom 30%+
@@ -564,6 +569,9 @@ Quotas on noisy tenants
 MM2/linking for DR — not stretched RF
 Dashboards: URP, offline, ISR, disk, idle%, p99`}
             />
+            <div className="mt-4">
+              <MiniTable headers={['Decision', 'Framework']} rows={DECISIONS} />
+            </div>
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               {ANTI.map((a) => (
                 <div key={a.bad} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
@@ -581,11 +589,23 @@ Dashboards: URP, offline, ISR, disk, idle%, p99`}
           <Section id="interview" title="28. Interview drills and cheat sheets">
             <InterviewMode />
             <div className="mt-8 grid gap-3 md:grid-cols-2">
-              <CodePanel title="Mental model" tone="ok" code={CHEATS.mental} />
-              <CodePanel title="ISR" code={CHEATS.isr} />
-              <CodePanel title="Election" code={CHEATS.election} />
-              <CodePanel title="Storage" code={CHEATS.storage} />
-              <CodePanel title="Interview hit list" code={CHEATS.interview} />
+              <CodePanel title="01 Mental model" tone="ok" code={CHEATS.mental} />
+              <CodePanel title="02 Broker architecture" code={CHEATS.broker} />
+              <CodePanel title="03 KRaft" code={CHEATS.kraft} />
+              <CodePanel title="04 Controller" code={CHEATS.controller} />
+              <CodePanel title="05 Partition" code={CHEATS.partition} />
+              <CodePanel title="06 ISR" code={CHEATS.isr} />
+              <CodePanel title="07 Leader election" code={CHEATS.election} />
+              <CodePanel title="08 Storage" code={CHEATS.storage} />
+              <CodePanel title="09 Page cache" code={CHEATS.pagecache} />
+              <CodePanel title="10 Networking" code={CHEATS.network} />
+              <CodePanel title="11 Security" code={CHEATS.security} />
+              <CodePanel title="12 Capacity" code={CHEATS.capacity} />
+              <CodePanel title="13 Monitoring" code={CHEATS.monitoring} />
+              <CodePanel title="14 Troubleshooting" code={CHEATS.troubleshooting} />
+              <CodePanel title="15 DR" code={CHEATS.dr} />
+              <CodePanel title="16 Design checklist" code={CHEATS.design} />
+              <CodePanel title="17 Interview hit list" code={CHEATS.interview} />
             </div>
             <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid
@@ -607,16 +627,16 @@ Dashboards: URP, offline, ISR, disk, idle%, p99`}
             </div>
             <p className="mt-6 text-sm leading-7 text-slate-500">
               Next:{' '}
-              <Link href="/kafka-producer" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Producer board
-              </Link>
-              {' · '}
               <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Interview mastery
               </Link>
               {' · '}
               <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Internals
+              </Link>
+              {' · '}
+              <Link href="/kafka-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Kafka hub
               </Link>
             </p>
           </Section>
