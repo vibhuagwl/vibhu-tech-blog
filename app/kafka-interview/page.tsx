@@ -70,24 +70,6 @@ const LAB_PAGES=[
     blurb:'Full curriculum in one board — producer through partitions, plus spoken-answer drills.',
   },
   {
-    href:'/kafka-producer',
-    number:'P1',
-    title:'Producer Complete Board',
-    blurb:'Producer-only deep dive: lifecycle, accumulator, idempotence, transactions, configs, failures, Spring.',
-  },
-  {
-    href:'/kafka-consumer',
-    number:'C1',
-    title:'Consumer Complete Board',
-    blurb:'Consumer-only deep dive: poll(), groups, rebalance, offsets, lag, poison/DLQ, EOS, k8s.',
-  },
-  {
-    href:'/kafka-cluster',
-    number:'B1',
-    title:'Cluster & Broker Board',
-    blurb:'KRaft, replication, ISR, storage, page cache, multi-AZ, scaling, monitoring, failure matrix.',
-  },
-  {
     href:'/spring-kafka-payments-demo',
     number:'A1',
     title:'Kafka Code',
