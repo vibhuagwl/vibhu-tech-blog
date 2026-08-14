@@ -108,6 +108,10 @@ export default function HadronDlqHub({
             Kafka
           </Link>
           {' · '}
+          <Link href="/kafka-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Kafka DLQ board
+          </Link>
+          {' · '}
           <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Interview mastery
           </Link>

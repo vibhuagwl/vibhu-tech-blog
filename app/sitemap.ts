@@ -111,7 +111,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.85,
     },
     {
-      url: `${BASE}/kafka-properties/`,
+      url: `${BASE}/kafka-dlq/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.85,
+    },
+    {
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.85,

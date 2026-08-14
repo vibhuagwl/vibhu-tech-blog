@@ -50,7 +50,7 @@ export const KAFKA_HUB={
   title:'Kafka',
   subtitle:'Practical Spring Kafka',
   description:
-    'Interview mastery board (producer, consumer, cluster, monitoring, sizing) plus code, optimization, properties, payment DLQ story, and Hadron DLQ.',
+    'Interview mastery board (producer, consumer, DLQ/DLT, cluster, monitoring, sizing) plus code, optimization, properties, payment DLQ story, and Hadron DLQ.',
   basePath:'/kafka-interview',
   sections:[
     {
@@ -75,6 +75,14 @@ export const KAFKA_HUB={
       title:'Consumer Board',
       blurb:'Complete consumer: poll(), groups, rebalance, commits, lag, DLQ, EOS, failures, Spring patterns.',
       href:'/kafka-consumer',
+      mode:'learn' as const,
+    },
+    {
+      id:'dlq',
+      number:'D1',
+      title:'DLQ / DLT / Retry',
+      blurb:'Complete failure recovery: classification, retry topics, Spring handlers, offsets, replay, payments.',
+      href:'/kafka-dlq',
       mode:'learn' as const,
     },
     {

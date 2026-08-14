@@ -10,6 +10,8 @@ publishedAt: "2026-08-12"
 updatedAt: "2026-08-14"
 ---
 
+**Complete DLQ/DLT architecture:** [Kafka DLQ board →](/kafka-dlq)
+
 **Use case:** `payment-api` receives card capture requests. `settlement-worker` talks to the bank. Good events become `SETTLED`. Poison events go to DLQ. Transient bank timeouts retry before DLQ.
 
 **Runnable code:** [Browse full demo →](/spring-kafka-payments-demo)  
