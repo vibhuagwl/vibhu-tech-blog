@@ -317,6 +317,13 @@ NOT required on every produce path`}
               or migration. Combined <code>broker,controller</code> roles are fine for a small cluster; split
               controllers when metadata load fights disk I/O.
             </p>
+            <p className="mt-3 text-sm leading-7 text-slate-500">
+              Full cluster/broker deep board:{' '}
+              <Link href="/kafka-cluster" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Kafka Cluster & Broker Complete
+              </Link>
+              {' '}— KRaft Raft, request path, ISR/HW, storage, multi-AZ, capacity, failure matrix.
+            </p>
           </Section>
 
           <Section
