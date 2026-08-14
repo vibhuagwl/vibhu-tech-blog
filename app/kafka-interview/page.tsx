@@ -11,7 +11,7 @@ const CURRICULUM=[
     href:'/kafka-mastery',
     number:'00',
     title:'Interview Mastery Board',
-    blurb:'Full curriculum in one board — producer through partitions, plus spoken-answer drills.',
+    blurb:'Interview map + unique drills: monitoring, instance counts, syncing, partitions, spoken answers. Deep producer/consumer/cluster live on their boards.',
   },
   {
     href:'/kafka-producer',
