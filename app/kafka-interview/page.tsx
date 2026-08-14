@@ -159,7 +159,10 @@ export default function KafkaInterview(){
 
       <section className="mt-12">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Labs & deep pages</h2>
-        <p className="mt-2 text-sm text-slate-500">Code, stories, and boards that back the curriculum.</p>
+        <p className="mt-2 text-sm text-slate-500">
+          Code, stories, and supporting boards. Producer / Consumer / Cluster complete boards are in the curriculum
+          above (§01–§03).
+        </p>
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {LAB_PAGES.map((page)=>(
             <Link
