@@ -19,10 +19,10 @@ const MASTERY_SECTIONS=[
     blurb:'Groups, poll/commit, lag, crash replay — how many consumer instances (≤ partitions).',
   },
   {
-    href:'/kafka-mastery#cluster',
+    href:'/kafka-cluster',
     number:'03',
-    title:'Cluster & controller',
-    blurb:'Brokers vs KRaft controller, topics, partitions, replicas, ISR.',
+    title:'Cluster & Broker',
+    blurb:'Complete cluster board: KRaft, request path, ISR, storage, multi-AZ, capacity, failures, ops.',
   },
   {
     href:'/kafka-mastery#optimization',
@@ -68,6 +68,12 @@ const LAB_PAGES=[
     number:'00',
     title:'Interview Mastery Board',
     blurb:'Full curriculum in one board — producer through partitions, plus spoken-answer drills.',
+  },
+  {
+    href:'/kafka-cluster',
+    number:'C1',
+    title:'Cluster & Broker Board',
+    blurb:'KRaft, replication, ISR, storage, page cache, multi-AZ, scaling, monitoring, failure matrix.',
   },
   {
     href:'/spring-kafka-payments-demo',
@@ -178,7 +184,8 @@ export default function KafkaInterview(){
       <section className="mt-10 rounded-xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">How to revise before an interview (45 minutes)</h2>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          <li>Open <strong>Interview Mastery</strong> — say the producer section out loud, then consumer, then cluster.</li>
+          <li>Open <strong>Cluster & Broker Board</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
+          <li>Open <strong>Interview Mastery</strong> — producer, consumer, monitoring, instance counts, partitions.</li>
           <li>Drill <strong>§07 instance counts</strong> and <strong>§09 partitions</strong> — these fail candidates constantly.</li>
           <li>Skim <strong>§06 monitoring</strong> — name lag, URP, ISR, disk, rebalances.</li>
           <li>Walk <strong>Realtime Case</strong> once so you have a payment story.</li>

@@ -48,6 +48,12 @@ const banks=[
     blurb:'Interview curriculum: producer, consumer, cluster, optimization, properties, monitoring, sizing.',
   },
   {
+    href:'/kafka-cluster',
+    label:'Kafka Cluster & Broker',
+    level:'Staff',
+    blurb:'KRaft, request path, replication, ISR, storage, multi-AZ, capacity, quotas, monitoring, failure war games.',
+  },
+  {
     href:'/kafka-mastery',
     label:'Kafka Interview Mastery',
     level:'Staff',
