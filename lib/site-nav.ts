@@ -53,7 +53,8 @@ export const TOPIC_GROUPS:NavGroup[]=[
     title:'Data & Messaging',
     description:'Kafka, Redis, and payment correctness',
     topics:[
-      {href:'/kafka-interview',label:'Kafka',blurb:'Producer · consumer · cluster · mastery · properties · monitoring · internals'},
+      {href:'/kafka-interview',label:'Kafka',blurb:'Producer · consumer · DLQ/DLT · cluster · mastery · properties · internals'},
+      {href:'/kafka-dlq',label:'Kafka DLQ / DLT',blurb:'Retry · DLT · offsets · Spring · replay · Staff interview'},
       {href:'/hadron-dlq',label:'Hadron CashLines DLQ',blurb:'Kafka · Retry · Ordering · Replay · Interview'},
       {href:'/redis-interview',label:'Redis',blurb:'Caching, HA, locks, Staff interview bank'},
       {href:'/distributed-caching',label:'Distributed Caching',blurb:'Spring · Redis · Caffeine · stampede · Architect'},
