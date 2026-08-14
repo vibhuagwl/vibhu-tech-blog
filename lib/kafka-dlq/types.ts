@@ -10,10 +10,12 @@ export type InterviewQ = {
   trick?: string;
 };
 
-export type InternalsSequence = {
-  id: string;
-  title: string;
-  why: string;
-  mermaid: string;
-  ascii: string;
+export type FailureRow = {
+  failure: string;
+  retry: string;
+  dlt: string;
+  commit: string;
+  dup: string;
+  loss: string;
+  alert: string;
 };

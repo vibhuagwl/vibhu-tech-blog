@@ -1,139 +1,18 @@
 ---
 slug: kafka-cheat-sheet
-title: "Kafka Cheatsheet & Interview"
-description: "One-page Kafka memory formulas plus a single interview story from the Spring payments demo — 30s, 90s, and follow-ups."
+title: "Kafka Cheat Sheet (moved)"
+description: "Moved — use Interview Mastery spoken answers and the Payment story + DLQ page."
 category: "Kafka Interview"
-difficulty: Senior
-tags: [Kafka, Cheat Sheet, Interview, Revision, Spring Kafka, DLQ]
-readingTime: 10 min
+difficulty: Intermediate
+tags: [Kafka, Cheat Sheet, Moved]
+readingTime: 1 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-**Code:** [spring-kafka-payments-demo](/spring-kafka-payments-demo) · **Realtime case:** [payment → DLQ](/kafka-interview/kafka-realtime-case)
+This page duplicated content already on the boards.
 
----
-
-## The one story (say this in every Kafka interview)
-
-> I explain Kafka with a payment capture flow. `payment-api` receives `POST /api/payments`, builds key `accountId:paymentId`, and publishes JSON with idempotence, batching, compression, and a producer transaction. `settlement-worker` consumes with manual offset commit, retries transient bank failures, sends poison messages to a DLQ, dedupes by `payment_id`, and publishes a result event.
-
-If you can say that cleanly, follow-ups become easy.
-
----
-
-## End-to-end visual
-
-<Mermaid chart={`sequenceDiagram
-    autonumber
-    actor Client
-    participant API as payment-api
-    participant Broker as Kafka
-    participant Cons as settlement-worker
-    participant Bank as Bank
-    participant DLT as DLT
-
-    Client->>API: POST /api/payments
-    API->>Broker: key + event
-    Broker-->>Cons: deliver
-    Cons->>Bank: settle
-    alt success
-        Cons->>Cons: commit offset
-    else transient
-        Cons->>Cons: retry
-    else poison
-        Cons->>DLT: DLQ
-    end`} />
-
----
-
-## Memory formulas
-
-```text
-Architecture:  Broker → Topic → Partition → Replica (ISR)
-Producer:      BATCH → COMPRESS → SEND → RETRY
-Consumer:      POLL → PROCESS → COMMIT
-Reliability:   REPLICATE → ACK → RECOVER
-Perf trade:    Throughput ↔ Latency
-Troubleshoot:  METRIC → LOG → ROOT CAUSE → FIX
-Optimize:      find bottleneck → change ONE layer → measure
-```
-
----
-
-## Box — interview memory map
-
-<Mermaid chart={`flowchart TD
-    A[Controller] --> B[Producer]
-    B --> C[Broker]
-    C --> D[Consumer]
-    D --> E{Outcome}
-    E -->|OK| F[Commit + result]
-    E -->|Retryable| G[Retry]
-    E -->|Poison| H[DLQ]
-    B --> I[Batch + zstd + key]
-    D --> J[Idempotency table]`} />
-
----
-
-## 30-second answer
-
-> In my Spring Kafka example, the controller publishes with key `accountId:paymentId`. Producer uses `acks=all`, idempotence, compression, batching, and a transaction prefix. Consumer disables auto-commit and acks only after settlement. Transient bank errors retry; poison goes to a same-partition DLQ. A processed table prevents double settlement on replay.
-
----
-
-## 90-second answer
-
-> Client hits `payment-api`, which publishes `PaymentRequestedEvent` to `payment.requested.v1` with business key `accountId:paymentId` for per-account ordering. Producer side: idempotence, `acks=all`, `linger.ms`, `batch.size`, `compression.type=zstd` so the accumulator batches instead of spraying tiny sends.  
->
-> Consumer side: `enable-auto-commit=false` and `MANUAL_IMMEDIATE`. Offsets move only after business logic. Transient bank timeout → `DefaultErrorHandler` retries. Poison → `DeadLetterPublishingRecoverer` to DLT. `processed_payments` keyed by `payment_id` blocks double charge. That is controller → broker → consumer → DLQ with real controls.
-
----
-
-## Follow-ups (short answers)
-
-| Question | Say this |
-|---|---|
-| Why this key? | Same-account ordering; watch hot partitions |
-| How do offsets work? | Manual ack after success; crash → redelivery + dedupe table |
-| Exactly-once? | Idempotent producer + transactional produce where needed + consumer dedupe; EOS alone does not replace DB truth |
-| Lag rising? | Processing time, `max.poll.records`, partitions vs consumers, bank latency |
-| Poison message? | Non-retryable exception → same-partition DLT → inspect → replay safely |
-| Scale consumers? | Helps only up to partition count |
-
----
-
-## Property flash cards
-
-| Layer | Flash |
-|---|---|
-| Producer | `acks` · `linger` · `batch.size` · `zstd` · idempotence · `max.in.flight` |
-| Consumer | auto-commit off · `max.poll.*` · heartbeat · CooperativeSticky · trusted packages |
-| Broker | no auto-create · partitions · min ISR · message max · unclean leader off |
-
-Detail: [Properties page](/kafka-properties)
-
----
-
-## Failure flash cards
-
-| Failure | Move |
-|---|---|
-| Lag | poll budget + downstream |
-| Rebalance storm | poll interval + sticky assignor |
-| Duplicates | idempotence + processed table |
-| Disk / ISR | broker capacity + unclean leader off |
-| Hot key | split key strategy or isolate noisy accounts |
-
----
-
-## 5-minute spoken order
-
-1. Entry — controller  
-2. Producer — key, batch, compress, acks  
-3. Broker — topics, partitions, limits  
-4. Consumer — manual commit, assignment  
-5. Failure — retry vs DLQ  
-6. Safety — producer idempotence + consumer dedupe  
-7. Ops — lag / poison / duplicate checks  
-
-**Practice path:** [Producer board](/kafka-producer) → [Consumer board](/kafka-consumer) → [Cluster board](/kafka-cluster) → [Interview mastery](/kafka-mastery) → [Internals board](/kafka-internals) → [Realtime case](/kafka-interview/kafka-realtime-case) → [Code](/spring-kafka-payments-demo)
+**Spoken answers / 60s / 5-min walk:** [Interview Mastery → spoken answers](/kafka-mastery#interview)  
+**Payment story + diagrams:** [Kafka Payments + DLQ](/kafka-interview/kafka-payments-dlq)  
+**Must-set properties:** [Kafka Properties](/kafka-properties)  
+**Runnable code:** [Spring Kafka payments demo](/spring-kafka-payments-demo)

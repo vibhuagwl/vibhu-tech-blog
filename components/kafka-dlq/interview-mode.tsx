@@ -1,7 +1,7 @@
 'use client';
 
 import {useMemo, useState} from 'react';
-import {ALL, ARCHITECT, RAPID, SENIOR} from '@/lib/kafka-internals/interview';
+import {ALL, ARCHITECT, RAPID, SENIOR} from '@/lib/kafka-dlq/interview';
 
 export default function InterviewMode() {
   const [mode, setMode] = useState<'senior' | 'architect' | 'rapid'>('senior');
@@ -78,7 +78,7 @@ export default function InterviewMode() {
             </div>
           )}
           <p className="mt-3 text-xs text-slate-400">
-            {idx + 1} / {list.length} in this deck · {ALL.length} prompts total
+            {idx + 1} / {list.length} · {ALL.length} prompts
           </p>
         </>
       )}

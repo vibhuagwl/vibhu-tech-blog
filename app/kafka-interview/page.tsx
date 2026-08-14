@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export const metadata={
   title:'Kafka — Interview Hub',
-  description:'Kafka interview hub: producer, consumer, cluster, mastery drills, optimization, properties, code, and supporting boards — one card per destination.',
+  description:'Kafka interview hub: producer, consumer, DLQ/DLT, cluster, mastery drills, optimization, properties, payment story, code — one card per destination.',
 };
 
 /** One card per destination — mastery drills live on /kafka-mastery (not as # fragment cards). */
@@ -26,34 +26,34 @@ const CURRICULUM=[
     blurb:'Complete consumer board: poll() internals, groups, rebalance, commits, lag, DLQ, EOS, failures.',
   },
   {
-    href:'/kafka-cluster',
+    href:'/kafka-dlq',
     number:'03',
+    title:'DLQ / DLT / Retry',
+    blurb:'Complete failure recovery board: classification, retry topics, Spring handlers, offsets, replay, payments.',
+  },
+  {
+    href:'/kafka-cluster',
+    number:'04',
     title:'Cluster & Broker',
     blurb:'Complete cluster board: KRaft, request path, ISR, storage, multi-AZ, capacity, failures, ops.',
   },
   {
     href:'/kafka-interview/kafka-optimization-index',
-    number:'04',
+    number:'05',
     title:'Optimization',
     blurb:'End-to-end: producer → broker → controller → cluster → consumer — bottlenecks, knobs, trade-offs.',
   },
   {
     href:'/kafka-properties',
-    number:'05',
+    number:'06',
     title:'Properties',
     blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs — plus payment must-set GO/NO-GO.',
   },
   {
-    href:'/kafka-interview/kafka-cheat-sheet',
-    number:'06',
-    title:'Cheatsheet & Interview',
-    blurb:'Memory formulas plus 30s/90s from the Spring payment story.',
-  },
-  {
-    href:'/kafka-interview/kafka-realtime-case',
+    href:'/kafka-interview/kafka-payments-dlq',
     number:'07',
-    title:'Realtime Case',
-    blurb:'Controller → producer → broker → consumer → retry/DLQ with diagrams.',
+    title:'Payment story + DLQ',
+    blurb:'Controller → producer → consumer → retry/DLQ with diagrams, curl, and Spring code.',
   },
   {
     href:'/spring-kafka-payments-demo',
@@ -66,12 +66,6 @@ const CURRICULUM=[
     number:'09',
     title:'Hadron CashLines DLQ',
     blurb:'Neptune → retry → DLQ → replay with ordering and idempotency.',
-  },
-  {
-    href:'/kafka-internals',
-    number:'10',
-    title:'Internals Board',
-    blurb:'Partition writes, replication walkthrough, consumer crash replay.',
   },
 ];
 
@@ -115,10 +109,11 @@ export default function KafkaInterview(){
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600 dark:text-slate-300">
           <li>Open <strong>§01 Producer</strong> — say the send() lifecycle and acks=1 vs all out loud.</li>
           <li>Open <strong>§02 Consumer</strong> — poll(), session vs max.poll.interval, process→commit timelines.</li>
-          <li>Open <strong>§03 Cluster</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
+          <li>Open <strong>§03 DLQ/DLT</strong> — classify failures, offsets, Spring recoverer, replay.</li>
+          <li>Open <strong>§04 Cluster</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
           <li>Open <strong>§00 Mastery</strong> — monitoring, instance counts, syncing, partitions, spoken answers.</li>
-          <li>Skim <strong>§05 Properties</strong> and <strong>§04 Optimization</strong> for must-set baselines.</li>
-          <li>Walk <strong>§07 Realtime Case</strong> once so you have a payment story.</li>
+          <li>Skim <strong>§06 Properties</strong> and <strong>§05 Optimization</strong> for must-set baselines.</li>
+          <li>Walk <strong>§07 Payment story + DLQ</strong> once so you have a Spring payment narrative.</li>
           <li>Practice the Mastery <strong>spoken-answer deck</strong> (Senior → Rapid).</li>
         </ol>
       </section>

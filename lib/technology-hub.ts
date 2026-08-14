@@ -15,9 +15,9 @@ export type HubTopic={
 
 /** Kafka hub sidebar: MDX pages listed under /kafka-interview (standalone hubs stay off this list). */
 export const KAFKA_SIDEBAR_ORDER=[
-  'kafka-realtime-case',
+  'kafka-payments-dlq',
   'kafka-optimization-index',
-  'kafka-cheat-sheet',
+  'kafka-properties',
 ];
 
 /**
@@ -50,7 +50,7 @@ export const KAFKA_HUB={
   title:'Kafka',
   subtitle:'Practical Spring Kafka',
   description:
-    'Interview mastery board (producer, consumer, cluster, monitoring, sizing) plus code, optimization, properties, realtime, Hadron DLQ, and internals.',
+    'Interview mastery board (producer, consumer, DLQ/DLT, cluster, monitoring, sizing) plus code, optimization, properties, payment DLQ story, and Hadron DLQ.',
   basePath:'/kafka-interview',
   sections:[
     {
@@ -75,6 +75,14 @@ export const KAFKA_HUB={
       title:'Consumer Board',
       blurb:'Complete consumer: poll(), groups, rebalance, commits, lag, DLQ, EOS, failures, Spring patterns.',
       href:'/kafka-consumer',
+      mode:'learn' as const,
+    },
+    {
+      id:'dlq',
+      number:'D1',
+      title:'DLQ / DLT / Retry',
+      blurb:'Complete failure recovery: classification, retry topics, Spring handlers, offsets, replay, payments.',
+      href:'/kafka-dlq',
       mode:'learn' as const,
     },
     {
@@ -110,36 +118,20 @@ export const KAFKA_HUB={
       mode:'learn' as const,
     },
     {
-      id:'cheatsheet',
+      id:'payment-dlq',
       number:'04',
-      title:'Cheatsheet & Interview',
-      blurb:'Memory formulas plus 30s/90s answers from the payment story.',
-      href:'/kafka-interview/kafka-cheat-sheet',
-      mode:'recall' as const,
-    },
-    {
-      id:'realtime',
-      number:'05',
-      title:'Realtime Case',
-      blurb:'Controller → producer → consumer → DLQ with diagrams and curl.',
-      href:'/kafka-interview/kafka-realtime-case',
+      title:'Payment story + DLQ',
+      blurb:'Controller → producer → consumer → DLQ with diagrams, curl, and Spring code.',
+      href:'/kafka-interview/kafka-payments-dlq',
       mode:'experience' as const,
     },
     {
       id:'hadron',
-      number:'06',
+      number:'05',
       title:'Hadron DLQ',
       blurb:'Neptune → retry topics → DLQ DB → replay with ordering and idempotency.',
       href:'/hadron-dlq',
       mode:'experience' as const,
-    },
-    {
-      id:'internals',
-      number:'07',
-      title:'Internals Board',
-      blurb:'Partition writes, replication, production instance counts, consumer crash replay.',
-      href:'/kafka-internals',
-      mode:'learn' as const,
     },
   ] satisfies HubSection[],
 };

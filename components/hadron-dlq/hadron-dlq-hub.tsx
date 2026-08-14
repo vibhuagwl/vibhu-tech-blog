@@ -108,12 +108,16 @@ export default function HadronDlqHub({
             Kafka
           </Link>
           {' · '}
+          <Link href="/kafka-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Kafka DLQ board
+          </Link>
+          {' · '}
           <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Interview mastery
           </Link>
           {' · '}
-          <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Internals board
+          <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Cluster board
           </Link>
           {' · '}
           <Link href="/jpmc-experience" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">

@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect, useState} from 'react';
-import type {TocItem} from '@/lib/kafka-internals/types';
+import type {TocItem} from '@/lib/kafka-dlq/types';
 
 export default function StickyToc({items}: {items: TocItem[]}) {
   const [active, setActive] = useState(items[0]?.id ?? '');
@@ -28,10 +28,10 @@ export default function StickyToc({items}: {items: TocItem[]}) {
     : items;
 
   return (
-    <nav aria-label="Kafka internals sections" className="hidden xl:block">
+    <nav aria-label="Kafka DLQ sections" className="hidden xl:block">
       <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
         <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-500">
-          Kafka · Internals · Production
+          Kafka · DLQ / DLT / Retry
         </div>
         <input
           value={query}

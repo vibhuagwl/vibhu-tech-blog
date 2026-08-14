@@ -149,8 +149,8 @@ export default function KafkaConsumerHub() {
             Mastery
           </Link>
           {' · '}
-          <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Internals
+          <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Cluster
           </Link>
         </p>
       </header>
@@ -426,6 +426,13 @@ Auth/ACL? → fix security (not retry loops)
 Deser? → DLQ + schema fix
 DB exactly-once needed? → idempotent upsert / outbox — not “Kafka EOS” alone`}
             />
+            <p className="mt-4 text-sm text-slate-500">
+              Full Staff curriculum:{' '}
+              <Link href="/kafka-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Kafka DLQ / DLT board
+              </Link>
+              .
+            </p>
             <div className="mt-4">
               <MiniTable headers={['Error', 'Retry?', 'Action', 'Rebalance?', 'Offset note']} rows={ERROR_CODES} />
             </div>

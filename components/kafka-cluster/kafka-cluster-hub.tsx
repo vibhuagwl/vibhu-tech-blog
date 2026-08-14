@@ -137,10 +137,6 @@ export default function KafkaClusterHub() {
           <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Mastery
           </Link>
-          {' · '}
-          <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Internals
-          </Link>
         </p>
       </header>
 
@@ -721,10 +717,6 @@ Dashboards: URP, offline, ISR, disk, idle%, p99`}
               Next:{' '}
               <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Interview mastery
-              </Link>
-              {' · '}
-              <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Internals
               </Link>
               {' · '}
               <Link href="/kafka-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">

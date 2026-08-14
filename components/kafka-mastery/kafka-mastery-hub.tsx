@@ -87,20 +87,26 @@ const DEEP_LINKS = [
     blurb: 'Complete board: poll(), groups, rebalance, commits, lag, DLQ, EOS, failures.',
   },
   {
-    href: '/kafka-cluster',
+    href: '/kafka-dlq',
     n: '03',
+    title: 'DLQ / DLT / Retry',
+    blurb: 'Complete failure recovery: classification, retry topics, Spring handlers, offsets, replay.',
+  },
+  {
+    href: '/kafka-cluster',
+    n: '04',
     title: 'Cluster & broker',
     blurb: 'Complete board: KRaft, request path, ISR, storage, multi-AZ, capacity, ops.',
   },
   {
     href: '/kafka-interview/kafka-optimization-index',
-    n: '04',
+    n: '05',
     title: 'Optimization',
     blurb: 'Tune one bottleneck at a time — producer → broker → controller → cluster → consumer.',
   },
   {
     href: '/kafka-properties',
-    n: '05',
+    n: '06',
     title: 'Properties',
     blurb: 'Must-set baselines and full config reference — not duplicated here.',
   },
@@ -148,10 +154,6 @@ export default function KafkaMasteryHub() {
           {' · '}
           <Link href="/kafka-cluster" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Cluster
-          </Link>
-          {' · '}
-          <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Internals
           </Link>
           {' · '}
           <Link href="/spring-kafka-payments-demo" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
@@ -340,10 +342,6 @@ to “keep accepting writes”`}
               <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Cluster board → replication
               </Link>
-              {' · '}
-              <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Internals board
-              </Link>
             </p>
           </Section>
 
@@ -405,20 +403,20 @@ to “keep accepting writes”`}
             </div>
             <p className="mt-6 text-sm leading-7 text-slate-500">
               Next:{' '}
-              <Link href="/kafka-interview/kafka-realtime-case" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Realtime case
+              <Link href="/kafka-interview/kafka-payments-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Payment story + DLQ
               </Link>
               {' · '}
-              <Link href="/kafka-internals" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Internals
+              <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Cluster
               </Link>
               {' · '}
               <Link href="/hadron-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Hadron DLQ
               </Link>
               {' · '}
-              <Link href="/kafka-interview/kafka-cheat-sheet" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Cheatsheet
+              <Link href="/kafka-mastery#interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Spoken answers
               </Link>
             </p>
           </Section>
