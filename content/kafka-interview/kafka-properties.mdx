@@ -1,137 +1,677 @@
 ---
 slug: kafka-properties
 title: "Kafka Properties"
-description: "Producer, consumer, and broker properties explained with one Spring payment story — must-set values, diagrams, and GO/NO-GO before prod."
+description: "Complete producer, consumer, broker, cluster, and controller (KRaft) property reference for Apache Kafka 4.x — defaults from official docs, plus payment must-set GO/NO-GO."
 category: "Kafka Interview"
 difficulty: Principal
-tags: [Kafka, Properties, Producer, Consumer, Broker, Spring Boot]
-readingTime: 12 min
+tags: [Kafka, Properties, Producer, Consumer, Broker, Controller, KRaft, Spring Boot]
+readingTime: 35 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-**Templates:** `spring-kafka-payments-demo/config-templates/` · **Code:** [source explorer](/spring-kafka-payments-demo) · **Full checklist:** [realtime pack](/realtime-issues/spring-kafka-full-properties-checklist)
+**Version:** Apache Kafka **4.0** configuration docs ([producer](https://kafka.apache.org/40/configuration/producer-configs/), [consumer](https://kafka.apache.org/40/configuration/consumer-configs/), [broker](https://kafka.apache.org/40/configuration/broker-configs/)). Defaults below are scraped from those pages — always re-check for your exact minor release.
 
----
+**Boards:** [Producer](/kafka-producer) · [Consumer](/kafka-consumer) · [Cluster](/kafka-cluster) · [Mastery](/kafka-mastery)
 
-## Box — set order before production
+**Templates:** `spring-kafka-payments-demo/config-templates/` · **Code:** [source explorer](/spring-kafka-payments-demo)
 
-<Mermaid chart={`flowchart TD
-    A[Producer baseline] --> B[Consumer baseline]
-    B --> C[DLQ + retry policy]
-    C --> D[Broker guardrails]
-    D --> E[Security SASL/SSL]
-    E --> F[Load + failure tests]
-    F --> G[GO / NO-GO]`} />
+> This page lists **official client/broker configuration keys**. Lab defaults are often unsafe for payments (e.g. consumer `enable.auto.commit=true`, broker `default.replication.factor=1`). Prefer the must-set section for production baselines.
 
 ---
 
-## Sequence — which property fires when
+## Must-set before production (payment baseline)
 
-<Mermaid chart={`sequenceDiagram
-    autonumber
-    participant API as payment-api
-    participant P as Producer props
-    participant K as Broker props
-    participant C as Consumer props
-    participant DLT as DLT
+### Producer
 
-    API->>P: acks=all, idempotence, linger, batch, zstd
-    P->>K: payment.requested.v1
-    Note over K: partitions, message.max.bytes, no auto-create
-    K-->>C: deliver
-    Note over C: auto-commit off, max.poll.*, CooperativeSticky
-    alt poison
-        C->>DLT: DeadLetterPublishingRecoverer
-    else success
-        C->>C: MANUAL_IMMEDIATE ack
-    end`} />
-
----
-
-## Producer — must set (demo values)
-
-| Property | Demo / target | Remember as |
+| Property | Prod target | Why |
 |---|---|---|
-| `acks` | `all` | wait for ISR |
-| `enable.idempotence` | `true` | safe retries |
-| `retries` | `10` | transient broker blips |
-| `linger.ms` | `25` | wait a little → bigger batches |
-| `batch.size` | `65536` | accumulator fill target |
-| `compression.type` | `zstd` | fewer network bytes |
-| `buffer.memory` | `33554432` | accumulator RAM |
-| `max.in.flight.requests.per.connection` | `5` | throughput + order with idempotence |
-| `transaction-id-prefix` | `payment-api-tx-` | producer transactions |
-| key / value serializer | String + JsonSerializer | stable contracts |
+| `acks` | `all` | Durability with ISR |
+| `enable.idempotence` | `true` | Safe retries |
+| `retries` / `delivery.timeout.ms` | high / sized | Transient blips |
+| `linger.ms` / `batch.size` / `compression.type` | tuned / `zstd` or `lz4` | Throughput |
+| `max.in.flight.requests.per.connection` | `≤5` with idempotence | Ordering + EOS |
+| `transactional.id` (if EOS) | stable per instance | Fencing |
 
-**Story line:** *accumulator waits (`linger`) → fills batch → compresses → sends with acks=all.*
+### Consumer
 
----
-
-## Consumer — must set (demo values)
-
-| Property | Demo / target | Remember as |
+| Property | Prod target | Why |
 |---|---|---|
-| `enable.auto.commit` | `false` | commit only after business success |
-| `auto.offset.reset` | explicit | predictable first start |
-| `isolation.level` | `read_committed` | if producer is transactional |
-| `max.poll.records` | `50` | bounded work per poll |
-| `max.poll.interval.ms` | tuned to bank call | avoid “stuck” rebalances |
-| `session.timeout.ms` | tuned | liveness |
-| `heartbeat.interval.ms` | `&lt; session/3` | stay in group |
-| `partition.assignment.strategy` | CooperativeStickyAssignor | smoother rollouts |
-| `spring.json.trusted.packages` | narrow | safe deserialization |
-| `allow.auto.create.topics` | `false` | no typo topics |
+| `enable.auto.commit` | `false` | Commit after business success |
+| `auto.offset.reset` | explicit (`earliest`/`latest`/`none`) | Predictable start |
+| `isolation.level` | `read_committed` if transactional upstream | LSO visibility |
+| `max.poll.records` / `max.poll.interval.ms` | sized together | Avoid rebalance storms |
+| `session.timeout.ms` / `heartbeat.interval.ms` | classic protocol | Liveness (N/A the same way if `group.protocol=consumer`) |
+| `partition.assignment.strategy` | CooperativeSticky | Smoother rolls |
+| `group.instance.id` | stable on k8s | Fewer restart rebalances |
 
-**Story line:** *poll → process bank → ack. If process throws, offset stays.*
+### Broker / cluster / controller
 
----
-
-## Broker — must set
-
-| Property | Target | Remember as |
+| Property | Prod target | Why |
 |---|---|---|
-| `auto.create.topics.enable` | `false` | control topics |
-| `num.partitions` | intentional (demo `6`) | parallelism ceiling |
-| `default.replication.factor` / `min.insync.replicas` | prod policy | durability with `acks=all` |
-| `unclean.leader.election.enable` | `false` | no silent loss |
-| `message.max.bytes` | bounded | stop giant events |
-| `replica.fetch.max.bytes` | ≥ message max | replica sync |
-| `log.retention.*` | business window | replay horizon |
-| `transaction.state.log.*` | valid | needed for producer tx |
+| `auto.create.topics.enable` | `false` | No typo topics |
+| `default.replication.factor` / `min.insync.replicas` | `3` / `2` typical | Durability with `acks=all` |
+| `unclean.leader.election.enable` | `false` | No silent loss |
+| `advertised.listeners` | reachable DNS | Classic k8s foot-gun |
+| `process.roles` / `controller.quorum.voters` / `node.id` | KRaft set | Metadata quorum |
+| `log.retention.*` | business window | Replay horizon |
+| `offsets.topic.replication.factor` / `transaction.state.log.replication.factor` | ≥3 | Internal topic HA |
 
----
-
-## Corner-case map
-
-| Symptom | Likely property | Fix |
-|---|---|---|
-| High produce latency | `linger.ms` too high | lower linger |
-| Tiny requests flood | linger 0 / tiny batch | batch more |
-| Duplicates on retry | idempotence off | turn on |
-| Lag + rebalances | poll interval vs processing | smaller `max.poll.records` |
-| Poison forever | no DLQ classification | non-retryable → DLT |
-| Random topics | auto-create on | disable |
-| Data loss on failover | unclean leader on | turn off |
-
----
-
-## Security (prod — must not skip)
+### Security
 
 | Layer | Properties |
 |---|---|
-| Producer / Consumer | `security.protocol`, `sasl.mechanism`, `sasl.jaas.config`, truststore/keystore |
-| Broker | listener security map, inter-broker protocol, authorizer, ACLs |
+| Clients | `security.protocol`, `sasl.mechanism`, `sasl.jaas.config`, SSL trust/keystore |
+| Brokers | `listener.security.protocol.map`, inter-broker protocol, authorizer, ACLs |
 
-Local Docker without SASL is fine for learning. Prod without these is **NO-GO**.
+---
+
+## How properties interact
+
+```text
+Producer: acks=all + enable.idempotence=true + max.in.flight≤5 + retries>0
+Consumer: max.poll.records × process_time < max.poll.interval.ms
+Broker:   message.max.bytes ≥ client max.request.size
+          replica.fetch.max.bytes ≥ message.max.bytes
+KRaft:    odd controller.quorum.voters; majority must be alive for metadata commits
+group.protocol=consumer → broker-side assignors; some classic timeout configs do not apply
+```
+
+---
+
+
+## Producer properties (complete — Kafka 4.0)
+
+*Source: Apache Kafka 4.0 configuration docs. Count: 94.*
+
+| Property | Type | Default (4.0) | Importance | Purpose |
+|---|---|---|---|---|
+| `bootstrap.servers` | list | "" | high | A list of host/port pairs used to establish the initial connection to the Kafka cluster. Clients use this list to bootstrap and discover the full set of Kafk... |
+| `buffer.memory` | long | 33554432 | high | The total bytes of memory the producer can use to buffer records waiting to be sent to the server. If records are sent faster than they can be delivered to t... |
+| `compression.type` | string | none | high | The compression type for all data generated by the producer. The default is none (i.e. no compression). Valid values are none, gzip, snappy, lz4, or zstd. Compres... |
+| `key.serializer` | class | — | high | Serializer class for key that implements the `org.apache.kafka.common.serialization.Serializer` interface. |
+| `ssl.key.password` | password | null | high | The password of the private key in the key store file or the PEM key specified in 'ssl.keystore.key'. |
+| `ssl.keystore.certificate.chain` | password | null | high | Certificate chain in the format specified by 'ssl.keystore.type'. Default SSL engine factory supports only PEM format with a list of X.509 certificates |
+| `ssl.keystore.key` | password | null | high | Private key in the format specified by 'ssl.keystore.type'. Default SSL engine factory supports only PEM format with PKCS#8 keys. If the key is encrypted, ke... |
+| `ssl.keystore.location` | string | null | high | The location of the key store file. This is optional for client and can be used for two-way authentication for client. |
+| `ssl.keystore.password` | password | null | high | The store password for the key store file. This is optional for client and only needed if 'ssl.keystore.location' is configured. Key store password is not su... |
+| `ssl.truststore.certificates` | password | null | high | Trusted certificates in the format specified by 'ssl.truststore.type'. Default SSL engine factory supports only PEM format with X.509 certificates. |
+| `ssl.truststore.location` | string | null | high | The location of the trust store file. |
+| `ssl.truststore.password` | password | null | high | The password for the trust store file. If a password is not set, trust store file configured will still be used, but integrity checking is disabled. Trust st... |
+| `value.serializer` | class | — | high | Serializer class for value that implements the `org.apache.kafka.common.serialization.Serializer` interface. |
+| `batch.size` | int | 16384 | medium | The producer will attempt to batch records together into fewer requests whenever multiple records are being sent to the same partition. This helps performanc... |
+| `client.dns.lookup` | string | use_all_dns_ips | medium | Controls how the client uses DNS lookups. If set to `use_all_dns_ips, connect to each returned IP address in sequence until a successful connection is establis... |
+| `client.id` | string | "" | medium | An id string to pass to the server when making requests. The purpose of this is to be able to track the source of requests beyond just ip/port by allowing a ... |
+| `compression.gzip.level` | int | -1 | medium | The compression level to use if compression.type is set to `gzip. |
+| `compression.lz4.level` | int | 9 | medium | The compression level to use if compression.type is set to `lz4. |
+| `compression.zstd.level` | int | 3 | medium | The compression level to use if compression.type is set to `zstd. |
+| `connections.max.idle.ms` | long | 540000 (9 minutes) | medium | Close idle connections after the number of milliseconds specified by this config. |
+| `delivery.timeout.ms` | int | 120000 (2 minutes) | medium | An upper bound on the time to report success or failure after a call tosend() returns. This limits the total time that a record will be delayed prior to send... |
+| `linger.ms` | long | 5 | medium | The producer groups together any records that arrive in between request transmissions into a single batched request. Normally this occurs only under load whe... |
+| `max.block.ms` | long | 60000 (1 minute) | medium | The configuration controls how long theKafkaProducer'ssend(),partitionsFor(),initTransactions(),sendOffsetsToTransaction(),commitTransaction() andabortTransa... |
+| `max.request.size` | int | 1048576 | medium | The maximum size of a request in bytes. This setting will limit the number of record batches the producer will send in a single request to avoid sending huge... |
+| `partitioner.class` | class | null | medium | Determines which partition to send a record to when records are produced. Available options are: Implementing the `org.apache.kafka.clients.producer.Partitione... |
+| `partitioner.ignore.keys` | boolean | false | medium | When set to 'true' the producer won't use record keys to choose a partition. If 'false', producer would choose a partition based on a hash of the key when a ... |
+| `receive.buffer.bytes` | int | 32768 (32 kibibytes) | medium | The size of the TCP receive buffer (SO_RCVBUF) to use when reading data. If the value is -1, the OS default will be used. |
+| `request.timeout.ms` | int | 30000 (30 seconds) | medium | The configuration controls the maximum amount of time the client will wait for the response of a request. If the response is not received before the timeout ... |
+| `sasl.client.callback.handler.class` | class | null | medium | The fully qualified name of a SASL client callback handler class that implements the AuthenticateCallbackHandler interface. |
+| `sasl.jaas.config` | password | null | medium | JAAS login context parameters for SASL connections in the format used by JAAS configuration files. JAAS configuration file format is described here. The form... |
+| `sasl.kerberos.service.name` | string | null | medium | The Kerberos principal name that Kafka runs as. This can be defined either in Kafka's JAAS config or in Kafka's config. |
+| `sasl.login.callback.handler.class` | class | null | medium | The fully qualified name of a SASL login callback handler class that implements the AuthenticateCallbackHandler interface. For brokers, login callback handle... |
+| `sasl.login.class` | class | null | medium | The fully qualified name of a class that implements the Login interface. For brokers, login config must be prefixed with listener prefix and SASL mechanism n... |
+| `sasl.mechanism` | string | GSSAPI | medium | SASL mechanism used for client connections. This may be any mechanism for which a security provider is available. GSSAPI is the default mechanism. |
+| `sasl.oauthbearer.jwks.endpoint.url` | string | null | medium | The OAuth/OIDC provider URL from which the provider's JWKS (JSON Web Key Set) can be retrieved. The URL can be HTTP(S)-based or file-based. If the URL is HTT... |
+| `sasl.oauthbearer.token.endpoint.url` | string | null | medium | The URL for the OAuth/OIDC identity provider. If the URL is HTTP(S)-based, it is the issuer's token endpoint URL to which requests will be made to login base... |
+| `security.protocol` | string | PLAINTEXT | medium | Protocol used to communicate with brokers. |
+| `send.buffer.bytes` | int | 131072 (128 kibibytes) | medium | The size of the TCP send buffer (SO_SNDBUF) to use when sending data. If the value is -1, the OS default will be used. |
+| `socket.connection.setup.timeout.max.ms` | long | 30000 (30 seconds) | medium | The maximum amount of time the client will wait for the socket connection to be established. The connection setup timeout will increase exponentially for eac... |
+| `socket.connection.setup.timeout.ms` | long | 10000 (10 seconds) | medium | The amount of time the client will wait for the socket connection to be established. If the connection is not built before the timeout elapses, clients will ... |
+| `ssl.enabled.protocols` | list | TLSv1.2,TLSv1.3 | medium | The list of protocols enabled for SSL connections. The default is 'TLSv1.2,TLSv1.3'. This means that clients and servers will prefer TLSv1.3 if both support ... |
+| `ssl.keystore.type` | string | JKS | medium | The file format of the key store file. This is optional for client. The values currently supported by the default ssl.engine.factory.class are [JKS, PKCS12, ... |
+| `ssl.protocol` | string | TLSv1.3 | medium | The SSL protocol used to generate the SSLContext. The default is 'TLSv1.3', which should be fine for most use cases. A typical alternative to the default is ... |
+| `ssl.provider` | string | null | medium | The name of the security provider used for SSL connections. Default value is the default security provider of the JVM. |
+| `ssl.truststore.type` | string | JKS | medium | The file format of the trust store file. The values currently supported by the default ssl.engine.factory.class are [JKS, PKCS12, PEM]. |
+| `acks` | string | all | low | The number of acknowledgments the producer requires the leader to have received before considering a request complete. This controls the durability of record... |
+| `enable.idempotence` | boolean | true | low | When set to 'true', the producer will ensure that exactly one copy of each message is written in the stream. If 'false', producer retries due to broker failu... |
+| `enable.metrics.push` | boolean | true | low | Whether to enable pushing of client metrics to the cluster, if the cluster has a client metrics subscription which matches this client. |
+| `interceptor.classes` | list | "" | low | A list of classes to use as interceptors. Implementing the `org.apache.kafka.clients.producer.ProducerInterceptor interface allows you to intercept (and possib... |
+| `max.in.flight.requests.per.connection` | int | 5 | low | The maximum number of unacknowledged requests the client will send on a single connection before blocking. Note that if this configuration is set to be great... |
+| `metadata.max.age.ms` | long | 300000 (5 minutes) | low | The period of time in milliseconds after which we force a refresh of metadata even if we haven't seen any partition leadership changes to proactively discove... |
+| `metadata.max.idle.ms` | long | 300000 (5 minutes) | low | Controls how long the producer will cache metadata for a topic that's idle. If the elapsed time since a topic was last produced to exceeds the metadata idle ... |
+| `metadata.recovery.rebootstrap.trigger.ms` | long | 300000 (5 minutes) | low | If a client configured to rebootstrap usingmetadata.recovery.strategy=rebootstrap is unable to obtain metadata from any of the brokers in the last known meta... |
+| `metadata.recovery.strategy` | string | rebootstrap | low | Controls how the client recovers when none of the brokers known to it is available. If set to `none, the client fails. If set to `rebootstrap, the client repeats... |
+| `metric.reporters` | list | org.apache.kafka.common.metrics.JmxReporter | low | A list of classes to use as metrics reporters. Implementing the `org.apache.kafka.common.metrics.MetricsReporter interface allows plugging in classes that will... |
+| `metrics.num.samples` | int | 2 | low | The number of samples maintained to compute metrics. |
+| `metrics.recording.level` | string | INFO | low | The highest recording level for metrics. It has three levels for recording metrics - info, debug, and trace.INFO level records only essential metrics necessa... |
+| `metrics.sample.window.ms` | long | 30000 (30 seconds) | low | The window of time a metrics sample is computed over. |
+| `partitioner.adaptive.partitioning.enable` | boolean | true | low | When set to 'true', the producer will try to adapt to broker performance and produce more messages to partitions hosted on faster brokers. If 'false', produc... |
+| `partitioner.availability.timeout.ms` | long | 0 | low | If a broker cannot process produce requests from a partition forpartitioner.availability.timeout.ms time, the partitioner treats that partition as not availa... |
+| `reconnect.backoff.max.ms` | long | 1000 (1 second) | low | The maximum amount of time in milliseconds to wait when reconnecting to a broker that has repeatedly failed to connect. If provided, the backoff per host wil... |
+| `reconnect.backoff.ms` | long | 50 | low | The base amount of time to wait before attempting to reconnect to a given host. This avoids repeatedly connecting to a host in a tight loop. This backoff app... |
+| `retry.backoff.max.ms` | long | 1000 (1 second) | low | The maximum amount of time in milliseconds to wait when retrying a request to the broker that has repeatedly failed. If provided, the backoff per client will... |
+| `retry.backoff.ms` | long | 100 | low | The amount of time to wait before attempting to retry a failed request to a given topic partition. This avoids repeatedly sending requests in a tight loop un... |
+| `sasl.kerberos.kinit.cmd` | string | /usr/bin/kinit | low | Kerberos kinit command path. |
+| `sasl.kerberos.min.time.before.relogin` | long | 60000 | low | Login thread sleep time between refresh attempts. |
+| `sasl.kerberos.ticket.renew.jitter` | double | 0.05 | low | Percentage of random jitter added to the renewal time. |
+| `sasl.kerberos.ticket.renew.window.factor` | double | 0.8 | low | Login thread will sleep until the specified window factor of time from last refresh to ticket's expiry has been reached, at which time it will try to renew t... |
+| `sasl.login.connect.timeout.ms` | int | null | low | The (optional) value in milliseconds for the external authentication provider connection timeout. Currently applies only to OAUTHBEARER. |
+| `sasl.login.read.timeout.ms` | int | null | low | The (optional) value in milliseconds for the external authentication provider read timeout. Currently applies only to OAUTHBEARER. |
+| `sasl.login.refresh.buffer.seconds` | short | 300 | low | The amount of buffer time before credential expiration to maintain when refreshing a credential, in seconds. If a refresh would otherwise occur closer to exp... |
+| `sasl.login.refresh.min.period.seconds` | short | 60 | low | The desired minimum time for the login refresh thread to wait before refreshing a credential, in seconds. Legal values are between 0 and 900 (15 minutes); a ... |
+| `sasl.login.refresh.window.factor` | double | 0.8 | low | Login refresh thread will sleep until the specified window factor relative to the credential's lifetime has been reached, at which time it will try to refres... |
+| `sasl.login.refresh.window.jitter` | double | 0.05 | low | The maximum amount of random jitter relative to the credential's lifetime that is added to the login refresh thread's sleep time. Legal values are between 0 ... |
+| `sasl.login.retry.backoff.max.ms` | long | 10000 (10 seconds) | low | The (optional) value in milliseconds for the maximum wait between login attempts to the external authentication provider. Login uses an exponential backoff a... |
+| `sasl.login.retry.backoff.ms` | long | 100 | low | The (optional) value in milliseconds for the initial wait between login attempts to the external authentication provider. Login uses an exponential backoff a... |
+| `sasl.oauthbearer.clock.skew.seconds` | int | 30 | low | The (optional) value in seconds to allow for differences between the time of the OAuth/OIDC identity provider and the broker. |
+| `sasl.oauthbearer.expected.audience` | list | null | low | The (optional) comma-delimited setting for the broker to use to verify that the JWT was issued for one of the expected audiences. The JWT will be inspected f... |
+| `sasl.oauthbearer.expected.issuer` | string | null | low | The (optional) setting for the broker to use to verify that the JWT was created by the expected issuer. The JWT will be inspected for the standard OAuth "iss... |
+| `sasl.oauthbearer.header.urlencode` | boolean | false | low | The (optional) setting to enable the OAuth client to URL-encode the client_id and client_secret in the authorization header in accordance with RFC6749, see h... |
+| `sasl.oauthbearer.jwks.endpoint.refresh.ms` | long | 3600000 (1 hour) | low | The (optional) value in milliseconds for the broker to wait between refreshing its JWKS (JSON Web Key Set) cache that contains the keys to verify the signatu... |
+| `sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms` | long | 10000 (10 seconds) | low | The (optional) value in milliseconds for the maximum wait between attempts to retrieve the JWKS (JSON Web Key Set) from the external authentication provider.... |
+| `sasl.oauthbearer.jwks.endpoint.retry.backoff.ms` | long | 100 | low | The (optional) value in milliseconds for the initial wait between JWKS (JSON Web Key Set) retrieval attempts from the external authentication provider. JWKS ... |
+| `sasl.oauthbearer.scope.claim.name` | string | scope | low | The OAuth claim for the scope is often named "scope", but this (optional) setting can provide a different name to use for the scope included in the JWT paylo... |
+| `sasl.oauthbearer.sub.claim.name` | string | sub | low | The OAuth claim for the subject is often named "sub", but this (optional) setting can provide a different name to use for the subject included in the JWT pay... |
+| `security.providers` | string | null | low | A list of configurable creator classes each returning a provider implementing security algorithms. These classes should implement the `org.apache.kafka.common.... |
+| `ssl.cipher.suites` | list | null | low | A list of cipher suites. This is a named combination of authentication, encryption, MAC and key exchange algorithm used to negotiate the security settings fo... |
+| `ssl.endpoint.identification.algorithm` | string | https | low | The endpoint identification algorithm to validate server hostname using server certificate. |
+| `ssl.engine.factory.class` | class | null | low | The class of type org.apache.kafka.common.security.auth.SslEngineFactory to provide SSLEngine objects. Default value is org.apache.kafka.common.security.ssl.... |
+| `ssl.keymanager.algorithm` | string | SunX509 | low | The algorithm used by key manager factory for SSL connections. Default value is the key manager factory algorithm configured for the Java Virtual Machine. |
+| `ssl.secure.random.implementation` | string | null | low | The SecureRandom PRNG implementation to use for SSL cryptography operations. |
+| `ssl.trustmanager.algorithm` | string | PKIX | low | The algorithm used by trust manager factory for SSL connections. Default value is the trust manager factory algorithm configured for the Java Virtual Machine. |
+| `transaction.timeout.ms` | int | 60000 (1 minute) | low | The maximum amount of time in milliseconds that a transaction will remain open before the coordinator proactively aborts it. The start of the transaction is ... |
+| `transactional.id` | string | null | low | The TransactionalId to use for transactional delivery. This enables reliability semantics which span multiple producer sessions since it allows the client to... |
+
+## Consumer properties (complete — Kafka 4.0)
+
+*Source: Apache Kafka 4.0 configuration docs. Count: 96.*
+
+| Property | Type | Default (4.0) | Importance | Purpose |
+|---|---|---|---|---|
+| `bootstrap.servers` | list | "" | high | A list of host/port pairs used to establish the initial connection to the Kafka cluster. Clients use this list to bootstrap and discover the full set of Kafk... |
+| `fetch.min.bytes` | int | 1 | high | The minimum amount of data the server should return for a fetch request. If insufficient data is available the request will wait for that much data to accumu... |
+| `group.id` | string | null | high | A unique string that identifies the consumer group this consumer belongs to. This property is required if the consumer uses either the group management funct... |
+| `group.protocol` | string | classic | high | The group protocol consumer should use. We currently support "classic" or "consumer". If "consumer" is specified, then the consumer group protocol will be us... |
+| `heartbeat.interval.ms` | int | 3000 (3 seconds) | high | The expected time between heartbeats to the consumer coordinator when using Kafka's group management facilities. Heartbeats are used to ensure that the consu... |
+| `key.deserializer` | class | — | high | Deserializer class for key that implements the `org.apache.kafka.common.serialization.Deserializer interface. |
+| `max.partition.fetch.bytes` | int | 1048576 (1 mebibyte) | high | The maximum amount of data per-partition the server will return. Records are fetched in batches by the consumer. If the first record batch in the first non-e... |
+| `session.timeout.ms` | int | 45000 (45 seconds) | high | The timeout used to detect client failures when using Kafka's group management facility. The client sends periodic heartbeats to indicate its liveness to the... |
+| `ssl.key.password` | password | null | high | The password of the private key in the key store file or the PEM key specified in 'ssl.keystore.key'. |
+| `ssl.keystore.certificate.chain` | password | null | high | Certificate chain in the format specified by 'ssl.keystore.type'. Default SSL engine factory supports only PEM format with a list of X.509 certificates |
+| `ssl.keystore.key` | password | null | high | Private key in the format specified by 'ssl.keystore.type'. Default SSL engine factory supports only PEM format with PKCS#8 keys. If the key is encrypted, ke... |
+| `ssl.keystore.location` | string | null | high | The location of the key store file. This is optional for client and can be used for two-way authentication for client. |
+| `ssl.keystore.password` | password | null | high | The store password for the key store file. This is optional for client and only needed if 'ssl.keystore.location' is configured. Key store password is not su... |
+| `ssl.truststore.certificates` | password | null | high | Trusted certificates in the format specified by 'ssl.truststore.type'. Default SSL engine factory supports only PEM format with X.509 certificates. |
+| `ssl.truststore.location` | string | null | high | The location of the trust store file. |
+| `ssl.truststore.password` | password | null | high | The password for the trust store file. If a password is not set, trust store file configured will still be used, but integrity checking is disabled. Trust st... |
+| `value.deserializer` | class | — | high | Deserializer class for value that implements the `org.apache.kafka.common.serialization.Deserializer interface. |
+| `allow.auto.create.topics` | boolean | true | medium | Allow automatic topic creation on the broker when subscribing to or assigning a topic. A topic being subscribed to will be automatically created only if the ... |
+| `auto.offset.reset` | string | latest | medium | What to do when there is no initial offset in Kafka or if the current offset does not exist any more on the server (e.g. because that data has been deleted):... |
+| `client.dns.lookup` | string | use_all_dns_ips | medium | Controls how the client uses DNS lookups. If set to `use_all_dns_ips, connect to each returned IP address in sequence until a successful connection is establis... |
+| `connections.max.idle.ms` | long | 540000 (9 minutes) | medium | Close idle connections after the number of milliseconds specified by this config. |
+| `default.api.timeout.ms` | int | 60000 (1 minute) | medium | Specifies the timeout (in milliseconds) for client APIs. This configuration is used as the default timeout for all client operations that do not specify atim... |
+| `enable.auto.commit` | boolean | true | medium | If true the consumer's offset will be periodically committed in the background. |
+| `exclude.internal.topics` | boolean | true | medium | Whether internal topics matching a subscribed pattern should be excluded from the subscription. It is always possible to explicitly subscribe to an internal ... |
+| `fetch.max.bytes` | int | 52428800 (50 mebibytes) | medium | The maximum amount of data the server should return for a fetch request. Records are fetched in batches by the consumer, and if the first record batch in the... |
+| `group.instance.id` | string | null | medium | A unique identifier of the consumer instance provided by the end user. Only non-empty strings are permitted. If set, the consumer is treated as a static memb... |
+| `group.remote.assignor` | string | null | medium | The name of the server-side assignor to use. If not specified, the group coordinator will pick the first assignor defined in the broker config group.consumer... |
+| `isolation.level` | string | read_uncommitted | medium | Controls how to read messages written transactionally. If set to `read_committed, consumer.poll() will only return transactional messages which have been commi... |
+| `max.poll.interval.ms` | int | 300000 (5 minutes) | medium | The maximum delay between invocations of poll() when using consumer group management. This places an upper bound on the amount of time that the consumer can ... |
+| `max.poll.records` | int | 500 | medium | The maximum number of records returned in a single call to poll(). Note, thatmax.poll.records does not impact the underlying fetching behavior. The consumer ... |
+| `partition.assignment.strategy` | list | class org.apache.kafka.clients.consumer.RangeAssignor,class org.apache.kafka.clients.consumer.CooperativeStickyAssignor | medium | A list of class names or class types, ordered by preference, of supported partition assignment strategies that the client will use to distribute partition ow... |
+| `receive.buffer.bytes` | int | 65536 (64 kibibytes) | medium | The size of the TCP receive buffer (SO_RCVBUF) to use when reading data. If the value is -1, the OS default will be used. |
+| `request.timeout.ms` | int | 30000 (30 seconds) | medium | The configuration controls the maximum amount of time the client will wait for the response of a request. If the response is not received before the timeout ... |
+| `sasl.client.callback.handler.class` | class | null | medium | The fully qualified name of a SASL client callback handler class that implements the AuthenticateCallbackHandler interface. |
+| `sasl.jaas.config` | password | null | medium | JAAS login context parameters for SASL connections in the format used by JAAS configuration files. JAAS configuration file format is described here. The form... |
+| `sasl.kerberos.service.name` | string | null | medium | The Kerberos principal name that Kafka runs as. This can be defined either in Kafka's JAAS config or in Kafka's config. |
+| `sasl.login.callback.handler.class` | class | null | medium | The fully qualified name of a SASL login callback handler class that implements the AuthenticateCallbackHandler interface. For brokers, login callback handle... |
+| `sasl.login.class` | class | null | medium | The fully qualified name of a class that implements the Login interface. For brokers, login config must be prefixed with listener prefix and SASL mechanism n... |
+| `sasl.mechanism` | string | GSSAPI | medium | SASL mechanism used for client connections. This may be any mechanism for which a security provider is available. GSSAPI is the default mechanism. |
+| `sasl.oauthbearer.jwks.endpoint.url` | string | null | medium | The OAuth/OIDC provider URL from which the provider's JWKS (JSON Web Key Set) can be retrieved. The URL can be HTTP(S)-based or file-based. If the URL is HTT... |
+| `sasl.oauthbearer.token.endpoint.url` | string | null | medium | The URL for the OAuth/OIDC identity provider. If the URL is HTTP(S)-based, it is the issuer's token endpoint URL to which requests will be made to login base... |
+| `security.protocol` | string | PLAINTEXT | medium | Protocol used to communicate with brokers. |
+| `send.buffer.bytes` | int | 131072 (128 kibibytes) | medium | The size of the TCP send buffer (SO_SNDBUF) to use when sending data. If the value is -1, the OS default will be used. |
+| `socket.connection.setup.timeout.max.ms` | long | 30000 (30 seconds) | medium | The maximum amount of time the client will wait for the socket connection to be established. The connection setup timeout will increase exponentially for eac... |
+| `socket.connection.setup.timeout.ms` | long | 10000 (10 seconds) | medium | The amount of time the client will wait for the socket connection to be established. If the connection is not built before the timeout elapses, clients will ... |
+| `ssl.enabled.protocols` | list | TLSv1.2,TLSv1.3 | medium | The list of protocols enabled for SSL connections. The default is 'TLSv1.2,TLSv1.3'. This means that clients and servers will prefer TLSv1.3 if both support ... |
+| `ssl.keystore.type` | string | JKS | medium | The file format of the key store file. This is optional for client. The values currently supported by the default ssl.engine.factory.class are [JKS, PKCS12, ... |
+| `ssl.protocol` | string | TLSv1.3 | medium | The SSL protocol used to generate the SSLContext. The default is 'TLSv1.3', which should be fine for most use cases. A typical alternative to the default is ... |
+| `ssl.provider` | string | null | medium | The name of the security provider used for SSL connections. Default value is the default security provider of the JVM. |
+| `ssl.truststore.type` | string | JKS | medium | The file format of the trust store file. The values currently supported by the default ssl.engine.factory.class are [JKS, PKCS12, PEM]. |
+| `auto.commit.interval.ms` | int | 5000 (5 seconds) | low | The frequency in milliseconds that the consumer offsets are auto-committed to Kafka If `enable.auto.commit` is set to `true. |
+| `check.crcs` | boolean | true | low | Automatically check the CRC32 of the records consumed. This ensures no on-the-wire or on-disk corruption to the messages occurred. This check adds some overh... |
+| `client.id` | string | "" | low | An id string to pass to the server when making requests. The purpose of this is to be able to track the source of requests beyond just ip/port by allowing a ... |
+| `client.rack` | string | "" | low | A rack identifier for this client. This can be any string value which indicates where this client is physically located. It corresponds with the broker confi... |
+| `enable.metrics.push` | boolean | true | low | Whether to enable pushing of client metrics to the cluster, if the cluster has a client metrics subscription which matches this client. |
+| `fetch.max.wait.ms` | int | 500 | low | The maximum amount of time the server will block before answering the fetch request there isn't sufficient data to immediately satisfy the requirement given ... |
+| `interceptor.classes` | list | "" | low | A list of classes to use as interceptors. Implementing the `org.apache.kafka.clients.consumer.ConsumerInterceptor interface allows you to intercept (and possib... |
+| `metadata.max.age.ms` | long | 300000 (5 minutes) | low | The period of time in milliseconds after which we force a refresh of metadata even if we haven't seen any partition leadership changes to proactively discove... |
+| `metadata.recovery.rebootstrap.trigger.ms` | long | 300000 (5 minutes) | low | If a client configured to rebootstrap usingmetadata.recovery.strategy=rebootstrap is unable to obtain metadata from any of the brokers in the last known meta... |
+| `metadata.recovery.strategy` | string | rebootstrap | low | Controls how the client recovers when none of the brokers known to it is available. If set to `none, the client fails. If set to `rebootstrap, the client repeats... |
+| `metric.reporters` | list | org.apache.kafka.common.metrics.JmxReporter | low | A list of classes to use as metrics reporters. Implementing the `org.apache.kafka.common.metrics.MetricsReporter interface allows plugging in classes that will... |
+| `metrics.num.samples` | int | 2 | low | The number of samples maintained to compute metrics. |
+| `metrics.recording.level` | string | INFO | low | The highest recording level for metrics. It has three levels for recording metrics - info, debug, and trace.INFO level records only essential metrics necessa... |
+| `metrics.sample.window.ms` | long | 30000 (30 seconds) | low | The window of time a metrics sample is computed over. |
+| `reconnect.backoff.max.ms` | long | 1000 (1 second) | low | The maximum amount of time in milliseconds to wait when reconnecting to a broker that has repeatedly failed to connect. If provided, the backoff per host wil... |
+| `reconnect.backoff.ms` | long | 50 | low | The base amount of time to wait before attempting to reconnect to a given host. This avoids repeatedly connecting to a host in a tight loop. This backoff app... |
+| `retry.backoff.max.ms` | long | 1000 (1 second) | low | The maximum amount of time in milliseconds to wait when retrying a request to the broker that has repeatedly failed. If provided, the backoff per client will... |
+| `retry.backoff.ms` | long | 100 | low | The amount of time to wait before attempting to retry a failed request to a given topic partition. This avoids repeatedly sending requests in a tight loop un... |
+| `sasl.kerberos.kinit.cmd` | string | /usr/bin/kinit | low | Kerberos kinit command path. |
+| `sasl.kerberos.min.time.before.relogin` | long | 60000 | low | Login thread sleep time between refresh attempts. |
+| `sasl.kerberos.ticket.renew.jitter` | double | 0.05 | low | Percentage of random jitter added to the renewal time. |
+| `sasl.kerberos.ticket.renew.window.factor` | double | 0.8 | low | Login thread will sleep until the specified window factor of time from last refresh to ticket's expiry has been reached, at which time it will try to renew t... |
+| `sasl.login.connect.timeout.ms` | int | null | low | The (optional) value in milliseconds for the external authentication provider connection timeout. Currently applies only to OAUTHBEARER. |
+| `sasl.login.read.timeout.ms` | int | null | low | The (optional) value in milliseconds for the external authentication provider read timeout. Currently applies only to OAUTHBEARER. |
+| `sasl.login.refresh.buffer.seconds` | short | 300 | low | The amount of buffer time before credential expiration to maintain when refreshing a credential, in seconds. If a refresh would otherwise occur closer to exp... |
+| `sasl.login.refresh.min.period.seconds` | short | 60 | low | The desired minimum time for the login refresh thread to wait before refreshing a credential, in seconds. Legal values are between 0 and 900 (15 minutes); a ... |
+| `sasl.login.refresh.window.factor` | double | 0.8 | low | Login refresh thread will sleep until the specified window factor relative to the credential's lifetime has been reached, at which time it will try to refres... |
+| `sasl.login.refresh.window.jitter` | double | 0.05 | low | The maximum amount of random jitter relative to the credential's lifetime that is added to the login refresh thread's sleep time. Legal values are between 0 ... |
+| `sasl.login.retry.backoff.max.ms` | long | 10000 (10 seconds) | low | The (optional) value in milliseconds for the maximum wait between login attempts to the external authentication provider. Login uses an exponential backoff a... |
+| `sasl.login.retry.backoff.ms` | long | 100 | low | The (optional) value in milliseconds for the initial wait between login attempts to the external authentication provider. Login uses an exponential backoff a... |
+| `sasl.oauthbearer.clock.skew.seconds` | int | 30 | low | The (optional) value in seconds to allow for differences between the time of the OAuth/OIDC identity provider and the broker. |
+| `sasl.oauthbearer.expected.audience` | list | null | low | The (optional) comma-delimited setting for the broker to use to verify that the JWT was issued for one of the expected audiences. The JWT will be inspected f... |
+| `sasl.oauthbearer.expected.issuer` | string | null | low | The (optional) setting for the broker to use to verify that the JWT was created by the expected issuer. The JWT will be inspected for the standard OAuth "iss... |
+| `sasl.oauthbearer.header.urlencode` | boolean | false | low | The (optional) setting to enable the OAuth client to URL-encode the client_id and client_secret in the authorization header in accordance with RFC6749, see h... |
+| `sasl.oauthbearer.jwks.endpoint.refresh.ms` | long | 3600000 (1 hour) | low | The (optional) value in milliseconds for the broker to wait between refreshing its JWKS (JSON Web Key Set) cache that contains the keys to verify the signatu... |
+| `sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms` | long | 10000 (10 seconds) | low | The (optional) value in milliseconds for the maximum wait between attempts to retrieve the JWKS (JSON Web Key Set) from the external authentication provider.... |
+| `sasl.oauthbearer.jwks.endpoint.retry.backoff.ms` | long | 100 | low | The (optional) value in milliseconds for the initial wait between JWKS (JSON Web Key Set) retrieval attempts from the external authentication provider. JWKS ... |
+| `sasl.oauthbearer.scope.claim.name` | string | scope | low | The OAuth claim for the scope is often named "scope", but this (optional) setting can provide a different name to use for the scope included in the JWT paylo... |
+| `sasl.oauthbearer.sub.claim.name` | string | sub | low | The OAuth claim for the subject is often named "sub", but this (optional) setting can provide a different name to use for the subject included in the JWT pay... |
+| `security.providers` | string | null | low | A list of configurable creator classes each returning a provider implementing security algorithms. These classes should implement the `org.apache.kafka.common.... |
+| `ssl.cipher.suites` | list | null | low | A list of cipher suites. This is a named combination of authentication, encryption, MAC and key exchange algorithm used to negotiate the security settings fo... |
+| `ssl.endpoint.identification.algorithm` | string | https | low | The endpoint identification algorithm to validate server hostname using server certificate. |
+| `ssl.engine.factory.class` | class | null | low | The class of type org.apache.kafka.common.security.auth.SslEngineFactory to provide SSLEngine objects. Default value is org.apache.kafka.common.security.ssl.... |
+| `ssl.keymanager.algorithm` | string | SunX509 | low | The algorithm used by key manager factory for SSL connections. Default value is the key manager factory algorithm configured for the Java Virtual Machine. |
+| `ssl.secure.random.implementation` | string | null | low | The SecureRandom PRNG implementation to use for SSL cryptography operations. |
+| `ssl.trustmanager.algorithm` | string | PKIX | low | The algorithm used by trust manager factory for SSL connections. Default value is the trust manager factory algorithm configured for the Java Virtual Machine. |
+
+## Controller / KRaft / group-coordinator related broker configs
+
+*Source: Apache Kafka 4.0 configuration docs. Count: 43.*
+
+| Property | Type | Default (4.0) | Importance | Purpose |
+|---|---|---|---|---|
+| `controller.listener.names` | string | null | high | A comma-separated list of the names of the listeners used by the controller. This is required when communicating with the controller quorum, the broker will ... |
+| `controller.quorum.bootstrap.servers` | list | "" | high | List of endpoints to use for bootstrapping the cluster metadata. The endpoints are specified in comma-separated list of `{host}:{port} entries. For example: `loc... |
+| `controller.quorum.election.backoff.max.ms` | int | 1000 (1 second) | high | Maximum time in milliseconds before starting new elections. This is used in the binary exponential backoff mechanism that helps prevent gridlocked elections |
+| `controller.quorum.election.timeout.ms` | int | 1000 (1 second) | high | Maximum time in milliseconds to wait without being able to fetch from the leader before triggering a new election |
+| `controller.quorum.fetch.timeout.ms` | int | 2000 (2 seconds) | high | Maximum time without a successful fetch from the current leader before becoming a candidate and triggering an election for voters; Maximum time a leader can ... |
+| `controller.quorum.voters` | list | "" | high | Map of id/endpoint information for the set of voters in a comma-separated list of `{id}@{host}:{port} entries. For example: `1@localhost:9092,2@localhost:9093,3@... |
+| `group.coordinator.threads` | int | 4 | high | The number of threads used by the group coordinator. |
+| `metadata.log.dir` | string | null | high | This configuration determines where we put the metadata log. If it is not set, the metadata log is placed in the first log directory from `log.dirs`. |
+| `metadata.log.max.record.bytes.between.snapshots` | long | 20971520 | high | This is the maximum number of bytes in the log between the latest snapshot and the high-watermark needed before generating a new snapshot. The default value ... |
+| `metadata.log.max.snapshot.interval.ms` | long | 3600000 (1 hour) | high | This is the maximum number of milliseconds to wait to generate a snapshot if there are committed records in the log that are not included in the latest snaps... |
+| `metadata.log.segment.bytes` | int | 1073741824 (1 gibibyte) | high | The maximum size of a single metadata log file. |
+| `metadata.log.segment.ms` | long | 604800000 (7 days) | high | The maximum time before a new metadata log file is rolled out (in milliseconds). |
+| `metadata.max.retention.bytes` | long | 104857600 (100 mebibytes) | high | The maximum combined size of the metadata log and snapshots before deleting old snapshots and log files. Since at least one snapshot must exist before any lo... |
+| `metadata.max.retention.ms` | long | 604800000 (7 days) | high | The number of milliseconds to keep a metadata log file or snapshot before deleting it. Since at least one snapshot must exist before any logs can be deleted,... |
+| `node.id` | int | — | high | The node ID associated with the roles this process is playing when `process.roles` is non-empty. This is required configuration when running in KRaft mode. |
+| `offsets.topic.compression.codec` | int | 0 | high | Compression codec for the offsets topic - compression may be used to achieve "atomic" commits. |
+| `offsets.topic.num.partitions` | int | 50 | high | The number of partitions for the offset commit topic (should not change after deployment). |
+| `offsets.topic.replication.factor` | short | 3 | high | The replication factor for the offsets topic (set higher to ensure availability). Internal topic creation will fail until the cluster size meets this replica... |
+| `offsets.topic.segment.bytes` | int | 104857600 (100 mebibytes) | high | The offsets topic segment bytes should be kept relatively small in order to facilitate faster log compaction and cache loads. |
+| `process.roles` | list | — | high | The roles that this process plays: 'broker', 'controller', or 'broker,controller' if it is both. |
+| `transaction.state.log.load.buffer.size` | int | 5242880 | high | Batch size for reading from the transaction log segments when loading producer ids and transactions into the cache (soft-limit, overridden if records are too... |
+| `transaction.state.log.min.isr` | int | 2 | high | The minimum number of replicas that must acknowledge a write to transaction topic in order to be considered successful. |
+| `transaction.state.log.num.partitions` | int | 50 | high | The number of partitions for the transaction topic (should not change after deployment). |
+| `transaction.state.log.replication.factor` | short | 3 | high | The replication factor for the transaction topic (set higher to ensure availability). Internal topic creation will fail until the cluster size meets this rep... |
+| `transaction.state.log.segment.bytes` | int | 104857600 (100 mebibytes) | high | The transaction topic segment bytes should be kept relatively small in order to facilitate faster log compaction and cache loads |
+| `controller.quorum.append.linger.ms` | int | 25 | medium | The duration in milliseconds that the leader will wait for writes to accumulate before flushing them to disk. |
+| `controller.quorum.request.timeout.ms` | int | 2000 (2 seconds) | medium | The configuration controls the maximum amount of time the client will wait for the response of a request. If the response is not received before the timeout ... |
+| `controller.socket.timeout.ms` | int | 30000 (30 seconds) | medium | The socket timeout for controller-to-broker channels. |
+| `group.consumer.assignors` | list | uniform,range | medium | The server side assignors as a list of either names for builtin assignors or full class names for customer assignors. The first one in the list is considered... |
+| `group.consumer.heartbeat.interval.ms` | int | 5000 (5 seconds) | medium | The heartbeat interval given to the members of a consumer group. |
+| `group.consumer.max.heartbeat.interval.ms` | int | 15000 (15 seconds) | medium | The maximum heartbeat interval for registered consumers. |
+| `group.consumer.max.session.timeout.ms` | int | 60000 (1 minute) | medium | The maximum allowed session timeout for registered consumers. |
+| `group.consumer.max.size` | int | 2147483647 | medium | The maximum number of consumers that a single consumer group can accommodate. This value will only impact groups under the CONSUMER group protocol. To config... |
+| `group.consumer.migration.policy` | string | bidirectional | medium | The config that enables converting the non-empty classic group using the consumer embedded protocol to the non-empty consumer group using the consumer group ... |
+| `group.consumer.min.heartbeat.interval.ms` | int | 5000 (5 seconds) | medium | The minimum heartbeat interval for registered consumers. |
+| `group.consumer.min.session.timeout.ms` | int | 45000 (45 seconds) | medium | The minimum allowed session timeout for registered consumers. |
+| `group.consumer.session.timeout.ms` | int | 45000 (45 seconds) | medium | The timeout to detect client failures when using the consumer group protocol. |
+| `group.coordinator.append.linger.ms` | int | 5 | medium | The duration in milliseconds that the coordinator will wait for writes to accumulate before flushing them to disk. Transactional writes are not accumulated. |
+| `group.coordinator.rebalance.protocols` | list | classic,consumer | medium | The list of enabled rebalance protocols.The share rebalance protocol is in early access and therefore must not be used in production. |
+| `controller.quorum.retry.backoff.ms` | int | 20 | low | The amount of time to wait before attempting to retry a failed request to a given topic partition. This avoids repeatedly sending requests in a tight loop un... |
+| `controller.quota.window.num` | int | 11 | low | The number of samples to retain in memory for controller mutation quotas |
+| `controller.quota.window.size.seconds` | int | 1 | low | The time span of each sample for controller mutations quotas |
+| `metadata.max.idle.interval.ms` | int | 500 | low | This configuration controls how often the active controller should write no-op records to the metadata partition. If the value is 0, no-op records are not ap... |
+
+## Broker & cluster properties (complete broker config — Kafka 4.0)
+
+*Source: Apache Kafka 4.0 configuration docs. Count: 288.*
+
+| Property | Type | Default (4.0) | Importance | Purpose |
+|---|---|---|---|---|
+| `add.partitions.to.txn.retry.backoff.max.ms` | int | 100 | high | The maximum allowed timeout for adding partitions to transactions on the server side. It only applies to the actual add partition operations, not the verific... |
+| `add.partitions.to.txn.retry.backoff.ms` | int | 20 | high | The server-side retry backoff when the server attemptsto add the partition to the transaction |
+| `advertised.listeners` | string | null | high | Specifies the listener addresses that the Kafka brokers will advertise to clients and other brokers. The config is useful where the actual listener configura... |
+| `auto.create.topics.enable` | boolean | true | high | Enable auto creation of topic on the server. |
+| `auto.leader.rebalance.enable` | boolean | true | high | Enables auto leader balancing. A background thread checks the distribution of partition leaders at regular intervals, configurable by leader.imbalance.check.... |
+| `background.threads` | int | 10 | high | The number of threads to use for various background processing tasks |
+| `broker.id` | int | -1 | high | The broker id for this server. |
+| `compression.type` | string | producer | high | Specify the final compression type for a given topic. This configuration accepts the standard compression codecs ('gzip', 'snappy', 'lz4', 'zstd'). It additi... |
+| `controller.listener.names` | string | null | high | A comma-separated list of the names of the listeners used by the controller. This is required when communicating with the controller quorum, the broker will ... |
+| `controller.quorum.bootstrap.servers` | list | "" | high | List of endpoints to use for bootstrapping the cluster metadata. The endpoints are specified in comma-separated list of `{host}:{port} entries. For example: `loc... |
+| `controller.quorum.election.backoff.max.ms` | int | 1000 (1 second) | high | Maximum time in milliseconds before starting new elections. This is used in the binary exponential backoff mechanism that helps prevent gridlocked elections |
+| `controller.quorum.election.timeout.ms` | int | 1000 (1 second) | high | Maximum time in milliseconds to wait without being able to fetch from the leader before triggering a new election |
+| `controller.quorum.fetch.timeout.ms` | int | 2000 (2 seconds) | high | Maximum time without a successful fetch from the current leader before becoming a candidate and triggering an election for voters; Maximum time a leader can ... |
+| `controller.quorum.voters` | list | "" | high | Map of id/endpoint information for the set of voters in a comma-separated list of `{id}@{host}:{port} entries. For example: `1@localhost:9092,2@localhost:9093,3@... |
+| `delete.topic.enable` | boolean | true | high | Enables delete topic. Delete topic through the admin tool will have no effect if this config is turned off |
+| `early.start.listeners` | string | null | high | A comma-separated list of listener names which may be started before the authorizer has finished initialization. This is useful when the authorizer is depend... |
+| `group.coordinator.threads` | int | 4 | high | The number of threads used by the group coordinator. |
+| `leader.imbalance.check.interval.seconds` | long | 300 | high | The frequency with which the partition rebalance check is triggered by the controller |
+| `log.dir` | string | /tmp/kafka-logs | high | The directory in which the log data is kept (supplemental for log.dirs property) |
+| `log.dirs` | string | null | high | A comma-separated list of the directories where the log data is stored. If not set, the value in log.dir is used. |
+| `log.flush.interval.messages` | long | 9223372036854775807 | high | The number of messages accumulated on a log partition before messages are flushed to disk. |
+| `log.flush.interval.ms` | long | null | high | The maximum time in ms that a message in any topic is kept in memory before flushed to disk. If not set, the value in log.flush.scheduler.interval.ms is used |
+| `log.flush.offset.checkpoint.interval.ms` | int | 60000 (1 minute) | high | The frequency with which we update the persistent record of the last flush which acts as the log recovery point. |
+| `log.flush.scheduler.interval.ms` | long | 9223372036854775807 | high | The frequency in ms that the log flusher checks whether any log needs to be flushed to disk |
+| `log.flush.start.offset.checkpoint.interval.ms` | int | 60000 (1 minute) | high | The frequency with which we update the persistent record of log start offset |
+| `log.retention.bytes` | long | -1 | high | The maximum size of the log before deleting it |
+| `log.retention.hours` | int | 168 | high | The number of hours to keep a log file before deleting it (in hours), tertiary to log.retention.ms property |
+| `log.retention.minutes` | int | null | high | The number of minutes to keep a log file before deleting it (in minutes), secondary to log.retention.ms property. If not set, the value in log.retention.hour... |
+| `log.retention.ms` | long | null | high | The number of milliseconds to keep a log file before deleting it (in milliseconds), If not set, the value in log.retention.minutes is used. If set to -1, no ... |
+| `log.roll.hours` | int | 168 | high | The maximum time before a new log segment is rolled out (in hours), secondary to log.roll.ms property |
+| `log.roll.jitter.hours` | int | 0 | high | The maximum jitter to subtract from logRollTimeMillis (in hours), secondary to log.roll.jitter.ms property |
+| `log.roll.jitter.ms` | long | null | high | The maximum jitter to subtract from logRollTimeMillis (in milliseconds). If not set, the value in log.roll.jitter.hours is used |
+| `log.roll.ms` | long | null | high | The maximum time before a new log segment is rolled out (in milliseconds). If not set, the value in log.roll.hours is used |
+| `log.segment.bytes` | int | 1073741824 (1 gibibyte) | high | The maximum size of a single log file |
+| `log.segment.delete.delay.ms` | long | 60000 (1 minute) | high | The amount of time to wait before deleting a file from the filesystem. If the value is 0 and there is no file to delete, the system will wait 1 millisecond. ... |
+| `message.max.bytes` | int | 1048588 | high | The largest record batch size allowed by Kafka (after compression if compression is enabled). If this is increased and there are consumers older than 0.10.2,... |
+| `metadata.log.dir` | string | null | high | This configuration determines where we put the metadata log. If it is not set, the metadata log is placed in the first log directory from `log.dirs`. |
+| `metadata.log.max.record.bytes.between.snapshots` | long | 20971520 | high | This is the maximum number of bytes in the log between the latest snapshot and the high-watermark needed before generating a new snapshot. The default value ... |
+| `metadata.log.max.snapshot.interval.ms` | long | 3600000 (1 hour) | high | This is the maximum number of milliseconds to wait to generate a snapshot if there are committed records in the log that are not included in the latest snaps... |
+| `metadata.log.segment.bytes` | int | 1073741824 (1 gibibyte) | high | The maximum size of a single metadata log file. |
+| `metadata.log.segment.ms` | long | 604800000 (7 days) | high | The maximum time before a new metadata log file is rolled out (in milliseconds). |
+| `metadata.max.retention.bytes` | long | 104857600 (100 mebibytes) | high | The maximum combined size of the metadata log and snapshots before deleting old snapshots and log files. Since at least one snapshot must exist before any lo... |
+| `metadata.max.retention.ms` | long | 604800000 (7 days) | high | The number of milliseconds to keep a metadata log file or snapshot before deleting it. Since at least one snapshot must exist before any logs can be deleted,... |
+| `min.insync.replicas` | int | 1 | high | When a producer sets acks to "all" (or "-1"), this configuration specifies the minimum number of replicas that must acknowledge a write for the write to be c... |
+| `node.id` | int | — | high | The node ID associated with the roles this process is playing when `process.roles` is non-empty. This is required configuration when running in KRaft mode. |
+| `num.io.threads` | int | 8 | high | The number of threads that the server uses for processing requests, which may include disk I/O |
+| `num.network.threads` | int | 3 | high | The number of threads that the server uses for receiving requests from the network and sending responses to the network. Noted: each listener (except for con... |
+| `num.recovery.threads.per.data.dir` | int | 2 | high | The number of threads per data directory to be used for log recovery at startup and flushing at shutdown |
+| `num.replica.alter.log.dirs.threads` | int | null | high | The number of threads that can move replicas between log directories, which may include disk I/O. The default value is equal to the number of directories spe... |
+| `num.replica.fetchers` | int | 1 | high | Number of fetcher threads used to replicate records from each source broker. The total number of fetchers on each broker is bound bynum.replica.fetchers mult... |
+| `offset.metadata.max.bytes` | int | 4096 (4 kibibytes) | high | The maximum size for a metadata entry associated with an offset commit. |
+| `offsets.commit.timeout.ms` | int | 5000 (5 seconds) | high | Offset commit will be delayed until all replicas for the offsets topic receive the commit or this timeout is reached. This is similar to the producer request... |
+| `offsets.load.buffer.size` | int | 5242880 | high | Batch size for reading from the offsets segments when loading group metadata into the cache (soft-limit, overridden if records are too large). |
+| `offsets.retention.check.interval.ms` | long | 600000 (10 minutes) | high | Frequency at which to check for stale offsets |
+| `offsets.retention.minutes` | int | 10080 | high | For subscribed consumers, committed offset of a specific partition will be expired and discarded when 1) this retention period has elapsed after the consumer... |
+| `offsets.topic.compression.codec` | int | 0 | high | Compression codec for the offsets topic - compression may be used to achieve "atomic" commits. |
+| `offsets.topic.num.partitions` | int | 50 | high | The number of partitions for the offset commit topic (should not change after deployment). |
+| `offsets.topic.replication.factor` | short | 3 | high | The replication factor for the offsets topic (set higher to ensure availability). Internal topic creation will fail until the cluster size meets this replica... |
+| `offsets.topic.segment.bytes` | int | 104857600 (100 mebibytes) | high | The offsets topic segment bytes should be kept relatively small in order to facilitate faster log compaction and cache loads. |
+| `process.roles` | list | — | high | The roles that this process plays: 'broker', 'controller', or 'broker,controller' if it is both. |
+| `queued.max.requests` | int | 500 | high | The number of queued requests allowed for data-plane, before blocking the network threads |
+| `replica.fetch.min.bytes` | int | 1 | high | Minimum bytes expected for each fetch response. If not enough bytes, wait up toreplica.fetch.wait.max.ms(broker config). |
+| `replica.fetch.wait.max.ms` | int | 500 | high | The maximum wait time for each fetcher request issued by follower replicas. This value should always be less than the replica.lag.time.max.ms at all times to... |
+| `replica.high.watermark.checkpoint.interval.ms` | long | 5000 (5 seconds) | high | The frequency with which the high watermark is saved out to disk |
+| `replica.lag.time.max.ms` | long | 30000 (30 seconds) | high | If a follower hasn't sent any fetch requests or hasn't consumed up to the leader's log end offset for at least this time, the leader will remove the follower... |
+| `replica.socket.receive.buffer.bytes` | int | 65536 (64 kibibytes) | high | The socket receive buffer for network requests to the leader for replicating data |
+| `replica.socket.timeout.ms` | int | 30000 (30 seconds) | high | The socket timeout for network requests. Its value should be at least replica.fetch.wait.max.ms |
+| `request.timeout.ms` | int | 30000 (30 seconds) | high | The configuration controls the maximum amount of time the client will wait for the response of a request. If the response is not received before the timeout ... |
+| `sasl.mechanism.controller.protocol` | string | GSSAPI | high | SASL mechanism used for communication with controllers. Default is GSSAPI. |
+| `share.coordinator.load.buffer.size` | int | 5242880 | high | Batch size for reading from the share-group state topic when loading state information into the cache (soft-limit, overridden if records are too large). |
+| `share.coordinator.state.topic.compression.codec` | int | 0 | high | Compression codec for the share-group state topic. |
+| `share.coordinator.state.topic.min.isr` | short | 2 | high | Overridden min.insync.replicas for the share-group state topic. |
+| `share.coordinator.state.topic.num.partitions` | int | 50 | high | The number of partitions for the share-group state topic (should not change after deployment). |
+| `share.coordinator.state.topic.replication.factor` | short | 3 | high | Replication factor for the share-group state topic. Topic creation will fail until the cluster size meets this replication factor requirement. |
+| `share.coordinator.state.topic.segment.bytes` | int | 104857600 (100 mebibytes) | high | The log segment size for the share-group state topic. |
+| `share.coordinator.write.timeout.ms` | int | 5000 (5 seconds) | high | The duration in milliseconds that the share coordinator will wait for all replicas of the share-group state topic to receive a write. |
+| `socket.receive.buffer.bytes` | int | 102400 (100 kibibytes) | high | The SO_RCVBUF buffer of the socket server sockets. If the value is -1, the OS default will be used. |
+| `socket.request.max.bytes` | int | 104857600 (100 mebibytes) | high | The maximum number of bytes in a socket request |
+| `socket.send.buffer.bytes` | int | 102400 (100 kibibytes) | high | The SO_SNDBUF buffer of the socket server sockets. If the value is -1, the OS default will be used. |
+| `transaction.max.timeout.ms` | int | 900000 (15 minutes) | high | The maximum allowed timeout for transactions. If a client’s requested transaction time exceed this, then the broker will return an error in InitProducerIdReq... |
+| `transaction.state.log.load.buffer.size` | int | 5242880 | high | Batch size for reading from the transaction log segments when loading producer ids and transactions into the cache (soft-limit, overridden if records are too... |
+| `transaction.state.log.min.isr` | int | 2 | high | The minimum number of replicas that must acknowledge a write to transaction topic in order to be considered successful. |
+| `transaction.state.log.num.partitions` | int | 50 | high | The number of partitions for the transaction topic (should not change after deployment). |
+| `transaction.state.log.replication.factor` | short | 3 | high | The replication factor for the transaction topic (set higher to ensure availability). Internal topic creation will fail until the cluster size meets this rep... |
+| `transaction.state.log.segment.bytes` | int | 104857600 (100 mebibytes) | high | The transaction topic segment bytes should be kept relatively small in order to facilitate faster log compaction and cache loads |
+| `transactional.id.expiration.ms` | int | 604800000 (7 days) | high | The time in ms that the transaction coordinator will wait without receiving any transaction status updates for the current transaction before expiring its tr... |
+| `unclean.leader.election.enable` | boolean | false | high | Indicates whether to enable replicas not in the ISR set to be elected as leader as a last resort, even though doing so may result in data loss Note: In KRaft... |
+| `broker.heartbeat.interval.ms` | int | 2000 (2 seconds) | medium | The length of time in milliseconds between broker heartbeats. |
+| `broker.rack` | string | null | medium | Rack of the broker. This will be used in rack aware replication assignment for fault tolerance. Examples:RACK1,us-east-1d |
+| `broker.session.timeout.ms` | int | 9000 (9 seconds) | medium | The length of time in milliseconds that a broker lease lasts if no heartbeats are made. |
+| `compression.gzip.level` | int | -1 | medium | The compression level to use if compression.type is set to 'gzip'. |
+| `compression.lz4.level` | int | 9 | medium | The compression level to use if compression.type is set to 'lz4'. |
+| `compression.zstd.level` | int | 3 | medium | The compression level to use if compression.type is set to 'zstd'. |
+| `connections.max.idle.ms` | long | 600000 (10 minutes) | medium | Idle connections timeout: the server socket processor threads close the connections that idle more than this |
+| `connections.max.reauth.ms` | long | 0 | medium | When explicitly set to a positive number (the default is 0, not a positive number), a session lifetime that will not exceed the configured value will be comm... |
+| `controlled.shutdown.enable` | boolean | true | medium | Enable controlled shutdown of the server. |
+| `controller.quorum.append.linger.ms` | int | 25 | medium | The duration in milliseconds that the leader will wait for writes to accumulate before flushing them to disk. |
+| `controller.quorum.request.timeout.ms` | int | 2000 (2 seconds) | medium | The configuration controls the maximum amount of time the client will wait for the response of a request. If the response is not received before the timeout ... |
+| `controller.socket.timeout.ms` | int | 30000 (30 seconds) | medium | The socket timeout for controller-to-broker channels. |
+| `default.replication.factor` | int | 1 | medium | The replication factor for automatically created topics, and for topics created with -1 as the replication factor |
+| `delegation.token.expiry.time.ms` | long | 86400000 (1 day) | medium | The token validity time in milliseconds before the token needs to be renewed. Default value 1 day. |
+| `delegation.token.max.lifetime.ms` | long | 604800000 (7 days) | medium | The token has a maximum lifetime beyond which it cannot be renewed anymore. Default value 7 days. |
+| `delegation.token.secret.key` | password | null | medium | Secret key to generate and verify delegation tokens. The same key must be configured across all the brokers. If using Kafka with KRaft, the key must also be ... |
+| `delete.records.purgatory.purge.interval.requests` | int | 1 | medium | The purge interval (in number of requests) of the delete records request purgatory |
+| `fetch.max.bytes` | int | 57671680 (55 mebibytes) | medium | The maximum number of bytes we will return for a fetch request. Must be at least 1024. |
+| `fetch.purgatory.purge.interval.requests` | int | 1000 | medium | The purge interval (in number of requests) of the fetch request purgatory |
+| `group.consumer.assignors` | list | uniform,range | medium | The server side assignors as a list of either names for builtin assignors or full class names for customer assignors. The first one in the list is considered... |
+| `group.consumer.heartbeat.interval.ms` | int | 5000 (5 seconds) | medium | The heartbeat interval given to the members of a consumer group. |
+| `group.consumer.max.heartbeat.interval.ms` | int | 15000 (15 seconds) | medium | The maximum heartbeat interval for registered consumers. |
+| `group.consumer.max.session.timeout.ms` | int | 60000 (1 minute) | medium | The maximum allowed session timeout for registered consumers. |
+| `group.consumer.max.size` | int | 2147483647 | medium | The maximum number of consumers that a single consumer group can accommodate. This value will only impact groups under the CONSUMER group protocol. To config... |
+| `group.consumer.migration.policy` | string | bidirectional | medium | The config that enables converting the non-empty classic group using the consumer embedded protocol to the non-empty consumer group using the consumer group ... |
+| `group.consumer.min.heartbeat.interval.ms` | int | 5000 (5 seconds) | medium | The minimum heartbeat interval for registered consumers. |
+| `group.consumer.min.session.timeout.ms` | int | 45000 (45 seconds) | medium | The minimum allowed session timeout for registered consumers. |
+| `group.consumer.session.timeout.ms` | int | 45000 (45 seconds) | medium | The timeout to detect client failures when using the consumer group protocol. |
+| `group.coordinator.append.linger.ms` | int | 5 | medium | The duration in milliseconds that the coordinator will wait for writes to accumulate before flushing them to disk. Transactional writes are not accumulated. |
+| `group.coordinator.rebalance.protocols` | list | classic,consumer | medium | The list of enabled rebalance protocols.The share rebalance protocol is in early access and therefore must not be used in production. |
+| `group.initial.rebalance.delay.ms` | int | 3000 (3 seconds) | medium | The amount of time the group coordinator will wait for more consumers to join a new group before performing the first rebalance. A longer delay means potenti... |
+| `group.max.session.timeout.ms` | int | 1800000 (30 minutes) | medium | The maximum allowed session timeout for registered consumers. Longer timeouts give consumers more time to process messages in between heartbeats at the cost ... |
+| `group.max.size` | int | 2147483647 | medium | The maximum number of consumers that a single consumer group can accommodate. |
+| `group.min.session.timeout.ms` | int | 6000 (6 seconds) | medium | The minimum allowed session timeout for registered consumers. Shorter timeouts result in quicker failure detection at the cost of more frequent consumer hear... |
+| `group.share.delivery.count.limit` | int | 5 | medium | The maximum number of delivery attempts for a record delivered to a share group. |
+| `group.share.heartbeat.interval.ms` | int | 5000 (5 seconds) | medium | The heartbeat interval given to the members of a share group. |
+| `group.share.max.groups` | short | 10 | medium | The maximum number of share groups. |
+| `group.share.max.heartbeat.interval.ms` | int | 15000 (15 seconds) | medium | The maximum heartbeat interval for share group members. |
+| `group.share.max.record.lock.duration.ms` | int | 60000 (1 minute) | medium | The record acquisition lock maximum duration in milliseconds for share groups. |
+| `group.share.max.session.timeout.ms` | int | 60000 (1 minute) | medium | The maximum allowed session timeout for share group members. |
+| `group.share.max.size` | int | 200 | medium | The maximum number of members that a single share group can accommodate. |
+| `group.share.min.heartbeat.interval.ms` | int | 5000 (5 seconds) | medium | The minimum heartbeat interval for share group members. |
+| `group.share.min.record.lock.duration.ms` | int | 15000 (15 seconds) | medium | The record acquisition lock minimum duration in milliseconds for share groups. |
+| `group.share.min.session.timeout.ms` | int | 45000 (45 seconds) | medium | The minimum allowed session timeout for share group members. |
+| `group.share.partition.max.record.locks` | int | 200 | medium | Share-group record lock limit per share-partition. |
+| `group.share.record.lock.duration.ms` | int | 30000 (30 seconds) | medium | The record acquisition lock duration in milliseconds for share groups. |
+| `group.share.session.timeout.ms` | int | 45000 (45 seconds) | medium | The timeout to detect client failures when using the share group protocol. |
+| `initial.broker.registration.timeout.ms` | int | 60000 (1 minute) | medium | When initially registering with the controller quorum, the number of milliseconds to wait before declaring failure and exiting the broker process. |
+| `inter.broker.listener.name` | string | null | medium | Name of listener used for communication between brokers. If this is unset, the listener name is defined by security.inter.broker.protocol. It is an error to ... |
+| `log.cleaner.backoff.ms` | long | 15000 (15 seconds) | medium | The amount of time to sleep when there are no logs to clean |
+| `log.cleaner.dedupe.buffer.size` | long | 134217728 | medium | The total memory used for log deduplication across all cleaner threads |
+| `log.cleaner.delete.retention.ms` | long | 86400000 (1 day) | medium | The amount of time to retain tombstone message markers for log compacted topics. This setting also gives a bound on the time in which a consumer must complet... |
+| `log.cleaner.enable` | boolean | true | medium | Enable the log cleaner process to run on the server. Should be enabled if using any topics with a cleanup.policy=compact including the internal offsets topic... |
+| `log.cleaner.io.buffer.load.factor` | double | 0.9 | medium | Log cleaner dedupe buffer load factor. The percentage full the dedupe buffer can become. A higher value will allow more log to be cleaned at once but will le... |
+| `log.cleaner.io.buffer.size` | int | 524288 | medium | The total memory used for log cleaner I/O buffers across all cleaner threads |
+| `log.cleaner.io.max.bytes.per.second` | double | 1.7976931348623157E308 | medium | The log cleaner will be throttled so that the sum of its read and write i/o will be less than this value on average |
+| `log.cleaner.max.compaction.lag.ms` | long | 9223372036854775807 | medium | The maximum time a message will remain ineligible for compaction in the log. Only applicable for logs that are being compacted. |
+| `log.cleaner.min.cleanable.ratio` | double | 0.5 | medium | The minimum ratio of dirty log to total log for a log to eligible for cleaning. If the log.cleaner.max.compaction.lag.ms or the log.cleaner.min.compaction.la... |
+| `log.cleaner.min.compaction.lag.ms` | long | 0 | medium | The minimum time a message will remain uncompacted in the log. Only applicable for logs that are being compacted. |
+| `log.cleaner.threads` | int | 1 | medium | The number of background threads to use for log cleaning |
+| `log.cleanup.policy` | list | delete | medium | The default cleanup policy for segments beyond the retention window. A comma separated list of valid policies. |
+| `log.index.interval.bytes` | int | 4096 (4 kibibytes) | medium | The interval with which we add an entry to the offset index. |
+| `log.index.size.max.bytes` | int | 10485760 (10 mebibytes) | medium | The maximum size in bytes of the offset index |
+| `log.local.retention.bytes` | long | -2 | medium | The maximum size of local log segments that can grow for a partition before it gets eligible for deletion. Default value is -2, it represents log.retention.b... |
+| `log.local.retention.ms` | long | -2 | medium | The number of milliseconds to keep the local log segments before it gets eligible for deletion. Default value is -2, it represents log.retention.ms value is ... |
+| `log.message.timestamp.after.max.ms` | long | 3600000 (1 hour) | medium | This configuration sets the allowable timestamp difference between the message timestamp and the broker's timestamp. The message timestamp can be later than ... |
+| `log.message.timestamp.before.max.ms` | long | 9223372036854775807 | medium | This configuration sets the allowable timestamp difference between the broker's timestamp and the message timestamp. The message timestamp can be earlier tha... |
+| `log.message.timestamp.type` | string | CreateTime | medium | Define whether the timestamp in the message is message create time or log append time. The value should be eitherCreateTime orLogAppendTime. |
+| `log.preallocate` | boolean | false | medium | Should pre allocate file when create new segment? If you are using Kafka on Windows, you probably need to set it to true. |
+| `log.retention.check.interval.ms` | long | 300000 (5 minutes) | medium | The frequency in milliseconds that the log cleaner checks whether any log is eligible for deletion |
+| `max.connection.creation.rate` | int | 2147483647 | medium | The maximum connection creation rate we allow in the broker at any time. Listener-level limits may also be configured by prefixing the config name with the l... |
+| `max.connections` | int | 2147483647 | medium | The maximum number of connections we allow in the broker at any time. This limit is applied in addition to any per-ip limits configured using max.connections... |
+| `max.connections.per.ip` | int | 2147483647 | medium | The maximum number of connections we allow from each ip address. This can be set to 0 if there are overrides configured using max.connections.per.ip.override... |
+| `max.connections.per.ip.overrides` | string | "" | medium | A comma-separated list of per-ip or hostname overrides to the default maximum number of connections. An example value is "hostName:100,127.0.0.1:200" |
+| `max.incremental.fetch.session.cache.slots` | int | 1000 | medium | The maximum number of total incremental fetch sessions that we will maintain. FetchSessionCache is sharded into 8 shards and the limit is equally divided amo... |
+| `max.request.partition.size.limit` | int | 2000 | medium | The maximum number of partitions can be served in one request. |
+| `num.partitions` | int | 1 | medium | The default number of log partitions per topic |
+| `principal.builder.class` | class | org.apache.kafka.common.security.authenticator.DefaultKafkaPrincipalBuilder | medium | The fully qualified name of a class that implements the KafkaPrincipalBuilder interface, which is used to build the KafkaPrincipal object used during authori... |
+| `producer.purgatory.purge.interval.requests` | int | 1000 | medium | The purge interval (in number of requests) of the producer request purgatory |
+| `queued.max.request.bytes` | long | -1 | medium | The number of queued bytes allowed before no more requests are read |
+| `remote.fetch.max.wait.ms` | int | 500 | medium | The maximum amount of time the server will wait before answering the remote fetch request |
+| `remote.list.offsets.request.timeout.ms` | long | 30000 (30 seconds) | medium | The maximum amount of time the server will wait for the remote list offsets request to complete. |
+| `remote.log.manager.copier.thread.pool.size` | int | 10 | medium | Size of the thread pool used in scheduling tasks to copy segments. |
+| `remote.log.manager.copy.max.bytes.per.second` | long | 9223372036854775807 | medium | The maximum number of bytes that can be copied from local storage to remote storage per second. This is a global limit for all the partitions that are being ... |
+| `remote.log.manager.copy.quota.window.num` | int | 11 | medium | The number of samples to retain in memory for remote copy quota management. The default value is 11, which means there are 10 whole windows + 1 current window. |
+| `remote.log.manager.copy.quota.window.size.seconds` | int | 1 | medium | The time span of each sample for remote copy quota management. The default value is 1 second. |
+| `remote.log.manager.expiration.thread.pool.size` | int | 10 | medium | Size of the thread pool used in scheduling tasks to clean up the expired remote log segments. |
+| `remote.log.manager.fetch.max.bytes.per.second` | long | 9223372036854775807 | medium | The maximum number of bytes that can be fetched from remote storage to local storage per second. This is a global limit for all the partitions that are being... |
+| `remote.log.manager.fetch.quota.window.num` | int | 11 | medium | The number of samples to retain in memory for remote fetch quota management. The default value is 11, which means there are 10 whole windows + 1 current window. |
+| `remote.log.manager.fetch.quota.window.size.seconds` | int | 1 | medium | The time span of each sample for remote fetch quota management. The default value is 1 second. |
+| `remote.log.manager.thread.pool.size` | int | 2 | medium | Size of the thread pool used in scheduling follower tasks to read the highest-uploaded remote-offset for follower partitions. |
+| `remote.log.metadata.manager.class.name` | string | org.apache.kafka.server.log.remote.metadata.storage.TopicBasedRemoteLogMetadataManager | medium | Fully qualified class name of RemoteLogMetadataManager implementation. |
+| `remote.log.metadata.manager.class.path` | string | null | medium | Class path of the RemoteLogMetadataManager implementation. If specified, the RemoteLogMetadataManager implementation and its dependent libraries will be load... |
+| `remote.log.metadata.manager.impl.prefix` | string | rlmm.config. | medium | Prefix used for properties to be passed to RemoteLogMetadataManager implementation. For example this value can be rlmm.config.. |
+| `remote.log.metadata.manager.listener.name` | string | null | medium | Listener name of the local broker to which it should get connected if needed by RemoteLogMetadataManager implementation. |
+| `remote.log.reader.max.pending.tasks` | int | 100 | medium | Maximum remote log reader thread pool task queue size. If the task queue is full, fetch requests are served with an error. |
+| `remote.log.reader.threads` | int | 10 | medium | Size of the thread pool that is allocated for handling remote log reads. |
+| `remote.log.storage.manager.class.name` | string | null | medium | Fully qualified class name of RemoteStorageManager implementation. |
+| `remote.log.storage.manager.class.path` | string | null | medium | Class path of the RemoteStorageManager implementation. If specified, the RemoteStorageManager implementation and its dependent libraries will be loaded by a ... |
+| `remote.log.storage.manager.impl.prefix` | string | rsm.config. | medium | Prefix used for properties to be passed to RemoteStorageManager implementation. For example this value can be rsm.config.. |
+| `remote.log.storage.system.enable` | boolean | false | medium | Whether to enable tiered storage functionality in a broker or not. When it is true broker starts all the services required for the tiered storage functionality. |
+| `replica.fetch.backoff.ms` | int | 1000 (1 second) | medium | The amount of time to sleep when fetch partition error occurs. |
+| `replica.fetch.max.bytes` | int | 1048576 (1 mebibyte) | medium | The number of bytes of messages to attempt to fetch for each partition. This is not an absolute maximum, if the first record batch in the first non-empty par... |
+| `replica.fetch.response.max.bytes` | int | 10485760 (10 mebibytes) | medium | Maximum bytes expected for the entire fetch response. Records are fetched in batches, and if the first record batch in the first non-empty partition of the f... |
+| `replica.selector.class` | string | null | medium | The fully qualified class name that implements ReplicaSelector. This is used by the broker to find the preferred read replica. By default, we use an implemen... |
+| `sasl.client.callback.handler.class` | class | null | medium | The fully qualified name of a SASL client callback handler class that implements the AuthenticateCallbackHandler interface. |
+| `sasl.enabled.mechanisms` | list | GSSAPI | medium | The list of SASL mechanisms enabled in the Kafka server. The list may contain any mechanism for which a security provider is available. Only GSSAPI is enable... |
+| `sasl.jaas.config` | password | null | medium | JAAS login context parameters for SASL connections in the format used by JAAS configuration files. JAAS configuration file format is described here. The form... |
+| `sasl.kerberos.kinit.cmd` | string | /usr/bin/kinit | medium | Kerberos kinit command path. |
+| `sasl.kerberos.min.time.before.relogin` | long | 60000 | medium | Login thread sleep time between refresh attempts. |
+| `sasl.kerberos.principal.to.local.rules` | list | DEFAULT | medium | A list of rules for mapping from principal names to short names (typically operating system usernames). The rules are evaluated in order and the first rule t... |
+| `sasl.kerberos.service.name` | string | null | medium | The Kerberos principal name that Kafka runs as. This can be defined either in Kafka's JAAS config or in Kafka's config. |
+| `sasl.kerberos.ticket.renew.jitter` | double | 0.05 | medium | Percentage of random jitter added to the renewal time. |
+| `sasl.kerberos.ticket.renew.window.factor` | double | 0.8 | medium | Login thread will sleep until the specified window factor of time from last refresh to ticket's expiry has been reached, at which time it will try to renew t... |
+| `sasl.login.callback.handler.class` | class | null | medium | The fully qualified name of a SASL login callback handler class that implements the AuthenticateCallbackHandler interface. For brokers, login callback handle... |
+| `sasl.login.class` | class | null | medium | The fully qualified name of a class that implements the Login interface. For brokers, login config must be prefixed with listener prefix and SASL mechanism n... |
+| `sasl.login.refresh.buffer.seconds` | short | 300 | medium | The amount of buffer time before credential expiration to maintain when refreshing a credential, in seconds. If a refresh would otherwise occur closer to exp... |
+| `sasl.login.refresh.min.period.seconds` | short | 60 | medium | The desired minimum time for the login refresh thread to wait before refreshing a credential, in seconds. Legal values are between 0 and 900 (15 minutes); a ... |
+| `sasl.login.refresh.window.factor` | double | 0.8 | medium | Login refresh thread will sleep until the specified window factor relative to the credential's lifetime has been reached, at which time it will try to refres... |
+| `sasl.login.refresh.window.jitter` | double | 0.05 | medium | The maximum amount of random jitter relative to the credential's lifetime that is added to the login refresh thread's sleep time. Legal values are between 0 ... |
+| `sasl.mechanism.inter.broker.protocol` | string | GSSAPI | medium | SASL mechanism used for inter-broker communication. Default is GSSAPI. |
+| `sasl.oauthbearer.jwks.endpoint.url` | string | null | medium | The OAuth/OIDC provider URL from which the provider's JWKS (JSON Web Key Set) can be retrieved. The URL can be HTTP(S)-based or file-based. If the URL is HTT... |
+| `sasl.oauthbearer.token.endpoint.url` | string | null | medium | The URL for the OAuth/OIDC identity provider. If the URL is HTTP(S)-based, it is the issuer's token endpoint URL to which requests will be made to login base... |
+| `sasl.server.callback.handler.class` | class | null | medium | The fully qualified name of a SASL server callback handler class that implements the AuthenticateCallbackHandler interface. Server callback handlers must be ... |
+| `sasl.server.max.receive.size` | int | 524288 | medium | The maximum receive size allowed before and during initial SASL authentication. Default receive size is 512KB. GSSAPI limits requests to 64K, but we allow up... |
+| `security.inter.broker.protocol` | string | PLAINTEXT | medium | Security protocol used to communicate between brokers. It is an error to set this and inter.broker.listener.name properties at the same time. |
+| `share.coordinator.append.linger.ms` | int | 10 | medium | The duration in milliseconds that the share coordinator will wait for writes to accumulate before flushing them to disk. |
+| `share.coordinator.snapshot.update.records.per.snapshot` | int | 500 | medium | The number of update records the share coordinator writes between snapshot records. |
+| `share.coordinator.threads` | int | 1 | medium | The number of threads used by the share coordinator. |
+| `share.fetch.purgatory.purge.interval.requests` | int | 1000 | medium | The purge interval (in number of requests) of the share fetch request purgatory |
+| `socket.connection.setup.timeout.max.ms` | long | 30000 (30 seconds) | medium | The maximum amount of time the client will wait for the socket connection to be established. The connection setup timeout will increase exponentially for eac... |
+| `socket.connection.setup.timeout.ms` | long | 10000 (10 seconds) | medium | The amount of time the client will wait for the socket connection to be established. If the connection is not built before the timeout elapses, clients will ... |
+| `socket.listen.backlog.size` | int | 50 | medium | The maximum number of pending connections on the socket. In Linux, you may also need to configuresomaxconn andtcp_max_syn_backlog kernel parameters according... |
+| `ssl.cipher.suites` | list | "" | medium | A list of cipher suites. This is a named combination of authentication, encryption, MAC and key exchange algorithm used to negotiate the security settings fo... |
+| `ssl.client.auth` | string | none | medium | Configures kafka broker to request client authentication. The following settings are common: |
+| `ssl.enabled.protocols` | list | TLSv1.2,TLSv1.3 | medium | The list of protocols enabled for SSL connections. The default is 'TLSv1.2,TLSv1.3'. This means that clients and servers will prefer TLSv1.3 if both support ... |
+| `ssl.key.password` | password | null | medium | The password of the private key in the key store file or the PEM key specified in 'ssl.keystore.key'. |
+| `ssl.keymanager.algorithm` | string | SunX509 | medium | The algorithm used by key manager factory for SSL connections. Default value is the key manager factory algorithm configured for the Java Virtual Machine. |
+| `ssl.keystore.certificate.chain` | password | null | medium | Certificate chain in the format specified by 'ssl.keystore.type'. Default SSL engine factory supports only PEM format with a list of X.509 certificates |
+| `ssl.keystore.key` | password | null | medium | Private key in the format specified by 'ssl.keystore.type'. Default SSL engine factory supports only PEM format with PKCS#8 keys. If the key is encrypted, ke... |
+| `ssl.keystore.location` | string | null | medium | The location of the key store file. This is optional for client and can be used for two-way authentication for client. |
+| `ssl.keystore.password` | password | null | medium | The store password for the key store file. This is optional for client and only needed if 'ssl.keystore.location' is configured. Key store password is not su... |
+| `ssl.keystore.type` | string | JKS | medium | The file format of the key store file. This is optional for client. The values currently supported by the default ssl.engine.factory.class are [JKS, PKCS12, ... |
+| `ssl.protocol` | string | TLSv1.3 | medium | The SSL protocol used to generate the SSLContext. The default is 'TLSv1.3', which should be fine for most use cases. A typical alternative to the default is ... |
+| `ssl.provider` | string | null | medium | The name of the security provider used for SSL connections. Default value is the default security provider of the JVM. |
+| `ssl.trustmanager.algorithm` | string | PKIX | medium | The algorithm used by trust manager factory for SSL connections. Default value is the trust manager factory algorithm configured for the Java Virtual Machine. |
+| `ssl.truststore.certificates` | password | null | medium | Trusted certificates in the format specified by 'ssl.truststore.type'. Default SSL engine factory supports only PEM format with X.509 certificates. |
+| `ssl.truststore.location` | string | null | medium | The location of the trust store file. |
+| `ssl.truststore.password` | password | null | medium | The password for the trust store file. If a password is not set, trust store file configured will still be used, but integrity checking is disabled. Trust st... |
+| `ssl.truststore.type` | string | JKS | medium | The file format of the trust store file. The values currently supported by the default ssl.engine.factory.class are [JKS, PKCS12, PEM]. |
+| `alter.config.policy.class.name` | class | null | low | The alter configs policy class that should be used for validation. The class should implement the `org.apache.kafka.server.policy.AlterConfigPolicy interface. ... |
+| `alter.log.dirs.replication.quota.window.num` | int | 11 | low | The number of samples to retain in memory for alter log dirs replication quotas |
+| `alter.log.dirs.replication.quota.window.size.seconds` | int | 1 | low | The time span of each sample for alter log dirs replication quotas |
+| `authorizer.class.name` | string | "" | low | The fully qualified name of a class that implements the `org.apache.kafka.server.authorizer.Authorizer` interface, which is used by the broker for authorization. |
+| `client.quota.callback.class` | class | null | low | The fully qualified name of a class that implements the ClientQuotaCallback interface, which is used to determine quota limits applied to client requests. Fo... |
+| `connection.failed.authentication.delay.ms` | int | 100 | low | Connection close delay on failed authentication: this is the time (in milliseconds) by which connection close will be delayed on authentication failure. This... |
+| `controller.quorum.retry.backoff.ms` | int | 20 | low | The amount of time to wait before attempting to retry a failed request to a given topic partition. This avoids repeatedly sending requests in a tight loop un... |
+| `controller.quota.window.num` | int | 11 | low | The number of samples to retain in memory for controller mutation quotas |
+| `controller.quota.window.size.seconds` | int | 1 | low | The time span of each sample for controller mutations quotas |
+| `create.topic.policy.class.name` | class | null | low | The create topic policy class that should be used for validation. The class should implement the `org.apache.kafka.server.policy.CreateTopicPolicy interface. N... |
+| `delegation.token.expiry.check.interval.ms` | long | 3600000 (1 hour) | low | Scan interval to remove expired delegation tokens. |
+| `kafka.metrics.polling.interval.secs` | int | 10 | low | The metrics polling interval (in seconds) which can be used in kafka.metrics.reporters implementations. |
+| `kafka.metrics.reporters` | list | "" | low | A list of classes to use as Yammer metrics custom reporters. The reporters should implementkafka.metrics.KafkaMetricsReporter trait. If a client wants to exp... |
+| `listener.security.protocol.map` | string | SASL_SSL:SASL_SSL,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT | low | Map between listener names and security protocols. This must be defined for the same security protocol to be usable in more than one port or IP. For example,... |
+| `log.dir.failure.timeout.ms` | long | 30000 (30 seconds) | low | If the broker is unable to successfully communicate to the controller that some log directory has failed for longer than this time, the broker will fail and ... |
+| `metadata.max.idle.interval.ms` | int | 500 | low | This configuration controls how often the active controller should write no-op records to the metadata partition. If the value is 0, no-op records are not ap... |
+| `metric.reporters` | list | org.apache.kafka.common.metrics.JmxReporter | low | A list of classes to use as metrics reporters. Implementing the `org.apache.kafka.common.metrics.MetricsReporter interface allows plugging in classes that will... |
+| `metrics.num.samples` | int | 2 | low | The number of samples maintained to compute metrics. |
+| `metrics.recording.level` | string | INFO | low | The highest recording level for metrics. It has three levels for recording metrics - info, debug, and trace.INFO level records only essential metrics necessa... |
+| `metrics.sample.window.ms` | long | 30000 (30 seconds) | low | The window of time a metrics sample is computed over. |
+| `producer.id.expiration.ms` | int | 86400000 (1 day) | low | The time in ms that a topic partition leader will wait before expiring producer IDs. Producer IDs will not expire while a transaction associated to them is s... |
+| `quota.window.num` | int | 11 | low | The number of samples to retain in memory for client quotas |
+| `quota.window.size.seconds` | int | 1 | low | The time span of each sample for client quotas |
+| `remote.log.index.file.cache.total.size.bytes` | long | 1073741824 (1 gibibyte) | low | The total size of the space allocated to store index files fetched from remote storage in the local storage. |
+| `remote.log.manager.task.interval.ms` | long | 30000 (30 seconds) | low | Interval at which remote log manager runs the scheduled tasks like copy segments, and clean up remote log segments. |
+| `remote.log.metadata.custom.metadata.max.bytes` | int | 128 | low | The maximum size of custom metadata in bytes that the broker should accept from a remote storage plugin. If custom metadata exceeds this limit, the updated s... |
+| `replication.quota.window.num` | int | 11 | low | The number of samples to retain in memory for replication quotas |
+| `replication.quota.window.size.seconds` | int | 1 | low | The time span of each sample for replication quotas |
+| `sasl.login.connect.timeout.ms` | int | null | low | The (optional) value in milliseconds for the external authentication provider connection timeout. Currently applies only to OAUTHBEARER. |
+| `sasl.login.read.timeout.ms` | int | null | low | The (optional) value in milliseconds for the external authentication provider read timeout. Currently applies only to OAUTHBEARER. |
+| `sasl.login.retry.backoff.max.ms` | long | 10000 (10 seconds) | low | The (optional) value in milliseconds for the maximum wait between login attempts to the external authentication provider. Login uses an exponential backoff a... |
+| `sasl.login.retry.backoff.ms` | long | 100 | low | The (optional) value in milliseconds for the initial wait between login attempts to the external authentication provider. Login uses an exponential backoff a... |
+| `sasl.oauthbearer.clock.skew.seconds` | int | 30 | low | The (optional) value in seconds to allow for differences between the time of the OAuth/OIDC identity provider and the broker. |
+| `sasl.oauthbearer.expected.audience` | list | null | low | The (optional) comma-delimited setting for the broker to use to verify that the JWT was issued for one of the expected audiences. The JWT will be inspected f... |
+| `sasl.oauthbearer.expected.issuer` | string | null | low | The (optional) setting for the broker to use to verify that the JWT was created by the expected issuer. The JWT will be inspected for the standard OAuth "iss... |
+| `sasl.oauthbearer.jwks.endpoint.refresh.ms` | long | 3600000 (1 hour) | low | The (optional) value in milliseconds for the broker to wait between refreshing its JWKS (JSON Web Key Set) cache that contains the keys to verify the signatu... |
+| `sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms` | long | 10000 (10 seconds) | low | The (optional) value in milliseconds for the maximum wait between attempts to retrieve the JWKS (JSON Web Key Set) from the external authentication provider.... |
+| `sasl.oauthbearer.jwks.endpoint.retry.backoff.ms` | long | 100 | low | The (optional) value in milliseconds for the initial wait between JWKS (JSON Web Key Set) retrieval attempts from the external authentication provider. JWKS ... |
+| `sasl.oauthbearer.scope.claim.name` | string | scope | low | The OAuth claim for the scope is often named "scope", but this (optional) setting can provide a different name to use for the scope included in the JWT paylo... |
+| `sasl.oauthbearer.sub.claim.name` | string | sub | low | The OAuth claim for the subject is often named "sub", but this (optional) setting can provide a different name to use for the subject included in the JWT pay... |
+| `security.providers` | string | null | low | A list of configurable creator classes each returning a provider implementing security algorithms. These classes should implement the `org.apache.kafka.common.... |
+| `ssl.allow.dn.changes` | boolean | false | low | Indicates whether changes to the certificate distinguished name should be allowed during a dynamic reconfiguration of certificates or not. |
+| `ssl.allow.san.changes` | boolean | false | low | Indicates whether changes to the certificate subject alternative names should be allowed during a dynamic reconfiguration of certificates or not. |
+| `ssl.endpoint.identification.algorithm` | string | https | low | The endpoint identification algorithm to validate server hostname using server certificate. |
+| `ssl.engine.factory.class` | class | null | low | The class of type org.apache.kafka.common.security.auth.SslEngineFactory to provide SSLEngine objects. Default value is org.apache.kafka.common.security.ssl.... |
+| `ssl.principal.mapping.rules` | string | DEFAULT | low | A list of rules for mapping from distinguished name from the client certificate to short name. The rules are evaluated in order and the first rule that match... |
+| `ssl.secure.random.implementation` | string | null | low | The SecureRandom PRNG implementation to use for SSL cryptography operations. |
+| `telemetry.max.bytes` | int | 1048576 (1 mebibyte) | low | The maximum size (after compression if compression is used) of telemetry metrics pushed from a client to the broker. The default value is 1048576 (1 MB). |
+| `transaction.abort.timed.out.transaction.cleanup.interval.ms` | int | 10000 (10 seconds) | low | The interval at which to rollback transactions that have timed out |
+| `transaction.partition.verification.enable` | boolean | true | low | Enable verification that checks that the partition has been added to the transaction before writing transactional records to the partition |
+| `transaction.remove.expired.transaction.cleanup.interval.ms` | int | 3600000 (1 hour) | low | The interval at which to remove transactions that have expired due totransactional.id.expiration.ms passing |
+
+---
+
+## Topic-level configs (common)
+
+Topic overrides live on the topic (via `kafka-configs` / Admin). Important ones:
+
+| Property | Typical use |
+|---|---|
+| `retention.ms` / `retention.bytes` | Time/size retention |
+| `cleanup.policy` | `delete`, `compact`, or both |
+| `min.insync.replicas` | Topic durability override |
+| `segment.bytes` / `segment.ms` | Segment roll |
+| `max.message.bytes` | Per-topic size cap |
+| `compression.type` | Topic default compression |
+| `unclean.leader.election.enable` | Prefer leave false |
+| `message.timestamp.type` | CreateTime vs LogAppendTime |
+
+Full topic-level list: [Topic configs](https://kafka.apache.org/40/configuration/topic-level-configs/).
+
+---
+
+## Spring Kafka (application.yml) mapping notes
+
+| Spring | Kafka client |
+|---|---|
+| `spring.kafka.bootstrap-servers` | `bootstrap.servers` |
+| `spring.kafka.producer.acks` | `acks` |
+| `spring.kafka.producer.properties.*` | pass-through producer configs |
+| `spring.kafka.consumer.group-id` | `group.id` |
+| `spring.kafka.consumer.enable-auto-commit` | `enable.auto.commit` |
+| `spring.kafka.consumer.properties.*` | pass-through consumer configs |
+| `spring.kafka.consumer.auto-offset-reset` | `auto.offset.reset` |
+| `spring.kafka.listener.ack-mode` | Spring ack vs Kafka commit model |
 
 ---
 
 ## GO / NO-GO
 
-- [ ] Producer: idempotence + batching + compression verified  
-- [ ] Consumer: manual commit + retry/DLQ tested with poison  
-- [ ] Broker: auto-create off, ISR + retention set  
-- [ ] Security: SASL/SSL from app pods  
-- [ ] Replay: earlier offset without double settlement  
+- Producer: idempotence + `acks=all` + batching/compression verified
+- Consumer: manual commit + poll budget + retry/DLQ for poison
+- Broker: auto-create off, RF/minISR, unclean=false, retention set
+- Controller: odd quorum across AZs; monitor ActiveControllerCount / metadata health
+- Security: SASL/SSL + ACLs from app pods
+- Replay: earlier offset without double settlement (idempotent sink)
 
-**Next:** [Optimization](/kafka-interview/kafka-optimization-index) · [Realtime case](/kafka-interview/kafka-realtime-case) · [Cheatsheet & interview](/kafka-interview/kafka-cheat-sheet)
+**Next:** [Producer board](/kafka-producer) · [Consumer board](/kafka-consumer) · [Cluster board](/kafka-cluster) · [Optimization](/kafka-interview/kafka-optimization-index) · [Cheatsheet](/kafka-interview/kafka-cheat-sheet)

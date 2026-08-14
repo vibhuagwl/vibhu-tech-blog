@@ -106,7 +106,7 @@ export const KAFKA_HUB={
       id:'properties',
       number:'03',
       title:'Properties',
-      blurb:'Must-set producer, consumer, and broker properties with GO/NO-GO.',
+      blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs with GO/NO-GO.',
       href:'/kafka-interview/kafka-properties',
       mode:'learn' as const,
     },

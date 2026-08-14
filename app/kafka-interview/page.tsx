@@ -41,7 +41,7 @@ const CURRICULUM=[
     href:'/kafka-interview/kafka-properties',
     number:'05',
     title:'Properties',
-    blurb:'Must-set producer, consumer, cluster, and controller configs with GO/NO-GO.',
+    blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs — plus payment must-set GO/NO-GO.',
   },
   {
     href:'/kafka-mastery#monitoring',
