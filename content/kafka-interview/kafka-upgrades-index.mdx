@@ -1,50 +1,13 @@
 ---
 slug: kafka-upgrades-index
-title: "Kafka Upgrades & Compatibility"
-description: "Upgrade center for Kafka clients, brokers, Java, Spring Kafka, schemas, testing, canary, and rollback — without inventing uncertain version matrices."
+title: "Kafka Upgrades Index (moved)"
+description: "Upgrade notes live with the Kafka hub / cluster board."
 category: "Kafka Interview"
-difficulty: Principal
-tags: [Kafka, Upgrade, Compatibility, Spring Kafka, Java]
-readingTime: 8 min
+difficulty: Senior
+tags: [Kafka]
+readingTime: 1 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-## Mental model
-
-Compatibility is a **chain**, not a single version number:
-
-```text
-Spring Boot
-     ↓
-Spring Kafka
-     ↓
-Kafka Client
-     ↓
-Kafka Broker
-     ↓
-Java runtime
-```
-
-Evaluate the whole chain. Do not hard-code uncertain matrices as facts — verify against your current BOMs and official compatibility notes for the versions you run.
-
-## Upgrade map
-
-| Topic | Guide |
-|---|---|
-| Client / JAR upgrade workflow | [Kafka client upgrade guide](/kafka-interview/kafka-upgrades-client) |
-| Schema / serialization | [Microservices & schema interview](/kafka-interview/kafka-microservices-schema-interview) |
-| Broker / architecture changes (KRaft) | [Architecture interview](/kafka-interview/kafka-architecture-interview) |
-| Config / deprecated behavior | [Configuration reference](/kafka-interview/kafka-configuration-index) |
-
-## Story format for every upgrade
-
-```text
-WHY → CURRENT → TARGET → WHAT CAN BREAK
-  → DEPENDENCY ANALYSIS → CODE → CONFIG
-  → TEST → CANARY → ROLLOUT → MONITOR → ROLLBACK
-```
-
-## Related
-
-- [Client upgrade](/kafka-interview/kafka-upgrades-client)
-- [Interview bank](/kafka-interview/kafka-staff-principal-interview-index)
+**→ [Kafka hub](/kafka-interview)** · [Cluster board](/kafka-cluster)

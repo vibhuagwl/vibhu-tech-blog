@@ -1,17 +1,17 @@
 import Link from 'next/link';
 
 export const metadata={
-  title:'Kafka — Interview Mastery, Producer, Consumer, Cluster, Monitoring',
-  description:'Kafka interview hub: dedicated producer, consumer, cluster/controller, optimization, properties, monitoring, instance counts, syncing, and partition sizing — plus Spring code and realtime cases.',
+  title:'Kafka — Interview Hub',
+  description:'Kafka interview hub: producer, consumer, cluster, mastery drills, optimization, properties, code, and supporting boards — one card per destination.',
 };
 
-/** One card per destination — no overlap with Labs. */
+/** One card per destination — mastery drills live on /kafka-mastery (not as # fragment cards). */
 const CURRICULUM=[
   {
     href:'/kafka-mastery',
     number:'00',
-    title:'Interview Mastery Board',
-    blurb:'Interview map + unique drills: monitoring, instance counts, syncing, partitions, spoken answers. Deep producer/consumer/cluster live on their boards.',
+    title:'Interview Mastery',
+    blurb:'Interview map + drills: monitoring, instance counts, syncing, partitions, spoken answers.',
   },
   {
     href:'/kafka-producer',
@@ -44,56 +44,32 @@ const CURRICULUM=[
     blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs — plus payment must-set GO/NO-GO.',
   },
   {
-    href:'/kafka-mastery#monitoring',
-    number:'06',
-    title:'Monitoring in prod',
-    blurb:'Lag, under-replicated partitions, ISR, disk, rebalances, offline partitions.',
-  },
-  {
-    href:'/kafka-mastery#instances',
-    number:'07',
-    title:'Instance counts',
-    blurb:'Producers, consumers, brokers, controllers, clusters — what to say in the interview.',
-  },
-  {
-    href:'/kafka-mastery#syncing',
-    number:'08',
-    title:'How syncing works',
-    blurb:'Follower fetch, ISR, acks=all, high watermark — how replicas stay in sync.',
-  },
-  {
-    href:'/kafka-mastery#partitions',
-    number:'09',
-    title:'How many partitions',
-    blurb:'Production formula, examples, hot keys, and why “1000 for later” fails interviews.',
-  },
-  {
     href:'/kafka-interview/kafka-cheat-sheet',
-    number:'10',
+    number:'06',
     title:'Cheatsheet & Interview',
     blurb:'Memory formulas plus 30s/90s from the Spring payment story.',
   },
   {
     href:'/kafka-interview/kafka-realtime-case',
-    number:'11',
+    number:'07',
     title:'Realtime Case',
     blurb:'Controller → producer → broker → consumer → retry/DLQ with diagrams.',
   },
   {
     href:'/spring-kafka-payments-demo',
-    number:'12',
+    number:'08',
     title:'Kafka Code',
     blurb:'Spring payment-api producer + settlement-worker consumer source explorer.',
   },
   {
     href:'/hadron-dlq',
-    number:'13',
+    number:'09',
     title:'Hadron CashLines DLQ',
     blurb:'Neptune → retry → DLQ → replay with ordering and idempotency.',
   },
   {
     href:'/kafka-internals',
-    number:'14',
+    number:'10',
     title:'Internals Board',
     blurb:'Partition writes, replication walkthrough, consumer crash replay.',
   },
@@ -110,8 +86,8 @@ export default function KafkaInterview(){
           Kafka — win the interview round
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-          One card per destination: producer, consumer, cluster/controller, optimization, properties,
-          monitoring, instance counts, syncing, partitions, plus code and supporting boards.
+          One card per destination. Deep curricula live on dedicated boards; mastery owns the sizing and
+          spoken-answer drills.
         </p>
       </header>
 
@@ -140,10 +116,9 @@ export default function KafkaInterview(){
           <li>Open <strong>§01 Producer</strong> — say the send() lifecycle and acks=1 vs all out loud.</li>
           <li>Open <strong>§02 Consumer</strong> — poll(), session vs max.poll.interval, process→commit timelines.</li>
           <li>Open <strong>§03 Cluster</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
-          <li>Open <strong>§00 Mastery</strong> — monitoring, instance counts, partitions drills.</li>
-          <li>Drill <strong>§07 instance counts</strong> and <strong>§09 partitions</strong> — these fail candidates constantly.</li>
-          <li>Skim <strong>§06 monitoring</strong> — name lag, URP, ISR, disk, rebalances.</li>
-          <li>Walk <strong>§11 Realtime Case</strong> once so you have a payment story.</li>
+          <li>Open <strong>§00 Mastery</strong> — monitoring, instance counts, syncing, partitions, spoken answers.</li>
+          <li>Skim <strong>§05 Properties</strong> and <strong>§04 Optimization</strong> for must-set baselines.</li>
+          <li>Walk <strong>§07 Realtime Case</strong> once so you have a payment story.</li>
           <li>Practice the Mastery <strong>spoken-answer deck</strong> (Senior → Rapid).</li>
         </ol>
       </section>

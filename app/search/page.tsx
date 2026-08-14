@@ -5,7 +5,9 @@ import SearchClient from '@/components/search-client';
 export const metadata={title:'Search'};
 
 export default function Search(){
-  const posts=getAllPosts().map(({slug,title,description,category,difficulty,tags})=>({
+  const posts=getAllPosts()
+    .filter((p)=>!/\(moved\)/i.test(p.title))
+    .map(({slug,title,description,category,difficulty,tags})=>({
     slug,title,description,category,difficulty,tags,
   }));
 

@@ -16,7 +16,6 @@ export default function Learn(){
   const behavioralInterview=posts.filter((p)=>p.category==='Behavioral Interview');
   const leadership=posts.filter((p)=>p.category==='Leadership Principles');
   const complexity=posts.filter((p)=>p.category==='Complexity');
-  const kafkaInterview=posts.filter((p)=>p.category==='Kafka Interview');
   const redisInterview=posts.filter((p)=>p.category==='Redis Interview');
   const realtimeIssues=posts.filter((p)=>p.category==='Real-Time Issues');
   const performance=posts.filter((p)=>p.category==='Performance');
@@ -203,15 +202,22 @@ export default function Learn(){
         </section>
 
         <section>
-          <h2 className="text-2xl font-black">11 — Kafka (Knowledge · Experience · Interview)</h2>
+          <h2 className="text-2xl font-black">11 — Kafka</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-3">
-            {kafkaInterview.map((p)=>(
-              <Link key={p.slug} href={hrefForPost(p.category,p.slug)} className="card p-5">
-                <div className="text-xs font-bold text-slate-600">{p.difficulty}</div>
-                <h3 className="mt-2 font-bold">{p.title}</h3>
-                <p className="mt-2 text-sm text-slate-500">{p.description}</p>
-              </Link>
-            ))}
+            <Link href="/kafka-interview" className="card p-5">
+              <div className="text-xs font-bold text-slate-600">Staff</div>
+              <h3 className="mt-2 font-bold">Kafka interview hub</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                One home for producer, consumer, cluster, mastery drills, properties, optimization, code, and internals.
+              </p>
+            </Link>
+            <Link href="/hadron-dlq" className="card p-5">
+              <div className="text-xs font-bold text-slate-600">Staff</div>
+              <h3 className="mt-2 font-bold">Hadron CashLines DLQ</h3>
+              <p className="mt-2 text-sm text-slate-500">
+                Neptune → retry → DLQ → replay with ordering and idempotency.
+              </p>
+            </Link>
           </div>
         </section>
 

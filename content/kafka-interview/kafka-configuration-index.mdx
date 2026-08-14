@@ -1,55 +1,15 @@
 ---
 slug: kafka-configuration-index
-title: "Kafka Configuration Reference"
-description: "Searchable producer, consumer, broker, and controller settings — short table rows with Learn More detail pages. Not a dump of every property essay."
+title: "Kafka Configuration Reference (moved)"
+description: "Configuration reference moved into the complete Kafka Properties page."
 category: "Kafka Interview"
 difficulty: Senior
-tags: [Kafka, Configuration, Producer, Consumer, Broker]
-readingTime: 8 min
+tags: [Kafka, Configuration]
+readingTime: 1 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-## How to use this reference
+**→ [Kafka Properties (complete)](/kafka-interview/kafka-properties)**
 
-| Layer | Purpose |
-|---|---|
-| **This table** | Scan what a property controls and when to touch it |
-| **Detail pages** | Purpose, trade-offs, production risk, interview tip |
-| **Optimization** | Performance framing for the same property |
-| **Knowledge / Interview** | Concept and spoken answer — not a second full rewrite |
-
-## Producer
-
-| Property | What it controls | Default mindset | When to change | Risk | Learn more |
-|---|---|---|---|---|---|
-| `batch.size` | Max batch bytes before send | Throughput lever | Need higher throughput | Memory / latency | [→](/kafka-interview/kafka-config-batch-size) |
-| `linger.ms` | Wait to fill batches | Pair with batch.size | Improve batching | Adds latency | [→](/kafka-interview/kafka-config-batch-size) |
-| `compression.type` | Payload compression | Network vs CPU | Large messages / WAN | CPU | [Producer opt](/kafka-interview/kafka-optimization-producer) |
-| `acks` | Durability acknowledgement | Durability vs latency | Stronger durability | Latency / availability | [Producer interview](/kafka-interview/kafka-producer-interview) |
-| `enable.idempotence` | Safe retries | Prefer on for critical producers | Exactly-once-ish produce path | Config coupling | [Producer interview](/kafka-interview/kafka-producer-interview) |
-
-## Consumer
-
-| Property | What it controls | Default mindset | When to change | Risk | Learn more |
-|---|---|---|---|---|---|
-| `max.poll.records` | Records per poll | Processing budget | Lag or slow processing | Rebalances if too high | [→](/kafka-interview/kafka-config-max-poll-records) |
-| `max.poll.interval.ms` | Time between polls | Must exceed processing | Long batch jobs | Masks stuck consumers if too high | [Consumer opt](/kafka-interview/kafka-optimization-consumer) |
-| `session.timeout.ms` | Group membership | Pair with heartbeats | Unstable membership | False rebalances | [Consumer interview](/kafka-interview/kafka-consumer-interview) |
-| `enable.auto.commit` | Auto offset commit | Prefer explicit for critical | Simpler non-critical apps | Lost / duplicate processing | [Offsets](/kafka-interview/kafka-offset-management-interview) |
-| `auto.offset.reset` | Start position if no offset | Know your recovery story | New groups / reset | Replay or skip | [Offsets](/kafka-interview/kafka-offset-management-interview) |
-
-## Broker / controller
-
-| Area | What to think about | Where to go |
-|---|---|---|
-| Retention / segments | Disk growth vs replay window | [Architecture & broker topics](/kafka-interview/kafka-architecture-interview) |
-| Replica fetchers / ISR | Catch-up and durability | [Architecture](/kafka-interview/kafka-architecture-interview) |
-| KRaft / controller | Metadata plane | [Architecture](/kafka-interview/kafka-architecture-interview) |
-
-> Broker property essays stay in Optimization / Architecture banks for now — avoid duplicating every broker knob here until a detail page exists.
-
-## Related
-
-- [Producer optimization](/kafka-interview/kafka-optimization-producer)
-- [Consumer optimization](/kafka-interview/kafka-optimization-consumer)
-- [Upgrades](/kafka-interview/kafka-upgrades-index)
+Also: [Optimization](/kafka-interview/kafka-optimization-index) · [Kafka hub](/kafka-interview)

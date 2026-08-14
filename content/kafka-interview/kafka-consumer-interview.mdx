@@ -1,101 +1,13 @@
 ---
 slug: kafka-consumer-interview
-title: "Kafka Consumer Deep Dive Interview (Q36–Q48)"
-description: "Staff+ consumer internals: groups, eager vs cooperative rebalance, session vs max.poll.interval, scaling, lag detection, and stuck consumer recovery."
-category: Kafka Interview
-difficulty: Advanced
-tags: [Kafka, Interview, Staff, Principal, Architect, Distributed Systems]
-readingTime: 20 min
-publishedAt: "2026-08-11"
+title: "Kafka Consumer Interview (moved)"
+description: "Consumer interview depth lives on the Consumer board."
+category: "Kafka Interview"
+difficulty: Senior
+tags: [Kafka]
+readingTime: 1 min
+publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-## 36. Explain Kafka consumer internals
-
-```text
-poll() → fetch records from assigned partitions
-      → application processes
-      → commit offsets (auto or manual)
-heartbeat thread keeps group membership (modern clients)
-```
-
-Consumer maintains: assignment, fetch positions, committed offsets, group membership.
-
-## 37. Consumer group vs consumer
-
-| Term | Meaning |
-|---|---|
-| Consumer | Process/thread instance |
-| Group | Set sharing a `group.id`; partitions divided among members |
-
-Different groups independently read the same topic.
-
-## 38. What happens during consumer rebalance?
-
-1. Membership change (join/leave/fail) or partition count change.
-2. Group coordinator stops consumption briefly (strategy-dependent).
-3. Revoke partitions → commit if configured → new assignment → resume.
-
-**Risk:** stop-the-world rebalances → lag spikes; processing during revoke mishandled → duplicates/loss.
-
-## 39. Eager vs cooperative rebalancing
-
-| Eager (classic) | Cooperative sticky |
-|---|---|
-| Revoke **all** partitions first | Revoke only partitions that must move |
-| Bigger pause | Smaller pause |
-| Simpler | Preferred for large groups |
-
-## 40. What causes frequent rebalancing?
-
-- Consumer crashes / OOM
-- `max.poll.interval.ms` exceeded (processing too slow between polls)
-- `session.timeout` / missed heartbeats (GC pauses, network)
-- Scaling pods rapidly / bad readiness probes killing pods
-- Changing subscription patterns
-- Long GC / CPU starvation
-
-## 41. `session.timeout.ms` vs `max.poll.interval.ms`
-
-| Config | Protects against |
-|---|---|
-| `session.timeout.ms` (+ heartbeat) | Dead consumer (process gone / no heartbeat) |
-| `max.poll.interval.ms` | Alive but stuck processing (no poll) |
-
-Both can trigger leave/rebalance — different failure modes.
-
-## 42. Processing longer than `max.poll.interval.ms`?
-
-Consumer considered failed → rebalance → partition assigned elsewhere → **duplicate processing risk** when original finishes. Fix: raise interval carefully, process faster, break work, pause+resume patterns, or hand off to workers while continuing to poll.
-
-## 43. How do you scale Kafka consumers?
-
-Add consumers **up to partition count** in the group. Beyond that, extras idle. Scale partitions only with keying strategy awareness. Scale processing with async workers carefully (ordering!).
-
-## 44. 10 consumers, 5 partitions?
-
-5 consumers active, **5 idle** in that group.
-
-## 45. 5 consumers, 10 partitions?
-
-Some consumers get 2 partitions. Parallelism ≤ 5 unless you add consumers.
-
-## 46. Slow consumers?
-
-- Measure lag + processing time + downstream deps
-- Speed code / batch DB / cache
-- Increase parallelism (partitions/consumers)
-- Isolate slow event types
-- Timeout + retry/DLQ for poison
-- Don’t let slow downstream block heartbeats/polls forever
-
-## 47. How do you detect consumer lag?
-
-`current end offset − consumer position` per partition. Metrics: Burrow, consumer lag exporter, CloudWatch/Prometheus, Confluent metrics. Alert on lag **age** (time) not only message count.
-
-## 48. Recover a stuck consumer?
-
-1. Is it alive? (heartbeats, pod restarts)
-2. Stuck on poison message? (same offset failing)
-3. Downstream blocked? (DB locks)
-4. Rebalance loop?
-5. Mitigate: skip-to-DLQ with audit, scale, fix dependency, restart with care, reset offsets only with business approval.
+**→ [Kafka Consumer board](/kafka-consumer)** · [Mastery spoken answers](/kafka-mastery#interview)

@@ -1,69 +1,13 @@
 ---
 slug: kafka-config-max-poll-records
-title: "max.poll.records — Consumer Configuration Detail"
-description: "How max.poll.records shapes processing budget, lag, and rebalance risk — with links to optimization and incident stories."
+title: "max.poll.records (moved)"
+description: "See the complete Kafka Properties reference."
 category: "Kafka Interview"
 difficulty: Senior
-tags: [Kafka, Configuration, Consumer, max.poll.records, Consumer Lag]
-readingTime: 7 min
+tags: [Kafka, Configuration, Consumer]
+readingTime: 1 min
 publishedAt: "2026-08-12"
+updatedAt: "2026-08-14"
 ---
 
-## Category
-
-Consumer
-
-## Purpose
-
-Limits how many records a single `poll()` may return.
-
-## Why it matters
-
-Each poll’s records must be processable before `max.poll.interval.ms`.
-
-```text
-poll batch too large + slow processing
-        ↓
-miss poll interval
-        ↓
-rebalance / lag amplification
-```
-
-## When to increase
-
-- Processing is fast and cheap
-- You want fewer poll cycles and higher throughput
-- Downstream can absorb bursts
-
-## When to decrease
-
-- Per-record work is heavy (HTTP, DB, locks)
-- Rebalances during lag spikes
-- You need tighter control of processing bursts
-
-## Trade-off
-
-```text
-Higher max.poll.records → potential throughput ↑, rebalance risk ↑ if slow
-Lower max.poll.records  → safer poll loop, more overhead
-```
-
-## Related settings
-
-- `max.poll.interval.ms`
-- `session.timeout.ms` / heartbeats
-- commit strategy (`enable.auto.commit` vs explicit)
-
-## Real-world story
-
-See [Consumer lag incident](/kafka-interview/kafka-experience-consumer-lag) — reducing poll size was part of stabilizing a slow downstream bank API path.
-
-## Interview tip
-
-“`max.poll.records` is not ‘speed.’ It is the size of the work unit you must finish between polls.”
-
-## Related
-
-- [Consumer optimization](/kafka-interview/kafka-optimization-consumer)
-- [Lag troubleshooting](/kafka-interview/kafka-troubleshooting-consumer-lag)
-- [Consumer interview](/kafka-interview/kafka-consumer-interview)
+**→ [Kafka Properties](/kafka-interview/kafka-properties)** · Consumer section / `max.poll.records`
