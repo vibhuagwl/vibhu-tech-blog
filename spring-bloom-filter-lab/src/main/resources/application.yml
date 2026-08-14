@@ -1,0 +1,35 @@
+server:
+  port: 8097
+
+spring:
+  application:
+    name: spring-bloom-filter-lab
+  datasource:
+    url: jdbc:h2:mem:bloom;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+
+bloom:
+  expected-insertions: 100000
+  false-positive-rate: 0.01
+  seed-users: 5000
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

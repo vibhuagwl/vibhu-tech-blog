@@ -48,6 +48,12 @@ const banks=[
     blurb:'Neptune → Kafka → Hadron: retry topics, DLQ persistence, ordering, idempotency, replay, interview bank.',
   },
   {
+    href:'/bloom-filter',
+    label:'Bloom Filter',
+    level:'Staff',
+    blurb:'Bit arrays, FPP math, Spring cache penetration, SSTables, Kafka hint+truth, 30 interview prompts.',
+  },
+  {
     href:'/redis-interview',
     label:'Redis Interview',
     level:'Staff',
