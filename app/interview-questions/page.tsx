@@ -66,6 +66,12 @@ const banks=[
     blurb:'Bit arrays, FPP math, Spring cache penetration, SSTables, Kafka hint+truth, 30 interview prompts.',
   },
   {
+    href:'/rate-limiter',
+    label:'Distributed Rate Limiter',
+    level:'Staff',
+    blurb:'Token bucket, Redis Lua, multi-level quotas, fail-open/closed, 429 headers, Spring lab.',
+  },
+  {
     href:'/redis-interview',
     label:'Redis Interview',
     level:'Staff',
