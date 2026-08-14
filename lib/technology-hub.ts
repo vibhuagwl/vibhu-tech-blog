@@ -13,7 +13,7 @@ export type HubTopic={
   blurb?:string;
 };
 
-/** Kafka hub: only the five practical pages (plus code outside this list). */
+/** Kafka hub sidebar: MDX pages listed under /kafka-interview (standalone hubs stay off this list). */
 export const KAFKA_SIDEBAR_ORDER=[
   'kafka-realtime-case',
   'kafka-optimization-index',
@@ -51,7 +51,7 @@ export const KAFKA_HUB={
   title:'Kafka',
   subtitle:'Practical Spring Kafka',
   description:
-    'Five pages only: code, optimization, properties, cheatsheet & interview, and a realtime payment case with diagrams.',
+    'Practical Kafka: code, internals board, optimization, properties, cheatsheet, realtime payment case, and Hadron DLQ.',
   basePath:'/kafka-interview',
   sections:[
     {
@@ -93,6 +93,22 @@ export const KAFKA_HUB={
       blurb:'Controller → producer → consumer → DLQ with diagrams and curl.',
       href:'/kafka-interview/kafka-realtime-case',
       mode:'experience' as const,
+    },
+    {
+      id:'hadron',
+      number:'06',
+      title:'Hadron DLQ',
+      blurb:'Neptune → retry topics → DLQ DB → replay with ordering and idempotency.',
+      href:'/hadron-dlq',
+      mode:'experience' as const,
+    },
+    {
+      id:'internals',
+      number:'07',
+      title:'Internals Board',
+      blurb:'Partition writes, replication, production instance counts, consumer crash replay.',
+      href:'/kafka-internals',
+      mode:'learn' as const,
     },
   ] satisfies HubSection[],
 };

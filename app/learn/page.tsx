@@ -43,6 +43,7 @@ export default function Learn(){
           <Link href="/complexity" className="btn-secondary">Complexity</Link>
           <Link href="/dsa" className="btn-secondary">DSA Islands & Window</Link>
           <Link href="/kafka-interview" className="btn-secondary">Kafka Hub</Link>
+          <Link href="/kafka-internals" className="btn-secondary">Kafka Internals</Link>
           <Link href="/hadron-dlq" className="btn-secondary">Hadron DLQ</Link>
           <Link href="/multi-tenant" className="btn-secondary">Multi-Tenant SaaS</Link>
           <Link href="/bloom-filter" className="btn-secondary">Bloom Filter</Link>

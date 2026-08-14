@@ -45,7 +45,13 @@ const banks=[
     href:'/kafka-interview',
     label:'Kafka',
     level:'Staff',
-    blurb:'Five pages: Spring Kafka code, optimization, properties, cheatsheet & interview, realtime payment case.',
+    blurb:'Spring Kafka code, internals board, optimization, properties, cheatsheet, realtime payment case.',
+  },
+  {
+    href:'/kafka-internals',
+    label:'Kafka Internals Board',
+    level:'Staff',
+    blurb:'How Kafka writes partitions, replicates across brokers, sizes production instances, and redelivers after a consumer crash.',
   },
   {
     href:'/hadron-dlq',
