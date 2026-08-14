@@ -69,7 +69,6 @@ const ORDER=[
   'spring-secrets-pii-handling',
   'spring-kafka-dlq-payments',
   'spring-kafka-payments-interview-story',
-  'spring-kafka-full-properties-checklist',
 ];
 
 export default function RealtimeIssues(){
