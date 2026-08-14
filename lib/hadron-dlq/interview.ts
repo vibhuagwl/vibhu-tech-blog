@@ -34,6 +34,8 @@ export const ARCHITECT: InterviewQ[] = [
   {id:'a8',topic:'Hold',question:'Pause partition vs per-CashLine hold?',answer30s:'Prefer per-CashLine hold so other keys in the partition proceed.',answer2m:'Pause/resume is a blunt poison tool. DB blockedReason + sequence gate is the Hadron design.',followUps:['When pause the partition anyway?']},
   {id:'a9',topic:'Multi DLQ',question:'Would you split business/technical/schema/security DLQs?',answer30s:'Not at first. Column for reason. Split for ACL or unserdeable dumps only.',answer2m:'Four topics means four lag alerts, four replay UIs, four forgotten queues. Security isolation is the only strong split.',followUps:['Ops complexity?']},
   {id:'a10',topic:'Crash',question:'App crashes during the DB transaction?',answer30s:'SQL rolls back, Kafka does not ack, redelivery, process again.',answer2m:'If crash after commit before ack, uniqueness saves you. Design for both.',followUps:['Connection pool exhaustion?']},
+  {id:'a11',topic:'Corner',question:'Walk the DLQ corner-case matrix.',answer30s:'Classify: RETRY, DLQ now, DLQ after cap, PARK later events, IGNORE duplicate/stale, CONFLICT on replay.',answer2m:'Poison/NPE/enum/invalid amount → DLQ now. Timeout/deadlock → retry then cap. Event 2 fail → park 3/4. Duplicate event_id → ignore. Ack-before-DB is the unrecoverable skip. Replay after SETTLED → reject. Null key and mismatched retry partitions break order.',followUps:['Which case is Sev-1 design vs ops?']},
+  {id:'a12',topic:'Corner',question:'Hot poison key vs pause the partition?',answer30s:'DLQ that key and hold that CashLine; let other keys on the partition move.',answer2m:'Pause/resume is for unreadable fetch-layer poison. Per-CashLine open-DLQ hold is the Hadron default so one facility does not freeze a shared partition.',followUps:['Lag skew?']},
 ];
 
 export const RAPID: InterviewQ[] = [
@@ -49,6 +51,10 @@ export const RAPID: InterviewQ[] = [
   {id:'r10',topic:'Rapid',question:'Metric for duplicates?',answer30s:'cashline.duplicate.',answer2m:'Also processed, failed, retry, dlq, replay, replay.failed, out.of.order.',followUps:['Alert on duplicate?']},
   {id:'r11',topic:'Rapid',question:'Header for replay?',answer30s:'hadron-replay-dlq-id.',answer2m:'On success, mark that row REPLAYED.',followUps:['correlationId?']},
   {id:'r12',topic:'Rapid',question:'Max payload in DLQ table?',answer30s:'Capped (256KiB in lab).',answer2m:'Truncate; never log the rest.',followUps:['Object store?']},
+  {id:'r13',topic:'Rapid',question:'NPE: retry or DLQ?',answer30s:'DLQ now.',answer2m:'Code will throw again; classifier must not default NPE to RETRY.',followUps:['Timeout?']},
+  {id:'r14',topic:'Rapid',question:'SETTLED then UPDATE?',answer30s:'Reject / DLQ. Do not reopen.',answer2m:'Lab: replay-after-settle.',followUps:['CANCELLED then SETTLE?']},
+  {id:'r15',topic:'Rapid',question:'Stale seq ≤ last?',answer30s:'Ignore, do not DLQ.',answer2m:'Offset reset is history replay.',followUps:['New event_id old seq?']},
+  {id:'r16',topic:'Rapid',question:'Ack before DB commit?',answer30s:'Unrecoverable skip.',answer2m:'Throw before ack; RECORD after return.',followUps:['Opposite gap?']},
 ];
 
 export const ALL: InterviewQ[] = [...SENIOR, ...ARCHITECT, ...RAPID];

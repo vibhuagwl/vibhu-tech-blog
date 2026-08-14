@@ -57,13 +57,25 @@ export function LabCallMap() {
       code={`POST /api/cashlines/events          CashLineProducer → cashline-events
 GET  /api/cashlines/{id}            CashLine table
 
+GET  /api/lab/scenarios               catalog of corner cases
 POST /api/lab/scenario/success
 POST /api/lab/scenario/poison
+POST /api/lab/scenario/unknown-enum
+POST /api/lab/scenario/npe
 POST /api/lab/scenario/invalid-amount
+POST /api/lab/scenario/invalid-business
+POST /api/lab/scenario/unknown-participant
+POST /api/lab/scenario/invalid-currency
+POST /api/lab/scenario/invalid-account
 POST /api/lab/scenario/transient-then-ok
 POST /api/lab/scenario/timeout
-POST /api/lab/scenario/out-of-order
+POST /api/lab/scenario/deadlock
 POST /api/lab/scenario/duplicate
+POST /api/lab/scenario/out-of-order
+POST /api/lab/scenario/stale-event
+POST /api/lab/scenario/cancelled-then-settle
+POST /api/lab/scenario/replay-after-settle
+POST /api/lab/scenario/currency-mismatch
 
 GET  /api/dlq
 GET  /api/dlq/{id}

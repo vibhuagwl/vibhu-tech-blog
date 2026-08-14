@@ -64,16 +64,28 @@ public class EventOrderingService {
   }
 
   public boolean hasUnresolvedPriorFailure(String cashLineId) {
-    return dlq.hasOpenFailure(cashLineId, OPEN);
+    return hasUnresolvedPriorFailure(cashLineId, null);
+  }
+
+  public boolean hasUnresolvedPriorFailure(String cashLineId, Long excludeDlqId) {
+    if (excludeDlqId == null) {
+      return dlq.hasOpenFailure(cashLineId, OPEN);
+    }
+    return dlq.existsByCashLineIdAndStatusInAndIdNot(cashLineId, OPEN, excludeDlqId);
   }
 
   @Transactional
   public void validateSequence(CashLineEvent event, String payload) {
+    validateSequence(event, payload, null);
+  }
+
+  @Transactional
+  public void validateSequence(CashLineEvent event, String payload, Long excludeOpenDlqId) {
     CashLineStateEntity state = lockOrCreate(event.cashLineId());
     if (isStale(event, state)) {
       return;
     }
-    if (hasUnresolvedPriorFailure(event.cashLineId())) {
+    if (hasUnresolvedPriorFailure(event.cashLineId(), excludeOpenDlqId)) {
       waitingEvents.park(event, payload, expectedSequence(state));
       throw new OutOfOrderEventException(event.cashLineId(), expectedSequence(state), event.sequenceNumber());
     }

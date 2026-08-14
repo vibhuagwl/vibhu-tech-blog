@@ -80,7 +80,7 @@ public class CashLineProcessingService {
       metrics.duplicate();
       return ProcessResult.stale(event.eventId());
     }
-    ordering.validateSequence(event, envelope.payload());
+    ordering.validateSequence(event, envelope.payload(), parseReplayDlqId(envelope));
     validator.validate(event);
     transients.maybeFail(event);
     CashLineEntity saved = cashLines.apply(event);
@@ -101,6 +101,18 @@ public class CashLineProcessingService {
       return;
     }
     dlq.markReplayed(Long.parseLong(replayId));
+  }
+
+  private Long parseReplayDlqId(EventEnvelope envelope) {
+    String raw = envelope.replayDlqId();
+    if (raw == null || raw.isBlank()) {
+      return null;
+    }
+    try {
+      return Long.parseLong(raw);
+    } catch (NumberFormatException ignored) {
+      return null;
+    }
   }
 
   private CashLineEvent deserialize(EventEnvelope envelope) {
