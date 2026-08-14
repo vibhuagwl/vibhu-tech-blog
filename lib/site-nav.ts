@@ -55,6 +55,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     topics:[
       {href:'/kafka-interview',label:'Kafka',blurb:'Interview mastery · producer board · monitoring · sizing'},
       {href:'/kafka-producer',label:'Kafka Producer',blurb:'send() · idempotence · transactions · configs · failures · Spring'},
+      {href:'/kafka-consumer',label:'Kafka Consumer',blurb:'poll() · groups · rebalance · commits · lag · DLQ · EOS'},
       {href:'/kafka-mastery',label:'Kafka Mastery',blurb:'Producer · consumer · cluster · properties · monitoring · partitions'},
       {href:'/kafka-internals',label:'Kafka Internals',blurb:'Replication · partitions · instance count · consumer replay'},
       {href:'/hadron-dlq',label:'Hadron CashLines DLQ',blurb:'Kafka · Retry · Ordering · Replay · Interview'},

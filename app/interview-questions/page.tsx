@@ -54,6 +54,12 @@ const banks=[
     blurb:'Complete producer: send() lifecycle, accumulator, acks, idempotence, PID/seq, transactions, Spring, failure matrix.',
   },
   {
+    href:'/kafka-consumer',
+    label:'Kafka Consumer Board',
+    level:'Staff',
+    blurb:'Complete consumer: poll() internals, groups, rebalance, commits, lag, poison/DLQ, EOS, k8s, failure matrix.',
+  },
+  {
     href:'/kafka-mastery',
     label:'Kafka Interview Mastery',
     level:'Staff',

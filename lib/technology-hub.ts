@@ -71,6 +71,14 @@ export const KAFKA_HUB={
       mode:'learn' as const,
     },
     {
+      id:'consumer',
+      number:'C1',
+      title:'Consumer Board',
+      blurb:'Complete consumer: poll(), groups, rebalance, commits, lag, DLQ, EOS, failures, Spring patterns.',
+      href:'/kafka-consumer',
+      mode:'learn' as const,
+    },
+    {
       id:'code',
       number:'01',
       title:'Kafka Code',

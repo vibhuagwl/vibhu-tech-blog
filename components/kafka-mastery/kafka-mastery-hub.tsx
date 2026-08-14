@@ -87,7 +87,7 @@ function MiniTable({headers, rows}: {headers: string[]; rows: string[][]}) {
 
 const CURRICULUM = [
   {id: 'producer', n: '01', title: 'Producer', blurb: 'Send path, keys, acks, batching, idempotence, how many producer instances.'},
-  {id: 'consumer', n: '02', title: 'Consumer', blurb: 'Groups, poll/commit, lag, crash replay, how many consumer instances.'},
+  {id: 'consumer', n: '02', title: 'Consumer', blurb: 'Groups, poll/commit, lag — full board at /kafka-consumer.'},
   {id: 'cluster', n: '03', title: 'Cluster & controller', blurb: 'Brokers, KRaft controller, topics, partitions, replicas, ISR.'},
   {id: 'optimization', n: '04', title: 'Optimization', blurb: 'Tune producer, consumer, broker, and controller — one bottleneck at a time.'},
   {id: 'properties', n: '05', title: 'All properties', blurb: 'Must-set producer, consumer, cluster, and controller configs.'},
@@ -257,6 +257,13 @@ process → UNIQUE(payment_id) → commitSync`}
               <strong>How many consumer instances?</strong> In one <code>group.id</code>, useful members ≤
               partition count. Ten partitions and twenty pods ⇒ ten idle. Scale processing first; add partitions
               only with a migration story; then add pods.
+            </p>
+            <p className="mt-3 text-sm leading-7 text-slate-500">
+              Full consumer deep board:{' '}
+              <Link href="/kafka-consumer" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Kafka Consumer Complete
+              </Link>
+              {' '}— poll() internals, coordinator, rebalance, commits, lag, DLQ, EOS, failure matrix.
             </p>
           </Section>
 

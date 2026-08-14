@@ -13,10 +13,10 @@ const MASTERY_SECTIONS=[
     blurb:'Complete producer board: send() internals, acks, idempotence, PID/seq, transactions, Spring, failure matrix.',
   },
   {
-    href:'/kafka-mastery#consumer',
+    href:'/kafka-consumer',
     number:'02',
     title:'Consumer',
-    blurb:'Groups, poll/commit, lag, crash replay — how many consumer instances (≤ partitions).',
+    blurb:'Complete consumer board: poll() internals, groups, rebalance, commits, lag, DLQ, EOS, failures.',
   },
   {
     href:'/kafka-mastery#cluster',
@@ -74,6 +74,12 @@ const LAB_PAGES=[
     number:'P1',
     title:'Producer Complete Board',
     blurb:'Producer-only deep dive: lifecycle, accumulator, idempotence, transactions, configs, failures, Spring.',
+  },
+  {
+    href:'/kafka-consumer',
+    number:'C1',
+    title:'Consumer Complete Board',
+    blurb:'Consumer-only deep dive: poll(), groups, rebalance, offsets, lag, poison/DLQ, EOS, k8s.',
   },
   {
     href:'/spring-kafka-payments-demo',
