@@ -24,3 +24,4 @@ spring-distributed-counter-demo/**/target/
 *.class
 .idea/
 *.iml
+java-equals-hashcode-demo/out/
