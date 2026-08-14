@@ -41,6 +41,7 @@ export default function Learn(){
           <Link href="/behavioral-interview" className="btn-secondary">Behavior Interview</Link>
           <Link href="/leadership-principles" className="btn-secondary">Leadership Principles</Link>
           <Link href="/complexity" className="btn-secondary">Complexity</Link>
+          <Link href="/dsa" className="btn-secondary">DSA Islands & Window</Link>
           <Link href="/kafka-interview" className="btn-secondary">Kafka Hub</Link>
           <Link href="/hadron-dlq" className="btn-secondary">Hadron DLQ</Link>
           <Link href="/multi-tenant" className="btn-secondary">Multi-Tenant SaaS</Link>
