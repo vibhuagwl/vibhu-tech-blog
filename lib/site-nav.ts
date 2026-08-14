@@ -53,8 +53,9 @@ export const TOPIC_GROUPS:NavGroup[]=[
     title:'Data & Messaging',
     description:'Kafka, Redis, and payment correctness',
     topics:[
-      {href:'/kafka-interview',label:'Kafka',blurb:'Interview mastery · producer board · monitoring · sizing'},
+      {href:'/kafka-interview',label:'Kafka',blurb:'Interview mastery · producer · cluster · monitoring · sizing'},
       {href:'/kafka-producer',label:'Kafka Producer',blurb:'send() · idempotence · transactions · configs · failures · Spring'},
+      {href:'/kafka-cluster',label:'Kafka Cluster',blurb:'KRaft · ISR · storage · multi-AZ · capacity · failures'},
       {href:'/kafka-mastery',label:'Kafka Mastery',blurb:'Producer · consumer · cluster · properties · monitoring · partitions'},
       {href:'/kafka-internals',label:'Kafka Internals',blurb:'Replication · partitions · instance count · consumer replay'},
       {href:'/hadron-dlq',label:'Hadron CashLines DLQ',blurb:'Kafka · Retry · Ordering · Replay · Interview'},

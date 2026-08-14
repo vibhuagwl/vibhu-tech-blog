@@ -71,6 +71,14 @@ export const KAFKA_HUB={
       mode:'learn' as const,
     },
     {
+      id:'cluster',
+      number:'C1',
+      title:'Cluster & Broker',
+      blurb:'KRaft, request path, ISR, storage, multi-AZ, capacity, failures, ops.',
+      href:'/kafka-cluster',
+      mode:'learn' as const,
+    },
+    {
       id:'code',
       number:'01',
       title:'Kafka Code',
