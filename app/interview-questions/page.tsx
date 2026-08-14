@@ -48,6 +48,12 @@ const banks=[
     blurb:'Neptune → Kafka → Hadron: retry topics, DLQ persistence, ordering, idempotency, replay, interview bank.',
   },
   {
+    href:'/multi-tenant',
+    label:'Multi-Tenant SaaS',
+    level:'Staff',
+    blurb:'JWT tenant bind, shared schema + RLS, hybrid DBs, Redis/Kafka isolation, 40+ interview prompts.',
+  },
+  {
     href:'/bloom-filter',
     label:'Bloom Filter',
     level:'Staff',

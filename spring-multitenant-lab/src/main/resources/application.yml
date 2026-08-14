@@ -1,0 +1,64 @@
+server:
+  port: 8096
+
+spring:
+  application:
+    name: spring-multitenant-lab
+  datasource:
+    url: jdbc:h2:mem:multitenant;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+multitenant:
+  jwt:
+    # Lab HS256 secret — 32+ bytes. Production: KMS / Secrets Manager.
+    secret: ${MT_JWT_SECRET:local-multitenant-lab-secret-key-32b!!}
+    issuer: multitenant-lab
+    ttl-minutes: 60
+  resolver:
+    # jwt | header | subdomain | composite (JWT wins, header must match)
+    strategy: composite
+  header-name: X-Tenant-ID
+  kafka:
+    enabled: false
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:127.0.0.1:9092}
+    topic-orders: tenant.orders
+    topic-dlq: tenant.orders.dlq
+  redis:
+    enabled: false
+  rate-limit:
+    default-per-minute: 1000
+  object-storage:
+    root: ${java.io.tmpdir}/multitenant-lab-files
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics,info
+
+logging:
+  pattern:
+    console: "%d{ISO8601} [%thread] %-5level tenantId=%X{tenantId} userId=%X{userId} traceId=%X{traceId} - %msg%n"
+  level:
+    com.vibhu.multitenant: INFO
