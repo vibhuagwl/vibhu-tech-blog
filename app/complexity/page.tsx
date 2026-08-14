@@ -29,10 +29,10 @@ const STORY_PATH=[
     blurb:'Five detailed loop cases: independent nested, triangle, sequential, early break.',
   },
   {
-    href:'/complexity/complexity-practice-problems',
-    number:'05',
-    title:'Practice',
-    blurb:'30+ problems: read code, derive complexity, check model answers.',
+    href:'/dsa',
+    number:'06',
+    title:'Islands & Sliding Window',
+    blurb:'All Number of Islands BFS/DFS variants and sliding window problem statements with Java.',
   },
 ];
 
