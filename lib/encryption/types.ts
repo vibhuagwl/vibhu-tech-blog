@@ -1,4 +1,4 @@
-export type TocItem = {id: string; label: string};
+export type TocItem = {id: string; label: string; group?: string};
 
 export type EncryptionTopic = {
   id: string;

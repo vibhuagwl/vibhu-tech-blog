@@ -9,7 +9,7 @@ type Tab = 'problem' | 'flow' | 'code' | 'failure' | 'interview';
 
 export default function TopicPanel({t}: {t: EncryptionTopic}) {
   const [tab, setTab] = useState<Tab>('problem');
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   return (
     <section id={t.id} className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">

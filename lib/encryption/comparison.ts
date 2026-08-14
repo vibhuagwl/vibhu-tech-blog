@@ -62,6 +62,11 @@ export const CHECKLIST: string[] = [
 ];
 
 export const CHEAT: [string, string][] = [
+  ['LOCK', 'AES-GCM hides data; same key encrypts and decrypts'],
+  ['SEAL', 'HMAC / RSA-PSS / ECDSA prove origin — they do not hide bytes'],
+  ['KEY', 'RSA-OAEP, ECDH, or KMS wrap a DEK — never RSA-encrypt the file'],
+  ['PRINT', 'SHA-256 fingerprints files; Argon2id hashes passwords'],
+  ['PIPE', 'TLS 1.3 is the wire. DB, Kafka, and logs still need LOCK'],
   ['Base64', 'Encoding only; anyone can decode'],
   ['AES-GCM', 'Default for field/data encryption'],
   ['IV/nonce', 'Random per encryption; stored with ciphertext'],
