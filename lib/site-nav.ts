@@ -27,7 +27,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/db-sharding',label:'DB Partitioning & Sharding',blurb:'SQL/NoSQL · Spring router · AWS · DR · Architect'},
       {href:'/design-patterns',label:'Design Patterns',blurb:'23 GoF patterns with revision and mock interview'},
       {href:'/complexity',label:'Complexity',blurb:'Big-O from Java code, interview framing'},
-      {href:'/dsa',label:'DSA Islands & Window',blurb:'BFS/DFS islands · sliding window · Java'},
+      {href:'/dsa',label:'DSA Islands & Window',blurb:'BFS/DFS islands · grouped window catalog · Java'},
       {href:'/multi-tenant',label:'Multi-Tenant SaaS',blurb:'JWT · RLS · Redis · Kafka · Hybrid · Architect'},
       {href:'/rate-limiter',label:'Distributed Rate Limiter',blurb:'Token bucket · Redis Lua · multi-level · 429 · Architect'},
     ],
