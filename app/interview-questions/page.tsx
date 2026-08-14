@@ -39,7 +39,7 @@ const banks=[
     href:'/encryption',
     label:'Encryption Algorithms',
     level:'Staff',
-    blurb:'Five rooms: LOCK, SEAL, KEY, PRINT, PIPE. Famous algorithms, internals, Java, pros/cons.',
+    blurb:'Five rooms plus PKI: certificates, CAs, trust, TLS, sign, encrypt-to-cert, Java lab.',
   },
   {
     href:'/kafka-interview',

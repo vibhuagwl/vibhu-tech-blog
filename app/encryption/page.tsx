@@ -4,9 +4,9 @@ import EncryptionHub from '@/components/encryption/encryption-hub';
 import {buildSpringEncryptionLabTree, listSpringEncryptionLabFiles} from '@/lib/spring-encryption-lab-source';
 
 export const metadata: Metadata = {
-  title: 'Famous Encryption Algorithms — How They Work in Spring',
+  title: 'PKI and Famous Encryption Algorithms — Spring Guide',
   description:
-    'Five rooms to remember crypto: LOCK, SEAL, KEY, PRINT, PIPE. AES-GCM, HMAC, RSA, ECDH, Argon2id, TLS internals, Java code, pros/cons, and a Spring lab.',
+    'PKI framework: certificates, CAs, trust, identity, TLS, authentication, encryption, and signatures. Plus five rooms for AES-GCM, HMAC, RSA, ECDH, Argon2id.',
 };
 
 export default function EncryptionPage() {

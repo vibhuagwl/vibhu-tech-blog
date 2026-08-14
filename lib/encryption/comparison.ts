@@ -8,6 +8,7 @@ export const DECISION_MATRIX = [
   {need: 'Verify webhook', primitive: 'HMAC-SHA256', format: 'signature header', note: 'body + timestamp + nonce'},
   {need: 'Partner verifies origin', primitive: 'RSA-PSS / ECDSA', format: 'kid + signature', note: 'private sign, public verify'},
   {need: 'Service transport', primitive: 'TLS / mTLS', format: 'certificates', note: 'pipe protection'},
+  {need: 'Identity between strangers', primitive: 'PKI (X.509 + CA + PKIX)', format: 'cert chain + SAN', note: 'then TLS, sign, or encrypt-to-cert'},
   {need: 'Readable access token', primitive: 'JWS', format: 'signed JWT', note: 'claims are visible'},
   {need: 'Exact encrypted lookup', primitive: 'HMAC lookup column', format: 'lookup_hash + encrypted value', note: 'equality leaks'},
 ];
@@ -41,6 +42,7 @@ export const ARCHITECT_MEMORY: [string, string][] = [
   ['JWT', 'Signed is readable; encrypted is JWE'],
   ['Keys', 'KMS/keystore, key IDs, rotation runbook'],
   ['Search', 'HMAC lookup column, understand leakage'],
+  ['PKI', 'Nametag + notary + who you believe. Then TLS, sign, encrypt-to-cert'],
   ['Payments', 'Tokenize PAN before storing anything'],
 ];
 
@@ -56,6 +58,7 @@ export const CHECKLIST: string[] = [
   'Database encryption has separate lookup hashes where exact search is required',
   'KMS permissions are environment-specific and least privilege',
   'TLS hostname verification is enabled; certificate expiry is monitored',
+  'PKI validation covers chain, time, SAN/hostname, key usage, and revocation — never trust-all',
   'Tests cover tampering, wrong key, malformed format, rotation, and old ciphertext',
   'Backfills are idempotent, throttled, observable, and resumable',
   'Threat model documents attacker, asset, control, key owner, and residual risk',
@@ -67,6 +70,7 @@ export const CHEAT: [string, string][] = [
   ['KEY', 'RSA-OAEP, ECDH, or KMS wrap a DEK — never RSA-encrypt the file'],
   ['PRINT', 'SHA-256 fingerprints files; Argon2id hashes passwords'],
   ['PIPE', 'TLS 1.3 is the wire. DB, Kafka, and logs still need LOCK'],
+  ['PKI', 'Certificate = nametag. CA = notary. Truststore = whose notaries you believe'],
   ['Base64', 'Encoding only; anyone can decode'],
   ['AES-GCM', 'Default for field/data encryption'],
   ['IV/nonce', 'Random per encryption; stored with ciphertext'],
@@ -82,7 +86,7 @@ export const CHEAT: [string, string][] = [
 ];
 
 export const SIXTY_SEC =
-  'For production Java/Spring crypto, I start with the required property. PII at rest uses AES-GCM and stores keyId|iv|ciphertext. Passwords use Argon2id, not encryption. Webhooks use HMAC or signatures with timestamp/nonce. JWTs are usually signed and readable. Keys live in KMS/keystore with rotation: new writes use the active key, old reads use keyId. TLS protects transport, not logs or databases.';
+  'For production Java/Spring crypto, I start with the required property. PII at rest uses AES-GCM and stores keyId|iv|ciphertext. Passwords use Argon2id, not encryption. Webhooks use HMAC or signatures with timestamp/nonce. JWTs are usually signed and readable. Keys live in KMS/keystore with rotation: new writes use the active key, old reads use keyId. TLS/PKI protects transport and identity — chain, SAN, expiry, revocation — not logs or databases.';
 
 export const FIVE_MIN =
   'In a payment platform I minimize sensitive data first: tokenize PANs, avoid storing secrets, and classify fields. For fields I must keep, I use AES-GCM with random IV, AAD binding tenant/table/column, and keyId|iv|ciphertext. Key hierarchy is KMS envelope encryption: CMK/KEK wraps DEKs; the app performs local AES with bounded DEK cache. Search is separate: HMAC lookup columns for exact match only, with leakage documented. External callbacks are HMAC/RSA signed over canonical body+timestamp+nonce with replay cache. Access tokens are JWS with short expiry and no secrets in claims. Rotation is designed on day one: active key for writes, historical keys for reads, metrics by keyId, and idempotent backfills. Finally, tests include tampering, wrong key, malformed values, old key reads, and no plaintext logging.';

@@ -92,6 +92,42 @@ export const CODE_SEQUENCES: CodeSequence[] = [
   C-->>Client: {plaintext}`,
   },
   {
+    id: 'pki-e2e',
+    title: 'PKI issue → validate → sign / encrypt-to-cert',
+    endpoint: 'POST /api/crypto/pki/issue  →  validate / sign / encrypt-to-cert',
+    classes: ['PkiController', 'PkiService', 'AesEncryptionService', 'CertPathValidator PKIX'],
+    why: 'PKI binds a name to a public key with a CA signature. The lab CA issues a leaf, PKIX+SAN decide trust, then the same cert encrypts (RSA-OAEP wrap DEK) and signs (RSA-PSS).',
+    mermaid: `sequenceDiagram
+  autonumber
+  participant Client
+  participant API as PkiController
+  participant PKI as PkiService
+  participant PKIX as CertPathValidator
+  participant AES as AesEncryptionService
+
+  Client->>API: POST /pki/issue CN SAN
+  API->>PKI: issue leaf signed by lab Root CA
+  PKI-->>Client: serial + cert PEM
+
+  Client->>API: POST /pki/validate hostname
+  API->>PKI: parse PEM
+  PKI->>PKIX: chain to Root trust anchor
+  PKI->>PKI: SAN match + not expired + not CRL
+  alt all gates pass
+    API-->>Client: trusted true
+  else hostname mismatch
+    API-->>Client: trusted false reason hostname_mismatch
+  end
+
+  Client->>API: POST /pki/encrypt-to-cert
+  PKI->>PKI: RSA-OAEP wrap DEK with cert public key
+  PKI->>AES: AES-GCM payload
+  API-->>Client: encryptedDek + payload
+
+  Client->>API: POST /pki/sign
+  PKI-->>Client: RSA-PSS signature`,
+  },
+  {
     id: 'customer-e2e',
     title: 'Customer field encryption + searchable lookup',
     endpoint: 'POST /api/customers  →  GET /api/customers/by-account',

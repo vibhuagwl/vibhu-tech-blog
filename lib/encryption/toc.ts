@@ -3,6 +3,7 @@ import type {TocItem} from './types';
 export const ENCRYPTION_TOC: TocItem[] = [
   {id: 'overview', label: 'Big Picture · Payment Data', group: 'Start here'},
   {id: 'famous-algorithms', label: 'Famous Algorithms · 5 Rooms', group: 'Start here'},
+  {id: 'pki', label: 'PKI · Certs · CA · Trust', group: 'Start here'},
   {id: 'code-sequences', label: 'E2E Sequence Diagrams', group: 'Start here'},
   {id: 'encoding-vs-encryption', label: 'Encoding vs Encryption', group: 'Deep dives'},
   {id: 'decision-matrix', label: 'Decision Matrix', group: 'Deep dives'},

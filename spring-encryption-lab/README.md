@@ -36,6 +36,15 @@ curl -s -X POST localhost:8093/api/crypto/hybrid/encrypt \
   -H 'Content-Type: application/json' \
   -d '{"plaintext":"large-json-payload"}'
 
+# PKI: issue a leaf, validate SAN, sign, encrypt-to-cert
+curl -s localhost:8093/api/crypto/pki/ca
+
+ISSUE=$(curl -s -X POST localhost:8093/api/crypto/pki/issue \
+  -H 'Content-Type: application/json' \
+  -d '{"cn":"CN=payments.example","san":["payments.example"]}')
+
+# validate hostname (trusted=true) vs evil.example (hostname_mismatch)
+
 # Field encryption + searchable lookup
 curl -s -X POST localhost:8093/api/customers \
   -H 'Content-Type: application/json' \
