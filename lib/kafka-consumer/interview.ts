@@ -176,6 +176,57 @@ export const RAPID: InterviewQ[] = [
 
 export const STAFF: InterviewQ[] = [
   {
+    id: 'st0a',
+    topic: 'Staff · Protocol',
+    question: 'group.protocol=classic vs consumer — what actually changes?',
+    answer30s:
+      'Classic (default) uses client-side assignors and classic Join/Sync. consumer enables the new broker-side rebalance protocol; assignment via group.remote.assignor / broker group.consumer.assignors; some classic timeout configs stop applying.',
+    answer2m:
+      'Kafka 4.x supports consumer protocol but does not default to it. Empty groups convert freely; non-empty migration follows group.consumer.migration.policy. Rolling upgrade needs compatible classic assignors without custom embedded metadata.',
+    followUps: ['What is group.remote.assignor?', 'Which timeouts move to the broker?'],
+    trick: '“Kafka 4 always uses the new consumer protocol.”',
+  },
+  {
+    id: 'st0b',
+    topic: 'Staff · Coordinator',
+    question: 'How is the group coordinator selected?',
+    answer30s:
+      'hash(group.id) → __consumer_offsets partition → that partition’s leader broker is the coordinator.',
+    answer2m:
+      'Coordinator failure follows offsets-partition leadership change; consumers FindCoordinator and rejoin. Undersized RF on __consumer_offsets is a hidden availability foot-gun.',
+    followUps: ['Where are commits stored?'],
+  },
+  {
+    id: 'st0c',
+    topic: 'Staff · Offsets',
+    question: 'What is OffsetAndMetadata and when do you use metadata?',
+    answer30s:
+      'Commit payload is offset plus optional small metadata string (and epoch on newer APIs). Metadata is for checkpoints/audit — not a side database.',
+    answer2m:
+      'new OffsetAndMetadata(offset, metadata). Useful to record batch ids or seek reasons. Size is broker-limited.',
+    followUps: ['OffsetOutOfRange path?'],
+  },
+  {
+    id: 'st0d',
+    topic: 'Staff · Timelines',
+    question: 'Walk process-then-crash vs commit-then-crash for one record.',
+    answer30s:
+      'Process then crash without commit → re-read → at-least-once duplicates. Commit then crash before process → skip → at-most-once loss.',
+    answer2m:
+      'Prefer process→commit with idempotent sinks. On revoke, commitSync safely processed offsets. Auto-commit can accidentally look like commit-before-process.',
+    followUps: ['Revoked vs lost?'],
+  },
+  {
+    id: 'st0e',
+    topic: 'Staff · Lag',
+    question: 'Why can group lag look fine while one customer is stuck?',
+    answer30s:
+      'Averages hide a hot partition. Chart max and per-partition lag; one key owns one partition.',
+    answer2m:
+      'read_committed waiting on LSO can also inflate LEO-based lag while the consumer is behaving correctly.',
+    followUps: ['LSO vs HW?'],
+  },
+  {
     id: 'st1',
     topic: 'Staff',
     question: 'Process succeeds, commit fails, then rebalance — walk duplicates and recovery.',

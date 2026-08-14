@@ -46,6 +46,21 @@ import {
   WAR_POLL_INTERVAL,
   WAR_STATIC,
 } from '@/lib/kafka-consumer/failures';
+import {
+  COORDINATOR_DISCOVERY,
+  FAILURE_TIMELINES,
+  GROUP_PROTOCOL,
+  INTERCEPTORS,
+  LAG_LEVELS,
+  NETWORK_INTERNALS,
+  OFFSET_METADATA,
+  OFFSET_OUT_OF_RANGE,
+  PROTOCOL_COMPARE,
+  REMOTE_ASSIGNOR,
+  REVOKE_VS_LOST,
+  STAFF_GAP_CHEATS,
+  TX_VISIBILITY,
+} from '@/lib/kafka-consumer/staff-gaps';
 import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
 import StickyToc from './sticky-toc';
@@ -240,6 +255,10 @@ Schema evolution: Avro/Protobuf/JSON Schema compatibility is a contract, not mag
             <div className="mt-4">
               <CodePanel title="Lifecycle" code={OFFSET_LIFECYCLE} />
             </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel title="OffsetAndMetadata" code={OFFSET_METADATA} />
+              <CodePanel title="OffsetOutOfRange" tone="danger" code={OFFSET_OUT_OF_RANGE} />
+            </div>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
               <code>auto.offset.reset</code> default is <strong>latest</strong> (4.x docs). Use{' '}
               <code>earliest</code> for rebuilds, <code>none</code> when missing commits must fail loudly.
@@ -264,19 +283,26 @@ Schema evolution: Avro/Protobuf/JSON Schema compatibility is a contract, not mag
             <MiniTable headers={['Semantic', 'How', 'Failure shape']} rows={SEMANTICS} />
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel title="Kafka EOS path" tone="ok" code={EOS_FLOW} />
-              <CodePanel title="isolation.level" code={READ_COMMITTED} />
+              <CodePanel title="LEO · HW · LSO visibility" code={TX_VISIBILITY} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Failure timelines (interview gold)" tone="danger" code={FAILURE_TIMELINES} />
             </div>
           </Section>
 
           <Section id="group" title="10. Consumer group and coordinator">
             <MiniTable headers={['Concept', 'Detail']} rows={GROUP_PIECES} />
+            <div className="mt-4">
+              <CodePanel title="Coordinator discovery" tone="ok" code={COORDINATOR_DISCOVERY} />
+            </div>
             <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid
                 chart={`flowchart TB
   A[Consumer A] --> G[group.id]
   B[Consumer B] --> G
   C[Consumer C] --> G
-  G --> CO[Group coordinator broker]
+  G --> H[hash to __consumer_offsets partition]
+  H --> CO[Partition leader = Group coordinator]
   CO --> T[__consumer_offsets]`}
               />
             </div>
@@ -315,15 +341,7 @@ Schema evolution: Avro/Protobuf/JSON Schema compatibility is a contract, not mag
           <Section id="static" title="15. Static membership and rebalance listeners">
             <CodePanel title="group.instance.id" tone="ok" code={STATIC_MEMBERSHIP} />
             <div className="mt-4">
-              <CodePanel
-                title="ConsumerRebalanceListener"
-                code={`onPartitionsRevoked  — still owned; commitSync processed offsets; flush
-onPartitionsAssigned — init positions/state for new ownership
-onPartitionsLost     — ownership already gone; do NOT assume commit will work
-
-Revoked ≠ Lost
-Never commit partitions you no longer own`}
-              />
+              <CodePanel title="Revoked vs Lost (cooperative corner)" tone="danger" code={REVOKE_VS_LOST} />
             </div>
           </Section>
 
@@ -366,6 +384,9 @@ Always pair replay with idempotent sinks`}
 
           <Section id="lag" title="19. Lag and performance">
             <CodePanel title="Lag" tone="ok" code={LAG_FORMULA} />
+            <div className="mt-4">
+              <CodePanel title="Group vs consumer vs partition lag" tone="danger" code={LAG_LEVELS} />
+            </div>
             <div className="mt-4 space-y-3">
               {TROUBLESHOOT.slice(0, 5).map((t) => (
                 <div key={t.title} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
@@ -578,7 +599,49 @@ Never commit-before-process`}
             </div>
           </Section>
 
-          <Section id="interview" title="30. Interview drills and cheat sheets">
+          <Section
+            id="staff-gaps"
+            title="30. Staff zero-gap — protocol, offsets, network, interceptors"
+            lead="The remaining interview edge cases for current Kafka 4.x consumer groups."
+          >
+            <MiniTable headers={['Topic', 'Classic', 'group.protocol=consumer']} rows={PROTOCOL_COMPARE} />
+            <div className="mt-4">
+              <CodePanel title="1–2. group.protocol" tone="ok" code={GROUP_PROTOCOL} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="3. group.remote.assignor" code={REMOTE_ASSIGNOR} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel title="4. Coordinator discovery" code={COORDINATOR_DISCOVERY} />
+              <CodePanel title="5–6. OffsetAndMetadata" code={OFFSET_METADATA} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel title="7. OffsetOutOfRange" tone="danger" code={OFFSET_OUT_OF_RANGE} />
+              <CodePanel title="8. Transactional fetch visibility" code={TX_VISIBILITY} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel title="9. Network / client internals" code={NETWORK_INTERNALS} />
+              <CodePanel title="10. ConsumerInterceptor" code={INTERCEPTORS} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel title="11. Partition-level lag" tone="danger" code={LAG_LEVELS} />
+              <CodePanel title="12. Revoked vs Lost" code={REVOKE_VS_LOST} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Failure timelines (at-least vs at-most once)" tone="danger" code={FAILURE_TIMELINES} />
+            </div>
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              <CodePanel title="Cheat · Protocol" code={STAFF_GAP_CHEATS.protocol} />
+              <CodePanel title="Cheat · Coordinator" code={STAFF_GAP_CHEATS.coordinator} />
+              <CodePanel title="Cheat · Offset metadata" code={STAFF_GAP_CHEATS.offsetMeta} />
+              <CodePanel title="Cheat · OOR" code={STAFF_GAP_CHEATS.oor} />
+              <CodePanel title="Cheat · LSO" code={STAFF_GAP_CHEATS.lso} />
+              <CodePanel title="Cheat · Revoke/Lost" code={STAFF_GAP_CHEATS.revokeLost} />
+              <CodePanel title="Cheat · Timelines" code={STAFF_GAP_CHEATS.timelines} />
+            </div>
+          </Section>
+
+          <Section id="interview" title="31. Interview drills and cheat sheets">
             <InterviewMode />
             <div className="mt-8 grid gap-3 md:grid-cols-2">
               <CodePanel title="Mental model" tone="ok" code={CHEATS.mental} />
@@ -624,6 +687,7 @@ Never commit-before-process`}
               <Link href="/kafka-mastery" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Mastery / cluster track
               </Link>
+              . Next curriculum glue: one end-to-end Kafka master board connecting Producer → Broker/KRaft → Consumer.
             </p>
           </Section>
         </div>

@@ -32,5 +32,6 @@ export const KAFKA_CONSUMER_TOC: TocItem[] = [
   {id: 'source', label: '27. Source & protocol'},
   {id: 'finance', label: '28. Payments consumer'},
   {id: 'antipatterns', label: '29. Anti-patterns'},
-  {id: 'interview', label: '30. Interview & cheatsheets'},
+  {id: 'staff-gaps', label: '30. Staff zero-gap (protocol deep)'},
+  {id: 'interview', label: '31. Interview & cheatsheets'},
 ];

@@ -1,7 +1,7 @@
 /** Defaults verified against Apache Kafka 4.x consumer configs (kafka.apache.org). Do not invent defaults. */
 
 export const VERSION_NOTE =
-  'Targets Apache Kafka 4.x Java consumer + Spring Kafka patterns. Documented defaults: enable.auto.commit=true, auto.offset.reset=latest, max.poll.records=500, max.poll.interval.ms=300000, session.timeout.ms=45000 (classic protocol), heartbeat.interval.ms=3000, isolation.level=read_uncommitted, group.protocol=classic. Production almost always overrides auto-commit and offset reset. Re-check docs for your exact release — especially group.protocol=consumer (KIP-848 era) where some classic client timeouts are broker-driven.';
+  'Targets Apache Kafka 4.x Java consumer + Spring Kafka patterns. Documented defaults: enable.auto.commit=true, auto.offset.reset=latest, max.poll.records=500, max.poll.interval.ms=300000, session.timeout.ms=45000 (classic), heartbeat.interval.ms=3000, isolation.level=read_uncommitted, group.protocol=classic. group.protocol=consumer is opt-in (new rebalance protocol; broker-side assignors via group.remote.assignor / group.consumer.assignors). Some classic client timeout configs do not apply under the consumer protocol — verify kafka.apache.org for your exact release. Production almost always overrides auto-commit and offset reset.';
 
 export const MEMORY_SENTENCE =
   'poll() is membership + fetch + deserialize + return buffered records — not “read one message.” One partition → one active member per group. Position ≠ committed offset ≠ lag. session.timeout detects dead heartbeats; max.poll.interval detects stuck processing. Prefer manual commit after successful processing; use commitAsync in the loop and commitSync on revoke/shutdown. Kafka EOS does not make your database exactly-once.';
@@ -307,5 +307,10 @@ Never block a partition forever`,
 7) Poison / DLQ
 8) 20 consumers / 10 partitions
 9) EOS vs DB
-10) Rebalance storm on k8s`,
+10) Rebalance storm on k8s
+11) classic vs group.protocol=consumer
+12) Coordinator = offsets partition leader
+13) OffsetOutOfRange + auto.offset.reset
+14) Revoked vs lost
+15) Process→crash vs commit→crash timelines`,
 };
