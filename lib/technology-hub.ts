@@ -71,8 +71,16 @@ export const KAFKA_HUB={
       mode:'learn' as const,
     },
     {
-      id:'cluster',
+      id:'consumer',
       number:'C1',
+      title:'Consumer Board',
+      blurb:'Complete consumer: poll(), groups, rebalance, commits, lag, DLQ, EOS, failures, Spring patterns.',
+      href:'/kafka-consumer',
+      mode:'learn' as const,
+    },
+    {
+      id:'cluster',
+      number:'B1',
       title:'Cluster & Broker',
       blurb:'KRaft, request path, ISR, storage, multi-AZ, capacity, failures, ops.',
       href:'/kafka-cluster',

@@ -13,10 +13,10 @@ const MASTERY_SECTIONS=[
     blurb:'Complete producer board: send() internals, acks, idempotence, PID/seq, transactions, Spring, failure matrix.',
   },
   {
-    href:'/kafka-mastery#consumer',
+    href:'/kafka-consumer',
     number:'02',
     title:'Consumer',
-    blurb:'Groups, poll/commit, lag, crash replay — how many consumer instances (≤ partitions).',
+    blurb:'Complete consumer board: poll() internals, groups, rebalance, commits, lag, DLQ, EOS, failures.',
   },
   {
     href:'/kafka-cluster',
@@ -76,8 +76,14 @@ const LAB_PAGES=[
     blurb:'Producer-only deep dive: lifecycle, accumulator, idempotence, transactions, configs, failures, Spring.',
   },
   {
-    href:'/kafka-cluster',
+    href:'/kafka-consumer',
     number:'C1',
+    title:'Consumer Complete Board',
+    blurb:'Consumer-only deep dive: poll(), groups, rebalance, offsets, lag, poison/DLQ, EOS, k8s.',
+  },
+  {
+    href:'/kafka-cluster',
+    number:'B1',
     title:'Cluster & Broker Board',
     blurb:'KRaft, replication, ISR, storage, page cache, multi-AZ, scaling, monitoring, failure matrix.',
   },
@@ -191,8 +197,9 @@ export default function KafkaInterview(){
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">How to revise before an interview (45 minutes)</h2>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600 dark:text-slate-300">
           <li>Open <strong>Producer Complete Board</strong> — say the send() lifecycle and acks=1 vs all out loud.</li>
+          <li>Open <strong>Consumer Complete Board</strong> — poll(), session vs max.poll.interval, process→commit timelines.</li>
           <li>Open <strong>Cluster & Broker Board</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
-          <li>Open <strong>Interview Mastery</strong> — consumer, monitoring, instance counts, partitions.</li>
+          <li>Open <strong>Interview Mastery</strong> — monitoring, instance counts, partitions.</li>
           <li>Drill <strong>§07 instance counts</strong> and <strong>§09 partitions</strong> — these fail candidates constantly.</li>
           <li>Skim <strong>§06 monitoring</strong> — name lag, URP, ISR, disk, rebalances.</li>
           <li>Walk <strong>Realtime Case</strong> once so you have a payment story.</li>
