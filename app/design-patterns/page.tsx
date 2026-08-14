@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 const items=[
   {href:'/java-design-patterns-real-world',title:'1. Full source repository',blurb:'Browse all 23 GoF patterns, docs, tests, and the real-world payment system code.'},
-  {href:'/design-patterns-revision',title:'2. Revision cards',blurb:'Fast cards for when to use, when not to use, interview traps, and Spring Boot examples.'},
+  {href:'/design-patterns-revision',title:'2. Revision stories',blurb:'One Meridian Bank payment. 23 purposes, financial scenes, and the twins you keep mixing up.'},
   {href:'/design-patterns-memory-formula',title:'3. Memory formula',blurb:'Best formula to remember implementation and interview explanation quickly.'},
   {href:'/design-patterns-poster',title:'4. Visual poster',blurb:'One grouped visual memory map for all 23 patterns.'},
   {href:'/design-patterns-mock-interview',title:'5. Mock interview',blurb:'Practice real senior-style pattern questions with model answers.'},
