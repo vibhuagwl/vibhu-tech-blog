@@ -197,8 +197,9 @@ export default function KafkaInterview(){
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">How to revise before an interview (45 minutes)</h2>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600 dark:text-slate-300">
           <li>Open <strong>Producer Complete Board</strong> — say the send() lifecycle and acks=1 vs all out loud.</li>
+          <li>Open <strong>Consumer Complete Board</strong> — poll(), session vs max.poll.interval, process→commit timelines.</li>
           <li>Open <strong>Cluster & Broker Board</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
-          <li>Open <strong>Interview Mastery</strong> — consumer, monitoring, instance counts, partitions.</li>
+          <li>Open <strong>Interview Mastery</strong> — monitoring, instance counts, partitions.</li>
           <li>Drill <strong>§07 instance counts</strong> and <strong>§09 partitions</strong> — these fail candidates constantly.</li>
           <li>Skim <strong>§06 monitoring</strong> — name lag, URP, ISR, disk, rebalances.</li>
           <li>Walk <strong>Realtime Case</strong> once so you have a payment story.</li>
