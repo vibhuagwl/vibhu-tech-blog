@@ -15,7 +15,7 @@ export type HubTopic={
 
 /** Kafka hub sidebar: MDX pages listed under /kafka-interview (standalone hubs stay off this list). */
 export const KAFKA_SIDEBAR_ORDER=[
-  'kafka-realtime-case',
+  'kafka-payments-dlq',
   'kafka-optimization-index',
   'kafka-properties',
 ];
@@ -50,7 +50,7 @@ export const KAFKA_HUB={
   title:'Kafka',
   subtitle:'Practical Spring Kafka',
   description:
-    'Interview mastery board (producer, consumer, cluster, monitoring, sizing) plus code, optimization, properties, realtime, and Hadron DLQ.',
+    'Interview mastery board (producer, consumer, cluster, monitoring, sizing) plus code, optimization, properties, payment DLQ story, and Hadron DLQ.',
   basePath:'/kafka-interview',
   sections:[
     {
@@ -110,11 +110,11 @@ export const KAFKA_HUB={
       mode:'learn' as const,
     },
     {
-      id:'realtime',
+      id:'payment-dlq',
       number:'04',
-      title:'Realtime Case',
-      blurb:'Controller → producer → consumer → DLQ with diagrams and curl.',
-      href:'/kafka-interview/kafka-realtime-case',
+      title:'Payment story + DLQ',
+      blurb:'Controller → producer → consumer → DLQ with diagrams, curl, and Spring code.',
+      href:'/kafka-interview/kafka-payments-dlq',
       mode:'experience' as const,
     },
     {

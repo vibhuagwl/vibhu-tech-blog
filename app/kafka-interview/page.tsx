@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export const metadata={
   title:'Kafka — Interview Hub',
-  description:'Kafka interview hub: producer, consumer, cluster, mastery drills, optimization, properties, code, and supporting boards — one card per destination.',
+  description:'Kafka interview hub: producer, consumer, cluster, mastery drills, optimization, properties, payment DLQ, code, and supporting boards — one card per destination.',
 };
 
 /** One card per destination — mastery drills live on /kafka-mastery (not as # fragment cards). */
@@ -44,10 +44,10 @@ const CURRICULUM=[
     blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs — plus payment must-set GO/NO-GO.',
   },
   {
-    href:'/kafka-interview/kafka-realtime-case',
+    href:'/kafka-interview/kafka-payments-dlq',
     number:'06',
-    title:'Realtime Case',
-    blurb:'Controller → producer → broker → consumer → retry/DLQ with diagrams.',
+    title:'Payment story + DLQ',
+    blurb:'Controller → producer → consumer → retry/DLQ with diagrams, curl, and Spring code.',
   },
   {
     href:'/spring-kafka-payments-demo',
@@ -106,7 +106,7 @@ export default function KafkaInterview(){
           <li>Open <strong>§03 Cluster</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
           <li>Open <strong>§00 Mastery</strong> — monitoring, instance counts, syncing, partitions, spoken answers.</li>
           <li>Skim <strong>§05 Properties</strong> and <strong>§04 Optimization</strong> for must-set baselines.</li>
-          <li>Walk <strong>§06 Realtime Case</strong> once so you have a payment story.</li>
+          <li>Walk <strong>§06 Payment story + DLQ</strong> once so you have a Spring payment narrative.</li>
           <li>Practice the Mastery <strong>spoken-answer deck</strong> (Senior → Rapid).</li>
         </ol>
       </section>
