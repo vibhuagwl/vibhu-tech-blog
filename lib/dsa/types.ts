@@ -6,6 +6,15 @@ export type WindowKind = 'Fixed' | 'Variable longest' | 'Variable shortest' | 'A
 
 export type TocItem = {id: string; label: string; group?: string};
 
+export type DsaApproach = {
+  name: 'Brute force' | 'Better' | 'Optimized';
+  idea: string;
+  time: string;
+  space: string;
+  why: string;
+  java?: string;
+};
+
 export type DsaProblem = {
   id: string;
   lc: string;
@@ -20,4 +29,13 @@ export type DsaProblem = {
   space: string;
   pitfalls: string[];
   remember: string;
+  approaches?: DsaApproach[];
+};
+
+export type WindowFamily = {
+  id: string;
+  title: string;
+  blurb: string;
+  invariant: string;
+  problemIds: string[];
 };

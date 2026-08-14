@@ -4,9 +4,11 @@ import Link from 'next/link';
 import Mermaid from '@/components/mermaid';
 import {ISLAND_MAP, ISLAND_PROBLEMS, ISLAND_SENTENCE, ISLAND_WHEN} from '@/lib/dsa/islands';
 import {SLIDING_WINDOW_PROBLEMS, WINDOW_MAP, WINDOW_SENTENCE, WINDOW_WHEN} from '@/lib/dsa/sliding-window';
+import {WINDOW_FAMILIES} from '@/lib/dsa/window-families';
 import {DSA_TOC} from '@/lib/dsa/toc';
 import ProblemClassroom from './problem-classroom';
 import StickyToc from './sticky-toc';
+import WindowCatalog from './window-catalog';
 
 function Section({
   id,
@@ -93,7 +95,8 @@ export default function DsaHub() {
             </div>
             <p className="mt-4 text-sm leading-7 text-slate-500">
               {ISLAND_PROBLEMS.length} island / grid BFS-DFS problems · {SLIDING_WINDOW_PROBLEMS.length} sliding
-              window problems. Click a name, then Problem / How it works / Java / Remember.
+              window problems in {WINDOW_FAMILIES.length} families. Windows use a grouped catalog (search +
+              brute-force → optimized), not a pill cloud — that layout still works when the list grows past 100.
             </p>
           </Section>
 
@@ -127,15 +130,15 @@ export default function DsaHub() {
 
           <Section
             id="sliding-window"
-            title="Sliding window — every problem statement"
-            lead="Fixed windows add one and drop one. Variable windows grow right and shrink left. Count-exactly-K questions are atMost(K) minus atMost(K−1). Window max uses a decreasing deque, not a heap."
+            title="Sliding window — grouped catalog"
+            lead="Fixed windows add one and drop one. Variable windows grow right and shrink left. Count-exactly-K questions are atMost(K) minus atMost(K−1). Window max uses a decreasing deque, not a heap. Open a family on the left, then read brute force → optimized with time and space."
           >
             <div className="mb-5 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
               <table className="min-w-full text-xs">
                 <thead className="bg-slate-50 uppercase tracking-[.08em] text-slate-500 dark:bg-slate-900">
                   <tr>
                     <th className="px-3 py-2 text-left">You need</th>
-                    <th className="px-3 py-2 text-left">Kind</th>
+                    <th className="px-3 py-2 text-left">Family</th>
                     <th className="px-3 py-2 text-left">Example</th>
                   </tr>
                 </thead>
@@ -150,10 +153,7 @@ export default function DsaHub() {
                 </tbody>
               </table>
             </div>
-            <ProblemClassroom
-              problems={SLIDING_WINDOW_PROBLEMS}
-              allLabel={`All ${SLIDING_WINDOW_PROBLEMS.length} windows`}
-            />
+            <WindowCatalog problems={SLIDING_WINDOW_PROBLEMS} />
           </Section>
 
           <Section id="cheat" title="Cheat sheet">
