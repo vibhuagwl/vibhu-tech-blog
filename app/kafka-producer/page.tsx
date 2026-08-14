@@ -5,7 +5,7 @@ import KafkaProducerHub from '@/components/kafka-producer/kafka-producer-hub';
 export const metadata: Metadata = {
   title: 'Kafka Producer — Complete Internals, Config, Failures, Spring, Interview',
   description:
-    'Producer-only deep board: send() lifecycle, RecordAccumulator, acks, idempotence, PID/epoch/seq, transactions, outbox, configs (Kafka 4.x), Spring Kafka, failure matrix, and Staff interview drills.',
+    'Producer-only deep board: send() lifecycle through wire protocol, error classification, fencing, shutdown, quotas, rack/AZ, DNS, Kafka 4.x configs, Spring, pathological corner cases, and Staff interview drills.',
 };
 
 export default function KafkaProducerPage() {

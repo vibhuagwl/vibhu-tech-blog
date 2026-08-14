@@ -300,14 +300,16 @@ retry.backoff.* spaces attempts
 idempotence makes retries safe in-log`,
   interview: `1) Trace send() internals
 2) acks=1 vs all loss story
-3) PID/epoch/seq
+3) PID/epoch/seq + retry after ACK loss
 4) max.in.flight reorder
 5) timeout after broker wrote
 6) outbox vs Kafka txn
-7) 1M events/sec design
-8) hot partition
-9) memory exhaustion
-10) stale metadata`,
+7) same transactional.id zombie
+8) partition count change remaps keys
+9) advertised.listeners / k8s DNS
+10) fatal vs retriable errors
+11) flush vs close timeout
+12) produce-throttle-time vs linger`,
 };
 
 export const DECISIONS: {q: string; a: string}[] = [

@@ -23,7 +23,6 @@ import {
   PARTITION_ROWS,
   PERF_BREAKDOWN,
   PROFILES,
-  PROTOCOL_ROWS,
   SECURITY_ROWS,
   SEND_MODES,
   SEND_PIPELINE,
@@ -34,6 +33,25 @@ import {
   VERSION_NOTE,
 } from '@/lib/kafka-producer/content';
 import {CHAOS, FAILURE_MATRIX, TROUBLESHOOT} from '@/lib/kafka-producer/failures';
+import {
+  AFTER_FATAL,
+  AUTH_LIFECYCLE,
+  CORNER_ACK_CRASH,
+  CORNER_FENCE,
+  CORNER_PARTITIONS,
+  DNS_ROWS,
+  ERROR_CLASSES,
+  EXCEPTION_TREE,
+  FENCING_ROWS,
+  JVM_ADV,
+  PROTOCOL_APIS,
+  PROTOCOL_EVOLUTION,
+  QUOTA_ROWS,
+  RACK_ROWS,
+  SHUTDOWN_ROWS,
+  TOPIC_LIFECYCLE,
+  WIRE_HEADER,
+} from '@/lib/kafka-producer/staff';
 import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
 import StickyToc from './sticky-toc';
@@ -722,18 +740,148 @@ txn only if multi-partition atomic needed`}
             </div>
           </Section>
 
-          <Section id="source" title="25. Source classes, wire protocol, quotas">
+          <Section
+            id="source"
+            title="25. Source classes"
+            lead="Know the Java types. Do not dump Kafka.git in an interview — name responsibility and who calls whom."
+          >
             <MiniTable headers={['Class', 'Responsibility']} rows={SOURCE_CLASSES} />
-            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">Protocol (producer-focused)</h3>
-            <MiniTable headers={['API', 'Why producer cares']} rows={PROTOCOL_ROWS} />
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Quotas: broker may delay responses (throttle time). Metrics show rising latency with flat app CPU —
-              check throttle metrics before blaming linger. JVM: serialization allocations + large buffers drive GC;
-              prefer reuse and sensible batch sizes.
+          </Section>
+
+          <Section
+            id="protocol"
+            title="26. Producer protocol and API evolution"
+            lead="This is the jump from “I can call KafkaTemplate.send” to “I know what bytes go on the wire.” Clients always ApiVersions-negotiate; they do not assume a broker speaks today’s Produce version."
+          >
+            <MiniTable headers={['Topic', 'Producer-relevant fact']} rows={PROTOCOL_EVOLUTION} />
+            <div className="mt-4">
+              <CodePanel title="Every request/response" tone="ok" code={WIRE_HEADER} />
+            </div>
+            <div className="mt-6 space-y-4">
+              {PROTOCOL_APIS.map((p) => (
+                <div key={p.name} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {p.name} <span className="font-normal text-slate-500">(api_key {p.key})</span>
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    <strong>Request:</strong> {p.request}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    <strong>Response:</strong> {p.response}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    <strong>Retry:</strong> {p.retry}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    <strong>Broker:</strong> {p.broker}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-500">
+              Exact field lists evolve by API version. State the client+broker versions in an interview rather than
+              reciting a frozen binary layout from memory.
             </p>
           </Section>
 
-          <Section id="interview" title="26. Interview drills, decisions, cheat sheets">
+          <Section
+            id="errors"
+            title="27. Error classification and fatal lifecycle"
+            lead="Map error_code → exception → retry vs die. After fatal errors the producer instance is done."
+          >
+            <MiniTable headers={['Class', 'Examples', 'What you do']} rows={ERROR_CLASSES} />
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel title="Exception hierarchy (simplified)" code={EXCEPTION_TREE} />
+              <CodePanel title="After fatal" tone="danger" code={AFTER_FATAL} />
+            </div>
+          </Section>
+
+          <Section
+            id="shutdown"
+            title="28. Producer lifecycle, flush, close, crash"
+            lead="Unsent records during shutdown are a correctness issue, not an inconvenience. Kubernetes preStop must outlive close()."
+          >
+            <MiniTable headers={['Event', 'What happens']} rows={SHUTDOWN_ROWS} />
+          </Section>
+
+          <Section
+            id="fencing"
+            title="29. Fencing and zombie producers"
+            lead="transactional.id is a lock on a logical producer identity. Two live owners is a bug unless you intended the new one to murder the old one."
+          >
+            <MiniTable headers={['Scenario', 'Outcome']} rows={FENCING_ROWS} />
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid
+                chart={`sequenceDiagram
+  participant A as Producer A epoch 7
+  participant C as Txn coordinator
+  participant B as Producer B
+  A->>C: produce with epoch 7
+  B->>C: InitProducerId same txn.id
+  C-->>B: PID epoch 8
+  A->>C: send or EndTxn epoch 7
+  C-->>A: FENCED`}
+              />
+            </div>
+          </Section>
+
+          <Section
+            id="topic-life"
+            title="30. Topic and partition lifecycle (producer view)"
+            lead="Metadata is eventually consistent with cluster truth. Partition expansion remaps keys. Leadership moves; producers follow, they do not pin a broker."
+          >
+            <MiniTable headers={['Event', 'Producer impact']} rows={TOPIC_LIFECYCLE} />
+          </Section>
+
+          <Section
+            id="quotas-rack"
+            title="31. Quotas, rack/AZ, DNS, auth rotation"
+            lead="Four ops topics interviewers use to separate people who tuned linger.ms from people who ran Kafka in Kubernetes."
+          >
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Quotas and throttling</h3>
+            <MiniTable headers={['Topic', 'Detail']} rows={QUOTA_ROWS} />
+            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">Rack / AZ — and what producers do not do</h3>
+            <MiniTable headers={['Topic', 'Detail']} rows={RACK_ROWS} />
+            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">DNS and network edges</h3>
+            <MiniTable headers={['Topic', 'Detail']} rows={DNS_ROWS} />
+            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">Authentication lifecycle</h3>
+            <MiniTable headers={['Topic', 'Detail']} rows={AUTH_LIFECYCLE} />
+          </Section>
+
+          <Section
+            id="jvm-obs"
+            title="32. JMX, Micrometer, OpenTelemetry, JVM internals"
+            lead="Advanced observability and runtime: where CPU actually goes, and what “zero-copy” does not mean on the produce path."
+          >
+            <MiniTable headers={['Area', 'Staff answer']} rows={JVM_ADV} />
+          </Section>
+
+          <Section
+            id="corners"
+            title="33. Pathological corner cases (Staff war games)"
+            lead="Walk these three on a whiteboard until they are boring. They fail candidates who only memorized acks=all."
+          >
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">1) Write succeeded, ACK never arrived, producer retries</h3>
+            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid
+                chart={`flowchart TD
+  S[Producer send] --> W[Broker append]
+  W --> X[Broker crash]
+  X --> N[ACK never arrives]
+  N --> R[Producer retry]
+  R --> Q{idempotence / acks / txn?}`}
+              />
+            </div>
+            <div className="mt-4">
+              <MiniTable headers={['Combo', 'What happens']} rows={CORNER_ACK_CRASH} />
+            </div>
+            <h3 className="mt-8 text-lg font-semibold text-slate-900 dark:text-white">2) Two producers, one transactional.id</h3>
+            <CodePanel title="Zombie fence" tone="danger" code={CORNER_FENCE} />
+            <h3 className="mt-8 text-lg font-semibold text-slate-900 dark:text-white">3) Same key after partition count change</h3>
+            <CodePanel title="Key remapping" tone="danger" code={CORNER_PARTITIONS} />
+          </Section>
+
+          <Section id="interview" title="34. Interview drills, decisions, cheat sheets">
             <InterviewMode />
             <h3 className="mt-8 text-lg font-semibold text-slate-900 dark:text-white">Decision framework</h3>
             <div className="mt-3 space-y-2">

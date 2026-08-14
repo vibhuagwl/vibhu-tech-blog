@@ -156,6 +156,38 @@ export const ARCHITECT: InterviewQ[] = [
       'read_committed consumers skip aborted. Side effects outside Kafka are not covered. Staff answer separates Kafka EOS from business EOS.',
     followUps: ['EOS read-process-write?'],
   },
+  {
+    id: 'a6',
+    topic: 'ACK loss',
+    question: 'Broker wrote the record, crashed, ACK never arrived — producer retries. What happens?',
+    answer30s:
+      'Idempotent + acks=all: same PID+seq, broker dedupes, one log record. Without idempotence: retry can duplicate. acks=1 also risks loss if the write never reached ISR.',
+    answer2m:
+      'Timeout is unknown, not failure. Walk the matrix: idempotence off/on, acks=1 vs all, transactions (uncommitted vs committed). Payments still need a business idempotency key because the application may issue a new send with a new sequence.',
+    followUps: ['What does the callback see?', 'Unclean leader election?'],
+    trick: '“Timeout means it was not written.”',
+  },
+  {
+    id: 'a7',
+    topic: 'Fencing',
+    question: 'Producer A and B share transactional.id. B starts. A sends.',
+    answer30s:
+      'B’s InitProducerId bumps epoch. A is fenced. A’s send/commit fails with ProducerFencedException. A must die; do not reuse that instance.',
+    answer2m:
+      'Rolling deploys and k8s restarts must use unique transactional.id per live pod, or accept that the new replica fences the old one. Network-partition zombies are why fence is fatal.',
+    followUps: ['Idempotent producer without transactional.id?'],
+  },
+  {
+    id: 'a8',
+    topic: 'Partitions',
+    question: 'Partition count changes. Same key. Where does the next record go?',
+    answer30s:
+      'hash(key) % newCount — often a different partition. Old records stay put. Per-key order across the change is not preserved.',
+    answer2m:
+      'This is why “just add partitions for scale” is a contract change for keyed ordering. Migrate with a new topic or accept a split window. Never tell an interviewer that remapping keeps order.',
+    followUps: ['Can you decrease partitions?'],
+    trick: 'Increasing partitions preserves per-key order.',
+  },
 ];
 
 export const RAPID: InterviewQ[] = [
@@ -168,7 +200,11 @@ export const RAPID: InterviewQ[] = [
   {id: 'r7', topic: 'Rapid', question: 'zstd vs gzip?', answer30s: 'Prefer zstd/lz4 for CPU/ratio.', answer2m: 'gzip often heavier.', followUps: ['Batch dependency?']},
   {id: 'r8', topic: 'Rapid', question: 'ProducerFencedException means?', answer30s: 'Newer epoch with same transactional.id.', answer2m: 'Stop the zombie.', followUps: ['When?']},
   {id: 'r9', topic: 'Rapid', question: 'Null key partition today?', answer30s: 'Sticky batching to a partition.', answer2m: 'Verify client version.', followUps: ['Explicit partition?']},
-  {id: 'r10', topic: 'Rapid', question: 'KafkaTemplate vs KafkaProducer?', answer30s: 'Template wraps producer with Spring.', answer2m: 'Same internals underneath.', followUps: ['When native?']},
+  {id: 'r11', topic: 'Rapid', question: 'flush() vs close()?', answer30s: 'flush waits; close flushes then dies.', answer2m: 'close(Duration) may drop remainder.', followUps: ['k8s preStop?']},
+  {id: 'r12', topic: 'Rapid', question: 'Throttle metric name?', answer30s: 'produce-throttle-time-avg/max.', answer2m: 'Not the same as linger.', followUps: ['Quota entity?']},
+  {id: 'r13', topic: 'Rapid', question: 'Who does producer write — leader or follower?', answer30s: 'Leader only.', answer2m: 'Follower fetch is a consumer/read feature.', followUps: ['broker.rack?']},
+  {id: 'r14', topic: 'Rapid', question: 'advertised.listeners bug?', answer30s: 'Bootstrap works, Produce fails to localhost/internal DNS.', answer2m: 'Metadata returns advertised hosts.', followUps: ['k8s headless?']},
+  {id: 'r15', topic: 'Rapid', question: 'Fatal after ProducerFenced?', answer30s: 'Close producer. Do not send more.', answer2m: 'New instance / new epoch.', followUps: ['Rolling deploy?']},
 ];
 
 export const ALL: InterviewQ[] = [...SENIOR, ...ARCHITECT, ...RAPID];
