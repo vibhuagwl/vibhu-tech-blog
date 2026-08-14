@@ -117,11 +117,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.85,
     },
     {
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.85,
-    },
-    {
       url: `${BASE}/kafka-mastery/`,
       lastModified: now,
       changeFrequency: "monthly",
