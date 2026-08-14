@@ -90,7 +90,7 @@ const CURRICULUM = [
   {id: 'consumer', n: '02', title: 'Consumer', blurb: 'Groups, poll/commit, lag — full board at /kafka-consumer.'},
   {id: 'cluster', n: '03', title: 'Cluster & controller', blurb: 'Brokers, KRaft controller, topics, partitions, replicas, ISR.'},
   {id: 'optimization', n: '04', title: 'Optimization', blurb: 'Tune producer, consumer, broker, and controller — one bottleneck at a time.'},
-  {id: 'properties', n: '05', title: 'All properties', blurb: 'Must-set producer, consumer, cluster, and controller configs.'},
+  {id: 'properties', n: '05', title: 'All properties', blurb: 'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs.'},
   {id: 'monitoring', n: '06', title: 'Monitoring', blurb: 'Prod metrics: lag, URP, ISR, disk, rebalances, offline partitions.'},
   {id: 'instances', n: '07', title: 'Instance counts', blurb: 'Producers, consumers, brokers, controllers, clusters in a distributed env.'},
   {id: 'syncing', n: '08', title: 'Syncing', blurb: 'How replicas fetch, ISR, acks=all, high watermark.'},
