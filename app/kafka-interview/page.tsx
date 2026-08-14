@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
 export const metadata={
-  title:'Kafka — Code, Optimization, Properties, Cheatsheet, Realtime',
-  description:'Five practical Kafka pages: runnable Spring code, optimization story, properties, cheatsheet & interview, and realtime payment case with diagrams.',
+  title:'Kafka — Code, Internals, Optimization, Properties, Cheatsheet, Realtime',
+  description:'Practical Kafka pages: Spring code, internals and production board, optimization, properties, cheatsheet, realtime payment case, and Hadron DLQ.',
 };
 
 const PAGES=[
@@ -42,6 +42,12 @@ const PAGES=[
     title:'Hadron CashLines DLQ',
     blurb:'Neptune → Kafka → Hadron: retry topics, ordering, idempotency, DLQ DB, replay APIs, and Staff interview story.',
   },
+  {
+    href:'/kafka-internals',
+    number:'07',
+    title:'Internals & Production Board',
+    blurb:'How Kafka writes a partition, how brokers replicate, how many instances you need in prod, and what happens when a consumer dies.',
+  },
 ];
 
 export default function KafkaInterview(){
@@ -52,10 +58,10 @@ export default function KafkaInterview(){
           Kafka Tab
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.03em] text-slate-900 dark:text-white">
-          Kafka — 5 practical pages
+          Kafka — practical pages
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-          No giant topic dump. One Spring payment story, real code, diagrams, and interview lines you can remember.
+          No giant topic dump. One Spring payment story, an internals board for production Kafka, real code, diagrams, and interview lines you can remember.
         </p>
       </header>
 
@@ -81,6 +87,7 @@ export default function KafkaInterview(){
           <li>Open <strong>Kafka Code</strong> — click `PaymentController` and `SettlementKafkaConfig`.</li>
           <li>Skim <strong>Optimization</strong> then <strong>Properties</strong> — same knobs, same story.</li>
           <li>Open <strong>Hadron CashLines DLQ</strong> — Neptune → retry → DLQ → replay with ordering and idempotency.</li>
+          <li>Open <strong>Internals & Production Board</strong> — replication, instance counts, partition writes, consumer crash replay.</li>
           <li>Say the <strong>Cheatsheet & Interview</strong> 30-second answer out loud.</li>
         </ol>
       </section>
