@@ -4,6 +4,23 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * PATTERN: Builder
+ *
+ * WHEN TO IMPLEMENT
+ * - Object has many optional fields / validation rules and telescoping constructors become unreadable.
+ * - You need immutable domain objects built step-by-step with invariants checked at {@code build()}.
+ *
+ * JAVA IMPLEMENTATION RULES
+ * 1. Make the product immutable (final fields); mutate only the Builder until {@code build()}.
+ * 2. Validate required fields and cross-field rules inside {@code build()}, not in every setter.
+ * 3. Return {@code this} from fluent setters; avoid side effects beyond field assignment.
+ * 4. Prefer static nested Builder on the product class for discoverability.
+ * 5. For Java records, use a compact builder or canonical constructor + withers — do not expose mutable public fields.
+ *
+ * DO NOT USE WHEN
+ * - The type has 1–3 simple fields with no optional complexity (a normal constructor is clearer).
+ */
 public class PaymentTransactionBuilderDemo {
     public record PaymentTransaction(String transactionId, String customerId, BigDecimal amount, String currency,
                                      Map<String, String> metadata, String retryPolicy, boolean fraudCheck, String callbackUrl) {}

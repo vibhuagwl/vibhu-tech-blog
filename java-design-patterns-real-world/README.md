@@ -25,6 +25,16 @@ mvn -q exec:java -Dexec.mainClass=com.example.designpatterns.DesignPatternDemo
 - Structural: Adapter, Bridge, Composite, Decorator, Facade, Flyweight, Proxy
 - Behavioral: Chain, Command, Interpreter, Iterator, Mediator, Memento, Observer, State, Strategy, Template Method, Visitor
 
+## Implementation rules (in each Demo class)
+
+Every GoF `*Demo.java` starts with a JavaDoc block:
+
+- **WHEN TO IMPLEMENT** — pressure that justifies the pattern
+- **JAVA IMPLEMENTATION RULES** — concrete class/interface rules for Java
+- **DO NOT USE WHEN** — when to keep the code simpler
+
+Open any pattern Demo in the source explorer (for example Strategy → `PaymentStrategyDemo.java`) and read the header before the code.
+
 ## Real-world examples
 
 - payments and gateways

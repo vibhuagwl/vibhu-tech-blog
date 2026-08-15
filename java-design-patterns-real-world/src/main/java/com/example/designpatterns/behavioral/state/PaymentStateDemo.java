@@ -3,6 +3,23 @@ package com.example.designpatterns.behavioral.state;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * PATTERN: State
+ *
+ * WHEN TO IMPLEMENT
+ * - Object behavior changes with an explicit lifecycle (CREATED → AUTHORIZED → CAPTURED → FAILED).
+ * - Transitions and allowed operations differ per state; giant switch on status is becoming unsafe.
+ *
+ * JAVA IMPLEMENTATION RULES
+ * 1. State interface methods represent events/operations; each concrete state implements allowed transitions.
+ * 2. Context stores current State and delegates; states call back to context to change state.
+ * 3. Illegal transitions must throw or return a domain error — never silently no-op without reason.
+ * 4. Keep state objects typically stateless (or flyweight); persist status on the context/entity.
+ * 5. Prefer enum + state objects over stringly status codes scattered across the codebase.
+ *
+ * DO NOT USE WHEN
+ * - Behavior does not depend on lifecycle — Strategy (choose algorithm) is the better model.
+ */
 public class PaymentStateDemo {
     public interface PaymentState {
         PaymentState authorize();

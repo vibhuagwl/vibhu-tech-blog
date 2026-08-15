@@ -3,6 +3,23 @@ package com.example.designpatterns.structural.decorator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * PATTERN: Decorator
+ *
+ * WHEN TO IMPLEMENT
+ * - You need to add responsibilities at runtime (logging, metrics, retry, encryption) without subclass explosion.
+ * - Cross-cutting wrappers around a stable core interface.
+ *
+ * JAVA IMPLEMENTATION RULES
+ * 1. Decorators implement the same interface as the component and hold a {@code delegate} reference.
+ * 2. Forward calls to delegate; add behavior before/after — do not copy-paste core logic into each decorator.
+ * 3. Compose decorators by nesting constructors (order matters: auth → metrics → core).
+ * 4. Keep decorators single-purpose (one concern each).
+ * 5. Prefer final decorator classes; make the wrapped field final.
+ *
+ * DO NOT USE WHEN
+ * - Behavior belongs in the domain algorithm itself, or Proxy/AOP already covers the concern globally.
+ */
 public class PaymentDecoratorDemo {
     public interface PaymentProcessor { String process(int amount); }
     public static final class BasicPayment implements PaymentProcessor { public String process(int amount){ return "processed:" + amount; } }

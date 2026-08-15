@@ -3,6 +3,23 @@ package com.example.designpatterns.structural.facade;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * PATTERN: Facade
+ *
+ * WHEN TO IMPLEMENT
+ * - Clients need a simple entry point over a noisy subsystem (fraud, ledger, gateway, notify).
+ * - You want to hide orchestration details from controllers / use-cases.
+ *
+ * JAVA IMPLEMENTATION RULES
+ * 1. Facade exposes a small, intention-revealing API; internally coordinates subsystem types.
+ * 2. Do not put all business rules inside the facade — orchestrate; keep domain logic in collaborators.
+ * 3. Prefer constructor injection of dependencies for testing.
+ * 4. Map subsystem failures to one coherent application-level error model.
+ * 5. Facades may be stateful for a use-case session, but avoid becoming a singleton god service.
+ *
+ * DO NOT USE WHEN
+ * - There is only one class behind the call — no subsystem complexity to hide.
+ */
 public class PaymentFacadeDemo {
     public record PaymentOutcome(String status, String reference, List<String> steps) {}
     public static final class FraudService { boolean ok(int amount){ return amount < 5000; } }
