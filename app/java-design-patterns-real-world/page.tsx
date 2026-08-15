@@ -28,10 +28,16 @@ export default function JavaDesignPatternsRealWorldPage(){
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
           Browse <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm dark:bg-slate-900">java-design-patterns-real-world/</code>: all 23 GoF patterns,
           behavior-focused tests, interview docs, Spring mapping, Kafka event flow, and one combined payment processing system.
+          Each pattern <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm dark:bg-slate-900">*Demo.java</code> includes{' '}
+          <strong>WHEN TO IMPLEMENT</strong> and <strong>JAVA IMPLEMENTATION RULES</strong> in the class JavaDoc.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
           <Link href="/java-design-patterns-real-world?path=docs%2Fcheatsheet.md" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             5-minute cheat sheet →
+          </Link>
+          <span className="text-slate-300">·</span>
+          <Link href="/java-design-patterns-real-world?path=src%2Fmain%2Fjava%2Fcom%2Fexample%2Fdesignpatterns%2Fbehavioral%2Fstrategy%2FPaymentStrategyDemo.java" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
+            Example: Strategy rules →
           </Link>
           <span className="text-slate-300">·</span>
           <Link href="/design-patterns-revision" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
@@ -48,10 +54,17 @@ export default function JavaDesignPatternsRealWorldPage(){
         </div>
       </header>
 
-      <section className="mt-8 grid gap-4 md:grid-cols-3">
+      <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
           <h2 className="text-lg font-semibold">Start here</h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">README, cheat sheet, and memory stories for quick revision.</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+          <h2 className="text-lg font-semibold">Implementation rules</h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            Every GoF Demo class documents when to implement the pattern and Java class/interface rules — open the{' '}
+            <code>*Demo.java</code> header first.
+          </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
           <h2 className="text-lg font-semibold">Interview core</h2>

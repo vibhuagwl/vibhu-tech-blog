@@ -1,5 +1,22 @@
 package com.example.designpatterns.behavioral.memento;
 
+/**
+ * PATTERN: Memento
+ *
+ * WHEN TO IMPLEMENT
+ * - You must save/restore object state (undo config edits, rollback wizard) without breaking encapsulation.
+ * - External caretaker stores snapshots but must not poke into private fields.
+ *
+ * JAVA IMPLEMENTATION RULES
+ * 1. Originator creates opaque Memento; Caretaker stores mementos but does not inspect fields.
+ * 2. Prefer nested/private memento types or records package-private to Originator.
+ * 3. Snapshots should be immutable deep enough for undo correctness.
+ * 4. Limit history size (stack cap) to avoid memory leaks.
+ * 5. Do not use Memento as a general persistence model — it is for short-lived undo/restore.
+ *
+ * DO NOT USE WHEN
+ * - You only need database persistence of an entity — use normal serialization/ORM.
+ */
 public class PaymentConfigurationMementoDemo {
     public record Snapshot(String gateway, int timeoutSeconds) {}
     public static final class PaymentConfiguration {

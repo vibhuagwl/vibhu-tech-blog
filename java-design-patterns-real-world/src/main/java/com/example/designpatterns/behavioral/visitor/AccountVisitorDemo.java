@@ -1,5 +1,22 @@
 package com.example.designpatterns.behavioral.visitor;
 
+/**
+ * PATTERN: Visitor
+ *
+ * WHEN TO IMPLEMENT
+ * - You need many operations over a stable object structure without polluting element classes.
+ * - Adding operations is frequent; adding new element types is rare.
+ *
+ * JAVA IMPLEMENTATION RULES
+ * 1. Elements implement {@code accept(Visitor)}; Visitor declares {@code visit} per concrete element type.
+ * 2. Use double dispatch: accept calls visitor.visit(this).
+ * 3. Prefer generic Visitor&lt;T&gt; when visits return values.
+ * 4. Adding a new element type requires updating all visitors — accept that trade-off explicitly.
+ * 5. Keep visitor operations side-effect-clear; do not hide persistence inside visit methods without naming it.
+ *
+ * DO NOT USE WHEN
+ * - The type hierarchy changes often — pattern matching / sealed interfaces + switch may be simpler in modern Java.
+ */
 public class AccountVisitorDemo {
     public interface Account { <T> T accept(AccountVisitor<T> visitor); }
     public record SavingsAccount(double balance) implements Account { public <T> T accept(AccountVisitor<T> visitor){ return visitor.visit(this); } }
