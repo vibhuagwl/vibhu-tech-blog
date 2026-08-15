@@ -21,12 +21,16 @@ import {
   LATENCY_VS_THROUGHPUT,
   LAYER_STACK,
   MEMORY_SENTENCE,
+  METADATA_LEADER_EXPLAIN,
   METRIC_ROWS,
+  NULL_KEY_PARTITION_EXPLAIN,
   ORDER_ROWS,
   OUTBOX_COMPARE,
   PARTITION_ROWS,
   PERF_BREAKDOWN,
+  PRODUCE_REQUEST_EXPLAIN,
   PROFILES,
+  QUOTAS_ACLS_EXPLAIN,
   SECURITY_ROWS,
   SEND_MODES,
   SEND_PIPELINE,
@@ -177,30 +181,39 @@ export default function KafkaProducerHub() {
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel title="Producer responsibilities" tone="ok" code={`Serialize key/value/headers
-Choose partition
-Batch + compress
-Find leader via metadata
-Send ProduceRequest
+Choose partition (key / sticky / explicit)
+Batch + compress (per partition)
+Find leader via metadata cache
+Send ProduceRequest (batches sharing a broker)
 Honor acks / retries / timeouts
 Optional: idempotence + transactions
 Surface metrics + errors`} />
-              <CodePanel title="Broker responsibilities" code={`Accept Produce on leader
+              <CodePanel
+                title="Broker responsibilities"
+                code={`Accept Produce on leader only
 Assign offset
 Append to partition log
 Replicate to followers
 Maintain ISR
 Respond per acks
-Enforce quotas / ACLs
-Txn markers when used`} />
+Enforce quotas / ACLs  ← who may write + rate caps
+Txn markers when used`}
+              />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Quotas & ACLs (broker enforce)" code={QUOTAS_ACLS_EXPLAIN} />
             </div>
           </Section>
 
           <Section
             id="fundamentals"
             title="01. Fundamentals — record layers"
-            lead="Do not confuse the application payload with the network request."
+            lead="Do not confuse one send() (one record → one partition) with a ProduceRequest (may carry several ready batches that share the same leader broker)."
           >
             <CodePanel title="Layer stack" tone="ok" code={LAYER_STACK} />
+            <div className="mt-4">
+              <CodePanel title="One send() vs ProduceRequest" tone="ok" code={PRODUCE_REQUEST_EXPLAIN} />
+            </div>
             <div className="mt-4">
               <CodePanel
                 title="ProducerRecord fields"
@@ -306,9 +319,12 @@ for (r : million) producer.send(r).get();`}
           <Section
             id="partitioning"
             title="06. Partitioning and key design"
-            lead="Key chooses the ordering boundary. Partition count changes remapping for newly hashed keys."
+            lead="Key chooses the ordering boundary. With no key, modern clients use sticky partitioning (batch-friendly), not classic per-record round-robin. Partition count changes remapping for newly hashed keys."
           >
             <MiniTable headers={['Mode', 'Behavior', 'Notes']} rows={PARTITION_ROWS} />
+            <div className="mt-4">
+              <CodePanel title="No key — how partition is chosen" tone="ok" code={NULL_KEY_PARTITION_EXPLAIN} />
+            </div>
             <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">Key choices</h3>
             <MiniTable headers={['Key', 'Ordering', 'Risk']} rows={KEY_ROWS} />
             <div className="mt-4">
@@ -364,16 +380,17 @@ Topic config message.timestamp.type`}
           <Section
             id="batching"
             title="09. RecordAccumulator, batching, compression"
-            lead="Records queue per partition. A batch ships when full (batch.size) or linger.ms elapses — whichever first (broker backpressure can stretch effective linger)."
+            lead="Records queue per partition. A batch ships when full (batch.size) or linger.ms elapses — whichever first. Sender may pack several ready batches into one ProduceRequest only when those partitions share the same leader broker."
           >
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid
                 chart={`flowchart TD
-  R[Record] --> Acc[RecordAccumulator per partition]
-  Acc --> Batch[ProducerBatch]
+  R[Record one send] --> Acc[RecordAccumulator per partition]
+  Acc --> Batch[ProducerBatch ONE partition]
   Batch -->|full OR linger| S[Sender]
-  S --> Comp[Compression]
-  Comp --> Req[ProduceRequest]`}
+  S --> Comp[Compression per batch]
+  Comp --> Req[ProduceRequest to one broker]
+  Req --> Note[May include other ready batches whose leaders are on that same broker]`}
               />
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -406,6 +423,9 @@ Broker stores compressed batches
 CPU vs network is the trade`}
               />
             </div>
+            <div className="mt-4">
+              <CodePanel title="Reminder: send vs ProduceRequest" code={PRODUCE_REQUEST_EXPLAIN} />
+            </div>
           </Section>
 
           <Section
@@ -437,7 +457,7 @@ Fix: bound app rate, scale brokers, tune memory/batch, shed load`}
           <Section
             id="network-meta"
             title="11. Networking, bootstrap, metadata"
-            lead="bootstrap.servers is a discovery seed — not a permanent single-broker dependency."
+            lead="bootstrap.servers is a discovery seed. Metadata maps each partition to its current leader host:port — produce always goes to that leader."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <CodePanel
@@ -452,7 +472,7 @@ TLS handshake failures block new conns
 Leader change → metadata refresh → new node`}
               />
               <CodePanel
-                title="Metadata"
+                title="Metadata cache (short)"
                 tone="ok"
                 code={`bootstrap.servers → initial Metadata
 cache: topics, partitions, leaders
@@ -460,6 +480,9 @@ refresh on: errors, metadata.max.age.ms
 stale leader → NotLeader* → retry
 partitionsFor(topic) forces fetch`}
               />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Find leader via metadata — step by step" tone="ok" code={METADATA_LEADER_EXPLAIN} />
             </div>
           </Section>
 
@@ -608,18 +631,25 @@ With idempotence:
             </p>
           </Section>
 
-          <Section id="security" title="18. Security — TLS, SASL, ACLs">
+          <Section
+            id="security"
+            title="18. Security — TLS, SASL, ACLs"
+            lead="ACLs answer “may this principal WRITE?” Quotas answer “how fast may it produce?” — both enforced on the broker when the ProduceRequest arrives."
+          >
             <MiniTable headers={['Layer', 'Producer need']} rows={SECURITY_ROWS} />
-            <CodePanel
-              title="Security failures"
-              tone="danger"
-              code={`Expired cert → SslAuthenticationException → fix rotation
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel
+                title="Security failures"
+                tone="danger"
+                code={`Expired cert → SslAuthenticationException → fix rotation
 Bad SCRAM secret → AuthenticationException
 Missing WRITE ACL → TopicAuthorizationException
 Missing IDEMPOTENT_WRITE → idempotent produce fails
 Symptom: immediate fail on new connections / first produce
 Prevention: alert cert expiry; least-privilege ACL CI checks`}
-            />
+              />
+              <CodePanel title="Quotas vs ACLs (again)" code={QUOTAS_ACLS_EXPLAIN} />
+            </div>
           </Section>
 
           <Section id="observability" title="19. Metrics, tracing, logging">

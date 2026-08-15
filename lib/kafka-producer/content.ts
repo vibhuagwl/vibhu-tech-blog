@@ -23,9 +23,84 @@ Sender thread
 
 export const LAYER_STACK = `Application Message
   → Kafka Record (key, value, headers, timestamp)
-  → ProducerBatch (many records, one partition)
-  → ProduceRequest (one or more batches to a broker)
-  → Kafka Log Entry (offset assigned by leader)`;
+  → ProducerBatch (many records, ONE partition)
+  → ProduceRequest (one or more batches to ONE broker Node)
+  → Kafka Log Entry (offset assigned by that partition's leader)`;
+
+/** One send() vs batch vs ProduceRequest — common confusion. */
+export const PRODUCE_REQUEST_EXPLAIN = `Does one send() ship to multiple partitions?
+  → NO. One producer.send(record) = ONE record → ONE partition (chosen first).
+  → That record joins a ProducerBatch for THAT partition only.
+  → Batches never mix partitions.
+
+What "ProduceRequest (one or more batches to a broker)" means
+  → The Sender builds ONE network ProduceRequest per destination broker Node.
+  → If partitions 0 and 3 both have leaders on broker-2, and both have ready batches,
+    those TWO batches ride in the SAME ProduceRequest to broker-2.
+  → That is batching across partitions that share a leader host — not one send() fanning out.
+  → Different leaders (different brokers) → separate ProduceRequests on separate TCP connections.
+
+Timeline example
+  send(A) → partition 0 (leader = broker-1) → wait in batch P0
+  send(B) → partition 2 (leader = broker-1) → wait in batch P2
+  send(C) → partition 5 (leader = broker-3) → wait in batch P5
+  linger/full → Sender:
+    ProduceRequest → broker-1  [batch P0 + batch P2]
+    ProduceRequest → broker-3  [batch P5]`;
+
+/** How metadata finds the partition leader. */
+export const METADATA_LEADER_EXPLAIN = `How the producer finds the leader via metadata
+
+1) bootstrap.servers
+   → Seed list only. Client opens TCP to any reachable broker and asks for Metadata.
+2) MetadataResponse
+   → For each topic partition: partition id, leader broker id, replica set, ISR, offline replicas.
+   → Also broker id → host:port (advertised.listeners).
+3) Client cache (Metadata)
+   → send() looks up: topic + partition → leader Node → host:port.
+   → Produce goes ONLY to that leader (never to followers for produce).
+4) Refresh
+   → On NotLeaderOrFollower / unknown topic / metadata.max.age.ms / new topics.
+   → After refresh, retries go to the new leader.
+
+You do not pick the leader in code — you pick (or the partitioner picks) a partition;
+metadata maps partition → current leader.`;
+
+/** Null key → how partition is chosen. */
+export const NULL_KEY_PARTITION_EXPLAIN = `If you do NOT specify a key (and no explicit partition)
+
+Modern DefaultPartitioner / sticky behavior (Kafka 2.4+ clients):
+  → Null key does NOT mean "hash null" or classic round-robin-per-record.
+  → Client picks one partition and STICKS to it while filling a batch (linger / batch.size).
+  → When that batch is full/sent (or sticky window ends), it may switch to another partition.
+  → Goal: better batching for keyless traffic; still spreads load over time.
+
+Other modes (you choose one):
+  → Explicit partition in ProducerRecord → that partition, key ignored for routing.
+  → Non-null key → murmur2(keyBytes) % numPartitions (stable until partition count changes).
+  → Custom Partitioner → your logic (document the order boundary).
+
+Ordering note
+  → No key ⇒ no per-entity order guarantee across sends (sticky may keep order briefly
+    inside one batch/partition, then jump).
+  → Need order for accountId → put accountId as the key.`;
+
+/** Broker "Enforce quotas / ACLs". */
+export const QUOTAS_ACLS_EXPLAIN = `What "Enforce quotas / ACLs" means (broker side)
+
+ACLs (authorization)
+  → Who may WRITE this topic / use IDEMPOTENT_WRITE / transactional IDs.
+  → Producer identity comes from SASL / mTLS principal.
+  → Fail → TopicAuthorizationException / ClusterAuthorizationException (usually non-retriable).
+
+Quotas (rate limits)
+  → Broker caps produce byte-rate and/or request-rate per client.id / user / IP.
+  → Over quota → produce is delayed or throttled (client sees throttle-time metrics / slower sends).
+  → This is cluster protection — not application backpressure from buffer.memory.
+
+Producer view
+  → You configure credentials + ACLs so produce is allowed.
+  → Quotas show up as elevated request-latency / produce-throttle-time — scale or raise quota.`;
 
 export const COMPONENT_THREADS: string[][] = [
   ['KafkaProducer / send()', 'App threads', 'Thread-safe entry; appends into accumulator'],
@@ -115,7 +190,7 @@ export const SERDE_ROWS: string[][] = [
 export const PARTITION_ROWS: string[][] = [
   ['Explicit partition in ProducerRecord', 'Full control', 'You own skew and migration'],
   ['Key present', 'hash(key) % numPartitions (DefaultPartitioner family)', 'Stable key → stable partition until count changes'],
-  ['Null key', 'Sticky / uniform sticky batching to a partition (modern clients)', 'Version-sensitive — verify client docs; not round-robin-per-record anymore'],
+  ['Null key (no partition set)', 'Sticky: stay on one partition while filling a batch, then may switch', 'Not classic round-robin-per-record; better batching; weak order'],
   ['Custom Partitioner', 'Tenant / priority / anti-hot-key', 'Must preserve intended ordering boundary'],
   ['Partition count increases', 'New keys may hash elsewhere; old keys stay', 'Ordering window can split across migration'],
 ];
