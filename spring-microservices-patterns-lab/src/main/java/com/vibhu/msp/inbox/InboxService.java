@@ -11,16 +11,23 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class InboxService {
 
-  private final Map<String, Instant> processedMessageIds = new ConcurrentHashMap<>();
+  private final Map<String, Object> processedMessageIds = new ConcurrentHashMap<>();
 
   @Transactional
   public boolean processIfNew(String messageId, Runnable handler) {
-    if (processedMessageIds.containsKey(messageId)) {
+    Object placeholder = new Object();
+    Object previous = processedMessageIds.putIfAbsent(messageId, placeholder);
+    if (previous != null) {
       return false;
     }
-    handler.run();
-    processedMessageIds.put(messageId, Instant.now());
-    return true;
+    try {
+      handler.run();
+      processedMessageIds.put(messageId, Instant.now());
+      return true;
+    } catch (RuntimeException ex) {
+      processedMessageIds.remove(messageId);
+      throw ex;
+    }
   }
 
   public boolean alreadyProcessed(String messageId) {

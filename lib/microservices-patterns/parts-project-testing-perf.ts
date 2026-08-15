@@ -1,7 +1,7 @@
 /** Part 22 — Production lab architecture, Part 23 — Testing, Part 24 — Performance */
 
 export const PRODUCTION_PROJECT = {
-  title: 'spring-microservices-patterns-lab — Order Platform',
+  title: 'spring-msp-platform — full Order checkout (Gateway + 5 services)',
   ascii: `
                                     ┌─────────────────────────────────────┐
                                     │         Clients (Web / Mobile)        │
@@ -36,43 +36,35 @@ export const PRODUCTION_PROJECT = {
 
     Eureka / K8s DNS discovery · Resilience4j · OTel → Prometheus/Grafana · structured JSON logs
 `,
-  description: `The **spring-microservices-patterns-lab** is a runnable reference platform that wires every resilience and messaging pattern from this curriculum into one checkout flow.
+  description: `Two runnable artifacts ship with this board:
 
-**Gateway layer:** Spring Cloud Gateway terminates TLS, validates JWT (OAuth2 resource server), applies per-route rate limits (Redis-backed token bucket), injects \`X-Correlation-Id\`, and forwards to downstream services discovered via Eureka (or K8s service names in cloud deploy).
+1. **spring-msp-platform** — multi-module Maven checkout (api-gateway :8080, order :8081, payment :8082, customer :8083, inventory :8084, notification :8085) with Docker Compose for PostgreSQL (DB-per-service), Redis, and Redpanda/Kafka. Implements outbox/inbox, saga choreography + compensation, Resilience4j on order→payment, Kafka DLQ (*.dlt), Redis cache-aside for customers, Idempotency-Key + X-Correlation-Id, Micrometer/Prometheus, and K8s sample YAMLs.
 
-**Resilience stack (Resilience4j):** Each outbound \`WebClient\` call is wrapped with **timeout** (connect + response), **retry** (only on idempotent verbs / safe operations with jittered exponential backoff), **circuit breaker** (sliding window failure rate), and **bulkhead** (semaphore isolation per dependency). Fallbacks return degraded responses or enqueue async work — never block the gateway thread pool.
+2. **spring-microservices-patterns-lab** — single-module pattern lab (algorithms, manual CB/retry, LB, fencing, Snowflake, EIP) with WireMock + concurrency tests by default; Testcontainers Postgres/Redis/Kafka ITs behind MSP_IT=true.
 
-**Saga (choreography):** \`POST /orders\` creates a local order row + **outbox** event \`OrderCreated\`. Payment, Inventory, and Notification services consume via **inbox** dedupe (\`processed_events\` UNIQUE on consumer+key+eventType). Failures publish compensating events; exhausted retries land in **DLQ** (\`-dlt\` topics) with replay tooling.
-
-**Data patterns:** Database-per-service (PostgreSQL schemas). **Outbox** relay (Debezium or polling publisher) guarantees at-least-once publish after commit. **Inbox** + business **idempotency keys** on \`POST /payments\` prevent duplicate charges on redelivery.
-
-**Caching:** Redis caches customer profile reads (TTL + stampede lock). Inventory hot-SKU counts use write-through with event invalidation.
-
-**Observability:** OpenTelemetry auto-instrumentation exports traces to OTLP; Micrometer metrics (\`resilience4j.circuitbreaker\`, Kafka lag, pool saturation) scrape to Prometheus. Structured JSON logs include \`correlationId\`, \`traceId\`, \`spanId\`, and \`orderId\` for cross-service grep.
-
-**Security:** mTLS between services in mesh mode; secrets from Vault; no PII in Kafka payloads (IDs only).`,
+Happy path: docker compose up -d in spring-msp-platform → boot all modules → POST /api/orders through the gateway with Idempotency-Key. Use a customerId containing fail (or amount > 10000) to exercise compensation.`,
   services: [
-    {name: 'order-service', port: 8081, db: 'orders_db', patterns: ['outbox', 'saga-start', 'idempotency']},
-    {name: 'payment-service', port: 8082, db: 'payments_db', patterns: ['inbox', 'idempotency', 'DLQ']},
-    {name: 'customer-service', port: 8083, db: 'customers_db', patterns: ['cache-aside', 'read-model']},
-    {name: 'inventory-service', port: 8084, db: 'inventory_db', patterns: ['optimistic-lock', 'saga-participant']},
-    {name: 'notification-service', port: 8085, db: 'notifications_db', patterns: ['inbox', 'async-consumer']},
-    {name: 'api-gateway', port: 8080, patterns: ['auth', 'RL', 'CB', 'retry', 'timeout', 'bulkhead', 'aggregation']},
+    {name: 'api-gateway', port: 8080, patterns: ['routing', 'CB', 'correlation-id']},
+    {name: 'order-service', port: 8081, db: 'orders', patterns: ['outbox', 'saga-start', 'idempotency', 'Resilience4j']},
+    {name: 'payment-service', port: 8082, db: 'payments', patterns: ['inbox', 'outbox', 'DLQ', 'compensation']},
+    {name: 'customer-service', port: 8083, db: 'customers', patterns: ['cache-aside', 'Redis']},
+    {name: 'inventory-service', port: 8084, db: 'inventory', patterns: ['reserve/release', 'saga-participant']},
+    {name: 'notification-service', port: 8085, db: 'notifications', patterns: ['inbox', 'async consumer']},
   ],
   kafkaTopics: [
-    'order.events.v1',
-    'payment.events.v1',
-    'inventory.events.v1',
-    'notification.commands.v1',
-    'order.events.v1-dlt',
-    'payment.events.v1-dlt',
+    'order.events',
+    'payment.events',
+    'inventory.events',
+    'order.events.dlt',
+    'payment.events.dlt',
   ],
   runbook: [
-    'docker compose up -d postgres redis kafka zookeeper',
-    'Start Eureka (optional) or use K8s DNS',
-    'Boot each service with spring.profiles.active=local',
-    'Gateway: POST /vibhu-tech-blog/api/orders with Authorization: Bearer <token>',
-    'Observe saga in Kafka UI; break payment-service to see CB open + DLQ flow',
+    'cd spring-msp-platform && docker compose up -d',
+    'mvn -q -pl msp-common install -DskipTests',
+    'Start order/payment/customer/inventory/notification/api-gateway (ports 8081–8085, 8080)',
+    'curl -X POST http://localhost:8080/api/orders -H "Idempotency-Key: demo-001" -H "Content-Type: application/json" -d \'{"customerId":"cust-1","lines":[{"sku":"SKU-1","quantity":2,"unitPrice":25.00}]}\'',
+    'Failure demo: customerId containing "fail" → payment fails → compensation / cancel path',
+    'Pattern lab: cd spring-microservices-patterns-lab && mvn test  (MSP_IT=true for Testcontainers)',
   ],
 };
 

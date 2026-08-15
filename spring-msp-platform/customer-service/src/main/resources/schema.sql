@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS customers (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(128) NOT NULL,
+    email VARCHAR(256) NOT NULL,
+    tier VARCHAR(32)
+);
