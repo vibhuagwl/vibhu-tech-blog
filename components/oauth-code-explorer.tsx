@@ -1,47 +1,64 @@
 'use client';
 
-import {useEffect,useMemo,useState} from 'react';
-import {useRouter,useSearchParams} from 'next/navigation';
-import {ChevronDown,ChevronRight,Copy,Check,FileCode2,Folder} from 'lucide-react';
-import {highlightCode,normalizeLanguage} from '@/lib/syntax-highlight';
-import type {DemoSourceFile,DemoTreeNode} from '@/lib/oauth-demo-source';
+import {useEffect, useMemo, useState} from 'react';
+import {useRouter, useSearchParams} from 'next/navigation';
+import {BookOpen, Check, ChevronDown, ChevronRight, Code2, Copy, FileCode2, Folder} from 'lucide-react';
+import {highlightCode, normalizeLanguage} from '@/lib/syntax-highlight';
+import type {DemoSourceFile, DemoTreeNode} from '@/lib/oauth-demo-source';
+import MarkdownDocView from '@/components/markdown-doc-view';
 
-const HLJS_LANG:Record<string,string>={
-  java:'java',
-  xml:'xml',
-  yaml:'yaml',
-  sql:'sql',
-  bash:'bash',
-  json:'json',
-  markdown:'markdown',
-  properties:'properties',
-  html:'html',
-  text:'plaintext',
-  javascript:'javascript',
-  typescript:'typescript',
-  python:'python',
+const HLJS_LANG: Record<string, string> = {
+  java: 'java',
+  xml: 'xml',
+  yaml: 'yaml',
+  sql: 'sql',
+  bash: 'bash',
+  json: 'json',
+  markdown: 'markdown',
+  properties: 'properties',
+  html: 'html',
+  text: 'plaintext',
+  javascript: 'javascript',
+  typescript: 'typescript',
+  python: 'python',
 };
 
-function highlight(code:string,language:string){
-  const lang=normalizeLanguage(HLJS_LANG[language] ?? language) ?? 'plaintext';
-  return highlightCode(code,lang).html;
+function highlight(code: string, language: string) {
+  const lang = normalizeLanguage(HLJS_LANG[language] ?? language) ?? 'plaintext';
+  return highlightCode(code, lang).html;
+}
+
+function isMarkdown(language?: string, path?: string) {
+  return language === 'markdown' || !!path?.toLowerCase().endsWith('.md');
 }
 
 function Tree({
   nodes,
   active,
   onSelect,
-  depth=0,
-}:{
-  nodes:DemoTreeNode[];
-  active:string;
-  onSelect:(path:string)=>void;
-  depth?:number;
-}){
+  depth = 0,
+}: {
+  nodes: DemoTreeNode[];
+  active: string;
+  onSelect: (path: string) => void;
+  depth?: number;
+}) {
   return (
-    <ul className={depth===0?'space-y-0.5':'mt-0.5 space-y-0.5 border-l border-slate-200 pl-2 dark:border-slate-700'}>
-      {nodes.map((node)=>(
-        <TreeNode key={(node.path ?? node.name)+depth} node={node} active={active} onSelect={onSelect} depth={depth}/>
+    <ul
+      className={
+        depth === 0
+          ? 'space-y-0.5'
+          : 'mt-0.5 space-y-0.5 border-l border-slate-200 pl-2 dark:border-slate-700'
+      }
+    >
+      {nodes.map((node) => (
+        <TreeNode
+          key={(node.path ?? node.name) + depth}
+          node={node}
+          active={active}
+          onSelect={onSelect}
+          depth={depth}
+        />
       ))}
     </ul>
   );
@@ -52,67 +69,72 @@ function TreeNode({
   active,
   onSelect,
   depth,
-}:{
-  node:DemoTreeNode;
-  active:string;
-  onSelect:(path:string)=>void;
-  depth:number;
-}){
-  const isDir=!!node.children?.length;
-  const [open,setOpen]=useState(
-    depth<2 || (!!node.folderPath && active.startsWith(`${node.folderPath}/`))
+}: {
+  node: DemoTreeNode;
+  active: string;
+  onSelect: (path: string) => void;
+  depth: number;
+}) {
+  const isDir = !!node.children?.length;
+  const [open, setOpen] = useState(
+    depth < 2 || (!!node.folderPath && active.startsWith(`${node.folderPath}/`)),
   );
 
-  useEffect(()=>{
-    if(isDir && node.folderPath && active.startsWith(`${node.folderPath}/`)) setOpen(true);
-  },[active,isDir,node.folderPath]);
+  useEffect(() => {
+    if (isDir && node.folderPath && active.startsWith(`${node.folderPath}/`)) setOpen(true);
+  }, [active, isDir, node.folderPath]);
 
-  if(isDir){
+  if (isDir) {
     return (
       <li>
         <button
           type="button"
-          onClick={()=>setOpen((v)=>!v)}
+          onClick={() => setOpen((v) => !v)}
           className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
           aria-expanded={open}
         >
-          {open?<ChevronDown size={14}/>:<ChevronRight size={14}/>}
-          <Folder size={14} className="text-amber-600"/>
+          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <Folder size={14} className="text-amber-600" />
           <span className="truncate">{node.name}</span>
         </button>
         {open && node.children && (
-          <Tree nodes={node.children} active={active} onSelect={onSelect} depth={depth+1}/>
+          <Tree nodes={node.children} active={active} onSelect={onSelect} depth={depth + 1} />
         )}
       </li>
     );
   }
 
-  const selected=node.path===active;
+  const selected = node.path === active;
+  const md = isMarkdown(undefined, node.path);
   return (
     <li>
       <button
         type="button"
-        onClick={()=>node.path && onSelect(node.path)}
+        onClick={() => node.path && onSelect(node.path)}
         className={[
           'flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-900',
           selected
             ? 'bg-blue-50 font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-slate-300'
             : 'font-medium text-slate-600 dark:text-slate-300',
         ].join(' ')}
-        aria-current={selected?'page':undefined}
+        aria-current={selected ? 'page' : undefined}
       >
-        <FileCode2 size={14} className="shrink-0 text-slate-400"/>
+        {md ? (
+          <BookOpen size={14} className="shrink-0 text-emerald-600" />
+        ) : (
+          <FileCode2 size={14} className="shrink-0 text-slate-400" />
+        )}
         <span className="truncate">{node.name}</span>
       </button>
     </li>
   );
 }
 
-function CodePanel({content,language}:{content:string;language:string}){
-  const html=useMemo(()=>highlight(content,language),[content,language]);
-  const lineCount=content.length===0?0:content.split(/\r?\n/).length;
-  const lineNos=useMemo(
-    ()=>Array.from({length:lineCount},(_,i)=>String(i+1)).join('\n'),
+function CodePanel({content, language}: {content: string; language: string}) {
+  const html = useMemo(() => highlight(content, language), [content, language]);
+  const lineCount = content.length === 0 ? 0 : content.split(/\r?\n/).length;
+  const lineNos = useMemo(
+    () => Array.from({length: lineCount}, (_, i) => String(i + 1)).join('\n'),
     [lineCount],
   );
 
@@ -128,7 +150,7 @@ function CodePanel({content,language}:{content:string;language:string}){
               <pre className="m-0 overflow-visible text-[12.5px] leading-5">
                 <code
                   className={`hljs language-${HLJS_LANG[language] ?? 'plaintext'} font-mono whitespace-pre`}
-                  dangerouslySetInnerHTML={{__html:html}}
+                  dangerouslySetInnerHTML={{__html: html}}
                 />
               </pre>
             </td>
@@ -143,46 +165,54 @@ export default function OAuthCodeExplorer({
   files,
   tree,
   defaultPath,
-  routeBase='/oauth-jwt-demo',
-  ariaLabel='Demo source tree',
-}:{
-  files:DemoSourceFile[];
-  tree:DemoTreeNode[];
-  defaultPath:string;
-  routeBase?:string;
-  ariaLabel?:string;
-}){
-  const params=useSearchParams();
-  const router=useRouter();
-  const requested=params.get('file') ?? defaultPath;
-  const active=files.some((f)=>f.path===requested)?requested:defaultPath;
-  const current=useMemo(()=>files.find((f)=>f.path===active) ?? files[0], [files,active]);
-  const [copied,setCopied]=useState(false);
-  const [filter,setFilter]=useState('');
+  routeBase = '/oauth-jwt-demo',
+  ariaLabel = 'Demo source tree',
+}: {
+  files: DemoSourceFile[];
+  tree: DemoTreeNode[];
+  defaultPath: string;
+  routeBase?: string;
+  ariaLabel?: string;
+}) {
+  const params = useSearchParams();
+  const router = useRouter();
+  // Support both ?file= (explorer) and ?path= (page deep-links)
+  const requested = params.get('file') ?? params.get('path') ?? defaultPath;
+  const active = files.some((f) => f.path === requested) ? requested : defaultPath;
+  const current = useMemo(() => files.find((f) => f.path === active) ?? files[0], [files, active]);
+  const [copied, setCopied] = useState(false);
+  const [filter, setFilter] = useState('');
+  const markdown = isMarkdown(current?.language, current?.path);
+  const [viewSource, setViewSource] = useState(false);
 
-  const filteredTree=useMemo(()=>{
-    const q=filter.trim().toLowerCase();
-    if(!q) return tree;
-    const matched=new Set(files.filter((f)=>f.path.toLowerCase().includes(q)).map((f)=>f.path));
-    function prune(nodes:DemoTreeNode[]):DemoTreeNode[]{
-      return nodes.flatMap((n)=>{
-        if(n.path) return matched.has(n.path)?[n]:[];
-        const children=n.children?prune(n.children):[];
-        return children.length?[{...n,children}]:[];
+  useEffect(() => {
+    // Reset to rendered view when switching files
+    setViewSource(false);
+  }, [active]);
+
+  const filteredTree = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return tree;
+    const matched = new Set(files.filter((f) => f.path.toLowerCase().includes(q)).map((f) => f.path));
+    function prune(nodes: DemoTreeNode[]): DemoTreeNode[] {
+      return nodes.flatMap((n) => {
+        if (n.path) return matched.has(n.path) ? [n] : [];
+        const children = n.children ? prune(n.children) : [];
+        return children.length ? [{...n, children}] : [];
       });
     }
     return prune(tree);
-  },[tree,files,filter]);
+  }, [tree, files, filter]);
 
-  function select(path:string){
-    router.replace(`${routeBase}?file=${encodeURIComponent(path)}`,{scroll:false});
+  function select(path: string) {
+    router.replace(`${routeBase}?file=${encodeURIComponent(path)}`, {scroll: false});
   }
 
-  async function copy(){
-    if(!current) return;
+  async function copy() {
+    if (!current) return;
     await navigator.clipboard.writeText(current.content);
     setCopied(true);
-    window.setTimeout(()=>setCopied(false),1500);
+    window.setTimeout(() => setCopied(false), 1500);
   }
 
   return (
@@ -193,7 +223,7 @@ export default function OAuthCodeExplorer({
             Files ({files.length})
             <input
               value={filter}
-              onChange={(e)=>setFilter(e.target.value)}
+              onChange={(e) => setFilter(e.target.value)}
               placeholder="Filter path…"
               className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               aria-label="Filter source files"
@@ -201,7 +231,7 @@ export default function OAuthCodeExplorer({
           </label>
         </div>
         <nav aria-label={ariaLabel} className="max-h-[70vh] overflow-auto p-2">
-          <Tree nodes={filteredTree} active={active} onSelect={select}/>
+          <Tree nodes={filteredTree} active={active} onSelect={select} />
         </nav>
       </aside>
 
@@ -212,25 +242,52 @@ export default function OAuthCodeExplorer({
               {current?.path}
             </p>
             <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span className="rounded-md bg-emerald-50 px-2 py-0.5 font-semibold uppercase tracking-[.06em] text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                {current?.language}
+              <span
+                className={[
+                  'rounded-md px-2 py-0.5 font-semibold uppercase tracking-[.06em]',
+                  markdown
+                    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                    : 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300',
+                ].join(' ')}
+              >
+                {markdown ? (viewSource ? 'markdown source' : 'markdown doc') : current?.language}
               </span>
               <span>{current?.lines} lines</span>
-              {current?.language==='java' && (
+              {current?.language === 'java' && (
                 <span className="text-slate-400">Spring keywords · annotations · types colored</span>
+              )}
+              {markdown && !viewSource && (
+                <span className="text-slate-400">Rendered like a blog article</span>
               )}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={copy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
-          >
-            {copied?<Check size={14}/>:<Copy size={14}/>}
-            {copied?'Copied':'Copy'}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {markdown && (
+              <button
+                type="button"
+                onClick={() => setViewSource((v) => !v)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+              >
+                {viewSource ? <BookOpen size={14} /> : <Code2 size={14} />}
+                {viewSource ? 'View rendered' : 'View source'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={copy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
         </div>
-        {current && <CodePanel content={current.content} language={current.language}/>}
+        {current &&
+          (markdown && !viewSource ? (
+            <MarkdownDocView content={current.content} />
+          ) : (
+            <CodePanel content={current.content} language={current.language} />
+          ))}
       </section>
     </div>
   );

@@ -86,28 +86,28 @@ export default function JavaDesignPatternsRealWorldPage() {
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2Fcomposite-explanation.md"
+            href="/java-design-patterns-real-world?file=docs%2Fpatterns%2Fcomposite-explanation.md"
             className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
           >
             Composite full board (21 sections) →
           </Link>
           <span className="text-slate-300">·</span>
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2FREADME.md"
+            href="/java-design-patterns-real-world?file=docs%2Fpatterns%2FREADME.md"
             className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
           >
             All pattern boards →
           </Link>
           <span className="text-slate-300">·</span>
           <Link
-            href="/java-design-patterns-real-world?path=docs%2FPATTERN_EXPLANATION_FORMAT.md"
+            href="/java-design-patterns-real-world?file=docs%2FPATTERN_EXPLANATION_FORMAT.md"
             className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
           >
             Explanation format →
           </Link>
           <span className="text-slate-300">·</span>
           <Link
-            href="/java-design-patterns-real-world?path=docs%2FHOW_TO_RUN.md"
+            href="/java-design-patterns-real-world?file=docs%2FHOW_TO_RUN.md"
             className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
           >
             How to run →
@@ -128,21 +128,21 @@ export default function JavaDesignPatternsRealWorldPage() {
           naive code is bad → how the pattern solves it → code mapping → runtime flow → what the client need not know →
           SOLID → trade-offs → 30–60s answer. Spec:{' '}
           <Link
-            href="/java-design-patterns-real-world?path=docs%2FPATTERN_EXPLANATION_FORMAT.md"
+            href="/java-design-patterns-real-world?file=docs%2FPATTERN_EXPLANATION_FORMAT.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
           >
             PATTERN_EXPLANATION_FORMAT.md
           </Link>
           . Index:{' '}
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2FREADME.md"
+            href="/java-design-patterns-real-world?file=docs%2Fpatterns%2FREADME.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
           >
             docs/patterns/
           </Link>
           . Gold standard:{' '}
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2Fcomposite-explanation.md"
+            href="/java-design-patterns-real-world?file=docs%2Fpatterns%2Fcomposite-explanation.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
           >
             Composite
@@ -167,7 +167,7 @@ export default function JavaDesignPatternsRealWorldPage() {
                 {g.items.map((p) => (
                   <li key={p.file}>
                     <Link
-                      href={`/java-design-patterns-real-world?path=${encodeURIComponent(`docs/patterns/${p.file}`)}`}
+                      href={`/java-design-patterns-real-world?file=${encodeURIComponent(`docs/patterns/${p.file}`)}`}
                       className="block rounded-xl border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
                     >
                       <span className="font-semibold text-slate-900 dark:text-white">{p.name}</span>
@@ -217,21 +217,21 @@ export default function JavaDesignPatternsRealWorldPage() {
         <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
           Deep dive (full 21 sections):{' '}
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2Fcomposite-explanation.md"
+            href="/java-design-patterns-real-world?file=docs%2Fpatterns%2Fcomposite-explanation.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
           >
             docs/patterns/composite-explanation.md
           </Link>
           . All boards:{' '}
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2FREADME.md"
+            href="/java-design-patterns-real-world?file=docs%2Fpatterns%2FREADME.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
           >
             docs/patterns/
           </Link>
           . One-page catalog:{' '}
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fproblem-and-solution.md"
+            href="/java-design-patterns-real-world?file=docs%2Fproblem-and-solution.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
           >
             docs/problem-and-solution.md
@@ -272,7 +272,7 @@ export default function JavaDesignPatternsRealWorldPage() {
         <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
           Full command catalog and IDE tips:{' '}
           <Link
-            href="/java-design-patterns-real-world?path=docs%2FHOW_TO_RUN.md"
+            href="/java-design-patterns-real-world?file=docs%2FHOW_TO_RUN.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
           >
             docs/HOW_TO_RUN.md
