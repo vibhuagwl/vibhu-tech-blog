@@ -69,7 +69,7 @@ export const SECURITY_PATTERNS: PatternCard[] = [
     seniorFollowUps: [
       "Design compromise recovery for OAuth 2.0 Authorization.",
     ],
-    deepLabHref: "/oauth-jwt-spring-security",
+    deepLabHref: "/oauth-jwt-demo",
   },
   {
     id: "openid-connect",

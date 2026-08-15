@@ -53,7 +53,7 @@ function TopicMegaMenu({
           />
         </label>
         <Link href="/learn" className="site-mega__all" onClick={onNavigate}>
-          Full curriculum →
+          Interview paths →
         </Link>
       </div>
 

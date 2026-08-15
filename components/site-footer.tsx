@@ -3,10 +3,10 @@ import {Code2,Github,Linkedin} from 'lucide-react';
 import {TOPIC_GROUPS} from '@/lib/site-nav';
 
 const START_LINKS = [
-  {href: '/learn', label: 'Learning paths'},
+  {href: '/learn', label: 'Interview paths'},
+  {href: '/microservice-communication', label: 'How services talk'},
   {href: '/interview-questions', label: 'Interview practice'},
   {href: '/search', label: 'Search topics'},
-  {href: '/java-compiler', label: 'Java Compiler IDE'},
   {href: '/about', label: 'About'},
 ];
 
