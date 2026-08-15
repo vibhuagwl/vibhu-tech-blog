@@ -6,6 +6,14 @@ import java.util.Map;
 /**
  * PATTERN: Strategy
  *
+ * <p>PROBLEM (without this pattern) - PaymentService.pay() is a switch on UPI, CARD, PAYPAL,
+ * BANK_TRANSFER. - Adding UPI means editing the same method and all its tests. - Recurring
+ * eligibility rules mix with rail-specific charge logic.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - Each rail is a PaymentStrategy (UpiPaymentStrategy,
+ * CardPaymentStrategy, …). - PaymentMethodRouter resolves strategy by enum; PaymentService
+ * delegates pay(). - New rails add a class and registry entry — no switch growth in the service.
+ *
  * <p>WHEN TO IMPLEMENT - Multiple interchangeable algorithms/policies (payment rails, pricing,
  * sorting) selected at runtime. - You must eliminate sprawling switch/if on type codes inside one
  * service method.
@@ -119,6 +127,12 @@ public class PaymentStrategyDemo {
 
   public static void run() {
     System.out.println("=== Strategy — PaymentStrategyDemo ===");
+    System.out.println(
+        "PROBLEM: PaymentService.pay() is a growing switch on UPI, CARD, PayPal, and bank transfer,"
+            + " mixing rail-specific charge logic with recurring eligibility rules.");
+    System.out.println(
+        "SOLUTION: PaymentStrategy implementations swap charge algorithms; PaymentMethodRouter"
+            + " resolves the right strategy so PaymentService never branches on payment type.");
     System.out.println("STEP 1: PaymentService resolves strategy via PaymentMethodRouter");
     var service = new PaymentService();
     System.out.println("STEP 2: Pay with UPI strategy (runtime algorithm selection)");

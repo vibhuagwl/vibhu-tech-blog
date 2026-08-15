@@ -6,6 +6,14 @@ import java.util.Map;
 /**
  * PATTERN: Proxy
  *
+ * <p>PROBLEM (without this pattern) - Status lookups hit the core payment DB on every dashboard
+ * refresh. - Unauthorized callers could reach RealPaymentService without a central gate. - Caching
+ * and auth would be copy-pasted into every client of fetchStatus.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - PaymentServiceProxy implements PaymentService like the real
+ * subject. - Token check runs before delegate; cache avoids repeat fetches for same paymentId. -
+ * Clients use the proxy transparently — same interface, controlled access.
+ *
  * <p>WHEN TO IMPLEMENT - You need a stand-in for access control, caching, lazy init, or remote call
  * — same interface as the real subject. - Clients must not know whether they talk to local, remote,
  * or guarded implementations.
@@ -46,6 +54,12 @@ public class PaymentServiceProxyDemo {
 
   public static void run() {
     System.out.println("=== Proxy — PaymentServiceProxyDemo ===");
+    System.out.println(
+        "PROBLEM: Every status lookup hits the real payment service with no auth gate or cache,"
+            + " overloading the DB and exposing fetchStatus to unauthorized callers.");
+    System.out.println(
+        "SOLUTION: PaymentServiceProxy checks tokens and caches results before delegating to"
+            + " RealPaymentService, controlling access without changing the client interface.");
     System.out.println("STEP 1: Wrap RealPaymentService with PaymentServiceProxy (access + cache)");
     PaymentService proxy = new PaymentServiceProxy(new RealPaymentService());
     System.out.println("STEP 2: Authorized call fetches status from delegate");

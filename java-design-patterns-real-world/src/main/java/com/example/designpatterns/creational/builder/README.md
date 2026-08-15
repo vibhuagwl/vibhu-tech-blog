@@ -6,7 +6,7 @@ Building a complex payment transaction request.
 
 ## Problem
 
-Constructors with many optional fields are unreadable and error-prone.
+API clients must construct PaymentTransaction with transactionId, customerId, amount, currency, metadata, retryPolicy, fraudCheck, and callbackUrl. Teams added five constructor overloads and still ship transactions with null currency.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+A refund queued without fraudCheck bypasses screening. Metadata maps shared by reference mutate after build. Optional callback URLs are forgotten in three of twelve integration paths.
 
 ## Pattern Solution
 
-Builder composes required and optional fields with readable intent.
+PaymentTransactionBuilderDemo.Builder offers fluent setters with defaults (retryPolicy=NONE, fraudCheck=true). build() copies metadata and returns an immutable record ready for the gateway.
 
 ## Code Flow
 

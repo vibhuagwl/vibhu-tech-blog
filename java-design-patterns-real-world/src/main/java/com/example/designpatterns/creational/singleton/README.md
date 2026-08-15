@@ -6,7 +6,7 @@ Application configuration cache shared across payment services.
 
 ## Problem
 
-Many objects reload the same config file and diverge under concurrency.
+Fraud scoring, gateway routing, and ledger posting each maintain a separate copy of `payment.timeout` and `fraud.threshold`. When ops updates a threshold in one service, others keep stale values until restart.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Settlement jobs read 30s timeouts while the API gateway still uses 60s. Duplicate file parsing on every deploy multiplies memory use. Two threads constructing ConfigManager at startup can briefly see different maps.
 
 ## Pattern Solution
 
-Lazy holder singleton with enum alternative keeps one shared config source.
+Holder-based singleton (and enum alternative) guarantees one shared config source. Static accessors like `paymentTimeout()` route every module through the same instance so fraud, gateway, and ledger stay aligned.
 
 ## Code Flow
 

@@ -3,6 +3,14 @@ package com.example.designpatterns.structural.adapter;
 /**
  * PATTERN: Adapter
  *
+ * <p>PROBLEM (without this pattern) - New checkout code expects pay(customerId, amountInDollars) on
+ * ModernPaymentService. - The bank's LegacyPaymentApi only exposes submitLegacy(account, cents). -
+ * Every caller would duplicate dollar-to-cent conversion and account mapping.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - PaymentAdapter implements ModernPaymentService and wraps
+ * LegacyPaymentApi. - Translation (dollars × 100, customerId → account) lives inside the adapter. -
+ * Clients stay on the modern interface without rewriting the legacy SDK.
+ *
  * <p>WHEN TO IMPLEMENT - You must reuse an existing class/API whose interface does not match what
  * clients expect. - Integrating legacy SDK / third-party types without rewriting callers.
  *
@@ -41,6 +49,12 @@ public class LegacyPaymentAdapterDemo {
 
   public static void run() {
     System.out.println("=== Adapter — LegacyPaymentAdapterDemo ===");
+    System.out.println(
+        "PROBLEM: New payment code expects a modern pay(customerId, amount) API but the legacy bank"
+            + " SDK only accepts submitLegacy(account, cents) with incompatible parameters.");
+    System.out.println(
+        "SOLUTION: PaymentAdapter implements ModernPaymentService, wraps LegacyPaymentApi, and"
+            + " translates dollars to cents so clients never touch the legacy shape.");
     System.out.println("STEP 1: Wrap legacy API with PaymentAdapter (object adapter)");
     var adapter = new PaymentAdapter(new LegacyPaymentApi());
     System.out.println("STEP 2: Client calls modern pay(customerId, amountInDollars)");

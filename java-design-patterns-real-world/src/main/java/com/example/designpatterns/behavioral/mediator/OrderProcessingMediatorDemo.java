@@ -3,6 +3,14 @@ package com.example.designpatterns.behavioral.mediator;
 /**
  * PATTERN: Mediator
  *
+ * <p>PROBLEM (without this pattern) - PaymentService calls InventoryService which calls
+ * NotificationService directly. - Circular imports and hidden call chains make checkout hard to
+ * change. - Adding shipping means editing payment and inventory classes.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - OrderProcessingMediator is the only peer colleagues talk through.
+ * - placeOrder orchestrates authorize → reserve → notify in one place. - Colleagues no longer
+ * reference each other; coupling moves to the mediator.
+ *
  * <p>WHEN TO IMPLEMENT - Many colleagues (payment, inventory, shipping) chatter in a mesh of
  * dependencies. - You want one coordinator so services do not reference each other directly.
  *
@@ -52,6 +60,12 @@ public class OrderProcessingMediatorDemo {
 
   public static void run() {
     System.out.println("=== Mediator — OrderProcessingMediatorDemo ===");
+    System.out.println(
+        "PROBLEM: Payment, inventory, and notification services call each other directly, creating"
+            + " spaghetti dependencies and circular imports.");
+    System.out.println(
+        "SOLUTION: OrderProcessingMediator coordinates colleagues; placeOrder runs authorize,"
+            + " reserve, and notify so peers never reference each other.");
     System.out.println("STEP 1: Client talks only to OrderProcessingMediator");
     Mediator mediator = new OrderProcessingMediator();
     System.out.println("STEP 2: placeOrder coordinates payment, inventory, and notification");

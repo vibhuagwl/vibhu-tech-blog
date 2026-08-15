@@ -6,7 +6,7 @@ Create, cancel, refund, and retry payments as queueable commands.
 
 ## Problem
 
-Actions are hard-coded and cannot be queued or retried uniformly.
+Ops needs to replay last night's refund batch and audit which operator triggered each cancel. Today those are direct calls on PaymentReceiver with no history.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Failed mid-batch runs cannot resume. Compliance cannot prove who initiated a refund. Adding retry means new imperative code in the job runner, not a reusable operation object.
 
 ## Pattern Solution
 
-Command wraps an action and its data as an object.
+CreatePaymentCommand, RefundPaymentCommand, and peers wrap PaymentReceiver calls. CommandInvoker queues and executes commands, enabling audit logs, deferred execution, and future undo support.
 
 ## Code Flow
 

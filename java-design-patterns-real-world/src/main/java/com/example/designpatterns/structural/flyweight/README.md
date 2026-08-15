@@ -6,7 +6,7 @@ Thousands of transactions share the same immutable currency metadata.
 
 ## Problem
 
-Repeatedly allocating the same small immutable state wastes memory.
+End-of-day settlement materializes 5M ledger rows, each embedding `USD` and `$` strings even though the currency never changes within a batch.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Heap usage scales with row count, not currency diversity. Young-gen collections spike during batch import. Identical metadata strings fragment memory.
 
 ## Pattern Solution
 
-Flyweight shares immutable currency objects through a cache.
+CurrencyFlyweightDemo's factory returns shared CurrencyMetadata per ISO code. Line items keep only extrinsic amount; intrinsic symbol and code live once in the cache.
 
 ## Code Flow
 

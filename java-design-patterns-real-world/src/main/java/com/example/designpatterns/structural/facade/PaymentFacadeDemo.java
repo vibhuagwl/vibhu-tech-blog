@@ -6,6 +6,14 @@ import java.util.List;
 /**
  * PATTERN: Facade
  *
+ * <p>PROBLEM (without this pattern) - Mobile API must call fraud, account, payment, notification,
+ * and audit in order. - Controllers duplicate orchestration and forget a step under pressure. -
+ * Each client reimplements rejection handling when fraud blocks a charge.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - PaymentFacade.processDetailed runs the full pipeline behind one
+ * method. - Subsystems stay separate; facade coordinates and returns PaymentOutcome. - Callers pass
+ * accountId and amount — no wiring of five services.
+ *
  * <p>WHEN TO IMPLEMENT - Clients need a simple entry point over a noisy subsystem (fraud, ledger,
  * gateway, notify). - You want to hide orchestration details from controllers / use-cases.
  *
@@ -77,6 +85,12 @@ public class PaymentFacadeDemo {
 
   public static void run() {
     System.out.println("=== Facade — PaymentFacadeDemo ===");
+    System.out.println(
+        "PROBLEM: Callers must wire fraud check, account balance, charge, customer notification,"
+            + " and audit themselves, duplicating orchestration and missing steps.");
+    System.out.println(
+        "SOLUTION: PaymentFacade.processDetailed orchestrates all subsystems behind one call and"
+            + " returns a single PaymentOutcome with status, reference, and steps.");
     System.out.println("STEP 1: Client uses PaymentFacade instead of five subsystem services");
     var facade = new PaymentFacade();
     System.out.println(

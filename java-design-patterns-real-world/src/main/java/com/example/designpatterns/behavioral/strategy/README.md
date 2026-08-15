@@ -6,7 +6,7 @@ UPI, card, PayPal, and bank transfer settlement algorithms.
 
 ## Problem
 
-Payment method logic grows into fragile conditional blocks.
+One `pay(String type, int amount)` method switches on UPI, CARD, PAYPAL, and BANK_TRANSFER with duplicated validation and provider-specific charge code.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Adding BNPL means editing the monolith method and twenty integration tests. Recurring eligibility for cards is tangled with UPI error handling. Copy-paste rails diverge on idempotency keys.
 
 ## Pattern Solution
 
-Strategy swaps the payment algorithm cleanly.
+UpiPaymentStrategy, CardPaymentStrategy, and peers implement PaymentStrategy. PaymentMethodRouter maps PaymentMethod to strategy; PaymentService.process() delegates without a type switch.
 
 ## Code Flow
 

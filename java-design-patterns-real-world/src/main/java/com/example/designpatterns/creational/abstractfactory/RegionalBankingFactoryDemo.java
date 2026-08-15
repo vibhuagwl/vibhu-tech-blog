@@ -3,6 +3,15 @@ package com.example.designpatterns.creational.abstractfactory;
 /**
  * PATTERN: Abstract Factory
  *
+ * <p>PROBLEM (without this pattern) - A US merchant accidentally pairs SEPA rails with US routing
+ * account rules. - Callers pick payment and account services independently; families get mixed. -
+ * Region-specific compliance (KYC, IBAN) must always match the payment rail.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - IndiaBankingFactory, EuropeBankingFactory, and USBankingFactory
+ * each return a compatible PaymentService + AccountService pair. - Clients depend on
+ * BankingFactory; they never mix US ACH with EU IBAN rules. - One factory choice locks in the
+ * entire regional product family.
+ *
  * <p>WHEN TO IMPLEMENT - You must create families of related objects that must stay consistent (IN
  * stack vs US stack). - Mixing products across families would be invalid (wrong KYC + wrong payment
  * rail).
@@ -64,6 +73,12 @@ public class RegionalBankingFactoryDemo {
 
   public static void run() {
     System.out.println("=== Abstract Factory — RegionalBankingFactoryDemo ===");
+    System.out.println(
+        "PROBLEM: Region needs a matching family (account + payment rail + compliance); mixing US"
+            + " ACH with EU IBAN rules creates illegal payment combinations.");
+    System.out.println(
+        "SOLUTION: Regional BankingFactory returns a consistent PaymentService and AccountService"
+            + " pair so India, Europe, and US stacks never cross-contaminate.");
     System.out.println("STEP 1: Select IndiaBankingFactory (compatible product family)");
     BankingFactory factory = new IndiaBankingFactory();
     System.out.println("STEP 2: Create payment service from the same regional factory");

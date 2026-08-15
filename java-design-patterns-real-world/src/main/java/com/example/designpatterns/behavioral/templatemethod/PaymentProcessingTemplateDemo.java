@@ -6,6 +6,14 @@ import java.util.List;
 /**
  * PATTERN: Template Method
  *
+ * <p>PROBLEM (without this pattern) - Card and UPI flows duplicate validate → authenticate →
+ * process → audit → notify. - A team reordering steps in one rail forgets the same fix in the
+ * other. - Only the middle "process" step truly differs between payment types.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - PaymentProcessor.execute() is a final template fixing step order.
+ * - CardProcessor and UpiProcessor override only the process() hook. - Shared steps stay in the
+ * base class; subclasses cannot skip audit or notify.
+ *
  * <p>WHEN TO IMPLEMENT - Algorithm skeleton is fixed (validate → authorize → capture → notify) but
  * steps vary by subclass. - You need to enforce sequencing while allowing hooks.
  *
@@ -63,6 +71,12 @@ public class PaymentProcessingTemplateDemo {
 
   public static void run() {
     System.out.println("=== Template Method — PaymentProcessingTemplateDemo ===");
+    System.out.println(
+        "PROBLEM: Card and UPI payment flows copy the same validate-authenticate-audit-notify"
+            + " pipeline, risking drift when only the process step should differ.");
+    System.out.println(
+        "SOLUTION: PaymentProcessor.execute() defines a final template; CardProcessor and"
+            + " UpiProcessor override only process() while shared steps stay fixed in order.");
     System.out.println("STEP 1: CardProcessor defines fixed skeleton with card-specific process()");
     var cardSteps = new CardProcessor().execute();
     System.out.println("  Card steps: " + cardSteps);

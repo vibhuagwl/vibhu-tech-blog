@@ -6,6 +6,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * PATTERN: Decorator
  *
+ * <p>PROBLEM (without this pattern) - Production needs logging, fraud check, metrics, and retry on
+ * every charge. - Subclassing BasicPayment for each combination explodes (LoggingFraudRetry…). -
+ * Editing core payment logic risks breaking observability on every release.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - Decorators implement PaymentProcessor and wrap a delegate. -
+ * LoggingDecorator, MetricsDecorator, RetryDecorator stack in any order at runtime. - Core
+ * BasicPayment stays unchanged; cross-cutting concerns compose by nesting.
+ *
  * <p>WHEN TO IMPLEMENT - You need to add responsibilities at runtime (logging, metrics, retry,
  * encryption) without subclass explosion. - Cross-cutting wrappers around a stable core interface.
  *
@@ -114,6 +122,12 @@ public class PaymentDecoratorDemo {
 
   public static void run() {
     System.out.println("=== Decorator — PaymentDecoratorDemo ===");
+    System.out.println(
+        "PROBLEM: Adding logging, metrics, fraud check, and retry to every charge via subclasses"
+            + " would explode combinations and couple observability to core payment code.");
+    System.out.println(
+        "SOLUTION: Single-purpose decorators wrap PaymentProcessor and nest at runtime so"
+            + " cross-cutting concerns stack without editing BasicPayment.");
     System.out.println("STEP 1: Wrap BasicPayment with MetricsDecorator then LoggingDecorator");
     var audit = new java.util.ArrayList<String>();
     var metrics = new AtomicInteger();

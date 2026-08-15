@@ -5,6 +5,14 @@ import java.util.Map;
 /**
  * PATTERN: Singleton
  *
+ * <p>PROBLEM (without this pattern) - Fraud, gateway, and ledger services each load their own
+ * payment config file. - Timeouts and thresholds drift between modules; duplicate parsing wastes
+ * memory. - Under concurrency, two instances can disagree on fraud.threshold mid-settlement.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - ConfigManager exposes one JVM-wide instance via a lazy holder. -
+ * All callers read the same immutable map; paymentTimeout() never forks settings. - Enum singleton
+ * shows an alternate thread-safe single-instance style.
+ *
  * <p>WHEN TO IMPLEMENT - Exactly one shared instance must exist process-wide (config cache, metrics
  * registry, ID generator). - Callers must not construct duplicates that diverge under concurrency.
  *
@@ -53,6 +61,12 @@ public class ConfigManagerDemo {
 
   public static void run() {
     System.out.println("=== Singleton — ConfigManagerDemo ===");
+    System.out.println(
+        "PROBLEM: Many payment services each load their own config, so timeouts and fraud"
+            + " thresholds diverge and duplicate parsing wastes memory.");
+    System.out.println(
+        "SOLUTION: A single ConfigManager instance (holder-based singleton) shares one config map"
+            + " across the JVM so every caller reads identical settings.");
     System.out.println("STEP 1: Obtain ConfigManager via holder-based singleton getInstance()");
     var first = ConfigManager.getInstance();
     var second = ConfigManager.getInstance();

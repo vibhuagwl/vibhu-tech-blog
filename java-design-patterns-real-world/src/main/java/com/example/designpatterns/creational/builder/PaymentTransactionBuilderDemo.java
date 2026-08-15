@@ -7,6 +7,14 @@ import java.util.Map;
 /**
  * PATTERN: Builder
  *
+ * <p>PROBLEM (without this pattern) - PaymentTransaction has eight fields; telescoping constructors
+ * multiply quickly. - Optional metadata, retry policy, and callback URL produce invalid partial
+ * objects. - Callers forget fraudCheck or pass amount without currency before sending to gateway.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - Fluent Builder sets fields step-by-step with sensible defaults
+ * (retryPolicy, fraudCheck). - build() assembles one immutable PaymentTransaction with a complete,
+ * consistent snapshot. - Optional fields stay optional without constructor overload explosion.
+ *
  * <p>WHEN TO IMPLEMENT - Object has many optional fields / validation rules and telescoping
  * constructors become unreadable. - You need immutable domain objects built step-by-step with
  * invariants checked at {@code build()}.
@@ -97,6 +105,12 @@ public class PaymentTransactionBuilderDemo {
 
   public static void run() {
     System.out.println("=== Builder — PaymentTransactionBuilderDemo ===");
+    System.out.println(
+        "PROBLEM: Telescoping constructors and half-filled PaymentTransaction objects let optional"
+            + " fields like retryPolicy or fraudCheck slip through to the gateway.");
+    System.out.println(
+        "SOLUTION: Fluent Builder sets required and optional fields step-by-step; build() returns"
+            + " one immutable, fully specified PaymentTransaction.");
     System.out.println("STEP 1: Start fluent Builder for a payment transaction");
     System.out.println("STEP 2: Set required fields and optional metadata step-by-step");
     var tx =

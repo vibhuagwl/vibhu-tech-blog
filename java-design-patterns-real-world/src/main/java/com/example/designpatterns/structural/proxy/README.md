@@ -6,7 +6,7 @@ Protect and meter access to a payment service.
 
 ## Problem
 
-Clients call the real service without auth, logging, or rate limits.
+Support dashboards poll `fetchStatus(paymentId)` hundreds of times per minute. Each call reaches the core ledger service with no auth check and no caching.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+DB connection pools saturate during incidents. A leaked internal URL lets unauthenticated scripts scrape settlement status. Every client reimplements token validation differently.
 
 ## Pattern Solution
 
-Proxy controls access before delegating to the real service.
+PaymentServiceProxy implements PaymentService, rejects bad tokens, and caches SETTLED responses per paymentId before delegating to RealPaymentService.
 
 ## Code Flow
 

@@ -6,7 +6,7 @@ Integrate a legacy bank settlement API into a modern payment interface.
 
 ## Problem
 
-The legacy provider uses incompatible request/response shapes.
+The mobile app calls `pay(customerId, 10)` but the only available integration is a 15-year-old bank SDK with `submitLegacy(account, cents)`.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Every new feature reimplements cent conversion and account mapping. A missed multiply-by-100 undercharges merchants. Replacing the SDK is a multi-year project.
 
 ## Pattern Solution
 
-Adapter translates modern payment requests to the legacy API.
+PaymentAdapter implements ModernPaymentService, delegates to LegacyPaymentApi, and centralizes translation. Checkout, refunds, and webhooks all speak the modern interface.
 
 ## Code Flow
 

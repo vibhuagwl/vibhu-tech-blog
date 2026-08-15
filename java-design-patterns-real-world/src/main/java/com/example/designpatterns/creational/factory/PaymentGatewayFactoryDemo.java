@@ -3,6 +3,14 @@ package com.example.designpatterns.creational.factory;
 /**
  * PATTERN: Factory Method
  *
+ * <p>PROBLEM (without this pattern) - Checkout and refund services hard-code `new StripeGateway()`
+ * or `new PaypalGateway()`. - Adding Adyen or switching default provider forces edits across every
+ * caller. - Provider-specific construction (API keys, region) leaks into business logic.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - PaymentGatewayFactory centralizes the switch on Provider enum. -
+ * Callers depend on PaymentGateway interface; factory returns the right concrete type. - New
+ * providers are added in one place without touching charge flows.
+ *
  * <p>WHEN TO IMPLEMENT - Callers need one of several implementations but must not hard-code
  * concrete classes (if/switch of {@code new}). - Creation logic may grow (credentials, region,
  * feature flags) while the product interface stays stable.
@@ -58,6 +66,12 @@ public class PaymentGatewayFactoryDemo {
 
   public static void run() {
     System.out.println("=== Factory Method — PaymentGatewayFactoryDemo ===");
+    System.out.println(
+        "PROBLEM: Callers hard-code new StripeGateway() or PaypalGateway(); adding Adyen means"
+            + " editing every checkout and refund path.");
+    System.out.println(
+        "SOLUTION: PaymentGatewayFactory.create(Provider) returns the right PaymentGateway"
+            + " implementation from one branch so callers never instantiate concrete gateways.");
     System.out.println("STEP 1: Create PaymentGatewayFactory (centralizes provider branching)");
     var factory = new PaymentGatewayFactory();
     System.out.println("STEP 2: Request STRIPE gateway without hard-coding new StripeGateway()");

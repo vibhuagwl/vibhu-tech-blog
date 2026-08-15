@@ -3,6 +3,14 @@ package com.example.designpatterns.behavioral.visitor;
 /**
  * PATTERN: Visitor
  *
+ * <p>PROBLEM (without this pattern) - Interest, tax, and fee calculations need different math per
+ * account type. - Adding "annual fee" means editing SavingsAccount, CurrentAccount, LoanAccount. -
+ * Account classes swell with unrelated reporting methods.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - InterestCalculationVisitor implements type-specific visit methods
+ * externally. - Each account accept(visitor) double-dispatches to the right visit overload. - New
+ * operations add a visitor class without touching account definitions.
+ *
  * <p>WHEN TO IMPLEMENT - You need many operations over a stable object structure without polluting
  * element classes. - Adding operations is frequent; adding new element types is rare.
  *
@@ -63,6 +71,12 @@ public class AccountVisitorDemo {
 
   public static void run() {
     System.out.println("=== Visitor — AccountVisitorDemo ===");
+    System.out.println(
+        "PROBLEM: New operations like interest calculation force edits to SavingsAccount,"
+            + " CurrentAccount, and LoanAccount, bloating each type with reporting methods.");
+    System.out.println(
+        "SOLUTION: InterestCalculationVisitor adds operation logic externally; accept(visitor)"
+            + " double-dispatches to the correct visit method per account type.");
     System.out.println("STEP 1: Create accounts of different types (stable structure)");
     Account savings = new SavingsAccount(10000);
     Account current = new CurrentAccount(5000);

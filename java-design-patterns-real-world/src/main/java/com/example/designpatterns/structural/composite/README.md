@@ -6,7 +6,7 @@ Orders contain single products and bundles.
 
 ## Problem
 
-Client code treats bundles differently from items and duplicates traversal logic.
+A cart holds a book ($20), a bag ($80), and a gift bundle that itself contains two accessories. Pricing code has separate paths for line items vs bundles.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Nested bundles double-count or skip items. Promotions applied at bundle level miss leaf products. Every new bundle type forks the total() method.
 
 ## Pattern Solution
 
-Composite lets one item and many items share the same interface.
+OrderCompositeDemo treats Product and Bundle as OrderComponent. Bundle.total() delegates to children recursively, so checkout calls total() once whether the cart is flat or deeply nested.
 
 ## Code Flow
 

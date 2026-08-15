@@ -6,7 +6,7 @@ Order, payment, inventory, and notification services coordinate centrally.
 
 ## Problem
 
-Every service talks to every other service and coupling explodes.
+Checkout triggers PaymentService.authorize, which calls InventoryService.reserve, which calls NotificationService.notifyCustomer — each service imports the others.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Adding shipping requires edits in three services. Integration tests need the entire mesh running. A failure in notification rolls back logic scattered across classes.
 
 ## Pattern Solution
 
-Mediator coordinates interactions and reduces direct dependencies.
+OrderProcessingMediatorDemo's placeOrder sequences payment, inventory, and notification. Colleagues expose narrow methods; only the mediator wires the workflow.
 
 ## Code Flow
 

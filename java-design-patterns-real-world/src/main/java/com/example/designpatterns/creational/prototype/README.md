@@ -6,7 +6,7 @@ Clone report templates for daily settlement reports.
 
 ## Problem
 
-Template creation is expensive and hand-copying misses nested metadata.
+Treasury generates daily-settlement CSV reports for 40 countries. Each run rebuilds filters, format, and column maps from YAML even though only the country code changes.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Startup latency grows linearly with region count. A typo in one YAML file ships wrong filters. Shallow clones let one tenant's edit corrupt another's report definition.
 
 ## Pattern Solution
 
-Prototype clones a base configuration and demonstrates deep copy.
+ReportConfigurationPrototypeDemo keeps a validated base template. deepCopy() produces an independent clone; mutating the clone's country filter leaves the prototype intact.
 
 ## Code Flow
 

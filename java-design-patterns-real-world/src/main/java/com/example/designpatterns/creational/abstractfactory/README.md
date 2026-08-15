@@ -6,7 +6,7 @@ India, Europe, and US banking packs create compatible account and payment servic
 
 ## Problem
 
-Teams accidentally mix Europe account rules with India payment rails.
+Onboarding picks `UPI payment rail` from India config but loads `US routing account rules` because two separate factories were wired by mistake.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+SEPA transfers post against accounts without IBAN validation. Compliance audits flag mismatched KYC packs. Each new region means combinatorial if-else across account, statement, and payment modules.
 
 ## Pattern Solution
 
-Abstract factory creates compatible service families per region.
+IndiaBankingFactory, EuropeBankingFactory, and USBankingFactory each vend a complete family. Selecting one factory guarantees payment rail and account rules stay in the same regulatory region.
 
 ## Code Flow
 

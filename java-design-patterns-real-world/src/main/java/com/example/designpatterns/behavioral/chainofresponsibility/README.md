@@ -6,7 +6,7 @@ Validation pipeline for payment requests.
 
 ## Problem
 
-One validator class becomes a massive list of unrelated checks.
+Payment submission runs authentication, amount limits, fraud flags, and account status inside a single service method with deeply nested conditionals.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Compliance asks to run fraud before amount check; the change risks regressions across all branches. Unit tests mock the entire method instead of one rule. Duplicate validation logic appears in batch and API paths.
 
 ## Pattern Solution
 
-Chain passes a request through dedicated validators that may reject it.
+PaymentValidationChainDemo links AuthenticationValidator → AmountValidator → FraudValidator → AccountValidator. Each handler passes or stops; new rules insert as new links without editing peers.
 
 ## Code Flow
 

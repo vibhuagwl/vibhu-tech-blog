@@ -6,6 +6,14 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * PATTERN: Flyweight
  *
+ * <p>PROBLEM (without this pattern) - Settlement creates millions of MoneyLine objects each storing
+ * USD symbol and code. - Identical currency metadata is duplicated in heap for every transaction
+ * row. - GC pressure grows with volume even though only ~150 ISO codes exist.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - CurrencyFactory caches CurrencyMetadata flyweights keyed by code.
+ * - Millions of amounts share one USD instance; extrinsic amount stays per line. - Cache size stays
+ * bounded by distinct currencies, not transaction count.
+ *
  * <p>WHEN TO IMPLEMENT - Huge numbers of similar objects share immutable intrinsic state (currency
  * metadata, glyph metrics). - Memory pressure from duplicating identical data.
  *
@@ -44,6 +52,12 @@ public class CurrencyFlyweightDemo {
 
   public static void run() {
     System.out.println("=== Flyweight — CurrencyFlyweightDemo ===");
+    System.out.println(
+        "PROBLEM: Millions of money line items each duplicate currency code and symbol metadata,"
+            + " inflating heap use even though only ~150 ISO currencies exist.");
+    System.out.println(
+        "SOLUTION: CurrencyFactory caches shared CurrencyMetadata flyweights by code so every"
+            + " amount references one intrinsic instance per currency.");
     System.out.println("STEP 1: Create CurrencyFactory with shared intrinsic metadata cache");
     var factory = new CurrencyFactory();
     System.out.println("STEP 2: Request USD and INR metadata multiple times");

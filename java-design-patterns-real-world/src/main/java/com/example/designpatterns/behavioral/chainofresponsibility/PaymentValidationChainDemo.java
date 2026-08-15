@@ -3,6 +3,14 @@ package com.example.designpatterns.behavioral.chainofresponsibility;
 /**
  * PATTERN: Chain of Responsibility
  *
+ * <p>PROBLEM (without this pattern) - validatePayment() grows into a 200-line method: auth, amount,
+ * fraud, account. - Reordering checks or adding KYC means editing the monolith and retesting
+ * everything. - Early returns are buried in nested if-else blocks.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - Each Validator handles one concern and links to the next via
+ * linkWith. - validate() walks the chain; first failure short-circuits with a clear code. - New
+ * validators plug in without touching existing handler code.
+ *
  * <p>WHEN TO IMPLEMENT - A request must pass through ordered handlers (validate → fraud → limit)
  * where each may stop or continue. - Handlers should be reorderable/extendable without editing a
  * central switchboard.
@@ -63,6 +71,12 @@ public class PaymentValidationChainDemo {
 
   public static void run() {
     System.out.println("=== Chain of Responsibility — PaymentValidationChainDemo ===");
+    System.out.println(
+        "PROBLEM: One mega validatePayment() method chains auth, amount, fraud, and account checks"
+            + " in nested if-else, making reordering or adding validators risky.");
+    System.out.println(
+        "SOLUTION: Linked Validator handlers each check one concern; validate() walks the chain and"
+            + " short-circuits on the first failure.");
     System.out.println("STEP 1: Link validators: Authentication → Amount → Fraud → Account");
     var chain = new AuthenticationValidator();
     chain

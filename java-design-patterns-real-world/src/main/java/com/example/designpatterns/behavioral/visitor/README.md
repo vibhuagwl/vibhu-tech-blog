@@ -6,7 +6,7 @@ Savings, current, and loan accounts support new reporting operations.
 
 ## Problem
 
-Adding interest, tax, and audit logic bloats account classes.
+Finance needs interest accrual today and regulatory capital reporting next quarter across savings, current, and loan accounts.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Each new report adds methods to every account class. LoanAccount grows unrelated to savings features. Merge conflicts spike whenever tax rules change.
 
 ## Pattern Solution
 
-Visitor adds operations without changing stable account objects.
+AccountVisitorDemo keeps accounts stable. InterestCalculationVisitor implements visit per type; account.accept(visitor) routes via double dispatch so new operations ship as new visitors.
 
 ## Code Flow
 

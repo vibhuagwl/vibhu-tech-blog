@@ -6,7 +6,7 @@ Evaluate simple AML transaction rules.
 
 ## Problem
 
-Business analysts need simple amount/country expressions checked at runtime.
+Risk team defines waiver rules as `amount > 1000 AND country = "IN"` but engineering encodes each combination as nested if statements in Java.
 
 ## Naive Implementation
 
@@ -14,11 +14,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+A rule change needs a full release. OR conditions duplicate branches. Business analysts cannot validate logic without reading production code.
 
 ## Pattern Solution
 
-Interpreter parses and evaluates a tiny domain rule language.
+TransactionRuleInterpreterDemo parses rule strings into AmountGreaterThan, CountryEquals, and AndExpression nodes. interpret() walks the AST against each Transaction at runtime.
 
 ## Code Flow
 

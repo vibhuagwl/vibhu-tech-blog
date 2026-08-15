@@ -6,6 +6,14 @@ import java.util.List;
 /**
  * PATTERN: State
  *
+ * <p>PROBLEM (without this pattern) - Payment status is a string flag; capture() runs before
+ * authorize() in bugs. - Giant switch on status spreads illegal-transition checks everywhere. -
+ * FAILED and COMPLETED paths interleave in one class.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - Each lifecycle phase is a PaymentState object (Created,
+ * Authorized, Captured…). - Illegal operations throw from the current state; legal ones return the
+ * next state. - Payment context delegates transitions; timeline records every phase change.
+ *
  * <p>WHEN TO IMPLEMENT - Object behavior changes with an explicit lifecycle (CREATED → AUTHORIZED →
  * CAPTURED → FAILED). - Transitions and allowed operations differ per state; giant switch on status
  * is becoming unsafe.
@@ -237,6 +245,12 @@ public class PaymentStateDemo {
 
   public static void run() {
     System.out.println("=== State — PaymentStateDemo ===");
+    System.out.println(
+        "PROBLEM: String status flags let capture() run before authorize(); illegal lifecycle moves"
+            + " hide inside giant switch statements.");
+    System.out.println(
+        "SOLUTION: Explicit PaymentState objects enforce legal transitions (authorize → capture →"
+            + " settle → complete) and reject invalid operations at the current state.");
     System.out.println("STEP 1: Payment starts in CREATED state");
     var payment = new Payment();
     System.out.println("  Timeline: " + payment.timeline());
