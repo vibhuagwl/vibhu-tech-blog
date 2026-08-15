@@ -151,7 +151,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/spring-annotations',label:'Spring Annotations',blurb:'Proxies · @Transactional'},
       {href:'/java-concurrency',label:'Java Concurrency',blurb:'JMM · pools · virtual threads'},
       {href:'/encryption',label:'Encryption',blurb:'TLS · AES-GCM · mTLS'},
-      {href:'/performance',label:'Performance',blurb:'Latency · cache · JVM'},
+      {href:'/performance',label:'Performance',blurb:'Measure · bottleneck · Java/AWS'},
       {href:'/redis-interview',label:'Redis',blurb:'Cache · locks · HA'},
       {href:'/java-compiler',label:'Java Compiler',blurb:'Live IDE practice'},
     ],
