@@ -75,7 +75,7 @@ mvn -q clean test
 1. ~~Basic Gateway + StripPrefix + correlation~~  
 2. ~~Eureka + `lb://`~~ (local learning)  
 3. ~~Multi-instance LB~~ (local)  
-4. ~~AWS ECS + ALB + Cloud Map via **Terraform** (no Eureka)~~  
+4. ~~AWS production: internal ALB, CB/timeouts, WAF, autoscaling~~  
 5. JWT at Gateway  
 6. Roles / Redis rate limit / CB / K8s  
 
