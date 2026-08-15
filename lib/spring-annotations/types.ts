@@ -66,3 +66,61 @@ export type StoryBeat = {
   say: string;
   memory: string;
 };
+
+export type InterviewImportance = 'critical' | 'high' | 'medium' | 'niche' | 'low';
+
+export type InventoryEntry = {
+  id: string;
+  annotation: string;
+  module: string;
+  category: string;
+  interviewImportance: InterviewImportance;
+  stack: string;
+  package: string;
+  what: string;
+  processor: string;
+  proxy: string;
+  phase: string;
+  when: string;
+  trap: string;
+  memory: string;
+};
+
+export type InterviewImportance = 'must' | 'high' | 'medium' | 'low';
+
+export type InventoryFamily =
+  | 'core-meta'
+  | 'jmx'
+  | 'config'
+  | 'stereotype'
+  | 'di'
+  | 'lifecycle'
+  | 'conditional-boot'
+  | 'aop'
+  | 'transaction'
+  | 'cache'
+  | 'async'
+  | 'schedule'
+  | 'events';
+
+export type InventoryEntry = {
+  id: string;
+  annotation: string;
+  family: InventoryFamily;
+  module: string;
+  javaPackage: string;
+  elementType: string;
+  what: string;
+  why: string;
+  when: string;
+  processor: string;
+  example: string;
+  interviewImportance: InterviewImportance;
+  versionNotes: string;
+  proxyRelevant: string;
+  lifecyclePhase: string;
+  commonMistakes: string[];
+  interviewTraps: string[];
+  relatedAnnotations: string[];
+  memory: string;
+};
