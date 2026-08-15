@@ -204,10 +204,10 @@ Do not guess. Mitigate with evidence.`}
             </div>
           </Section>
 
-          <Section id="commands" title="Command Toolbox">
+          <Section id="commands" title="Command Toolbox" lead="Command → tells me → abnormal → next.">
             <MiniTable
-              headers={['Layer', 'Commands', 'When', 'Look for']}
-              rows={COMMANDS.map((r) => [r.g, r.c, r.w, r.l])}
+              headers={['Layer', 'Command', 'Tells me', 'Abnormal', 'Next']}
+              rows={COMMANDS.map((r) => [r.g, r.c, r.t, r.a, r.n])}
             />
           </Section>
 
