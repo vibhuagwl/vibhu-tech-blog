@@ -9,156 +9,299 @@
 | **Name** | Proxy |
 | **Category** | Structural |
 | **One-line definition** | Provide a surrogate or placeholder that controls access to another object implementing the same interface. |
-| **Problem class** | Need auth, caching, or lazy access in front of a real service without changing clients or core logic. |
+| **Problem class** | Cross-cutting **access control** — clients need the real service interface, but something must gate, cache, or delay access before delegation. |
 
 ## 2. Problem We Are Solving
 
-Dashboard polls `fetchStatus(paymentId)` on every refresh. Without a gate:
+A payments dashboard calls `fetchStatus(paymentId, token)` on every refresh:
 
-- Every lookup hits `RealPaymentService` / payment DB
-- Unauthorized callers reach real service with no token check
-- Caching logic copy-pasted in every client
+```text
+GET /status/pay-9001  →  PaymentService.fetchStatus("pay-9001", token)
+```
+
+Production pain points:
+
+| Issue | Impact |
+|-------|--------|
+| No auth gate | Any caller with the interface hits `RealPaymentService` |
+| No cache | Same `pay-9001` queried 50×/minute → 50 DB hits |
+| Tight coupling | Every client must implement token check + cache if added later |
+
+Example from demo:
+
+- Authorized: `fetchStatus("pay-9001", "ALLOW")` → `"SETTLED:pay-9001"`
+- Unauthorized: `fetchStatus("pay-9001", "DENY")` → `SecurityException`
+
+The painful question:
+
+> How do we add **authorization and caching** without changing the client code or duplicating checks in every dashboard widget?
+
+Relationships that make this hard:
+
+- **Client** — expects `PaymentService` interface only
+- **Real subject** (`RealPaymentService`) — expensive DB lookup; no built-in cache
+- **Proxy** — same interface; decides whether/when to delegate
 
 ## 3. What Happens Without the Pattern
 
-Direct `RealPaymentService` calls — no auth, no cache, DB overload, security gap.
+Every client implements access + cache inline:
 
-Or duplicated `if (token) cache.get...` in each controller.
+```java
+// DashboardController
+if (!"ALLOW".equals(token)) throw new SecurityException("unauthorized");
+if (cache.containsKey(paymentId)) return cache.get(paymentId);
+String status = realService.fetchStatus(paymentId, token);
+cache.put(paymentId, status);
+return status;
+
+// MobileStatusWidget — copy-paste, slightly different cache
+if (!token.equals("ALLOW")) return "error";
+// forgot cache entirely — hammers DB
+
+// AdminPanel — no auth check at all
+return realService.fetchStatus(paymentId, token);
+```
+
+Concrete pains:
+
+1. **Security holes** — one client skips token validation
+2. **Duplicated caching** — inconsistent TTLs, unbounded maps per client
+3. **DB overload** — dashboard auto-refresh multiplies identical queries
+4. **Hard to swap implementation** — remote vs local service leaks to clients
+5. **Testing burden** — every client tests auth and cache behavior
+
+SOLID hits: **SRP** (UI owns display + security + caching), **OCP** (adding lazy-init edits all clients), **DIP** (clients depend on concrete `RealPaymentService`).
 
 ## 4. How the Pattern Solves It
 
-1. **Subject** — `PaymentService` interface
-2. **Real subject** — `RealPaymentService`
-3. **Proxy** — `PaymentServiceProxy` implements same interface
-4. **Controls access** — token must be `"ALLOW"`
-5. **Caches** — `computeIfAbsent` on `paymentId` before delegate
+Conceptual chain:
+
+1. **Problem** — status lookups need auth + cache; clients shouldn't own that
+2. **Naive pain** — copy-pasted token checks and `HashMap` caches everywhere
+3. **Pattern introduces** — `PaymentServiceProxy` implements `PaymentService` like the real subject
+4. **Proxy controls access** — reject bad token before delegate
+5. **Proxy caches** — `computeIfAbsent` on `paymentId` avoids repeat DB hits
+6. **Client simplifies** — `PaymentService svc = new PaymentServiceProxy(new RealPaymentService())`
+
+Control logic moves **from clients into the proxy**.
 
 ## 5. Pattern → Code Mapping
 
-| Role | Demo type | Why |
-|------|-----------|-----|
-| **Subject** | `PaymentService` | `fetchStatus(paymentId, token)` |
-| **Real subject** | `RealPaymentService` | Actual DB/logic |
-| **Proxy** | `PaymentServiceProxy` | Auth + cache + delegate |
-| **Client** | `PaymentServiceProxyDemo.run()` | Uses proxy transparently |
+| Pattern role | Demo class / type | Why this role |
+|--------------|-------------------|---------------|
+| **Subject** | `PaymentService` (interface) | Common contract for real + proxy |
+| **Real Subject** | `RealPaymentService` | Actual status lookup (`SETTLED:paymentId`) |
+| **Proxy** | `PaymentServiceProxy` | Auth check + cache before delegate |
+| **Client** | `PaymentServiceProxyDemo.run()` | Uses proxy transparently — same `fetchStatus` call |
+
+This is a **protection proxy** (auth) combined with a **caching proxy**.
 
 ## 6. Important Code Lines
 
-| Code | Significance |
-|------|--------------|
-| `if (!"ALLOW".equals(token)) throw SecurityException` | Access control before delegate |
-| `cache.computeIfAbsent(paymentId, id -> delegate.fetchStatus(...))` | Cache on successful auth path |
-| `PaymentService proxy = new PaymentServiceProxy(new RealPaymentService())` | Transparent substitution |
-| Second `fetchStatus("pay-9001", "ALLOW")` | Hits cache, not delegate |
+| Code | Design significance |
+|------|---------------------|
+| `interface PaymentService { String fetchStatus(String paymentId, String token); }` | Subject — proxy and real share this |
+| `private final PaymentService delegate` | Proxy wraps real subject via composition |
+| `if (!"ALLOW".equals(token)) throw new SecurityException(...)` | Access control before any delegate or cache |
+| `cache.computeIfAbsent(paymentId, id -> delegate.fetchStatus(id, token))` | Cache miss delegates once; hits skip real service |
+| `PaymentService proxy = new PaymentServiceProxy(new RealPaymentService())` | Client binds to interface; proxy is transparent |
 
 ## 7. Object/Class Diagram
 
 ```text
-Client ──► PaymentService
-              ▲           ▲
-              │           │
-    PaymentServiceProxy   RealPaymentService
-    - delegate            (real subject)
-    - cache
+┌─────────────────┐
+│ Client          │
+│ (dashboard)     │
+└────────┬────────┘
+         │ fetchStatus(paymentId, token)
+         ▼
+┌─────────────────────────────────────┐
+│ PaymentServiceProxy                 │
+│ - delegate: PaymentService          │
+│ - cache: Map<String, String>        │
+│ + fetchStatus(id, token)            │
+│   1. validate token                 │
+│   2. cache lookup / computeIfAbsent │
+└────────┬────────────────────────────┘
+         │ delegate on cache miss
+         ▼
+┌─────────────────────────────────────┐
+│ RealPaymentService                  │
+│ + fetchStatus(id, token)            │
+│   → "SETTLED:" + paymentId          │
+└─────────────────────────────────────┘
 ```
 
 ## 8. Runtime Execution Flow
 
+From `PaymentServiceProxyDemo.run()`:
+
 ```text
-proxy = new PaymentServiceProxy(new RealPaymentService())
+Setup:
+  proxy = PaymentServiceProxy(RealPaymentService())
 
-first = proxy.fetchStatus("pay-9001", "ALLOW")
-  → token OK
-  → cache miss → delegate → "SETTLED:pay-9001"
+First call — cache miss:
+  proxy.fetchStatus("pay-9001", "ALLOW")
+    token == "ALLOW" → pass auth
+    cache miss on "pay-9001"
+    delegate.fetchStatus("pay-9001", "ALLOW")
+      → RealPaymentService returns "SETTLED:pay-9001"
+    cache["pay-9001"] = "SETTLED:pay-9001"
+  Output: First call: SETTLED:pay-9001
 
-second = proxy.fetchStatus("pay-9001", "ALLOW")
-  → token OK
-  → cache hit → "SETTLED:pay-9001" (no delegate call)
+Second call — cache hit:
+  proxy.fetchStatus("pay-9001", "ALLOW")
+    token == "ALLOW" → pass auth
+    cache hit on "pay-9001"
+    return "SETTLED:pay-9001"  (no delegate call)
+  Output: Cached call: SETTLED:pay-9001
+
+Unauthorized call (not in demo run, but code path):
+  proxy.fetchStatus("pay-9001", "DENY")
+    token != "ALLOW"
+    throw SecurityException("unauthorized")
+    → delegate never called; cache untouched
 ```
-
-Unauthorized token throws before cache or delegate.
 
 ## 9. What the Client Doesn't Need to Know
 
-- Whether response came from cache or DB
-- That proxy wraps real service
-- Cache map structure
+- That a proxy sits in front of `RealPaymentService`
+- Cache existence, map type, or eviction policy
+- That first call hits DB and second does not
+- Token validation rules beyond passing `"ALLOW"`
+- Whether tomorrow's subject is local, remote, or mocked
+
+Client mental model: **`PaymentService.fetchStatus`** — same as always.
 
 ## 10. Before vs After
 
-**Before:** Client → real service (no gate, no cache).
+### Without Proxy
 
-**After:** Client → proxy → (auth, cache) → real service.
+```text
+Dashboard  ──► auth? cache? ──► RealPaymentService ──► DB
+Mobile     ──► auth? (no cache) ──► RealPaymentService ──► DB
+Admin      ──► (no auth) ──► RealPaymentService ──► DB
+```
+
+Each client **controls** access and caching ad hoc.
+
+### With Proxy
+
+```text
+Dashboard ──┐
+Mobile    ──┼──► PaymentServiceProxy ──► RealPaymentService ──► DB
+Admin     ──┘         │
+                  auth + cache
+                  (centralized)
+```
+
+**Proxy controls access; clients do not.**
 
 ## 11. SOLID / Design Principles
 
-| Principle | Application |
-|-----------|-------------|
-| **SRP** | Proxy controls access; real subject owns status logic |
-| **DIP** | Client depends on `PaymentService` interface |
-| **Open/Closed** | Add logging proxy without changing real subject |
+| Principle | How Proxy applies |
+|-----------|------------------|
+| **Single Responsibility** | Real subject owns status logic; proxy owns access + cache |
+| **Open/Closed** | Add logging proxy or remote proxy without changing client |
+| **Liskov** | Proxy substitutable anywhere `PaymentService` is expected |
+| **Dependency Inversion** | Client depends on `PaymentService`, not `RealPaymentService` |
+| **Interface Segregation** | Thin subject interface — proxy doesn't force extra methods |
 
 ## 12. Extensibility
 
-- Virtual proxy: lazy-create expensive real subject
-- Remote proxy: RMI/HTTP wrapper same interface
-- Protection proxy: role-based tokens
+| Change | Approach | Trade-off |
+|--------|----------|-----------|
+| TTL cache | `LoadingCache` with expiry instead of `HashMap` | Stale status until TTL |
+| Remote service | Remote proxy implements `PaymentService` via HTTP | Virtual proxy variant |
+| Lazy init | Proxy creates `RealPaymentService` on first authorized call | Virtual proxy — watch thread safety |
+| Logging | Another proxy layer or combine in one class | Multiple proxies can chain (careful with order) |
+
+Do not reimplement `SETTLED:` business logic in proxy — only control access and delegation.
 
 ## 13. Advantages
 
-- Transparent access control and caching
-- Real subject unchanged
-- Same interface — client substitution easy
+- Transparent to client — same interface
+- Centralized security and caching
+- Protects expensive real subject from abuse
+- Easy to inject mock proxy in tests
+- Supports virtual (lazy), remote, and protection variants
 
 ## 14. Disadvantages
 
-- Extra indirection and latency on first call
-- Stale cache if status changes
-- vs Decorator: proxy **controls** access; decorator **adds** behavior
+- Extra indirection — one more hop per call
+- Stale cache if status changes — need TTL or invalidation
+- Proxy can grow into god-object (auth + cache + log + retry)
+- Debugging "why no DB call?" requires knowing proxy layer exists
+- Wrong proxy in DI wiring → subtle production bugs
 
 ## 15. When to Use
 
-1. Auth gate before payment status API
-2. Cache expensive lookups
-3. Lazy initialization of heavy service
+1. Authorization before expensive `fetchStatus` (this demo)
+2. Caching read-heavy, rarely-changing data
+3. Lazy initialization of costly `RealPaymentService`
+4. Remote proxy — RMI, HTTP client implementing same interface
+5. Smart references — counting, locking, copy-on-write
 
 ## 16. When NOT to Use
 
-1. Add behavior freely without access control — Decorator
-2. Interface mismatch — Adapter
+1. Need to **add arbitrary behavior** to every method call — Decorator intent is clearer
+2. Interface mismatch between client and service — use Adapter
+3. Framework AOP (`@Cacheable`, `@PreAuthorize`) already applies uniformly
+4. Caching needs distributed consistency — use Redis + dedicated cache layer
+5. Only one caller — inline check may suffice
 
 ## 17. Edge Cases / Production Concerns
 
-| Concern | Note |
-|---------|------|
-| Cache TTL | Status changes — evict or time-bound cache |
-| Security | Token check on every call even if cached |
-| Lazy init | Synchronize double-checked creation |
-| Distributed cache | Cluster-wide proxy cache consistency |
+| Concern | In this demo | Production note |
+|---------|--------------|-----------------|
+| **Stale cache** | No TTL | Invalidate on status webhook; or short TTL |
+| **Cache key** | `paymentId` only | Include tenant/shard in key |
+| **Auth** | Binary `"ALLOW"` token | JWT validation, RBAC, audit denied attempts |
+| **Thread safety** | `HashMap` not thread-safe | `ConcurrentHashMap` for multi-thread dashboard |
+| **Cache size** | Unbounded | LRU cap; don't OOM on many IDs |
+| **Token on cache hit** | Auth runs every call | Good — don't skip auth on cached path (demo does this) |
 
 ## 18. Possible Code Improvements
 
-**Required:** Cache TTL; invalidate on status update event.
+### Required (correctness)
 
-**Optional:** Spring `@Cacheable` on real service with security filter.
+- `ConcurrentHashMap` for thread-safe cache
+- Cache TTL or event-driven invalidation when payment settles
+
+### Optional (clarity / prod)
+
+- Separate `AuthorizationProxy` and `CachingProxy` in a chain
+- Metrics: cache hit rate, auth rejection count
+- Real JWT validation instead of `"ALLOW"` string
+- `@Cacheable` on `RealPaymentService` if Spring already in stack
 
 ## 19. Mental Model
 
-**"Bouncer + memo pad."** Check ID at door; remember answer for repeat questions.
+**Formula:**
+
+```text
+Problem:  Clients need service API but access must be controlled
+Solution: Proxy implements same interface, gates then delegates
+Benefit:  Security + cache in one place; client unchanged
+```
+
+Memory trick: **"Bodyguard at the door — same reception desk, checks ID first."**
 
 ## 20. 30–60 Second Interview Answer
 
-> Proxy provides a stand-in with the same interface that controls access to a real object. Dashboard status lookups hit the DB every refresh and skip auth. `PaymentServiceProxy` implements `PaymentService`, checks token equals ALLOW, then uses `computeIfAbsent` cache before delegating to `RealPaymentService`. Second call for same paymentId returns cached SETTLED without re-fetch. Clients use proxy transparently. Differs from Decorator — proxy controls access; decorator adds behavior.
+> **Proxy** provides a surrogate with the same interface as the real object, controlling access before delegation. Our dashboard calls `PaymentService.fetchStatus(paymentId, token)` constantly. Without Proxy, every client copy-pastes token checks and caching — and some skip auth, overloading the DB. `PaymentServiceProxy` implements `PaymentService`, wraps `RealPaymentService`, validates `token == "ALLOW"`, then uses `cache.computeIfAbsent` so repeat lookups for `pay-9001` don't hit the real service. First call returns `SETTLED:pay-9001` from delegate; second call returns cached value. Unauthorized tokens throw `SecurityException` before delegate or cache. Clients inject `PaymentService` and don't know they're talking to a proxy. It's not Decorator — we're not adding business behavior, we're controlling access and caching.
 
 ## 21. Likely Interview Follow-ups
 
-| Question | Answer |
-|----------|--------|
-| Proxy vs Decorator? | Proxy: access/lifecycle; Decorator: extra behavior |
-| Virtual proxy? | Lazy-create expensive real subject on first use |
-| Spring @Transactional? | Transactional proxy around beans |
+| Question | Answer sketch |
+|----------|---------------|
+| Proxy vs Decorator? | Proxy **controls access** to subject; Decorator **adds responsibilities** to interface |
+| Proxy vs Adapter? | Proxy same interface; Adapter **changes** interface to match client |
+| Virtual proxy? | Lazy-create expensive `RealPaymentService` on first authorized call |
+| Remote proxy? | Local proxy implements interface; network call to remote subject |
+| Double proxy problem? | Spring `@Transactional` self-invocation — related concept, different context |
 
-**Common mistake:** Calling any wrapper a proxy — must control access/lifecycle, not just log.
+**Common mistake:** Calling every wrapper a Proxy — if you're converting `LegacyApi` to `ModernService`, that's Adapter.
 
 ---
 
