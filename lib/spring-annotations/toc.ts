@@ -1,27 +1,56 @@
 import type {TocItem} from './types';
 
-/** Default interview kit — no encyclopedia dump. */
+/** Interview kit path — sidebar filter only; full page always mounts. */
+export const SA_KIT_TOC_IDS = new Set([
+  'decide',
+  'pipeline',
+  'stories',
+  'spoken',
+  'picks',
+  'cheat',
+  'wrong-vs-correct',
+  'incidents',
+  'interview',
+  'drill',
+]);
+
 export const SA_TOC: TocItem[] = [
-  {id: 'decide', label: '01. 30s mental model'},
-  {id: 'stories', label: '02. Draw these stories'},
-  {id: 'spoken', label: '03. Say this out loud'},
-  {id: 'picks', label: '04. Debug picks'},
-  {id: 'cheat', label: '05. One-page cheat'},
-  {id: 'drill', label: '06. Memory strip'},
+  {id: 'decide', label: '01. Mental model'},
+  {id: 'pipeline', label: '02. Annotation → runtime pipeline'},
+  {id: 'hierarchy', label: '03. Ownership hierarchy'},
+  {id: 'stories', label: '04. Draw these stories'},
+  {id: 'spoken', label: '05. Say this out loud'},
+  {id: 'startup', label: '06. Startup & BeanDefinition'},
+  {id: 'boot-run', label: '07. SpringApplication.run'},
+  {id: 'autoconfig', label: '08. Auto-configuration'},
+  {id: 'stereotype', label: '09. Stereotypes'},
+  {id: 'di', label: '10. Dependency injection'},
+  {id: 'config-beans', label: '11. @Configuration / @Bean'},
+  {id: 'lifecycle', label: '12. Lifecycle'},
+  {id: 'aop-tx', label: '13. @Transactional / AOP'},
+  {id: 'async-cache', label: '14. @Async / cache / events'},
+  {id: 'web', label: '15. Web / MVC'},
+  {id: 'kafka-data', label: '16. Kafka / Data / Security'},
+  {id: 'proxy', label: '17. Proxy matrix'},
+  {id: 'processors', label: '18. Processor map'},
+  {id: 'gaps', label: '19. Gaps · test · actuator'},
+  {id: 'ecosystem', label: '20. Ecosystem ownership'},
+  {id: 'wrong-vs-correct', label: '21. Wrong vs correct'},
+  {id: 'incidents', label: '22. Production incidents'},
+  {id: 'decisions', label: '23. Decision guide'},
+  {id: 'inventory', label: '24. Inventory search'},
+  {id: 'picks', label: '25. Debug picks'},
+  {id: 'cheat', label: '26. Cheat sheets'},
+  {id: 'interview', label: '27. Interview simulator'},
+  {id: 'drill', label: '28. Memory strip'},
+  {id: 'related', label: '29. Related hubs'},
 ];
 
-export const SA_TOC_THEORY: TocItem[] = [
-  {id: 'proxy', label: 'Theory · Proxy matrix'},
-  {id: 'inventory', label: 'Theory · Inventory search'},
-  {id: 'stereotype', label: 'Theory · Stereotypes'},
-  {id: 'aop-tx', label: 'Theory · @Transactional'},
-  {id: 'boot', label: 'Theory · Boot auto-config'},
-  {id: 'web', label: 'Theory · Web'},
-  {id: 'checklist', label: 'Theory · Checklist'},
-];
+/** @deprecated kept for imports — use SA_TOC + SA_KIT_TOC_IDS */
+export const SA_TOC_THEORY: TocItem[] = SA_TOC.filter((i) => !SA_KIT_TOC_IDS.has(i.id));
 
 export const MEMORY_SENTENCE =
-  'SCAN → REGISTER → INJECT → PROXY → EXECUTE. External call hits proxy. this.method skips proxy → no @Transactional / @Async / @Cacheable. Boot 3 / Jakarta.';
+  'Annotation = metadata. Scanner/CCPP/ImportSelector → BeanDefinition → BPP → maybe proxy → runtime. External call hits proxy; this.method() skips advice. Label ownership: Framework ≠ Boot ≠ Data ≠ Security ≠ Kafka ≠ Resilience4j.';
 
 export const VERSION_NOTE =
-  'Architect interview kit — draw the pipeline, not memorize 200 annotations. Encyclopedia optional. Related: /spring-security · /kafka-interview · /microservice-communication.';
+  'Spring Framework 6.x / Spring Boot 3.x baseline (Jakarta). Version-dependent notes called out on cards. Staff/Principal depth: processor names + proxy boundaries, not cheat-sheet definitions.';
