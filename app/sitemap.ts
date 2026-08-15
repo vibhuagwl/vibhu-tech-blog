@@ -135,6 +135,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.85,
     },
     {
+      url: `${BASE}/kafka-infra/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.85,
+    },
+    {
       url: `${BASE}/kafka-internals/`,
       lastModified: now,
       changeFrequency: "monthly",

@@ -50,14 +50,14 @@ export const KAFKA_HUB={
   title:'Kafka',
   subtitle:'Practical Spring Kafka',
   description:
-    'Interview mastery board (producer, consumer, DLQ/DLT, cluster, monitoring, sizing) plus code, optimization, properties, payment DLQ story, and Hadron DLQ.',
+    'Interview mastery board (producer, consumer, DLQ/DLT, cluster, infra, properties) plus code, optimization, payment DLQ story, and Hadron DLQ.',
   basePath:'/kafka-interview',
   sections:[
     {
       id:'mastery',
       number:'00',
       title:'Interview Mastery',
-      blurb:'Interview drills: monitoring, instance counts, syncing, partitions, spoken answers.',
+      blurb:'Interview map + spoken answers — sizing/monitoring/incidents on Infra board.',
       href:'/kafka-mastery',
       mode:'learn' as const,
     },
@@ -91,6 +91,14 @@ export const KAFKA_HUB={
       title:'Cluster & Broker',
       blurb:'KRaft, request path, ISR, storage, multi-AZ, capacity, failures, ops.',
       href:'/kafka-cluster',
+      mode:'learn' as const,
+    },
+    {
+      id:'infra',
+      number:'I1',
+      title:'Production Infrastructure',
+      blurb:'Brokers/partitions/consumers · multi-AZ/DR · capacity · incidents · Staff answers.',
+      href:'/kafka-infra',
       mode:'learn' as const,
     },
     {
