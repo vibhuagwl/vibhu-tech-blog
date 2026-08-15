@@ -389,6 +389,77 @@ export const OUTBOX_COMPARE: string[][] = [
   ['CDC (Debezium)', 'Capture DB log', 'Ops heavy; great when DB is source of truth'],
 ];
 
+/** Head-to-head: transactional outbox vs Kafka transactions. */
+export const OUTBOX_VS_KAFKA_TXN = `Outbox vs Kafka transactions — pick by the boundary you need atomic
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Kafka transactions (transactional.id + begin/commit)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT they make atomic
+  → Several Kafka produces (often multi-partition) succeed or abort TOGETHER.
+  → Optional EOS pipe: consume → process → produce, with offsets in the same txn
+    (sendOffsetsToTransaction) so read_committed consumers see a consistent cut.
+
+WHAT they do NOT cover
+  → Your Postgres/MySQL/Oracle JDBC commit.
+  → Kafka txn API does NOT enlist the DB. Two separate systems remain.
+
+WHEN to use
+  → Atomic multi-topic / multi-partition Kafka writes.
+  → Consume-transform-produce exactly-once *inside Kafka*.
+  → Need fencing (§29) so only one live owner of transactional.id.
+
+WHEN NOT enough alone
+  → “Save payment in DB AND publish PaymentSettled” — crash between DB and Kafka
+    still creates a dual-write hole even if Kafka side uses transactions.
+
+Config sketch
+  transactional.id=<unique-per-live-instance>
+  enable.idempotence=true (implied)
+  acks=all
+  consumer isolation.level=read_committed (for visibility)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Transactional outbox (DB is source of truth)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT it makes atomic
+  → Business row + outbox row in ONE DB transaction.
+  → A relay (poller / CDC / Debezium) reads outbox → KafkaProducer.send.
+  → If relay crashes, row remains → retry. If Kafka acks, mark published.
+
+WHAT it does NOT give by itself
+  → Multi-partition atomicity inside Kafka (use Kafka txn in the relay if needed).
+  → Automatic fencing of app pods (relay still uses normal idempotent producer,
+    or transactional.id if the relay design requires it).
+
+WHEN to use
+  → DB commit and Kafka event must not diverge (payments, ledger, orders).
+  → You already have a DB write path — event is a side effect of that commit.
+
+Shape
+  BEGIN;
+    INSERT payment ...;
+    INSERT outbox(event_id, topic, payload, status='NEW') ...;
+  COMMIT;
+  -- relay: SELECT NEW → producer.send → mark SENT (idempotent on event_id)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Side-by-side
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                 Kafka txn              Outbox
+Atomic across    Kafka partitions       DB + “will publish” intent
+Includes JDBC?   NO                     YES (same DB txn)
+Dual-write hole  Still possible         Closed at DB commit
+EOS consume-prod YES (offsets in txn)   Usually separate consumer design
+Ops complexity   txn.id uniqueness      Outbox table + relay/CDC
+Payments default Rarely alone           Preferred (+ idempotent producer)
+
+Rule of thumb
+  → Kafka-only atomicity → Kafka transactions.
+  → DB truth must match the event → outbox (or CDC).
+  → Often BOTH: outbox for DB↔Kafka, idempotent (or txn) producer on the relay.
+  → Never say “Kafka transactions give exactly-once into Postgres.”`;
+
 export const CONFIG_CORE: string[][] = [
   ['bootstrap.servers', 'list', '(required)', 'Initial contact — not “the whole cluster forever”'],
   ['key.serializer / value.serializer', 'class', '(required)', 'Must match consumers'],

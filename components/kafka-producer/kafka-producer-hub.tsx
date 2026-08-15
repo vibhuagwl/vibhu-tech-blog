@@ -29,6 +29,7 @@ import {
   NULL_KEY_PARTITION_EXPLAIN,
   ORDER_ROWS,
   OUTBOX_COMPARE,
+  OUTBOX_VS_KAFKA_TXN,
   PARTITION_ROWS,
   PERF_BREAKDOWN,
   PRODUCE_REQUEST_EXPLAIN,
@@ -602,11 +603,34 @@ With idempotence:
           <Section
             id="transactions"
             title="15. Transactions, EOS visibility, outbox"
-            lead="Transactional.id must be unique per live instance. Kafka transactions do not enlist your JDBC transaction."
+            lead="Kafka transactions atomicize Kafka writes (and optional EOS consume-produce). They do not enlist JDBC. When the database is the source of truth, use a transactional outbox (or CDC) — often together with an idempotent producer on the relay."
           >
             <CodePanel title="Transaction lifecycle" tone="ok" code={TX_FLOW} />
-            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">DB dual-write</h3>
+            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">
+              Outbox vs Kafka transactions
+            </h3>
+            <div className="mt-4">
+              <CodePanel title="Outbox vs Kafka txn (choose by boundary)" tone="ok" code={OUTBOX_VS_KAFKA_TXN} />
+            </div>
+            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">DB dual-write patterns</h3>
             <MiniTable headers={['Pattern', 'Pros', 'Cons']} rows={OUTBOX_COMPARE} />
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid
+                chart={`flowchart LR
+  subgraph bad [Dual-write hole]
+    D1[DB commit] --> Gap[Crash] --> K1[Kafka send?]
+  end
+  subgraph kotxn [Kafka txn only]
+    KT[beginTransaction] --> KS[send topics]
+    KS --> KC[commitTransaction]
+    DB2[JDBC] -.->|NOT enlisted| KT
+  end
+  subgraph outbox [Outbox]
+    OB[DB: business + outbox row] --> Rel[Relay]
+    Rel --> KP[Idempotent KafkaProducer]
+  end`}
+              />
+            </div>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
               <code>read_committed</code> consumers skip aborted transactional data. Mention consumers only to
               explain that producer commit markers control visibility — then return focus to the producer.
@@ -813,6 +837,21 @@ DB commit + Kafka fail → outbox relay retries
 Kafka success + app crash → outbox already marked or relay dedupes
 Duplicate HTTP submit → UNIQUE payment_id rejects
 Region fail → secondary cluster + idempotent settle`}
+              />
+              <CodePanel
+                title="Outbox vs Kafka txn (payments)"
+                tone="ok"
+                code={`Payments default: transactional OUTBOX (§15)
+  DB payment + outbox row in one JDBC txn
+  Relay → idempotent KafkaProducer
+
+Kafka transactions alone:
+  atomic multi-partition Kafka writes / EOS pipe
+  do NOT cover the ledger JDBC commit
+
+Often both:
+  outbox closes DB↔Kafka hole
+  idempotent (or txn) producer on the relay`}
               />
               <CodePanel
                 title="Producer profile"
