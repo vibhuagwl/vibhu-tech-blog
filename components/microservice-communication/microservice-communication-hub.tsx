@@ -1,8 +1,8 @@
 'use client';
 
-import {useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import Link from 'next/link';
-import {MEMORY_SENTENCE, MSC_TOC, VERSION_NOTE} from '@/lib/microservice-communication/toc';
+import {MEMORY_SENTENCE, MSC_DEEP_SECTION_IDS, MSC_TOC, VERSION_NOTE} from '@/lib/microservice-communication/toc';
 import {OPTIONS} from '@/lib/microservice-communication/parts-options';
 import {CLIENTS} from '@/lib/microservice-communication/parts-clients';
 import {DISCOVERY} from '@/lib/microservice-communication/parts-discovery';
@@ -262,6 +262,31 @@ export default function MicroserviceCommunicationHub() {
     DESIGN.length +
     TAXONOMY_EXTRAS.length;
 
+  const ensureSectionMounted = useCallback((id: string) => {
+    if (MSC_DEEP_SECTION_IDS.has(id)) setView('deep');
+  }, []);
+
+  // Shared links like …/microservice-communication/#architectures must unlock deep view
+  // (those section nodes are not in the DOM in Story mode).
+  useEffect(() => {
+    const syncHash = () => {
+      const id = window.location.hash.replace(/^#/, '');
+      if (id) ensureSectionMounted(id);
+    };
+    syncHash();
+    window.addEventListener('hashchange', syncHash);
+    return () => window.removeEventListener('hashchange', syncHash);
+  }, [ensureSectionMounted]);
+
+  useEffect(() => {
+    const id = window.location.hash.replace(/^#/, '');
+    if (!id) return;
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [view]);
+
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
@@ -330,7 +355,7 @@ export default function MicroserviceCommunicationHub() {
       </header>
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
-        <StickyToc items={MSC_TOC} />
+        <StickyToc items={MSC_TOC} onNavigate={ensureSectionMounted} />
         <div className="min-w-0 space-y-16">
           <Section id="overview" title="00. Start here" lead="A → B is a reliability design, not a GET call.">
             <CodePanel

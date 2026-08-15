@@ -3,7 +3,14 @@
 import {useEffect, useState} from 'react';
 import type {TocItem} from '@/lib/microservice-communication/types';
 
-export default function StickyToc({items}: {items: TocItem[]}) {
+export default function StickyToc({
+  items,
+  onNavigate,
+}: {
+  items: TocItem[];
+  /** Called before hash navigation so the parent can mount gated sections. */
+  onNavigate?: (id: string) => void;
+}) {
   const [active, setActive] = useState(items[0]?.id ?? '');
   const [query, setQuery] = useState('');
 
@@ -44,6 +51,7 @@ export default function StickyToc({items}: {items: TocItem[]}) {
             <li key={item.id}>
               <a
                 href={`#${item.id}`}
+                onClick={() => onNavigate?.(item.id)}
                 className={[
                   'block border-l-2 py-1.5 pl-3 text-[13px] leading-snug transition',
                   active === item.id
