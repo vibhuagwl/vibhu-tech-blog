@@ -293,3 +293,114 @@ export const WHITEBOARD_BEATS: StoryBeat[] = [
     memory: 'TX = metadata + proxy + interceptor. Not magic on this.',
   },
 ];
+
+
+/** Flash debug picks — architect interview reflex. */
+export const ARCHITECT_PICKS: {
+  id: string;
+  symptom: string;
+  answer: string;
+  say: string;
+  fix: string;
+}[] = [
+  {
+    id: 'd1',
+    symptom: '@Transactional on save() — but this.process() inside does not roll back',
+    answer: 'Self-invocation',
+    say: 'Internal this call bypasses the proxy — TransactionInterceptor never runs.',
+    fix: 'Move to another bean, inject self, or AspectJ. Never rely on this.@Transactional.',
+  },
+  {
+    id: 'd2',
+    symptom: '@Async method runs, but DB changes from caller TX are invisible / no session',
+    answer: 'New thread',
+    say: '@Async hands off to another thread — transaction does not propagate.',
+    fix: 'Do DB work before async, or open a new TX on the async method via proxy call.',
+  },
+  {
+    id: 'd3',
+    symptom: 'Two DataSource beans created from @Bean methods calling each other',
+    answer: 'proxyBeanMethods=false',
+    say: 'Lite @Configuration: inter-@Bean calls are plain Java → new instances.',
+    fix: 'Keep proxyBeanMethods=true (default) for shared singletons, or inject the bean.',
+  },
+  {
+    id: 'd4',
+    symptom: '@Cacheable never hits cache on method called from same class',
+    answer: 'Self-invocation',
+    say: 'Same trap as TX — cache advice is on the proxy only.',
+    fix: 'Call through another bean / self-injection.',
+  },
+  {
+    id: 'd5',
+    symptom: 'NoUniqueBeanDefinitionException for PaymentClient',
+    answer: '@Qualifier / @Primary',
+    say: 'Multiple beans of same type — container cannot choose.',
+    fix: '@Primary on default, or @Qualifier on injection point.',
+  },
+  {
+    id: 'd6',
+    symptom: '@Transactional rollback does not happen on checked Exception',
+    answer: 'Default rollback rules',
+    say: 'By default only unchecked RuntimeException / Error roll back.',
+    fix: 'rollbackFor = Exception.class when needed.',
+  },
+  {
+    id: 'd7',
+    symptom: 'Custom starter beans never appear',
+    answer: 'Auto-config not loaded',
+    say: 'Boot 3 loads META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports — not old spring.factories alone.',
+    fix: 'Add imports file + @ConditionalOnClass; check --debug condition report.',
+  },
+  {
+    id: 'd8',
+    symptom: '@PreAuthorize ignored on service method',
+    answer: 'No proxy / wrong call path',
+    say: 'Security is AOP advice — needs @EnableMethodSecurity and external call through proxy.',
+    fix: 'Enable method security; call from controller/other bean, not this.',
+  },
+];
+
+export const ARCHITECT_CHEAT = `
+SPRING ANNOTATIONS — ARCHITECT CHEAT (interview)
+
+MENTAL MODEL (say this first)
+  SCAN classpath
+    → REGISTER BeanDefinitions (recipes)
+    → INJECT (@Autowired BPP)
+    → PROXY (TX / Async / Cache / Security)
+    → EXECUTE
+
+GOLDEN RULE
+  Advice runs only when the call enters the proxy.
+  this.foo() = raw object = no @Transactional / @Async / @Cacheable / @PreAuthorize
+
+MUST-DRAW STORIES
+  1. Self-invocation TX trap
+  2. @Configuration CGLIB vs proxyBeanMethods=false
+  3. @Async new thread (no TX)
+  4. Boot: ConditionalOnClass → ConditionalOnMissingBean
+
+COMMON ANNOTATIONS (roles, not encyclopedia)
+  @Component/@Service/@Repository/@Controller → stereotype scan
+  @Configuration + @Bean              → manual beans / CGLIB
+  @Autowired / ctor injection         → AutowiredAnnotationBeanPostProcessor
+  @Transactional                      → TransactionInterceptor on proxy
+  @Async                              → executor hand-off
+  @Cacheable                          → cache advice on proxy
+  @SpringBootApplication              → scan + auto-config imports
+  @RestController / @RequestMapping   → MVC mapping
+  @Valid / @Validated                 → validation
+
+DEBUG ORDER
+  1. Is there a proxy in the stack?
+  2. Is the call external or this.?
+  3. Which BeanPostProcessor / advisor owns it?
+  4. Boot: --debug condition report
+
+DO NOT
+  Memorize 200 annotations
+  Put @Transactional on controllers
+  Expect TX to follow @Async
+  Tattoo "Spring is magic"
+`;
