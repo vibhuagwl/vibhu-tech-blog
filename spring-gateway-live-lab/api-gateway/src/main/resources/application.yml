@@ -6,7 +6,7 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      # Phase 2 — discover instances via Eureka, pick one with LoadBalancer
+      # Phase 2+ — discover instances via Eureka, pick one with LoadBalancer
       routes:
         - id: user-service
           uri: lb://user-service
@@ -15,14 +15,20 @@ spring:
           filters:
             # /api/users/101  →  /users/101
             - StripPrefix=1
-            - AddRequestHeader=X-Gateway, api-gateway-phase2
+            - AddRequestHeader=X-Gateway, api-gateway-phase3
         - id: order-service
           uri: lb://order-service
           predicates:
             - Path=/api/orders/**
           filters:
             - StripPrefix=1
-            - AddRequestHeader=X-Gateway, api-gateway-phase2
+            - AddRequestHeader=X-Gateway, api-gateway-phase3
+    loadbalancer:
+      # Phase 3 demo: short cache so a newly registered replica appears quickly.
+      # Default RoundRobinLoadBalancer rotates across instances in the cache.
+      cache:
+        ttl: 5s
+        capacity: 256
 
 eureka:
   client:

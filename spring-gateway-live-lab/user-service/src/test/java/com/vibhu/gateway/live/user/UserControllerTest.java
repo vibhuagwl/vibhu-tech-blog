@@ -26,6 +26,8 @@ class UserControllerTest {
     mvc.perform(get("/users/101"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.service").value("user-service"))
-        .andExpect(jsonPath("$.id").value(101));
+        .andExpect(jsonPath("$.id").value(101))
+        .andExpect(jsonPath("$.instance").value("user-1"))
+        .andExpect(jsonPath("$.port").exists());
   }
 }

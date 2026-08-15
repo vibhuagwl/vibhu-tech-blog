@@ -3,109 +3,107 @@
 Java 21 · Spring Boot 3.3 · Spring Cloud Gateway · Eureka · progressive phases.
 
 ```text
-Client → API Gateway :8080  ──lb://──►  User (Eureka)
-                     │              ↘ Order (Eureka)
-                     └─ discovers via Eureka :8761
+Client → API Gateway :8080  ──lb://──►  User :8081 (user-1)
+                     │              ├─ User :8083 (user-2)   ← Phase 3
+                     │              ↘ Order :8082
+                     └─ Eureka :8761
 ```
 
-## Phase 1 — static routing (kept as foundation)
+## Phase 1 — static routing (foundation)
 
-| Path | Downstream |
-|------|------------|
-| `GET /api/users/**` | path rewrite `StripPrefix=1` |
-| `GET /api/orders/**` | same |
-| `GET /api/public/ping` | Gateway itself |
+`StripPrefix=1`, `AddRequestHeader=X-Gateway`, `CorrelationLoggingGlobalFilter`, `/api/public/ping`.
 
-Also: `AddRequestHeader=X-Gateway`, `CorrelationLoggingGlobalFilter`.
-
-## Phase 2 (implemented) — Eureka + `lb://`
+## Phase 2 — Eureka + `lb://`
 
 | Component | Port | Role |
 |-----------|------|------|
-| `eureka-server` | 8761 | Service registry |
+| `eureka-server` | 8761 | Registry |
 | `user-service` | 8081 | Registers as `user-service` |
 | `order-service` | 8082 | Registers as `order-service` |
-| `api-gateway` | 8080 | Client of Eureka; routes `lb://user-service` / `lb://order-service` |
+| `api-gateway` | 8080 | `lb://user-service` / `lb://order-service` |
 
-**What changed vs Phase 1**
+## Phase 3 (implemented) — multi-instance load balancing
 
-| Layer | Change |
+| Piece | Detail |
 |-------|--------|
-| Eureka | New module; services register + heartbeat |
-| Gateway URI | `http://localhost:8081` → `lb://user-service` |
-| Gateway deps | `eureka-client` + `loadbalancer` |
-| Failure mode still open | Stale registry / cold start before register — need retries/timeouts later |
+| Second replica | `SERVER_PORT=8083 INSTANCE_ID=user-2` (same Eureka app name) |
+| Proof | Response JSON includes `instance` + `port` |
+| LB | Spring Cloud **RoundRobinLoadBalancer** (default) |
+| Lab tuning | Gateway `spring.cloud.loadbalancer.cache.ttl=5s` + Eureka fetch every 3s |
 
-**Not yet:** multi-instance demo, JWT, Redis rate limit, Resilience4j CB.
+**60-second demo (say this):**
+
+1. Eureka already shows `USER-SERVICE` ×1  
+2. Start replica 2 → Eureka shows ×2  
+3. `curl` gateway 10× → `instance` flips `user-1` / `user-2`  
+4. Kill replica 2 → after lease/cache refresh, traffic sticks to survivor (stale window = interview follow-up)
+
+**Still open after kill:** Eureka lease (~90s) + LB cache can send to a dead instance until eviction — motivate health-check LB / shorter lease / circuit breaker (later phases).
+
+**Not yet:** JWT, Redis rate limit, Resilience4j CB.
 
 ---
 
-## Run (4 terminals)
+## Run
 
 ```bash
 cd spring-gateway-live-lab
 
-# Terminal 1 — registry first
+# Terminal 1
 mvn -pl eureka-server spring-boot:run
 
-# Terminal 2–3 — wait until Eureka UI http://localhost:8761 is up
+# Terminals 2–4 (after Eureka is up)
 mvn -pl user-service spring-boot:run
 mvn -pl order-service spring-boot:run
-
-# Terminal 4 — after USER-SERVICE / ORDER-SERVICE appear in Eureka
 mvn -pl api-gateway spring-boot:run
-```
 
-Optional second user instance (preview of Phase 3 load balancing):
-
-```bash
-SERVER_PORT=8083 INSTANCE_ID=user-2 mvn -pl user-service spring-boot:run
-# then curl /api/users/101 a few times — watch "instance" field flip
+# Terminal 5 — Phase 3 second user replica
+./scripts/start-user-2.sh
+# equivalent: SERVER_PORT=8083 INSTANCE_ID=user-2 mvn -pl user-service spring-boot:run
 ```
 
 Smoke:
 
 ```bash
-chmod +x scripts/smoke-phase2.sh
-./scripts/smoke-phase2.sh
+./scripts/smoke-phase2.sh   # registry + single-hop paths
+./scripts/smoke-phase3.sh   # expects ≥2 USER-SERVICE instances + RR distribution
 ```
 
-Tests (Eureka disabled via `@SpringBootTest` properties — do not add `src/test/resources/application.yml` or it shadows main config in Boot 2.4+):
+Tests:
 
 ```bash
-mvn -q test
+mvn -q clean test
 ```
+
+> Do not add `src/test/resources/application.yml` — it shadows main config on Boot 2.4+. Tests disable Eureka via `@SpringBootTest(properties=…)`.
 
 ---
 
-## Request flow (Phase 2 — say this in the interview)
+## Request flow (Phase 3)
 
 ```text
-Client HTTP
-  → Gateway Netty/WebFlux
-  → Path predicate /api/users/**
-  → GlobalFilter (correlation) → StripPrefix → AddRequestHeader
-  → LoadBalancerFilter resolves lb://user-service via Eureka registry
-  → Proxy to chosen instance host:port /users/101
-  → User MVC → response back through Gateway
+Client × N
+  → Gateway
+  → lb://user-service
+  → RoundRobinLoadBalancer picks instance A or B from Eureka cache
+  → /users/101 on :8081 or :8083
+  → JSON { instance, port, … }
 ```
-
-**What / Why / Internals**
 
 | Piece | What | Why | Internals |
 |-------|------|-----|-----------|
-| Eureka Server | Registry | Dynamic host/port | Heartbeats + lease eviction |
-| Eureka Client | Register + fetch | No hardcoded peer URLs | `DiscoveryClient` cache |
-| `lb://user-service` | Logical service id | Survive redeploy / scale-out | `ReactiveLoadBalancerClientFilter` |
-| LoadBalancer | Pick instance | Round-robin by default | Spring Cloud LoadBalancer (not Ribbon) |
+| Same app name | Both replicas register `user-service` | One logical service id | Eureka `Application` has N `InstanceInfo` |
+| Distinct instance-id | `user-service:8083:user-2` | Avoid clobbering peer | `eureka.instance.instance-id` |
+| Round-robin | Alternate A/B | Fair share / demo proof | `RoundRobinLoadBalancer` |
+| Cache TTL | 5s in lab | See new replica quickly | `CachingServiceInstanceListSupplier` |
 
 ---
 
 ## Interview phases
 
-1. ~~Basic Gateway + routes + StripPrefix + correlation~~  
+1. ~~Basic Gateway + StripPrefix + correlation~~  
 2. ~~Eureka + `lb://user-service`~~  
-3. Multi-instance load balancing demo (optional `SERVER_PORT=8083` above)  
+3. ~~Multi-instance load balancing demo~~  
 4. JWT at Gateway (+ discuss service re-validation)  
 5. Roles `USER` / `ADMIN`  
 6. Redis rate limit  
@@ -115,6 +113,6 @@ Client HTTP
 
 ---
 
-## 30-second answer (after Phase 2)
+## 30-second answer (after Phase 3)
 
-> “Services register with Eureka. The gateway no longer hardcodes host:port — routes use `lb://user-service`, and Spring Cloud LoadBalancer picks a healthy instance from the registry. StripPrefix and GlobalFilters stay the same. Next I’d prove multi-instance routing, then put JWT and rate limits at the edge.”
+> “Two user replicas register under the same Eureka app id. The gateway keeps `lb://user-service`; RoundRobinLoadBalancer spreads calls across instance list. We prove it with `instance`/`port` in the JSON. If one dies, clients can still hit a stale entry until Eureka evicts — that’s why I’d add health-check LB and a circuit breaker next, then JWT at the edge.”

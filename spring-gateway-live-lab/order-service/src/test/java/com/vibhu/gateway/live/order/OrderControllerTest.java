@@ -26,6 +26,8 @@ class OrderControllerTest {
     mvc.perform(get("/orders/5001"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.service").value("order-service"))
-        .andExpect(jsonPath("$.id").value(5001));
+        .andExpect(jsonPath("$.id").value(5001))
+        .andExpect(jsonPath("$.instance").value("order-1"))
+        .andExpect(jsonPath("$.port").exists());
   }
 }
