@@ -22,10 +22,12 @@ import {
   MEMORY_RULES,
   ALL as INTERVIEW_ALL,
 } from '@/lib/cap-theorem/interview';
+import {CAP_STORIES} from '@/lib/cap-theorem/stories';
 import type {CapSection} from '@/lib/cap-theorem/types';
 import StickyToc from './sticky-toc';
 import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
+import StoryWalkthrough from './story-walkthrough';
 
 const ALL_SECTIONS: CapSection[] = [
   ...SECTIONS_FUND,
@@ -241,22 +243,45 @@ function ScenarioBrowser() {
 }
 
 export default function CapTheoremHub() {
+  const [view, setView] = useState<'stories' | 'reference'>('stories');
+
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Staff · Principal · System Design · Distributed Systems · Java / Kafka / Cloud
+          Story-first · Diagrams · Whiteboard · Staff system design
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          CAP Theorem — End-to-End Interview Mastery
+          CAP Theorem — Interview Stories You Can Draw
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          From Brewer&apos;s conjecture to PACELC, quorum math, Kafka/Cassandra/Mongo knobs, multi-region
-          RPO/RTO, Saga vs 2PC, and Staff-level spoken answers — without the &quot;pick any two&quot; myth.
+          Learn CAP as scenes: cut phone line, ATM, likes, concert seats, two CEOs, Kafka receipts, saga kitchen.
+          Speak the story, draw the fork, then open the deep reference only when you need it.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(
+            [
+              ['stories', `Story theater (${CAP_STORIES.length})`],
+              ['reference', 'Full theory reference'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setView(id)}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                view === id
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           {VERSION_NOTE}{' '}
           <Link href="/distributed-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
@@ -282,14 +307,14 @@ export default function CapTheoremHub() {
         <div className="min-w-0 space-y-16">
           <Section
             id="overview"
-            title="00. Overview"
-            lead="CAP is a partition-time guarantee trade-off — not a product label and not ACID."
+            title="00. Start here"
+            lead="One sentence: when the wire between replicas breaks, you either stay correct or stay answering — not both with a guarantee."
           >
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                ['C', 'Consistency', 'Linearizable / single-copy illusion during ops'],
-                ['A', 'Availability', 'Every non-failing node answers (no indefinite wait)'],
-                ['P', 'Partition tolerance', 'Continue despite message loss between nodes'],
+                ['C', 'Consistency', 'One correct latest answer — or refuse'],
+                ['A', 'Availability', 'Live node still answers — maybe stale'],
+                ['P', 'Partition', 'The cut will happen (multi-AZ / region)'],
               ].map(([k, t, d]) => (
                 <div
                   key={k}
@@ -303,7 +328,7 @@ export default function CapTheoremHub() {
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                `${ALL_SECTIONS.length} deep sections`,
+                `${CAP_STORIES.length} drawable stories`,
                 `${TRAP_QS.length} trap Qs`,
                 `${RAPID_QS.length} rapid-fire`,
                 `${INTERVIEW_ALL.length} interview prompts`,
@@ -316,52 +341,17 @@ export default function CapTheoremHub() {
                 </div>
               ))}
             </div>
-            <div className="mt-6">
-              <CodePanel
-                title="Mental model (not the triangle myth)"
-                code={`No partition  →  C and A can both hold
-Partition     →  choose C (reject/wait)  OR  A (serve possibly stale)
-P is assumed for any real multi-node / multi-AZ / multi-region system`}
-              />
-            </div>
           </Section>
 
-          {ALL_SECTIONS.map((s) => (
-            <Section key={s.id} id={s.id} title={s.title} lead={s.oneLiner}>
-              <CapCard s={s} />
-            </Section>
-          ))}
-
-          <Section id="design-qs" title="46. Design interview scenarios" lead="Walk requirements → partition behavior → spoken answer.">
-            <ScenarioBrowser />
+          <Section
+            id="stories"
+            title="Interview story theater"
+            lead="Click a story → see the diagram → memorize the one-liner → rehearse the 60s answer."
+          >
+            <StoryWalkthrough />
           </Section>
 
-          <Section id="traps" title="47. Interview traps" lead="Correct the misconceptions interviewers bait with.">
-            <div className="space-y-3">
-              {TRAP_QS.slice(0, 12).map((q) => (
-                <details
-                  key={q.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
-                >
-                  <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{q.question}</summary>
-                  <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-                    <p>{q.answer30s}</p>
-                    <p>{q.answer2m}</p>
-                    {q.trick && (
-                      <p className="text-rose-700 dark:text-rose-300">
-                        Trap: {q.trick}
-                      </p>
-                    )}
-                  </div>
-                </details>
-              ))}
-              <p className="text-sm text-slate-500">
-                {TRAP_QS.length} traps total — full set in Interview mode + Architect bank.
-              </p>
-            </div>
-          </Section>
-
-          <Section id="spoken" title="55–57. Spoken answers (60s / 2m / Staff)">
+          <Section id="spoken" title="Spoken answers (60s / 2m / Staff)">
             <div className="space-y-4">
               {(
                 [
@@ -388,115 +378,174 @@ P is assumed for any real multi-node / multi-AZ / multi-region system`}
             </div>
           </Section>
 
-          <Section id="rapid" title="58. Rapid-fire bank" lead={`${RAPID_QS.length} one-liners for warm-ups.`}>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {RAPID_QS.slice(0, 20).map((q) => (
-                <details
-                  key={q.id}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800"
-                >
-                  <summary className="cursor-pointer font-medium text-slate-800 dark:text-slate-100">{q.question}</summary>
-                  <p className="mt-2 text-slate-600 dark:text-slate-300">{q.answer30s}</p>
-                </details>
-              ))}
-            </div>
-            <p className="mt-3 text-sm text-slate-500">Use Interview mode → Rapid for the full {RAPID_QS.length}.</p>
+          <Section id="design-qs" title="Design scenarios (story answers)" lead="Walk requirements → partition behavior → spoken answer.">
+            <ScenarioBrowser />
           </Section>
 
-          <Section id="predict" title="59. Predict behavior" lead="N/W/R, partitions, Kafka acks, Cassandra CL, split brain.">
+          <Section id="predict" title="Predict behavior" lead="N/W/R, partitions, Kafka acks, Cassandra CL, split brain.">
             <PredictBrowser />
-          </Section>
-
-          <Section id="pseudocode" title="60. Pseudocode exercises">
-            <div className="space-y-6">
-              {PSEUDO.map((p) => (
-                <div key={p.id} className="space-y-3">
-                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white">{p.title}</h3>
-                  <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">{p.statement}</p>
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
-                    <strong>Approach:</strong> {p.approach}
-                  </p>
-                  <CodePanel title="Java-oriented pseudocode" code={p.code} />
-                  <p className="text-xs text-slate-500">
-                    {p.complexity} · Edges: {p.edgeCases.join('; ')}
-                  </p>
-                  <p className="text-sm italic text-slate-600 dark:text-slate-400">{p.interviewExplain}</p>
-                </div>
-              ))}
-            </div>
-          </Section>
-
-          <Section id="incidents" title="61. Production incidents">
-            <div className="space-y-3">
-              {INCIDENTS.map((inc) => (
-                <details
-                  key={inc.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
-                >
-                  <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{inc.title}</summary>
-                  <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-                    <p>
-                      <strong>Symptom:</strong> {inc.symptom}
-                    </p>
-                    <p>
-                      <strong>Cause:</strong> {inc.cause}
-                    </p>
-                    <p>
-                      <strong>Investigate:</strong> {inc.investigate}
-                    </p>
-                    <p>
-                      <strong>Fix:</strong> {inc.fix}
-                    </p>
-                    <p>
-                      <strong>Prevent:</strong> {inc.prevent}
-                    </p>
-                  </div>
-                </details>
-              ))}
-            </div>
-          </Section>
-
-          <Section id="senior-tradeoffs" title="64. Senior / Staff trade-off questions">
-            <div className="space-y-3">
-              {SENIOR_TRADEOFF_QS.map((q) => (
-                <details
-                  key={q.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
-                >
-                  <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{q.question}</summary>
-                  <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-                    <p>{q.answer30s}</p>
-                    <p>{q.answer2m}</p>
-                  </div>
-                </details>
-              ))}
-            </div>
-          </Section>
-
-          <Section id="cheatsheet" title="65. Cheat sheet">
-            <MiniTable
-              headers={['Term', 'Purpose', 'Key rule', 'Trap']}
-              rows={CHEAT_ROWS.map((r) => [r.term, r.purpose, r.rule, r.trap])}
-            />
-            <div className="mt-6">
-              <CodePanel title="Decision tree" code={DECISION_ASCII} />
-            </div>
-          </Section>
-
-          <Section id="checklist" title="66. Coverage checklist">
-            <ul className="grid gap-1 sm:grid-cols-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-              {COVERAGE_CHECKLIST.map((c) => (
-                <li key={c} className="flex gap-2">
-                  <span className="text-emerald-600">✓</span>
-                  <span>{c}</span>
-                </li>
-              ))}
-            </ul>
           </Section>
 
           <Section id="interview" title="Interview mode" lead="Drill Senior, Architect, or Rapid banks.">
             <InterviewMode />
           </Section>
+
+          {view === 'reference' && (
+            <>
+              {ALL_SECTIONS.map((s) => (
+                <Section key={s.id} id={s.id} title={s.title} lead={s.oneLiner}>
+                  <CapCard s={s} />
+                </Section>
+              ))}
+
+              <Section id="traps" title="Interview traps" lead="Correct the misconceptions interviewers bait with.">
+                <div className="space-y-3">
+                  {TRAP_QS.slice(0, 12).map((q) => (
+                    <details
+                      key={q.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+                    >
+                      <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{q.question}</summary>
+                      <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
+                        <p>{q.answer30s}</p>
+                        <p>{q.answer2m}</p>
+                        {q.trick && (
+                          <p className="text-rose-700 dark:text-rose-300">Trap: {q.trick}</p>
+                        )}
+                      </div>
+                    </details>
+                  ))}
+                  <p className="text-sm text-slate-500">
+                    {TRAP_QS.length} traps total — full set in Interview mode + Architect bank.
+                  </p>
+                </div>
+              </Section>
+
+              <Section id="rapid" title="Rapid-fire bank" lead={`${RAPID_QS.length} one-liners for warm-ups.`}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {RAPID_QS.slice(0, 20).map((q) => (
+                    <details
+                      key={q.id}
+                      className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800"
+                    >
+                      <summary className="cursor-pointer font-medium text-slate-800 dark:text-slate-100">{q.question}</summary>
+                      <p className="mt-2 text-slate-600 dark:text-slate-300">{q.answer30s}</p>
+                    </details>
+                  ))}
+                </div>
+                <p className="mt-3 text-sm text-slate-500">Use Interview mode → Rapid for the full {RAPID_QS.length}.</p>
+              </Section>
+
+              <Section id="pseudocode" title="Pseudocode exercises">
+                <div className="space-y-6">
+                  {PSEUDO.map((p) => (
+                    <div key={p.id} className="space-y-3">
+                      <h3 className="text-xl font-semibold text-slate-900 dark:text-white">{p.title}</h3>
+                      <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">{p.statement}</p>
+                      <p className="text-sm text-slate-700 dark:text-slate-300">
+                        <strong>Approach:</strong> {p.approach}
+                      </p>
+                      <CodePanel title="Java-oriented pseudocode" code={p.code} />
+                      <p className="text-xs text-slate-500">
+                        {p.complexity} · Edges: {p.edgeCases.join('; ')}
+                      </p>
+                      <p className="text-sm italic text-slate-600 dark:text-slate-400">{p.interviewExplain}</p>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              <Section id="incidents" title="Production incidents">
+                <div className="space-y-3">
+                  {INCIDENTS.map((inc) => (
+                    <details
+                      key={inc.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+                    >
+                      <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{inc.title}</summary>
+                      <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
+                        <p>
+                          <strong>Symptom:</strong> {inc.symptom}
+                        </p>
+                        <p>
+                          <strong>Cause:</strong> {inc.cause}
+                        </p>
+                        <p>
+                          <strong>Investigate:</strong> {inc.investigate}
+                        </p>
+                        <p>
+                          <strong>Fix:</strong> {inc.fix}
+                        </p>
+                        <p>
+                          <strong>Prevent:</strong> {inc.prevent}
+                        </p>
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </Section>
+
+              <Section id="senior-tradeoffs" title="Senior / Staff trade-off questions">
+                <div className="space-y-3">
+                  {SENIOR_TRADEOFF_QS.map((q) => (
+                    <details
+                      key={q.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+                    >
+                      <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{q.question}</summary>
+                      <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
+                        <p>{q.answer30s}</p>
+                        <p>{q.answer2m}</p>
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </Section>
+
+              <Section id="cheatsheet" title="Cheat sheet">
+                <MiniTable
+                  headers={['Term', 'Purpose', 'Key rule', 'Trap']}
+                  rows={CHEAT_ROWS.map((r) => [r.term, r.purpose, r.rule, r.trap])}
+                />
+                <div className="mt-6">
+                  <CodePanel title="Decision tree" code={DECISION_ASCII} />
+                </div>
+              </Section>
+
+              <Section id="checklist" title="Coverage checklist">
+                <ul className="grid gap-1 sm:grid-cols-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
+                  {COVERAGE_CHECKLIST.map((c) => (
+                    <li key={c} className="flex gap-2">
+                      <span className="text-emerald-600">✓</span>
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            </>
+          )}
+
+          {view === 'stories' && (
+            <Section
+              id="reference-hint"
+              title="Need the deep theory?"
+              lead="Switch to Full theory reference for every CapSection, traps, Kafka knobs, and the checklist — kept out of the way so stories stay first."
+            >
+              <button
+                type="button"
+                onClick={() => setView('reference')}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Open full theory reference
+              </button>
+              <div className="mt-6">
+                <MiniTable
+                  headers={['Term', 'Purpose', 'Key rule', 'Trap']}
+                  rows={CHEAT_ROWS.slice(0, 12).map((r) => [r.term, r.purpose, r.rule, r.trap])}
+                />
+              </div>
+            </Section>
+          )}
         </div>
       </div>
     </div>

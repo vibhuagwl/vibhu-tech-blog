@@ -2,9 +2,9 @@ import type {Metadata} from 'next';
 import CapTheoremHub from '@/components/cap-theorem/cap-theorem-hub';
 
 export const metadata: Metadata = {
-  title: 'CAP Theorem — End-to-End Interview Mastery',
+  title: 'CAP Theorem — Interview Stories You Can Draw',
   description:
-    'Complete Senior/Staff CAP + PACELC guide: consistency models, quorum, Kafka/Cassandra/Mongo knobs, multi-region, Saga, traps, rapid-fire, spoken answers.',
+    'Story-first CAP for system design: bank branches, ATM, likes, seats, quorum, split brain, PACELC, Kafka receipts — Mermaid diagrams, 60s answers, whiteboard beats.',
 };
 
 export default function CapTheoremPage() {
