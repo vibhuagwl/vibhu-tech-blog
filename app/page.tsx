@@ -3,7 +3,7 @@ import {ArrowRight} from 'lucide-react';
 import {getAllPosts} from '@/lib/posts';
 import {hrefForPost} from '@/lib/href';
 import DifficultyBadge from '@/components/difficulty-badge';
-import {INTERVIEW_PATHS} from '@/lib/site-nav';
+import {INTERVIEW_PATHS, TOPIC_GROUPS} from '@/lib/site-nav';
 
 export default function Home() {
   const all = getAllPosts();
@@ -81,6 +81,32 @@ export default function Home() {
                 </div>
               </div>
             </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-[1400px] px-5 pb-4">
+        <p className="eyebrow">Browse by topic</p>
+        <h2 className="home-section-title mt-3">Four pillars — same hubs, clearer map</h2>
+        <p className="home-section-lead">
+          Navigate the existing engineering hubs by subject. No new articles — better wayfinding.
+        </p>
+        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {TOPIC_GROUPS.map((group) => (
+            <section key={group.id} className="home-group">
+              <div className="home-group__title">{group.title}</div>
+              <p className="mt-2 text-sm text-[var(--muted)]">{group.description}</p>
+              <ul className="mt-4 space-y-1">
+                {group.topics.slice(0, 6).map((t) => (
+                  <li key={t.href}>
+                    <Link href={t.href} className="home-topic">
+                      <span className="home-topic__label">{t.label}</span>
+                      <span className="home-topic__blurb">{t.blurb}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
         </div>
       </section>

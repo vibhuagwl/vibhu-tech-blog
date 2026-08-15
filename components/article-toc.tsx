@@ -32,22 +32,18 @@ export default function ArticleToc({headings}:{headings:Heading[]}){
 
   return (
     <nav aria-label="On this page" className="article-toc hidden xl:block">
-      <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white/90 p-4 dark:border-slate-800 dark:bg-slate-950/90">
-        <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-500">
-          On this page
-        </div>
-        <ul className="mt-3 space-y-1.5">
+      <div className="article-toc__panel sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
+        <div className="article-toc__label">On this page</div>
+        <ul className="article-toc__list">
           {headings.map((h)=>(
             <li key={h.id}>
               <a
                 href={`#${h.id}`}
                 className={[
-                  'block border-l-2 py-1 text-[13px] leading-snug transition',
-                  h.level===3?'pl-4':'pl-3',
-                  active===h.id
-                    ? 'border-blue-600 font-semibold text-slate-900 dark:text-white'
-                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800 dark:hover:text-slate-200',
-                ].join(' ')}
+                  'article-toc__link',
+                  h.level===3?'is-h3':'',
+                  active===h.id?'is-active':'',
+                ].filter(Boolean).join(' ')}
               >
                 {h.text}
               </a>

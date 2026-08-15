@@ -9,6 +9,8 @@ import {extractHeadings} from '@/lib/headings';
 import {pickQuickNav} from '@/lib/article-meta';
 import {mdxComponents} from '@/components/mdx';
 import ArticleQuickNav from '@/components/article-quick-nav';
+import ArticleToc from '@/components/article-toc';
+import ReadingProgress from '@/components/reading-progress';
 import DifficultyBadge from '@/components/difficulty-badge';
 import BackToTop from '@/components/back-to-top';
 import JpmcSectionStrip from '@/components/jpmc-section-strip';
@@ -58,14 +60,19 @@ export function sectionStaticParams(section:Section){
 
 export async function sectionMetadata(slug:string,basePath:string){
   const p=getPost(slug);
-  return p
-    ? {
-        title:p.title,
-        description:p.description,
-        alternates:{canonical:`${basePath}/${p.slug}`},
-        openGraph:{title:p.title,description:p.description,type:'article' as const},
-      }
-    : {};
+  if(!p) return {};
+  const canonical=`${basePath}/${p.slug}`;
+  return {
+    title:p.title,
+    description:p.description,
+    alternates:{canonical},
+    openGraph:{
+      title:p.title,
+      description:p.description,
+      type:'article' as const,
+      url:canonical,
+    },
+  };
 }
 
 export default async function ArticleView({
@@ -117,12 +124,14 @@ export default async function ArticleView({
 
   return (
     <main className="reading-article">
-      <div className="min-w-0">
+      <ReadingProgress />
+      <div className={`reading-article__grid${headings.length>=2?' has-toc':''}`}>
+        <div className="reading-article__main min-w-0">
           <nav aria-label="Breadcrumb" className="mb-5 text-sm text-slate-500">
             <ol className="flex flex-wrap items-center gap-1.5">
-              <li><Link href="/" className="hover:text-slate-800">Home</Link></li>
+              <li><Link href="/" className="hover:text-slate-800 dark:hover:text-slate-200">Home</Link></li>
               <li aria-hidden="true">/</li>
-              <li><Link href={sectionHref} className="hover:text-slate-800">{sectionLabel}</Link></li>
+              <li><Link href={sectionHref} className="hover:text-slate-800 dark:hover:text-slate-200">{sectionLabel}</Link></li>
               <li aria-hidden="true">/</li>
               <li className="truncate font-medium text-slate-700 dark:text-slate-300" aria-current="page">
                 {p.title}
@@ -181,7 +190,7 @@ export default async function ArticleView({
             <ArticleQuickNav items={quickNav}/>
 
             {headings.length>=2 && (
-              <details className="mobile-toc">
+              <details className="mobile-toc xl:hidden">
                 <summary>On this page</summary>
                 <ul>
                   {headings.map((h)=>(
@@ -230,7 +239,7 @@ export default async function ArticleView({
                   <Link
                     key={r.slug}
                     href={allowed.has(r.category)?`${basePath}/${r.slug}`:hrefForPost(r.category,r.slug)}
-                    className="card p-5 transition hover:border-blue-200"
+                    className="card p-5 transition hover:border-slate-300 dark:hover:border-slate-600"
                   >
                     <div className="text-[10px] font-semibold uppercase tracking-[.12em] text-slate-600 dark:text-slate-300">
                       {r.category}
@@ -242,6 +251,9 @@ export default async function ArticleView({
               </div>
             </section>
           )}
+        </div>
+
+        <ArticleToc headings={headings} />
       </div>
 
       <BackToTop/>

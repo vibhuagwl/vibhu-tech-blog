@@ -5,6 +5,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {usePathname} from 'next/navigation';
 import {ChevronDown,Menu,Search,X} from 'lucide-react';
 import ThemeToggle from '@/components/theme-toggle';
+import SiteClock from '@/components/site-clock';
 import {
   PRIMARY_LINKS,
   TOPIC_GROUPS,
@@ -221,6 +222,7 @@ export default function SiteHeader(){
         </nav>
 
         <div className="site-header__right">
+          <SiteClock className="site-clock--header" />
           <Link href="/search" aria-label="Search" className="site-header__icon-btn">
             <Search size={18}/>
           </Link>

@@ -30,7 +30,7 @@ export default function CatalogLayoutShell({
 
   if(reading){
     return (
-      <div className="reading-layout mx-auto max-w-[min(100%,72rem)] px-4 py-8 md:px-6 md:py-10">
+      <div className="reading-layout mx-auto max-w-[min(100%,92rem)] px-4 py-8 md:px-6 md:py-10">
         {children}
       </div>
     );

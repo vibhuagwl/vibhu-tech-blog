@@ -112,8 +112,8 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
 ];
 
 /**
- * Topics mega-menu — four topic pillars (not a flat dump).
- * Hubs only; satellite boards stay under each hub / interview path.
+ * Topics mega-menu — four topic pillars (presentation / IA only).
+ * Hub destinations unchanged; labels and grouping improved for navigation.
  */
 export const TOPIC_GROUPS:NavGroup[]=[
   {
@@ -212,7 +212,7 @@ export function isNavActive(pathname:string|null,href:string){
   if(!pathname) return false;
   if(href==='/') return pathname==='/';
   if(href==='/kafka-interview' && isKafkaFamilyPath(pathname)) return true;
-  if(href==='/behavioral-interview' && (pathname.startsWith('/behavior') || pathname.startsWith('/leadership-principles') || pathname.startsWith('/jpmc-experience'))) return true;
+  if(href==='/behavioral-interview' && (pathname.startsWith('/behavior') || pathname.startsWith('/leadership-principles'))) return true;
   if(href==='/microservice-communication' && pathname.startsWith('/microservices-patterns')) return false;
   if(href==='/java-concurrency' && pathname.startsWith('/java-locking')) return false;
   if(href==='/realtime-issues' && pathname.startsWith('/production-troubleshooting')) return false;

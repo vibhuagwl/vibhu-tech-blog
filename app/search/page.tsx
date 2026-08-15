@@ -13,12 +13,13 @@ export default function Search(){
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-14">
-      <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Search interview topics</h1>
-      <p className="mt-3 max-w-2xl text-slate-500">
+      <p className="eyebrow">Search</p>
+      <h1 className="mt-3 text-4xl font-bold tracking-tight text-[var(--ink)]">Search interview topics</h1>
+      <p className="mt-3 max-w-2xl text-[var(--muted)]">
         Filter by technology, knowledge type (Knowledge, Experience, Optimization, Configuration, Interview…), and level — or search free text.
       </p>
       <div className="mt-7">
-        <Suspense fallback={<div className="text-sm text-slate-500">Loading search…</div>}>
+        <Suspense fallback={<div className="text-sm text-[var(--muted)]">Loading search…</div>}>
           <SearchClient posts={posts}/>
         </Suspense>
       </div>
