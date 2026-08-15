@@ -16,7 +16,7 @@
   <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>spring-gateway-live-lab</name>
-  <description>Live interview lab: API Gateway + User + Order (Phase 2 Eureka + lb://)</description>
+  <description>Live interview lab: API Gateway + User + Order (Phase 3 multi-instance lb://)</description>
 
   <modules>
     <module>eureka-server</module>
