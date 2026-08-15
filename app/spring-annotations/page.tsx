@@ -2,9 +2,9 @@ import type {Metadata} from 'next';
 import SpringAnnotationsHub from '@/components/spring-annotations/spring-annotations-hub';
 
 export const metadata: Metadata = {
-  title: 'Spring Annotations — Inventory + Internals Interview Mastery',
+  title: 'Spring Annotations — Ecosystem Inventory + Internals',
   description:
-    'Enterprise Spring/Boot annotation encyclopedia for Staff interviews: master inventory, processors, proxies, Test slices, Actuator, Data, Kafka, Security — Boot 3 / Framework 6.',
+    'Staff/Architect Spring annotation encyclopedia: version-aware inventory, ownership (Spring vs Jakarta), coverage audit, Boot 3/SF 6, Cloud/Batch/Integration, processors & proxies.',
 };
 
 export default function SpringAnnotationsPage() {

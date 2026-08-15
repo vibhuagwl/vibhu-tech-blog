@@ -17,6 +17,7 @@ import {KAFKA_DATA_SEC} from '@/lib/spring-annotations/parts-kafka-data-security
 import {GAPS_CORE} from '@/lib/spring-annotations/parts-gaps-core';
 import {GAPS_WEB_TEST} from '@/lib/spring-annotations/parts-gaps-web-test';
 import {GAPS_DATA_SEC_ACT} from '@/lib/spring-annotations/parts-gaps-data-sec-actuator';
+import {ECOSYSTEM} from '@/lib/spring-annotations/parts-ecosystem';
 import {
   DOES_PROXY,
   ORDERING_NOTES,
@@ -36,11 +37,20 @@ import {
   TRAP_QS,
 } from '@/lib/spring-annotations/interview';
 import {
+  ECOSYSTEM_DISCLAIMER,
+  ECOSYSTEM_STATS,
   INVENTORY_DISCLAIMER,
   INVENTORY_STATS,
+  OWNERSHIP_MATRIX,
   SCOPE_NOTE,
   unifyInventory,
 } from '@/lib/spring-annotations/inventory';
+import {
+  COVERAGE_AUDIT,
+  COVERAGE_SUMMARY,
+  ZERO_MISSED_CHECKS,
+} from '@/lib/spring-annotations/coverage-audit';
+import {VERSION_MATRIX} from '@/lib/spring-annotations/version-matrix';
 import {SA_STORIES} from '@/lib/spring-annotations/stories';
 import type {AnnotationCard} from '@/lib/spring-annotations/types';
 import StickyToc from './sticky-toc';
@@ -266,9 +276,9 @@ function InventoryBrowser() {
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
           `${INVENTORY_STATS.uniqueNames} unique annotations`,
-          `${INVENTORY_STATS.core} core inventory`,
-          `${INVENTORY_STATS.modules} module inventory`,
-          `${INVENTORY_STATS.must + INVENTORY_STATS.criticalModules} must/critical`,
+          `${INVENTORY_STATS.core} core + ${INVENTORY_STATS.modules} modules`,
+          `${INVENTORY_STATS.ecosystem} ecosystem`,
+          `${INVENTORY_STATS.ownershipRows} ownership rows`,
         ].map((x) => (
           <div key={x} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold dark:border-slate-800">
             {x}
@@ -364,7 +374,8 @@ export default function SpringAnnotationsHub() {
     KAFKA_DATA_SEC.length +
     GAPS_CORE.length +
     GAPS_WEB_TEST.length +
-    GAPS_DATA_SEC_ACT.length;
+    GAPS_DATA_SEC_ACT.length +
+    ECOSYSTEM.length;
 
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
@@ -418,9 +429,9 @@ export default function SpringAnnotationsHub() {
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {[
             `${UNIFIED.length} inventory rows`,
-            `${SA_STORIES.length} stories`,
-            `${cardCount} annotation cards`,
-            `${ALL.length} interview prompts`,
+            `${INVENTORY_STATS.ownershipRows} ownership`,
+            `${cardCount} deep cards`,
+            `${COVERAGE_SUMMARY.complete}✅ / ${COVERAGE_SUMMARY.partial}⚠️ audit`,
           ].map((x) => (
             <div
               key={x}
@@ -448,16 +459,109 @@ export default function SpringAnnotationsHub() {
           <Section
             id="inventory"
             title="01. Master annotation inventory"
-            lead="Classify before teaching — Core, Boot, MVC, Security, Data, Kafka, Test, Actuator. Filter by importance."
+            lead="Build inventory first — then verify coverage. Filter by category / importance. Ecosystem rows include Cloud, Batch, Integration, Session."
           >
             <InventoryBrowser />
+            <p className="mt-3 text-xs text-slate-500">
+              Ecosystem inventory: {ECOSYSTEM_STATS.inventoryTotal} · deprecated marked:{' '}
+              {ECOSYSTEM_STATS.deprecated} · {ECOSYSTEM_DISCLAIMER.slice(0, 160)}…
+            </p>
           </Section>
 
-          <Section id="stories" title="02. Mental model stories" lead="Draw these before naming processors.">
+          <Section
+            id="ownership"
+            title="02. Ownership matrix"
+            lead="@Entity is Jakarta Persistence — not Spring. @KafkaListener is Spring Kafka. Never mix owners."
+          >
+            <MiniTable
+              headers={['Annotation', 'Owner', 'Package', 'Dependency']}
+              rows={OWNERSHIP_MATRIX.slice(0, 40).map((r) => [
+                r.annotation,
+                r.owner,
+                r.packageName,
+                r.dependency,
+              ])}
+            />
+            <p className="mt-2 text-xs text-slate-500">{OWNERSHIP_MATRIX.length} ownership rows</p>
+          </Section>
+
+          <Section
+            id="coverage-audit"
+            title="03. Coverage audit (Parts 108–110)"
+            lead={COVERAGE_SUMMARY.verdict}
+          >
+            <div className="mb-4 grid gap-2 sm:grid-cols-3">
+              {[
+                [`${COVERAGE_SUMMARY.complete}`, 'Complete'],
+                [`${COVERAGE_SUMMARY.partial}`, 'Partial'],
+                [`${COVERAGE_SUMMARY.missing}`, 'Missing'],
+              ].map(([n, l]) => (
+                <div
+                  key={l}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-center dark:border-slate-800"
+                >
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{n}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{l}</p>
+                </div>
+              ))}
+            </div>
+            <MiniTable
+              headers={['Category', 'Status', 'Deep?', 'Processor?', 'Proxy?', 'Notes']}
+              rows={COVERAGE_AUDIT.map((r) => [
+                r.category,
+                r.covered === 'complete' ? '✅' : r.covered === 'partial' ? '⚠️' : '❌',
+                r.deepInternals ? 'Y' : 'N',
+                r.processorIdentified ? 'Y' : 'N',
+                r.proxyIdentified ? 'Y' : 'N',
+                r.notes,
+              ])}
+            />
+            <div className="mt-6 space-y-2">
+              <p className="text-sm font-semibold">Zero-missed checklist (45)</p>
+              {ZERO_MISSED_CHECKS.slice(0, 15).map((z) => (
+                <div
+                  key={z.q}
+                  className="flex gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800"
+                >
+                  <span
+                    className={
+                      z.answer === 'YES'
+                        ? 'font-bold text-emerald-700'
+                        : z.answer === 'PARTIAL'
+                          ? 'font-bold text-amber-700'
+                          : 'font-bold text-rose-700'
+                    }
+                  >
+                    {z.answer}
+                  </span>
+                  <span className="text-slate-700 dark:text-slate-300">
+                    {z.q} — {z.notes}
+                  </span>
+                </div>
+              ))}
+              <p className="text-xs text-slate-500">Showing 15 of {ZERO_MISSED_CHECKS.length}</p>
+            </div>
+          </Section>
+
+          <Section id="version-matrix" title="04. Version / deprecation matrix" lead="Boot 3 / SF 6 baseline — never present deprecated APIs as best practice.">
+            <MiniTable
+              headers={['Annotation', 'Boot 2', 'Boot 3 / SF 6', 'Current', 'Status']}
+              rows={VERSION_MATRIX.slice(0, 25).map((r) => [
+                r.annotation,
+                r.boot2,
+                r.boot3 || r.spring6,
+                r.current,
+                r.status,
+              ])}
+            />
+            <p className="mt-2 text-xs text-slate-500">{VERSION_MATRIX.length} version-sensitive rows</p>
+          </Section>
+
+          <Section id="stories" title="05. Mental model stories" lead="Draw these before naming processors.">
             <StoryWalkthrough />
           </Section>
 
-          <Section id="startup" title="03. Startup pipeline" lead="BeanDefinition first — objects later.">
+          <Section id="startup" title="06. Startup pipeline" lead="BeanDefinition first — objects later.">
             <div className="space-y-4">
               {STARTUP_SECTIONS.map((s) => (
                 <details
@@ -483,44 +587,47 @@ export default function SpringAnnotationsHub() {
             </div>
           </Section>
 
-          <Section id="stereotype" title="04. @Component family">
+          <Section id="stereotype" title="07. @Component family">
             <AnnGroup cards={STEREOTYPE} />
           </Section>
-          <Section id="config" title="05. @Configuration · @Bean · @Import">
+          <Section id="config" title="08. @Configuration · @Bean · @Import">
             <AnnGroup cards={CONFIG} />
           </Section>
-          <Section id="di" title="06. DI · @Autowired · Qualifier · Primary">
+          <Section id="di" title="09. DI · @Autowired · Qualifier · Primary">
             <AnnGroup cards={DI} />
           </Section>
-          <Section id="gaps-core" title="07. Gaps · @AliasFor · @Order · conditions · JMX">
+          <Section id="gaps-core" title="10. Gaps · @AliasFor · @Order · conditions · JMX">
             <AnnGroup cards={GAPS_CORE} />
           </Section>
 
           {view === 'deep' && (
             <>
-              <Section id="boot" title="08. Boot · auto-config · conditions">
+              <Section id="boot" title="11. Boot · auto-config · conditions">
                 <AnnGroup cards={BOOT} />
               </Section>
-              <Section id="lifecycle" title="09. Lifecycle · scope · @Lazy">
+              <Section id="lifecycle" title="12. Lifecycle · scope · @Lazy">
                 <AnnGroup cards={LIFECYCLE} />
               </Section>
-              <Section id="aop-tx" title="10. AOP · @Transactional">
+              <Section id="aop-tx" title="13. AOP · @Transactional">
                 <AnnGroup cards={AOP_TX} />
               </Section>
-              <Section id="async-cache" title="11. @Async · @Cache · events">
+              <Section id="async-cache" title="14. @Async · @Cache · events">
                 <AnnGroup cards={ASYNC_CACHE} />
               </Section>
-              <Section id="web" title="12. MVC · validation · advice">
+              <Section id="web" title="15. MVC · validation · advice">
                 <AnnGroup cards={WEB} />
               </Section>
-              <Section id="gaps-web-test" title="13. WebFlux · Test slices · @Sql">
+              <Section id="gaps-web-test" title="16. WebFlux · Test slices · @Sql">
                 <AnnGroup cards={GAPS_WEB_TEST} />
               </Section>
-              <Section id="kafka-data-sec" title="14. Kafka · Data · Security">
+              <Section id="kafka-data-sec" title="17. Kafka · Data · Security">
                 <AnnGroup cards={KAFKA_DATA_SEC} />
               </Section>
-              <Section id="gaps-data-sec" title="15. Auditing · DLT · Actuator · RefreshScope">
+              <Section id="gaps-data-sec" title="18. Auditing · DLT · Actuator · RefreshScope">
                 <AnnGroup cards={GAPS_DATA_SEC_ACT} />
+              </Section>
+              <Section id="ecosystem" title="19. Cloud · Batch · Integration · Session · custom meta">
+                <AnnGroup cards={ECOSYSTEM} />
               </Section>
             </>
           )}
@@ -529,19 +636,19 @@ export default function SpringAnnotationsHub() {
             <Section
               id="deep-hint"
               title="Open full annotation cards"
-              lead="Inventory + stereotypes + DI + AliasFor gaps always visible. Unlock Boot → Test → Actuator deep cards."
+              lead="Inventory + ownership + audit always visible. Unlock Boot → Cloud/Batch/Integration deep cards."
             >
               <button
                 type="button"
                 onClick={() => setView('deep')}
                 className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
               >
-                Show Boot · TX · Async · WebFlux · Test · Kafka · Actuator cards
+                Show Boot · TX · Test · Kafka · Cloud · Batch · Integration cards
               </button>
             </Section>
           )}
 
-          <Section id="proxy" title="16. Proxy · ordering · matrix">
+          <Section id="proxy" title="20. Proxy · ordering · matrix">
             <CodePanel title="Advisor nesting" code={ORDERING_NOTES} />
             <div className="mt-4">
               <MiniTable
@@ -552,14 +659,14 @@ export default function SpringAnnotationsHub() {
             </div>
           </Section>
 
-          <Section id="payment-trace" title="17. Payment end-to-end">
+          <Section id="payment-trace" title="21. Payment end-to-end">
             <MiniTable
               headers={['Step', 'Annotations', 'Internals']}
               rows={PAYMENT_TRACE.map((p) => [p.step, p.annotations, p.internals])}
             />
           </Section>
 
-          <Section id="who-processes" title="18. Who processes? · Does it proxy?">
+          <Section id="who-processes" title="22. Who processes? · Does it proxy?">
             <div className="grid gap-6 lg:grid-cols-2">
               <div>
                 <p className="mb-2 text-sm font-semibold">Who processes?</p>
@@ -572,7 +679,7 @@ export default function SpringAnnotationsHub() {
             </div>
           </Section>
 
-          <Section id="scenarios" title="19. Debug scenarios">
+          <Section id="scenarios" title="23. Debug scenarios">
             <ScenarioBrowser />
             <div className="mt-6 space-y-2">
               {TRAP_QS.slice(0, 8).map((q) => (
@@ -584,7 +691,7 @@ export default function SpringAnnotationsHub() {
             </div>
           </Section>
 
-          <Section id="spoken" title="20. Spoken answers">
+          <Section id="spoken" title="24. Spoken answers">
             <div className="space-y-4">
               {(Object.entries(SPOKEN) as [string, {s15: string; s60: string; s3m: string}][]).map(([k, v]) => (
                 <div key={k} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
@@ -606,12 +713,12 @@ export default function SpringAnnotationsHub() {
             </div>
           </Section>
 
-          <Section id="interview" title="21. Interview mode">
+          <Section id="interview" title="25. Interview mode">
             <InterviewMode />
             <p className="mt-3 text-sm text-slate-500">{RAPID_QS.length} rapid · {ALL.length} total unique prompts</p>
           </Section>
 
-          <Section id="cheatsheet" title="22. Cheat sheet — processor map">
+          <Section id="cheatsheet" title="26. Cheat sheet — processor map">
             <MiniTable
               headers={['Annotation', 'Processor', 'Proxy?', 'Phase', 'Trap']}
               rows={CHEAT_ROWS.slice(0, 40).map((r) => [r.annotation, r.processor, r.proxy, r.phase, r.trap])}
@@ -619,18 +726,32 @@ export default function SpringAnnotationsHub() {
             <p className="mt-2 text-xs text-slate-500">{PROCESSOR_MAP.length} processor rows</p>
           </Section>
 
-          <Section id="checklist" title="23. Coverage checklist">
+          <Section id="checklist" title="27. Zero-missed checklist">
             <ul className="grid gap-1 sm:grid-cols-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
+              {ZERO_MISSED_CHECKS.map((z) => (
+                <li key={z.q} className="flex gap-2">
+                  <span
+                    className={
+                      z.answer === 'YES'
+                        ? 'text-emerald-600'
+                        : z.answer === 'PARTIAL'
+                          ? 'text-amber-600'
+                          : 'text-rose-600'
+                    }
+                  >
+                    {z.answer === 'YES' ? '✓' : z.answer === 'PARTIAL' ? '~' : '✗'}
+                  </span>
+                  <span>
+                    {z.q}{' '}
+                    <span className="text-slate-500">({z.notes})</span>
+                  </span>
+                </li>
+              ))}
               {[
-                'Master inventory (enterprise scope disclaimer)',
-                'Spring Test slices (@WebMvcTest, @DataJpaTest, …)',
-                'Actuator @Endpoint operations',
-                'WebFlux reactive pipeline vs MVC',
-                '@AliasFor / @Order / @Lookup',
-                '@RetryableTopic / @DltHandler',
-                'Spring Data auditing + @EnableJpaRepositories',
-                'Security @PreFilter / @AuthenticationPrincipal',
-                ...COVERAGE_CHECKLIST,
+                'Master inventory before deep teaching',
+                'Ownership: Spring vs Jakarta vs Kafka vs Hibernate',
+                'Stream @EnableBinding marked deprecated',
+                ...COVERAGE_CHECKLIST.slice(0, 20),
               ].map((c) => (
                 <li key={c} className="flex gap-2">
                   <span className="text-emerald-600">✓</span>
