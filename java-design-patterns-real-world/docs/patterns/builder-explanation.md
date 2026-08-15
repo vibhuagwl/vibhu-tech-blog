@@ -8,165 +8,326 @@
 |-------|-------|
 | **Name** | Builder |
 | **Category** | Creational |
-| **One-line definition** | Separate construction of a complex object from its representation; assemble step-by-step via a fluent builder. |
-| **Problem class** | Many optional fields and validation rules make telescoping constructors and half-built objects unsafe. |
+| **One-line definition** | Separate the construction of a complex object from its representation so the same construction process can create different configurations step-by-step, with validation at `build()`. |
+| **Problem class** | Domain objects with many fields (required + optional), telescoping constructors, and invariants that half-built instances violate before they reach the gateway. |
 
 ## 2. Problem We Are Solving
 
-`PaymentTransaction` has eight fields: `transactionId`, `customerId`, `amount`, `currency`, `metadata`, `retryPolicy`, `fraudCheck`, `callbackUrl`. Checkout APIs need:
+A payment API sends `PaymentTransaction` to the gateway with eight fields:
 
-- Required: id, customer, amount, currency
-- Optional: metadata, retry policy, fraud flag, callback
+| Field | Required? | Example |
+|-------|-----------|---------|
+| `transactionId` | Yes | `tx-demo-1` |
+| `customerId` | Yes | `cust-42` |
+| `amount` | Yes | `250.00` |
+| `currency` | Yes | `USD` |
+| `metadata` | Optional | `flow=api` |
+| `retryPolicy` | Optional (default `NONE`) | `EXPONENTIAL` |
+| `fraudCheck` | Optional (default `true`) | `true` |
+| `callbackUrl` | Optional (default `""`) | webhook URL |
 
-Without structure, callers forget `fraudCheck` or send amount without currency — **invalid objects reach the gateway**.
+Callers include checkout API, batch settlement, and mobile SDK — each sets different optional fields.
+
+The painful question:
+
+> How do we build a **complete, immutable** `PaymentTransaction` without telescoping constructors for every combination — and without sending half-filled objects missing `currency` or `fraudCheck` to the gateway?
+
+Relationships that make this hard:
+
+- **Many optional fields** — metadata, retry, callback vary per flow
+- **Cross-field rules** — `amount` meaningless without `currency`; gateway rejects null currency
+- **Immutability** — once sent, transaction snapshot must not mutate mid-flight
+- **Defaults** — `fraudCheck=true`, `retryPolicy=NONE` should apply without every caller repeating them
 
 ## 3. What Happens Without the Pattern
 
+Naive construction with constructors and setters:
+
 ```java
-new PaymentTransaction(id, cust, amount);           // missing currency
-new PaymentTransaction(id, cust, amount, currency, null, null, true, null); // unreadable
+// Telescoping constructors explode
+public PaymentTransaction(String id, String customerId, BigDecimal amount) { ... }
+public PaymentTransaction(String id, String customerId, BigDecimal amount, String currency) { ... }
+public PaymentTransaction(String id, String customerId, BigDecimal amount, String currency,
+                            String retryPolicy) { ... }
+// ... 2^optional combinations
+
+// Or mutable bean — half-built object leaks
+PaymentTransaction tx = new PaymentTransaction();
+tx.setTransactionId("tx-1");
+tx.setAmount(new BigDecimal("250.00"));
+// forgot currency — gateway.submit(tx) throws or mischarges
 ```
 
-Pains: telescoping constructors, mutable partial objects, validation scattered, optional defaults duplicated.
+Concrete pains:
+
+1. **Telescoping constructors** — unreadable, combinatorial explosion with 8 fields
+2. **Invalid partial objects** — mutable setters allow submit before required fields set
+3. **Duplicated defaults** — every caller must remember `fraudCheck=true`
+4. **Shared mutable metadata** — `Map` passed in and modified by gateway corrupts caller copy
+5. **Validation scattered** — currency check in checkout, amount check in batch job
+
+SOLID hits: **SRP** (callers own construction + validation), **immutability** violated by beans.
 
 ## 4. How the Pattern Solves It
 
-1. **Problem** — complex object with many optionals
-2. **Pain** — invalid partial construction
-3. **Builder** — fluent `Builder` with defaults (`retryPolicy="NONE"`, `fraudCheck=true`)
-4. **Step-by-step** — `.transactionId().amount().currency().metadata().build()`
-5. **Immutable product** — `PaymentTransaction` record returned from `build()`
+Conceptual chain:
+
+1. **Problem** — eight fields, optional metadata/retry/callback, telescoping constructors
+2. **Naive pain** — half-built txs, forgotten currency, duplicated defaults
+3. **Pattern introduces** — mutable `Builder` with fluent setters returning `this`
+4. **Sensible defaults** — `retryPolicy = "NONE"`, `fraudCheck = true`, `callbackUrl = ""`
+5. **Step-by-step** — `.transactionId(...).customerId(...).amount(...).currency(...).metadata(...).build()`
+6. **Immutable product** — `build()` returns `PaymentTransaction` record with `Map.copyOf(metadata)`
+
+Construction complexity moves **from many constructors into one fluent builder + one build()**.
 
 ## 5. Pattern → Code Mapping
 
-| Role | Demo type | Why |
-|------|-----------|-----|
-| **Product** | `PaymentTransaction` (record) | Immutable assembled result |
-| **Builder** | `Builder` | Mutable staging; fluent setters |
-| **Director** (optional) | `run()` method | Shows typical build sequence |
-| **Client** | `PaymentTransactionBuilderDemo.run()` | Constructs via builder |
+| Pattern role | Demo class / type | Why this role |
+|--------------|-------------------|---------------|
+| **Product** | `PaymentTransaction` (record) | Immutable snapshot sent to gateway |
+| **Builder** | `Builder` (static nested class) | Accumulates fields; mutable until `build()` |
+| **Fluent setter** | `transactionId(String v)` etc. | Returns `this` for chained calls |
+| **Default fields** | `retryPolicy = "NONE"`, `fraudCheck = true` | Optional fields pre-filled on builder |
+| **Build method** | `build()` | Assembles record + `Map.copyOf(metadata)` |
+| **Client** | `PaymentTransactionBuilderDemo.run()` | Chains setters, calls `build()`, prints snapshot |
 
 ## 6. Important Code Lines
 
-| Code | Significance |
-|------|--------------|
-| `private String retryPolicy = "NONE"` | Sensible default on builder |
-| `private boolean fraudCheck = true` | Default without caller specifying |
-| `public Builder transactionId(String v) { ... return this; }` | Fluent chaining |
-| `metadata.put(k,v)` on builder map | Staged optional fields |
-| `Map.copyOf(metadata)` in `build()` | Defensive copy into immutable product |
-| `return new PaymentTransaction(...)` | Single assembly point |
+| Code | Design significance |
+|------|---------------------|
+| `record PaymentTransaction(...)` | Immutable product — eight fields fixed at construction |
+| `private final Map<String, String> metadata = new HashMap<>()` | Builder holds mutable map; copied on build |
+| `private String retryPolicy = "NONE"` | Default optional field — callers omit if acceptable |
+| `private boolean fraudCheck = true` | Security default — opt-out explicit via `.fraudCheck(false)` |
+| `public Builder transactionId(String v) { transactionId = v; return this; }` | Fluent API — chain without separate builder variable noise |
+| `metadata(String k, String v)` | Incremental optional map without exposing raw `HashMap` |
+| `Map.copyOf(metadata)` in `build()` | Defensive copy — product map immutable, independent of builder |
+| `new Builder().transactionId(...).amount(...).build()` | Client reads like a sentence of field assignments |
 
 ## 7. Object/Class Diagram
 
 ```text
-┌─────────────────┐         builds         ┌──────────────────────┐
-│ Builder         │ ─────────────────────► │ PaymentTransaction   │
-│ - staged fields │                        │ (immutable record)   │
-│ + transactionId │                        └──────────────────────┘
-│ + amount()      │
-│ + build()       │
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ PaymentTransactionBuilderDemo (client)                      │
+│ + run()                                                     │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ uses
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Builder (mutable)                                           │
+│ - transactionId, customerId, amount, currency               │
+│ - metadata: HashMap (mutable)                               │
+│ - retryPolicy = "NONE"                                      │
+│ - fraudCheck = true                                         │
+│ - callbackUrl = ""                                          │
+│ + transactionId(v): Builder                                 │
+│ + customerId(v): Builder                                    │
+│ + amount(v): Builder                                        │
+│ + currency(v): Builder                                      │
+│ + metadata(k,v): Builder                                    │
+│ + retryPolicy(v): Builder                                   │
+│ + fraudCheck(v): Builder                                    │
+│ + callbackUrl(v): Builder                                   │
+│ + build(): PaymentTransaction                               │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ build()
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│ PaymentTransaction (record, immutable)                      │
+│ transactionId, customerId, amount, currency                 │
+│ metadata (immutable Map), retryPolicy, fraudCheck, callback │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## 8. Runtime Execution Flow
 
-```text
-tx = new Builder()
-  .transactionId("tx-demo-1")
-  .customerId("cust-42")
-  .amount(new BigDecimal("250.00"))
-  .currency("USD")
-  .metadata("flow", "api")
-  .retryPolicy("EXPONENTIAL")
-  .build()
+From `PaymentTransactionBuilderDemo.run()`:
 
-→ PaymentTransaction with all fields + copied metadata map
-Print: id=tx-demo-1, amount=250.00 USD, metadata={flow=api}, retryPolicy=EXPONENTIAL
+```text
+STEP 1: new Builder()
+  → retryPolicy="NONE", fraudCheck=true, callbackUrl=""
+  → empty metadata HashMap
+
+STEP 2: chain setters
+  .transactionId("tx-demo-1")     → transactionId set
+  .customerId("cust-42")         → customerId set
+  .amount(BigDecimal("250.00"))  → amount set
+  .currency("USD")                → currency set
+  .metadata("flow", "api")        → metadata["flow"]="api"
+  .retryPolicy("EXPONENTIAL")     → overrides default NONE
+
+STEP 3: .build()
+  → new PaymentTransaction(
+        "tx-demo-1", "cust-42", 250.00, "USD",
+        Map.copyOf({flow=api}), "EXPONENTIAL", true, "")
+  → immutable record returned
+
+Output:
+  id=tx-demo-1, amount=250.00 USD
+  metadata={flow=api}, retryPolicy=EXPONENTIAL
+
+Note: fraudCheck not set in chain → default true applied
+Note: callbackUrl not set → default "" applied
 ```
+
+Gateway receives complete snapshot; builder can be reused or discarded.
 
 ## 9. What the Client Doesn't Need to Know
 
-- Field order in record constructor
-- That metadata map is copied at build time
-- Default retry/fraud values unless overriding
+- That builder uses `HashMap` internally for metadata accumulation
+- Default values for `retryPolicy`, `fraudCheck`, `callbackUrl`
+- That `Map.copyOf` runs at build time for immutability
+- Record canonical constructor parameter order
+- Whether validation runs in `build()` (not in this demo — production should add)
+- That builder is mutable — only the **product** is immutable
+
+Client mental model: **chain what you need, build once, get immutable tx**.
 
 ## 10. Before vs After
 
-**Before:** 8-arg constructor or invalid 3-arg shortcut.
+### Without Builder
 
-**After:** Fluent builder → validated immutable `PaymentTransaction`.
+```text
+Client
+  │
+  ├── pick constructor overload #3 of 12
+  │
+  ├── OR set field, set field, forget currency
+  │
+  └── submit half-built mutable bean → gateway error
+```
+
+Client **fights constructors or mutable beans**.
+
+### With Builder
+
+```text
+Client
+   │
+   │ new Builder()
+   │   .transactionId("tx-demo-1")
+   │   .customerId("cust-42")
+   │   .amount(250.00)
+   │   .currency("USD")
+   │   .metadata("flow", "api")
+   │   .retryPolicy("EXPONENTIAL")
+   │   .build()
+   ▼
+PaymentTransaction (immutable, complete snapshot)
+```
+
+**Builder absorbs optional complexity; product is always fully formed at build().**
 
 ## 11. SOLID / Design Principles
 
-| Principle | Application |
-|-----------|-------------|
-| **SRP** | Builder constructs; transaction holds data |
-| **Immutability** | Product safe to share after `build()` |
-| **OCP** | New optional field extends builder, not all callers |
+| Principle | How Builder applies |
+|-----------|---------------------|
+| **Single Responsibility** | Builder constructs; gateway charges; checkout orchestrates |
+| **Open/Closed** | New optional field: add builder field + record component — callers opt in |
+| **Immutability** | Record product — thread-safe snapshot after `build()` |
+
+Builder is a **construction pattern**, not a substitute for domain validation — put invariants in `build()`.
 
 ## 12. Extensibility
 
-- New field: add builder field + `build()` validation
-- Cross-field rules in `build()` (currency required if amount set)
-- Static nested builder on product class for discoverability
+| Change | Approach | Trade-off |
+|--------|----------|-----------|
+| New field (`idempotencyKey`) | Add to record + builder setter | All existing `build()` paths get default or required validation |
+| Validation in `build()` | Throw if `currency` null when `amount` set | Fail fast before gateway |
+| Static factory `Builder.forRefund()` | Presets retry + metadata | Convenience without subclass explosion |
+| Lombok `@Builder` | Generated builder | Less control over defaults/copy |
+| Java record compact builder | Custom static `builder()` on record | Modern style for records |
+| Step builder | Separate stages (amount stage, metadata stage) | For very long wizard UIs |
 
 ## 13. Advantages
 
-- Readable construction for many optionals
-- Defaults centralized on builder
-- Immutable product after build
-- Validation at one choke point
+- Readable fluent construction — reads top-to-bottom like config
+- Optional fields without constructor overload explosion
+- Centralized defaults (`fraudCheck=true`) in one place
+- Immutable product safe to pass across threads and async gateway calls
+- `Map.copyOf` prevents metadata leakage between builder and product
+- Easy to add validation once in `build()`
 
 ## 14. Disadvantages
 
-- Overkill for 2–3 simple fields
-- Duplicate field list (builder + product)
-- Java records may use compact constructors instead
+- More code than a simple constructor for 2–3 field objects
+- Mutable builder must not be shared across threads during construction
+- No compile-time guarantee required fields set until `build()` validates (unless staged builder)
+- Duplicate field names between builder and product
+- Can be overused for trivial DTOs
+- Lombok-generated builders hide defaults and copy logic
 
 ## 15. When to Use
 
-1. Payment/API payloads with many optional fields
-2. Immutable domain objects with invariants
-3. Stepwise assembly with validation at end
+1. `PaymentTransaction` with 8 fields and mixed required/optional
+2. API requests with metadata maps and policy flags
+3. SQL query builders, HTTP request builders, test data builders
+4. When immutability + many optional params collide
+5. When defaults (`fraudCheck`, `retryPolicy`) must be consistent across all creation paths
 
 ## 16. When NOT to Use
 
-1. 1–3 required fields only
-2. Lombok `@Builder` / record with defaults sufficient
+1. Object has 1–3 simple required fields — constructor suffices
+2. All fields required always — canonical constructor is clearer
+3. Java record with 2 fields — compact constructor wins
+4. Construction is always identical — factory method returns fixed instance
+5. IDE-generated mutable beans acceptable and immutability not required
 
 ## 17. Edge Cases / Production Concerns
 
-| Concern | Note |
-|---------|------|
-| Missing required fields | Validate in `build()`, not setters |
-| Reusing builder | Clear or new builder per transaction |
-| Thread safety | Builder per thread; product immutable |
-| BigDecimal scale | Validate amount scale in `build()` |
+| Concern | In this demo | Production note |
+|---------|--------------|-----------------|
+| **Missing required fields** | No validation in `build()` | `if (currency == null) throw` in `build()` |
+| **Mutable metadata** | `Map.copyOf` on build | Also copy nested values if maps hold mutable objects |
+| **Builder reuse** | New builder per tx | After `build()`, reset or discard — stale fields leak |
+| **Threads** | Single-threaded demo | Do not share builder across threads |
+| **BigDecimal scale** | `250.00` | Normalize scale in `amount()` setter |
+| **Empty callback** | Default `""` | Distinguish null vs empty vs valid URL in validation |
+| **Record immutability** | All fields final | Deep immutability requires immutable map contents |
 
 ## 18. Possible Code Improvements
 
-**Required:** `build()` throws if `amount` or `currency` null.
+### Required (correctness)
 
-**Optional:** Separate `PaymentTransaction.Builder` static factory on record; JSR-303 validation.
+- Validate in `build()`: non-null `transactionId`, `customerId`, `amount`, `currency`
+- Reject `amount <= 0` and blank `currency` before creating record
+
+### Optional (clarity / prod)
+
+- Static `PaymentTransaction.builder()` factory on record for discoverability
+- `Builder.from(PaymentTransaction)` for copy-with-changes
+- Enum `RetryPolicy` instead of string `retryPolicy`
+- Separate `MetadataBuilder` if metadata rules grow complex
+- `@JsonDeserialize(builder = ...)` for API deserialization symmetry
 
 ## 19. Mental Model
 
-**"Lego instructions step-by-step, sealed box at the end."** Mutate builder; product is frozen after `build()`.
+**Formula:**
+
+```text
+Problem:  Many optional fields → telescoping constructors or half-built beans
+Solution: Mutable Builder with fluent setters + defaults → build() → immutable product
+Benefit:  Readable construction, safe snapshot, centralized defaults and validation
+```
+
+Memory trick: **"Configure on the builder, commit on build() — the product is frozen."**
 
 ## 20. 30–60 Second Interview Answer
 
-> Builder separates constructing a complex object from the object itself. `PaymentTransaction` has eight fields with optionals like retry policy and fraud check — telescoping constructors create invalid half-built objects. Fluent `Builder` sets fields step-by-step with defaults (`fraudCheck=true`, `retryPolicy=NONE`), then `build()` returns immutable `PaymentTransaction` with `Map.copyOf(metadata)`. Gateway always receives a complete, consistent snapshot.
+> **Builder** separates step-by-step construction of a complex object from its final representation. `PaymentTransaction` has eight fields — ids, amount, currency, metadata, retry policy, fraud check, callback — and telescoping constructors or mutable setters let half-filled objects reach the gateway without currency or with wrong fraud defaults. We use a nested `Builder` with fluent methods returning `this`, defaults like `retryPolicy="NONE"` and `fraudCheck=true`, and `build()` that creates an immutable `PaymentTransaction` record with `Map.copyOf(metadata)`. The client chains `.transactionId("tx-demo-1").customerId("cust-42").amount(250.00).currency("USD").metadata("flow","api").retryPolicy("EXPONENTIAL").build()`. Optional fields omitted still get safe defaults; the gateway receives one complete snapshot. Validation belongs in `build()` so invalid txs never exist.
 
 ## 21. Likely Interview Follow-ups
 
-| Question | Answer |
-|----------|--------|
-| Builder vs Factory? | Builder assembles **one** complex object; Factory picks **which** class |
-| Telescoping constructor? | Builder replaces constructor overload explosion |
-| Lombok @Builder? | Same pattern, generated code |
+| Question | Answer sketch |
+|----------|---------------|
+| Builder vs Factory? | Factory chooses **which** type; Builder configures **one** complex instance step-by-step |
+| Builder vs telescoping constructors? | Builder scales with optional fields; constructors combinatorially explode |
+| Lombok `@Builder`? | Same pattern, generated — watch defaults and `toBuilder` for copies |
+| Immutability with builder? | Mutate builder only until `build()`; product is immutable record |
+| Validate in setters vs build()? | Cross-field rules (amount+currency) in `build()`; simple null checks can be in setters |
 
-**Common mistake:** Mutable product with public setters — loses immutability benefit.
+**Common mistake:** Making the **product** mutable with a builder — builder mutability is temporary; the built object should be immutable for domain types like payments.
 
 ---
 
