@@ -2,29 +2,33 @@ import type {TocItem} from './types';
 
 export const SA_TOC: TocItem[] = [
   {id: 'overview', label: '00. Start here'},
-  {id: 'stories', label: '01. Mental model stories'},
-  {id: 'startup', label: '02. Startup pipeline'},
-  {id: 'stereotype', label: '03. @Component family'},
-  {id: 'config', label: '04. @Configuration · @Bean · @Import'},
-  {id: 'di', label: '05. DI · @Autowired · Qualifier'},
-  {id: 'boot', label: '06. Boot · auto-config · conditions'},
-  {id: 'lifecycle', label: '07. Lifecycle · scope · @Lazy'},
-  {id: 'aop-tx', label: '08. AOP · @Transactional'},
-  {id: 'async-cache', label: '09. @Async · @Cache · events'},
-  {id: 'web', label: '10. MVC · validation · advice'},
-  {id: 'kafka-data-sec', label: '11. Kafka · Data · Security'},
-  {id: 'proxy', label: '12. Proxy · ordering · matrix'},
-  {id: 'payment-trace', label: '13. Payment end-to-end'},
-  {id: 'who-processes', label: '14. Who processes?'},
-  {id: 'scenarios', label: '15. Debug scenarios'},
-  {id: 'spoken', label: '16. Spoken answers'},
-  {id: 'interview', label: '17. Interview mode'},
-  {id: 'cheatsheet', label: '18. Cheat sheet'},
-  {id: 'checklist', label: '19. Coverage checklist'},
+  {id: 'inventory', label: '01. Master inventory'},
+  {id: 'stories', label: '02. Mental model stories'},
+  {id: 'startup', label: '03. Startup pipeline'},
+  {id: 'stereotype', label: '04. @Component family'},
+  {id: 'config', label: '05. @Configuration · @Bean · @Import'},
+  {id: 'di', label: '06. DI · @Autowired · Qualifier'},
+  {id: 'gaps-core', label: '07. Gaps · AliasFor · Order · conditions'},
+  {id: 'boot', label: '08. Boot · auto-config'},
+  {id: 'lifecycle', label: '09. Lifecycle · scope · @Lazy'},
+  {id: 'aop-tx', label: '10. AOP · @Transactional'},
+  {id: 'async-cache', label: '11. @Async · @Cache · events'},
+  {id: 'web', label: '12. MVC · validation'},
+  {id: 'gaps-web-test', label: '13. WebFlux · Test slices'},
+  {id: 'kafka-data-sec', label: '14. Kafka · Data · Security'},
+  {id: 'gaps-data-sec', label: '15. Auditing · DLT · Actuator'},
+  {id: 'proxy', label: '16. Proxy · ordering · matrix'},
+  {id: 'payment-trace', label: '17. Payment end-to-end'},
+  {id: 'who-processes', label: '18. Who processes?'},
+  {id: 'scenarios', label: '19. Debug scenarios'},
+  {id: 'spoken', label: '20. Spoken answers'},
+  {id: 'interview', label: '21. Interview mode'},
+  {id: 'cheatsheet', label: '22. Cheat sheet'},
+  {id: 'checklist', label: '23. Coverage checklist'},
 ];
 
 export const MEMORY_SENTENCE =
-  'SCAN → REGISTER → INJECT → POST-PROCESS → PROXY → EXECUTE. Annotations either build BeanDefinitions early or intercept method calls via proxies later. Self-invocation skips the proxy.';
+  'SCAN → REGISTER → INJECT → POST-PROCESS → PROXY → EXECUTE. Inventory first — then processors. Self-invocation skips the proxy. Enterprise coverage ≠ every Spring Cloud annotation ever shipped.';
 
 export const VERSION_NOTE =
-  'Spring Framework 6 / Boot 3 / Jakarta EE focus (javax called out only for Boot 2 legacy). Related: /spring-security · /oauth-jwt-demo · /kafka-interview · /distributed-caching.';
+  'Spring Framework 6 / Boot 3 / Jakarta. Inventory + deep cards for Core, Boot, MVC, WebFlux, Security, Data, Kafka, Test, Actuator. Related: /spring-security · /kafka-interview · /distributed-caching.';
