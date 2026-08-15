@@ -55,9 +55,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     title:'Data & Messaging',
     description:'Kafka, Redis, and payment correctness',
     topics:[
-      {href:'/kafka-interview',label:'Kafka',blurb:'Producer · consumer · DLQ/DLT · cluster · infra · mastery · properties'},
-      {href:'/kafka-dlq',label:'Kafka DLQ / DLT',blurb:'Retry · DLT · offsets · Spring · replay · Staff interview'},
-      {href:'/hadron-dlq',label:'Hadron CashLines DLQ',blurb:'Kafka · Retry · Ordering · Replay · Interview'},
+      {href:'/kafka-interview',label:'Kafka',blurb:'Producer · consumer · DLQ/DLT · cluster · infra · mastery · Hadron · properties'},
       {href:'/redis-interview',label:'Redis',blurb:'Caching, HA, locks, Staff interview bank'},
       {href:'/distributed-caching',label:'Distributed Caching',blurb:'Spring · Redis · Caffeine · stampede · Architect'},
       {href:'/bloom-filter',label:'Bloom Filter',blurb:'Bits · FPP · Spring · SSTable · Kafka · Architect'},
@@ -92,9 +90,31 @@ export function allTopics():NavTopic[]{
   return TOPIC_GROUPS.flatMap((g)=>g.topics);
 }
 
+/** Paths that belong under the single Kafka hub entry in Topics. */
+const KAFKA_FAMILY_PREFIXES=[
+  '/kafka-interview',
+  '/kafka-mastery',
+  '/kafka-producer',
+  '/kafka-consumer',
+  '/kafka-cluster',
+  '/kafka-dlq',
+  '/kafka-infra',
+  '/kafka-properties',
+  '/kafka-internals',
+  '/hadron-dlq',
+  '/spring-kafka-payments-demo',
+] as const;
+
+function isKafkaFamilyPath(pathname:string){
+  return KAFKA_FAMILY_PREFIXES.some(
+    (p)=>pathname===p || pathname.startsWith(`${p}/`),
+  );
+}
+
 export function isNavActive(pathname:string|null,href:string){
   if(!pathname) return false;
   if(href==='/') return pathname==='/';
+  if(href==='/kafka-interview' && isKafkaFamilyPath(pathname)) return true;
   return pathname===href || pathname.startsWith(`${href}/`);
 }
 
