@@ -67,14 +67,17 @@ export type StoryBeat = {
   memory: string;
 };
 
-export type InterviewImportance = 'critical' | 'high' | 'medium' | 'niche' | 'low';
+export type InterviewImportance = 'must' | 'high' | 'medium' | 'low';
 
-export type InventoryEntry = {
+export type InventoryModuleImportance = 'critical' | 'high' | 'medium' | 'niche' | 'low';
+
+/** Compact rows used by inventory-modules.ts (MVC, Security, Kafka, etc.). */
+export type InventoryModuleEntry = {
   id: string;
   annotation: string;
   module: string;
   category: string;
-  interviewImportance: InterviewImportance;
+  interviewImportance: InventoryModuleImportance;
   stack: string;
   package: string;
   what: string;
@@ -85,8 +88,6 @@ export type InventoryEntry = {
   trap: string;
   memory: string;
 };
-
-export type InterviewImportance = 'must' | 'high' | 'medium' | 'low';
 
 export type InventoryFamily =
   | 'core-meta'

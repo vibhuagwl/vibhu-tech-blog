@@ -1,9 +1,9 @@
-import type {InventoryEntry} from './types';
+import type {InventoryModuleEntry} from './types';
 
 const STACK = 'Boot 3 / SF 6';
 
 /** Compact inventory rows for MVC/Web, WebFlux, Validation, Security, Data, Kafka, Test, Actuator, Integration/Batch/Cloud. */
-export const INVENTORY_MODULES: InventoryEntry[] = [
+export const INVENTORY_MODULES: InventoryModuleEntry[] = [
   // ── MVC / Web ──────────────────────────────────────────────────────────────
   {
     id: 'request-mapping',
