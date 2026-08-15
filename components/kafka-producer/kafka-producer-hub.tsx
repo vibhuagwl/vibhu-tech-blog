@@ -47,7 +47,7 @@ import {
   TX_FLOW,
   VERSION_NOTE,
 } from '@/lib/kafka-producer/content';
-import {CHAOS, FAILURE_MATRIX, TROUBLESHOOT} from '@/lib/kafka-producer/failures';
+import {CHAOS, CHAOS_EXPLAIN, FAILURE_MATRIX, FAILURE_MATRIX_EXPLAIN, TROUBLESHOOT} from '@/lib/kafka-producer/failures';
 import {
   AFTER_FATAL,
   AUTH_LIFECYCLE,
@@ -712,7 +712,14 @@ Still configure acks/idempotence/linger underneath`}
             />
           </Section>
 
-          <Section id="failures" title="21. Failure matrix">
+          <Section
+            id="failures"
+            title="21. Failure matrix"
+            lead="When something breaks mid-produce, this matrix answers: did we ACK, will we retry, can we duplicate, can we lose data, what exception shows up. Use it in interviews and incident reviews."
+          >
+            <div className="mb-4">
+              <CodePanel title="When do these failures occur?" tone="ok" code={FAILURE_MATRIX_EXPLAIN} />
+            </div>
             <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
               <table className="min-w-full text-[11px]">
                 <thead className="bg-slate-50 uppercase tracking-[.08em] text-slate-500 dark:bg-slate-900">
@@ -741,7 +748,11 @@ Still configure acks/idempotence/linger underneath`}
             </div>
           </Section>
 
-          <Section id="ops" title="22. Troubleshooting, chaos, multi-cluster DR">
+          <Section
+            id="ops"
+            title="22. Troubleshooting, chaos, multi-cluster DR"
+            lead="Troubleshooting = diagnose live symptoms. Chaos = deliberately inject the failure-matrix scenarios in a controlled game day to prove retries, fencing, and alerts behave."
+          >
             <div className="space-y-3">
               {TROUBLESHOOT.map((t) => (
                 <div key={t.title} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
@@ -759,6 +770,9 @@ Still configure acks/idempotence/linger underneath`}
               ))}
             </div>
             <h3 className="mt-8 text-lg font-semibold text-slate-900 dark:text-white">Chaos expectations</h3>
+            <div className="mt-4 mb-4">
+              <CodePanel title="What chaos means" tone="ok" code={CHAOS_EXPLAIN} />
+            </div>
             <MiniTable headers={['Inject', 'Expected']} rows={CHAOS} />
             <div className="mt-4">
               <CodePanel
