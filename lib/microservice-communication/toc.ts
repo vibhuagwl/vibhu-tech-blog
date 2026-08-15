@@ -27,6 +27,23 @@ export const MSC_TOC: TocItem[] = [
   {id: 'checklist', label: '23. Coverage checklist'},
 ];
 
+/** Sections only mounted in "Full deep reference" view — hash/TOC must unlock that view first. */
+export const MSC_DEEP_SECTION_IDS = new Set([
+  'options',
+  'extras',
+  'rest-clients',
+  'discovery-lb',
+  'grpc',
+  'async',
+  'gateway-mesh',
+  'resilience',
+  'idempotency',
+  'security-obs',
+  'capacity',
+  'architectures',
+  'antipatterns',
+]);
+
 export const MEMORY_SENTENCE =
   'Taxonomy first (mechanism ≠ infra). Immediate answer → REST/gRPC/RSocket. Fan-out → Kafka. Callbacks → webhooks. Large/batch → S3/SFTP. CDC for brownfield. Every sync call: TRICKS-OLD.';
 
