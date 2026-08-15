@@ -5,3 +5,10 @@ public_subnet_ids  = ["subnet-aaaaaaaa", "subnet-bbbbbbbb"]
 desired_count      = 2
 image_tag          = "latest"
 cloud_map_namespace = "gateway-lab.local"
+
+# Auto scaling (Application Auto Scaling → ECS DesiredCount)
+enable_autoscaling            = true
+autoscaling_min_capacity      = 2
+autoscaling_max_capacity      = 6
+autoscaling_cpu_target        = 60
+autoscaling_requests_per_target = 1000

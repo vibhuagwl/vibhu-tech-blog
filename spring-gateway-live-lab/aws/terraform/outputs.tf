@@ -34,3 +34,14 @@ output "ecr_order_service" {
 output "aws_region" {
   value = local.region
 }
+
+output "autoscaling" {
+  description = "ECS autoscaling bounds (when enable_autoscaling=true)"
+  value = var.enable_autoscaling ? {
+    min_capacity           = var.autoscaling_min_capacity
+    max_capacity           = var.autoscaling_max_capacity
+    cpu_target_percent     = var.autoscaling_cpu_target
+    alb_requests_per_target = var.autoscaling_requests_per_target
+    services               = ["api-gateway", "user-service", "order-service"]
+  } : null
+}

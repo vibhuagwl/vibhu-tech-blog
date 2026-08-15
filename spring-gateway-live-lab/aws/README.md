@@ -108,6 +108,71 @@ Terraform already encodes steps 1–6; you only set `vpc_id` + `public_subnet_id
 
 ---
 
+## ECS Auto Scaling — what we configured
+
+Fixed `desired_count` alone does not grow under load. We use **Application Auto Scaling** on each ECS service (`aws/terraform/autoscaling.tf`).
+
+```text
+CloudWatch metric (CPU or ALB RequestCountPerTarget)
+        │
+        ▼
+Application Auto Scaling policy (Target Tracking)
+        │
+        ▼
+ECS service DesiredCount  (min … max)
+        │
+        ▼
+More/fewer Fargate tasks
+        │
+        ▼
+ALB target group auto-registers gateway task IPs
+Cloud Map updates user/order A records
+```
+
+### Defaults
+
+| Setting | Value |
+|---------|--------|
+| Enabled | `enable_autoscaling = true` |
+| Min tasks / service | `2` |
+| Max tasks / service | `6` |
+| CPU target | `60%` average (`ECSServiceAverageCPUUtilization`) |
+| Gateway extra | `ALBRequestCountPerTarget = 1000` |
+| Cooldown | 60s scale-in / scale-out |
+
+So each of gateway / user / order can run **2–6** tasks (up to **18** total under peak).
+
+### How to tune
+
+In `terraform.tfvars`:
+
+```hcl
+enable_autoscaling              = true
+autoscaling_min_capacity        = 2
+autoscaling_max_capacity        = 8
+autoscaling_cpu_target          = 50
+autoscaling_requests_per_target = 500   # lower = scale gateway out sooner
+```
+
+Disable:
+
+```hcl
+enable_autoscaling = false
+```
+
+### Steps (concept → Terraform)
+
+1. Register scalable target: `ecs:service:DesiredCount` for each service  
+2. Add **Target Tracking** policy on **CPU** (all three services)  
+3. Add **Target Tracking** on **ALBRequestCountPerTarget** for **api-gateway** only (needs ALB + TG ARN suffixes)  
+4. Set `lifecycle { ignore_changes = [desired_count] }` on ECS services so later `terraform apply` does not reset the count autoscaling changed  
+
+### Interview answer
+
+> “I’d keep the ALB in front of the gateway and use ECS Service Auto Scaling with target tracking on CPU, plus ALB request count per target for the gateway. Min/max bound cost and headroom; the ALB and Cloud Map pick up new task IPs automatically—no Eureka.”
+
+---
+
 ## 1) Prove locally (Docker DNS ≈ Cloud Map)
 
 ```bash

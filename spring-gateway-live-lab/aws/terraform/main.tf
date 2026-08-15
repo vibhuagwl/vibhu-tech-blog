@@ -342,6 +342,11 @@ resource "aws_ecs_service" "user" {
   service_registries {
     registry_arn = aws_service_discovery_service.user.arn
   }
+
+  # Autoscaling owns DesiredCount after first apply — don't fight it on every terraform apply
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
 }
 
 resource "aws_ecs_service" "order" {
@@ -359,6 +364,10 @@ resource "aws_ecs_service" "order" {
 
   service_registries {
     registry_arn = aws_service_discovery_service.order.arn
+  }
+
+  lifecycle {
+    ignore_changes = [desired_count]
   }
 }
 
@@ -386,4 +395,8 @@ resource "aws_ecs_service" "gateway" {
     aws_ecs_service.user,
     aws_ecs_service.order
   ]
+
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
 }
