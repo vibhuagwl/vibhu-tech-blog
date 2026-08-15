@@ -38,6 +38,9 @@ public class KafkaTopicConfig {
   }
 
   private NewTopic topic(String name, HadronProperties properties) {
-    return TopicBuilder.name(name).partitions(properties.getKafka().getTopicPartitions()).replicas(1).build();
+    return TopicBuilder.name(name)
+        .partitions(properties.getKafka().getTopicPartitions())
+        .replicas(1)
+        .build();
   }
 }

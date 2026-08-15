@@ -36,8 +36,7 @@ public class AccountEntity {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
-  protected AccountEntity() {
-  }
+  protected AccountEntity() {}
 
   public AccountEntity(String id, BigDecimal balance, String status) {
     this.id = id;

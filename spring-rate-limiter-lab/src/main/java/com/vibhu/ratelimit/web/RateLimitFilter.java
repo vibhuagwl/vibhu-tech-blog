@@ -16,9 +16,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Application-level enforcement. Gateway-level limiting still belongs in front
- * for coarse IP/WAF protection; this filter uses authenticated identity headers
- * (lab: X-User-Id / X-Client-Id / X-Tenant-Id) that production would take from JWT.
+ * Application-level enforcement. Gateway-level limiting still belongs in front for coarse IP/WAF
+ * protection; this filter uses authenticated identity headers (lab: X-User-Id / X-Client-Id /
+ * X-Tenant-Id) that production would take from JWT.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 20)
@@ -44,25 +44,32 @@ public class RateLimitFilter extends OncePerRequestFilter {
   }
 
   @Override
-  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
-    RequestContext ctx = RequestContext.builder()
-        .userId(header(request, "X-User-Id"))
-        .clientId(header(request, "X-Client-Id"))
-        .tenantId(header(request, "X-Tenant-Id"))
-        .ipAddress(clientIp(request))
-        .apiPath(normalize(request.getRequestURI()))
-        .httpMethod(request.getMethod())
-        .serviceName(header(request, "X-Service-Name"))
-        .build();
+    RequestContext ctx =
+        RequestContext.builder()
+            .userId(header(request, "X-User-Id"))
+            .clientId(header(request, "X-Client-Id"))
+            .tenantId(header(request, "X-Tenant-Id"))
+            .ipAddress(clientIp(request))
+            .apiPath(normalize(request.getRequestURI()))
+            .httpMethod(request.getMethod())
+            .serviceName(header(request, "X-Service-Name"))
+            .build();
     RateLimitResult result = rateLimiter.allow(ctx);
     RateLimitHeaders.apply(response, result);
     if (!result.allowed()) {
       response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
       response.setContentType("application/json");
-      response.getWriter().write("""
+      response
+          .getWriter()
+          .write(
+              """
           {"error":"rate_limited","reason":"%s","policy":"%s","retryAfterSeconds":%d}
-          """.formatted(result.reason(), result.policyId(), Math.max(1, result.retryAfterSeconds())));
+          """
+                  .formatted(
+                      result.reason(), result.policyId(), Math.max(1, result.retryAfterSeconds())));
       return;
     }
     filterChain.doFilter(request, response);

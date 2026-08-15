@@ -9,14 +9,14 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("kafka")
 public class KafkaMessageEventPublisher implements MessageEventPublisher {
-    private final KafkaTemplate<String, MessageCreatedEvent> kafkaTemplate;
+  private final KafkaTemplate<String, MessageCreatedEvent> kafkaTemplate;
 
-    public KafkaMessageEventPublisher(KafkaTemplate<String, MessageCreatedEvent> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
-    }
+  public KafkaMessageEventPublisher(KafkaTemplate<String, MessageCreatedEvent> kafkaTemplate) {
+    this.kafkaTemplate = kafkaTemplate;
+  }
 
-    @Override
-    public void publish(MessageCreatedEvent event) {
-        kafkaTemplate.send(WhatsAppTopics.MESSAGE_CREATED, event.conversationId(), event);
-    }
+  @Override
+  public void publish(MessageCreatedEvent event) {
+    kafkaTemplate.send(WhatsAppTopics.MESSAGE_CREATED, event.conversationId(), event);
+  }
 }

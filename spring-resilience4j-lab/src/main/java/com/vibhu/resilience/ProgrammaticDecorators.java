@@ -20,7 +20,9 @@ public final class ProgrammaticDecorators {
 
   public static Supplier<PaymentResult> paymentPipeline(Supplier<PaymentResult> bankCall) {
     Bulkhead bulkhead =
-        Bulkhead.of("payBh", BulkheadConfig.custom().maxConcurrentCalls(20).maxWaitDuration(Duration.ZERO).build());
+        Bulkhead.of(
+            "payBh",
+            BulkheadConfig.custom().maxConcurrentCalls(20).maxWaitDuration(Duration.ZERO).build());
     RateLimiter rateLimiter =
         RateLimiter.of(
             "payRl",

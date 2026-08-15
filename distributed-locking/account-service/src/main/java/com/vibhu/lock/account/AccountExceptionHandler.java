@@ -30,6 +30,5 @@ public class AccountExceptionHandler {
     return ResponseEntity.status(status).body(new ApiError(status.value(), message, Instant.now()));
   }
 
-  record ApiError(int status, String message, Instant timestamp) {
-  }
+  record ApiError(int status, String message, Instant timestamp) {}
 }

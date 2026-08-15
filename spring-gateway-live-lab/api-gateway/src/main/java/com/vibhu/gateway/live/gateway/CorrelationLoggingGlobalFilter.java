@@ -12,8 +12,8 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * Phase 1 GlobalFilter — correlation ID + latency log.
- * Must stay non-blocking (no Thread.sleep / blocking IO on Netty event loop).
+ * Phase 1 GlobalFilter — correlation ID + latency log. Must stay non-blocking (no Thread.sleep /
+ * blocking IO on Netty event loop).
  */
 @Component
 public class CorrelationLoggingGlobalFilter implements GlobalFilter, Ordered {
@@ -25,7 +25,8 @@ public class CorrelationLoggingGlobalFilter implements GlobalFilter, Ordered {
   public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
     long start = System.currentTimeMillis();
     String incoming = exchange.getRequest().getHeaders().getFirst(HEADER);
-    String correlationId = (incoming == null || incoming.isBlank()) ? UUID.randomUUID().toString() : incoming;
+    String correlationId =
+        (incoming == null || incoming.isBlank()) ? UUID.randomUUID().toString() : incoming;
 
     ServerHttpRequest request =
         exchange.getRequest().mutate().header(HEADER, correlationId).build();

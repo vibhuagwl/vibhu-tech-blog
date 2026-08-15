@@ -35,15 +35,13 @@ public class AccountController {
   }
 
   @PostMapping("/{id}/debit")
-  public Map<String, Object> debit(
-      @PathVariable String id, @RequestParam BigDecimal amount) {
+  public Map<String, Object> debit(@PathVariable String id, @RequestParam BigDecimal amount) {
     Account a = debits.debit(id, amount);
     return Map.of("id", a.id(), "balance", a.balance(), "status", "OK");
   }
 
   @PostMapping("/{id}/debit-unsafe")
-  public Map<String, Object> debitUnsafe(
-      @PathVariable String id, @RequestParam BigDecimal amount) {
+  public Map<String, Object> debitUnsafe(@PathVariable String id, @RequestParam BigDecimal amount) {
     Account a = debits.debitUnsafe(id, amount);
     return Map.of("id", a.id(), "balance", a.balance(), "status", "UNSAFE");
   }

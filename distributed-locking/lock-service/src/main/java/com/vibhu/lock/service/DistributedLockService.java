@@ -13,11 +13,13 @@ public class DistributedLockService {
     this.lockManager = lockManager;
   }
 
-  public LockToken acquireExclusive(String lockKey, String ownerId, String transactionId, Duration wait, Duration lease) {
+  public LockToken acquireExclusive(
+      String lockKey, String ownerId, String transactionId, Duration wait, Duration lease) {
     return lockManager.tryAcquire(lockKey, LockMode.EXCLUSIVE, ownerId, transactionId, wait, lease);
   }
 
-  public LockToken acquireShared(String lockKey, String ownerId, String transactionId, Duration wait, Duration lease) {
+  public LockToken acquireShared(
+      String lockKey, String ownerId, String transactionId, Duration wait, Duration lease) {
     return lockManager.tryAcquire(lockKey, LockMode.SHARED, ownerId, transactionId, wait, lease);
   }
 

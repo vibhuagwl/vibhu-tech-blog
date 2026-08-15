@@ -7,8 +7,10 @@ import com.vibhu.hadron.domain.EventEnvelope;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,8 +23,6 @@ import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.util.backoff.FixedBackOff;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.serialization.StringDeserializer;
 
 @Configuration
 @EnableKafka
@@ -70,8 +70,8 @@ public class KafkaConsumerConfig {
   }
 
   /**
-   * Optional in-partition exponential backoff — do not use for long delays.
-   * Demonstrates Strategy 1 vs Strategy 2 in interviews.
+   * Optional in-partition exponential backoff — do not use for long delays. Demonstrates Strategy 1
+   * vs Strategy 2 in interviews.
    */
   public static ExponentialBackOffWithMaxRetries dangerousInMemoryBackoff() {
     ExponentialBackOffWithMaxRetries backoff = new ExponentialBackOffWithMaxRetries(3);
@@ -88,14 +88,18 @@ public class KafkaConsumerConfig {
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(consumerFactory);
     factory.setCommonErrorHandler(errorHandler);
-    factory.getContainerProperties().setAckMode(org.springframework.kafka.listener.ContainerProperties.AckMode.RECORD);
+    factory
+        .getContainerProperties()
+        .setAckMode(org.springframework.kafka.listener.ContainerProperties.AckMode.RECORD);
     factory.setConcurrency(1);
     return factory;
   }
 
   static EventEnvelope toEnvelope(ConsumerRecord<String, String> record) {
     Map<String, String> headers = new HashMap<>();
-    record.headers().forEach(h -> headers.put(h.key(), new String(h.value(), StandardCharsets.UTF_8)));
+    record
+        .headers()
+        .forEach(h -> headers.put(h.key(), new String(h.value(), StandardCharsets.UTF_8)));
     int retry = 0;
     try {
       retry = Integer.parseInt(headers.getOrDefault(TopicNames.HEADER_RETRY_COUNT, "0"));

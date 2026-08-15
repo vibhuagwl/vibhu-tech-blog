@@ -1,8 +1,8 @@
 package com.vibhu.lock.transaction;
 
+import com.vibhu.lock.common.TransactionState;
 import com.vibhu.lock.common.TransferRequest;
 import com.vibhu.lock.common.TransferResponse;
-import com.vibhu.lock.common.TransactionState;
 import com.vibhu.lock.transaction.TransactionDtos.TransactionView;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.EnumSet;
@@ -15,12 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TransferService {
   private static final Logger log = LoggerFactory.getLogger(TransferService.class);
-  private static final EnumSet<TransactionState> TERMINAL_STATES = EnumSet.of(
-      TransactionState.COMMITTED,
-      TransactionState.ABORTED,
-      TransactionState.RELEASED,
-      TransactionState.TIMED_OUT
-  );
+  private static final EnumSet<TransactionState> TERMINAL_STATES =
+      EnumSet.of(
+          TransactionState.COMMITTED,
+          TransactionState.ABORTED,
+          TransactionState.RELEASED,
+          TransactionState.TIMED_OUT);
 
   private final TransactionRepository transactionRepository;
   private final IdempotencyService idempotencyService;
@@ -29,8 +29,7 @@ public class TransferService {
   public TransferService(
       TransactionRepository transactionRepository,
       IdempotencyService idempotencyService,
-      ThreePhaseTransactionManager transactionManager
-  ) {
+      ThreePhaseTransactionManager transactionManager) {
     this.transactionRepository = transactionRepository;
     this.idempotencyService = idempotencyService;
     this.transactionManager = transactionManager;
@@ -51,7 +50,8 @@ public class TransferService {
       transaction = transactionManager.begin(request);
       MDC.put("transactionId", transaction.getId());
       MDC.put("accountId", transaction.getSourceAccountId());
-      log.info("Transfer started source={} dest={} amount={}",
+      log.info(
+          "Transfer started source={} dest={} amount={}",
           transaction.getSourceAccountId(),
           transaction.getDestinationAccountId(),
           transaction.getAmount());
@@ -81,16 +81,21 @@ public class TransferService {
 
   @Transactional(readOnly = true)
   public TransactionView get(String transactionId) {
-    return transactionRepository.findById(transactionId)
+    return transactionRepository
+        .findById(transactionId)
         .map(TransactionView::from)
         .orElseThrow(() -> new EntityNotFoundException("Transaction not found: " + transactionId));
   }
 
   public TransactionView cancel(String transactionId) {
-    TransactionEntity transaction = transactionRepository.findById(transactionId)
-        .orElseThrow(() -> new EntityNotFoundException("Transaction not found: " + transactionId));
+    TransactionEntity transaction =
+        transactionRepository
+            .findById(transactionId)
+            .orElseThrow(
+                () -> new EntityNotFoundException("Transaction not found: " + transactionId));
     if (TERMINAL_STATES.contains(transaction.getState())) {
-      throw new IllegalStateException("Transaction " + transactionId + " is already " + transaction.getState());
+      throw new IllegalStateException(
+          "Transaction " + transactionId + " is already " + transaction.getState());
     }
     TransactionEntity aborted = transactionManager.rollback(transaction, "Cancelled by request");
     return TransactionView.from(transactionManager.releaseLocks(aborted));

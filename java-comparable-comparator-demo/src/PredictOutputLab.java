@@ -9,7 +9,7 @@ import java.util.TreeSet;
 /**
  * Runnable predict-the-output snippets for interview drills.
  *
- * Run: javac src/*.java && java -cp src PredictOutputLab
+ * <p>Run: javac src/*.java && java -cp src PredictOutputLab
  */
 public class PredictOutputLab {
 

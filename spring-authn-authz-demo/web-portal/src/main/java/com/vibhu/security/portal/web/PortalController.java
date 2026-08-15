@@ -13,40 +13,41 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class PortalController {
 
-    private final PaymentService paymentService;
+  private final PaymentService paymentService;
 
-    public PortalController(PaymentService paymentService) {
-        this.paymentService = paymentService;
-    }
+  public PortalController(PaymentService paymentService) {
+    this.paymentService = paymentService;
+  }
 
-    @GetMapping("/")
-    public String home() {
-        return "index";
-    }
+  @GetMapping("/")
+  public String home() {
+    return "index";
+  }
 
-    @GetMapping("/login")
-    public String login() {
-        return "login";
-    }
+  @GetMapping("/login")
+  public String login() {
+    return "login";
+  }
 
-    @GetMapping("/payments")
-    public String payments(@AuthenticationPrincipal UserDetails user, Model model) {
-        model.addAttribute("username", user.getUsername());
-        model.addAttribute("payments", paymentService.listFor(user.getUsername()));
-        return "payments";
-    }
+  @GetMapping("/payments")
+  public String payments(@AuthenticationPrincipal UserDetails user, Model model) {
+    model.addAttribute("username", user.getUsername());
+    model.addAttribute("payments", paymentService.listFor(user.getUsername()));
+    return "payments";
+  }
 
-    @PostMapping("/payments")
-    public String createPayment(@AuthenticationPrincipal UserDetails user,
-                                @RequestParam BigDecimal amount,
-                                @RequestParam(defaultValue = "") String note) {
-        paymentService.create(user.getUsername(), amount, note);
-        return "redirect:/payments";
-    }
+  @PostMapping("/payments")
+  public String createPayment(
+      @AuthenticationPrincipal UserDetails user,
+      @RequestParam BigDecimal amount,
+      @RequestParam(defaultValue = "") String note) {
+    paymentService.create(user.getUsername(), amount, note);
+    return "redirect:/payments";
+  }
 
-    @GetMapping("/admin")
-    public String admin(Model model) {
-        model.addAttribute("payments", paymentService.listAll());
-        return "admin";
-    }
+  @GetMapping("/admin")
+  public String admin(Model model) {
+    model.addAttribute("payments", paymentService.listAll());
+    return "admin";
+  }
 }

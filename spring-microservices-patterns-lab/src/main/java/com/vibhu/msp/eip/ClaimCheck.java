@@ -17,7 +17,8 @@ public final class ClaimCheck {
   }
 
   public byte[] checkOut(ClaimReference reference) {
-    return store.retrieve(reference.id())
+    return store
+        .retrieve(reference.id())
         .orElseThrow(() -> new IllegalArgumentException("Unknown claim check: " + reference.id()));
   }
 }

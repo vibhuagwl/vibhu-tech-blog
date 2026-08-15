@@ -1,7 +1,6 @@
 package com.vibhu.hadron.classify;
 
 import com.vibhu.hadron.domain.RetryDecision;
-import com.vibhu.hadron.exception.HadronException;
 import com.vibhu.hadron.exception.OutOfOrderEventException;
 import com.vibhu.hadron.exception.PermanentBusinessException;
 import com.vibhu.hadron.exception.PoisonMessageException;
@@ -25,11 +24,7 @@ public class ExceptionClassifier {
           "40001", // serialization failure / deadlock
           "40P01", // postgres deadlock
           "55P03", // lock not available
-          "08000",
-          "08003",
-          "08006",
-          "57P01",
-          "57014");
+          "08000", "08003", "08006", "57P01", "57014");
 
   public RetryDecision classify(Throwable throwable) {
     Throwable current = throwable;

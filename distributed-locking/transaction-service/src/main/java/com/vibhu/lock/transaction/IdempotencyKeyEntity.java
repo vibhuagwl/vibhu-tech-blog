@@ -25,8 +25,7 @@ public class IdempotencyKeyEntity {
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
-  protected IdempotencyKeyEntity() {
-  }
+  protected IdempotencyKeyEntity() {}
 
   public IdempotencyKeyEntity(String idempotencyKey, String transactionId, String responseJson) {
     this.idempotencyKey = idempotencyKey;

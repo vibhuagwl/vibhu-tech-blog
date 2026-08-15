@@ -99,8 +99,7 @@ public class DeadLetterMessageEntity {
   @Column(length = 128)
   private String correlationId;
 
-  @Version
-  private int version;
+  @Version private int version;
 
   @Column(nullable = false)
   private Instant createdAt = Instant.now();

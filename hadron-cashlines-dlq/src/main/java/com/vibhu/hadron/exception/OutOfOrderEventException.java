@@ -9,7 +9,12 @@ public class OutOfOrderEventException extends HadronException {
 
   public OutOfOrderEventException(String cashLineId, int expected, int received) {
     super(
-        "Out-of-order CashLine " + cashLineId + " expected sequence " + expected + " received " + received,
+        "Out-of-order CashLine "
+            + cashLineId
+            + " expected sequence "
+            + expected
+            + " received "
+            + received,
         FailureCategory.DATA,
         true);
     this.expected = expected;

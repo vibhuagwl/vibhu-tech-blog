@@ -1,8 +1,8 @@
 package com.vibhu.shard;
 
 /**
- * Naive modulo hash sharding. Even distribution for fixed N, but changing
- * {@code shardCount} remaps most keys — prefer {@link ConsistentHashShardRouter}.
+ * Naive modulo hash sharding. Even distribution for fixed N, but changing {@code shardCount} remaps
+ * most keys — prefer {@link ConsistentHashShardRouter}.
  */
 public final class HashShardRouter implements ShardStrategy {
   private final int shardCount;

@@ -23,11 +23,8 @@ public final class HttpDownstreamClient {
   }
 
   public String getString(String url) throws IOException, InterruptedException {
-    HttpRequest request = HttpRequest.newBuilder()
-        .uri(URI.create(url))
-        .timeout(timeout)
-        .GET()
-        .build();
+    HttpRequest request =
+        HttpRequest.newBuilder().uri(URI.create(url)).timeout(timeout).GET().build();
     HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     if (response.statusCode() >= 500) {
       throw new IOException("Downstream error: HTTP " + response.statusCode());

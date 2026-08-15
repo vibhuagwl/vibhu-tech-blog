@@ -18,51 +18,57 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 class CsrfProtectionTest {
 
-  @Autowired
-  MockMvc mockMvc;
+  @Autowired MockMvc mockMvc;
 
   @Test
   void transferWithoutCsrfIsForbidden() throws Exception {
-    mockMvc.perform(post("/transfer")
-            .with(user("alice").roles("USER"))
-            .param("toAccount", "B")
-            .param("amount", "100"))
+    mockMvc
+        .perform(
+            post("/transfer")
+                .with(user("alice").roles("USER"))
+                .param("toAccount", "B")
+                .param("amount", "100"))
         .andExpect(status().isForbidden());
   }
 
   @Test
   void transferWithCsrfSucceeds() throws Exception {
-    mockMvc.perform(post("/transfer")
-            .with(user("alice").roles("USER"))
-            .with(csrf())
-            .param("toAccount", "B")
-            .param("amount", "100"))
+    mockMvc
+        .perform(
+            post("/transfer")
+                .with(user("alice").roles("USER"))
+                .with(csrf())
+                .param("toAccount", "B")
+                .param("amount", "100"))
         .andExpect(status().is3xxRedirection())
         .andExpect(redirectedUrl("/transfer"));
   }
 
   @Test
   void loginPageIsPublic() throws Exception {
-    mockMvc.perform(get("/login"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/login")).andExpect(status().isOk());
   }
 
   @Test
   void spaTransferWithoutCsrfHeaderIsForbidden() throws Exception {
-    mockMvc.perform(post("/spa/transfer")
-            .with(httpBasic("alice", "password"))
-            .param("toAccount", "C")
-            .param("amount", "50"))
+    mockMvc
+        .perform(
+            post("/spa/transfer")
+                .with(httpBasic("alice", "password"))
+                .param("toAccount", "C")
+                .param("amount", "50"))
         .andExpect(status().isForbidden());
   }
 
   @Test
   void spaTransferWithCsrfSucceeds() throws Exception {
-    mockMvc.perform(post("/spa/transfer")
-            .with(httpBasic("alice", "password"))
-            .with(csrf())
-            .param("toAccount", "C")
-            .param("amount", "50"))
+    mockMvc
+        .perform(
+            post("/spa/transfer")
+                .with(httpBasic("alice", "password"))
+                .with(csrf())
+                .param("toAccount", "C")
+                .param("amount", "50"))
         .andExpect(status().isOk());
   }
 }

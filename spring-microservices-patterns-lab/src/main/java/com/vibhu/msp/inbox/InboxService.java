@@ -1,11 +1,10 @@
 package com.vibhu.msp.inbox;
 
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Inbox pattern — idempotent message processing. Maps to curriculum Part 08. */
 @Service

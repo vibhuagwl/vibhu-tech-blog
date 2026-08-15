@@ -13,9 +13,9 @@ public final class OrderProjection {
   private final Map<String, OrderSummaryView> views = new ConcurrentHashMap<>();
 
   public void onOrderCreated(CqrsCommandSide.OrderWriteModel model) {
-    views.put(model.orderId(), new OrderSummaryView(
-        model.orderId(), model.customerId(), model.amount(), model.status()
-    ));
+    views.put(
+        model.orderId(),
+        new OrderSummaryView(model.orderId(), model.customerId(), model.amount(), model.status()));
   }
 
   public OrderSummaryView findById(String orderId) {

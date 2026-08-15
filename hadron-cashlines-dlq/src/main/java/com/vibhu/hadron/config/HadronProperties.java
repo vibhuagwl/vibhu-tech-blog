@@ -75,8 +75,9 @@ public class HadronProperties {
 
   public static class Retry {
     private int maxAttempts = 3;
-    private List<Duration> delays = new ArrayList<>(List.of(
-        Duration.ofMillis(200), Duration.ofMillis(400), Duration.ofMillis(800)));
+    private List<Duration> delays =
+        new ArrayList<>(
+            List.of(Duration.ofMillis(200), Duration.ofMillis(400), Duration.ofMillis(800)));
     private boolean blockingInMemory;
 
     public int getMaxAttempts() {

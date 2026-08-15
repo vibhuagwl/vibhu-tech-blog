@@ -12,14 +12,16 @@ public class WebFilterConfig {
 
   @Bean
   FilterRegistrationBean<TraceContextFilter> traceContextFilter() {
-    FilterRegistrationBean<TraceContextFilter> bean = new FilterRegistrationBean<>(new TraceContextFilter());
+    FilterRegistrationBean<TraceContextFilter> bean =
+        new FilterRegistrationBean<>(new TraceContextFilter());
     bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
     return bean;
   }
 
   @Bean
   FilterRegistrationBean<DemoJwtAuthFilter> demoJwtAuthFilter() {
-    FilterRegistrationBean<DemoJwtAuthFilter> bean = new FilterRegistrationBean<>(new DemoJwtAuthFilter());
+    FilterRegistrationBean<DemoJwtAuthFilter> bean =
+        new FilterRegistrationBean<>(new DemoJwtAuthFilter());
     bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
     return bean;
   }

@@ -31,8 +31,7 @@ public class KafkaEventPublisher {
   public KafkaEventPublisher(
       KafkaTemplate<String, String> kafkaTemplate,
       ObjectMapper objectMapper,
-      TransactionEventRepository eventRepository
-  ) {
+      TransactionEventRepository eventRepository) {
     this.kafkaTemplate = kafkaTemplate;
     this.objectMapper = objectMapper;
     this.eventRepository = eventRepository;
@@ -46,41 +45,46 @@ public class KafkaEventPublisher {
   public void publishLockAcquired(TransactionEntity tx) {
     Instant now = Instant.now();
     long fence = tx.getFencingSource() == null ? 0L : tx.getFencingSource();
-    publishTyped("LockAcquired", new LockAcquired(
-        tx.getId(),
-        tx.getId(),
-        TwoPhaseLockingManager.lockKey(tx.getSourceAccountId()),
-        LockMode.EXCLUSIVE,
-        fence,
-        now
-    ));
+    publishTyped(
+        "LockAcquired",
+        new LockAcquired(
+            tx.getId(),
+            tx.getId(),
+            TwoPhaseLockingManager.lockKey(tx.getSourceAccountId()),
+            LockMode.EXCLUSIVE,
+            fence,
+            now));
   }
 
   public void publishPrepared(TransactionEntity tx) {
-    publishTyped("TransactionPrepared", new TransactionPrepared(tx.getId(), tx.getId(), Instant.now()));
+    publishTyped(
+        "TransactionPrepared", new TransactionPrepared(tx.getId(), tx.getId(), Instant.now()));
   }
 
   public void publishCommitted(TransactionEntity tx) {
-    publishTyped("TransactionCommitted", new TransactionCommitted(tx.getId(), tx.getId(), Instant.now()));
+    publishTyped(
+        "TransactionCommitted", new TransactionCommitted(tx.getId(), tx.getId(), Instant.now()));
   }
 
   public void publishRolledBack(TransactionEntity tx, String reason) {
-    publishTyped("TransactionRolledBack", new TransactionRolledBack(
-        tx.getId(), tx.getId(), reason, Instant.now()
-    ));
+    publishTyped(
+        "TransactionRolledBack",
+        new TransactionRolledBack(tx.getId(), tx.getId(), reason, Instant.now()));
   }
 
   public void publishLockReleased(TransactionEntity tx) {
-    publishTyped("LockReleased", new LockReleased(
-        tx.getId(),
-        tx.getId(),
-        TwoPhaseLockingManager.lockKey(tx.getSourceAccountId()),
-        LockMode.EXCLUSIVE,
-        Instant.now()
-    ));
+    publishTyped(
+        "LockReleased",
+        new LockReleased(
+            tx.getId(),
+            tx.getId(),
+            TwoPhaseLockingManager.lockKey(tx.getSourceAccountId()),
+            LockMode.EXCLUSIVE,
+            Instant.now()));
   }
 
-  public void publishLifecycle(TransactionEntity transaction, String type, Map<String, ?> attributes) {
+  public void publishLifecycle(
+      TransactionEntity transaction, String type, Map<String, ?> attributes) {
     String payload = jsonPayload(transaction, type, attributes);
     eventRepository.save(new TransactionEventEntity(transaction.getId(), type, payload));
     send(transaction.getId(), type, payload);
@@ -127,19 +131,24 @@ public class KafkaEventPublisher {
       record.headers().add("event-type", type.getBytes(StandardCharsets.UTF_8));
       kafkaTemplate.send(record);
     } catch (RuntimeException ex) {
-      log.warn("Kafka publish failed type={} transactionId={}: {}", type, transactionId, ex.getMessage());
+      log.warn(
+          "Kafka publish failed type={} transactionId={}: {}",
+          type,
+          transactionId,
+          ex.getMessage());
     }
   }
 
-  private String jsonPayload(TransactionEntity transaction, String type, Map<String, ?> attributes) {
+  private String jsonPayload(
+      TransactionEntity transaction, String type, Map<String, ?> attributes) {
     try {
-      return objectMapper.writeValueAsString(Map.of(
-          "transactionId", transaction.getId(),
-          "type", type,
-          "state", transaction.getState().name(),
-          "occurredAt", Instant.now().toString(),
-          "attributes", attributes
-      ));
+      return objectMapper.writeValueAsString(
+          Map.of(
+              "transactionId", transaction.getId(),
+              "type", type,
+              "state", transaction.getState().name(),
+              "occurredAt", Instant.now().toString(),
+              "attributes", attributes));
     } catch (JsonProcessingException ex) {
       throw new IllegalStateException("Failed to serialize transaction event", ex);
     }

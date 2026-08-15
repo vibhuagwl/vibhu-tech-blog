@@ -12,24 +12,55 @@ public class CornerCasesLab {
 
   static class MutableEmp {
     String name;
-    MutableEmp(String name) { this.name = name; }
-    @Override public boolean equals(Object o) {
+
+    MutableEmp(String name) {
+      this.name = name;
+    }
+
+    @Override
+    public boolean equals(Object o) {
       return o instanceof MutableEmp e && Objects.equals(name, e.name);
     }
-    @Override public int hashCode() { return Objects.hashCode(name); }
-    @Override public String toString() { return "M[" + name + "]"; }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(name);
+    }
+
+    @Override
+    public String toString() {
+      return "M[" + name + "]";
+    }
   }
 
   static class BadKey implements Comparable<BadKey> {
     final int id;
     final String tag;
-    BadKey(int id, String tag) { this.id = id; this.tag = tag; }
-    @Override public boolean equals(Object o) {
+
+    BadKey(int id, String tag) {
+      this.id = id;
+      this.tag = tag;
+    }
+
+    @Override
+    public boolean equals(Object o) {
       return o instanceof BadKey b && id == b.id && Objects.equals(tag, b.tag);
     }
-    @Override public int hashCode() { return Objects.hash(id, tag); }
-    @Override public int compareTo(BadKey o) { return Integer.compare(id, o.id); }
-    @Override public String toString() { return "Bad[" + id + "," + tag + "]"; }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(id, tag);
+    }
+
+    @Override
+    public int compareTo(BadKey o) {
+      return Integer.compare(id, o.id);
+    }
+
+    @Override
+    public String toString() {
+      return "Bad[" + id + "," + tag + "]";
+    }
   }
 
   public static void main(String[] args) {
@@ -38,7 +69,13 @@ public class CornerCasesLab {
     MutableEmp k = new MutableEmp("a");
     hm.put(k, "v");
     k.name = "b";
-    System.out.println("get after mutate=" + hm.get(k) + " get(a)=" + hm.get(new MutableEmp("a")) + " size=" + hm.size());
+    System.out.println(
+        "get after mutate="
+            + hm.get(k)
+            + " get(a)="
+            + hm.get(new MutableEmp("a"))
+            + " size="
+            + hm.size());
 
     System.out.println("\n== equals false, compareTo 0 ==");
     BadKey a = new BadKey(1, "x");
@@ -63,12 +100,13 @@ public class CornerCasesLab {
     System.out.println("equals=" + e1.equals(e2) + " IdentityHashMap size=" + id.size());
 
     System.out.println("\n== LRU LinkedHashMap ==");
-    LinkedHashMap<String, String> lru = new LinkedHashMap<>(16, 0.75f, true) {
-      @Override
-      protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
-        return size() > 3;
-      }
-    };
+    LinkedHashMap<String, String> lru =
+        new LinkedHashMap<>(16, 0.75f, true) {
+          @Override
+          protected boolean removeEldestEntry(Map.Entry<String, String> eldest) {
+            return size() > 3;
+          }
+        };
     lru.put("a", "1");
     lru.put("b", "2");
     lru.put("c", "3");

@@ -17,41 +17,47 @@ import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@TestPropertySource(properties = {
-        "PII_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-        "DB_PASSWORD=test-db-pass",
-        "SERVICE_CLIENT_PASSWORD=service-secret"
-})
+@TestPropertySource(
+    properties = {
+      "PII_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "DB_PASSWORD=test-db-pass",
+      "SERVICE_CLIENT_PASSWORD=service-secret"
+    })
 class CustomerPiiSecurityTest {
 
-    @Autowired
-    MockMvc mockMvc;
+  @Autowired MockMvc mockMvc;
 
-    @Test
-    void internalCreateAndReadReturnsFullPiiToService() throws Exception {
-        MvcResult create = mockMvc.perform(post("/internal/customers")
-                        .with(httpBasic("support-api", "service-secret"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+  @Test
+  void internalCreateAndReadReturnsFullPiiToService() throws Exception {
+    MvcResult create =
+        mockMvc
+            .perform(
+                post("/internal/customers")
+                    .with(httpBasic("support-api", "service-secret"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
                                 {"fullName":"Jane Doe","email":"jane.doe@bank.com","ssn":"123-45-6789","panLast4":"4242"}
                                 """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.email").value("jane.doe@bank.com"))
-                .andReturn();
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.email").value("jane.doe@bank.com"))
+            .andReturn();
 
-        String id = create.getResponse().getContentAsString()
-                .replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
+    String id =
+        create.getResponse().getContentAsString().replaceAll(".*\"id\":\"([^\"]+)\".*", "$1");
 
-        mockMvc.perform(get("/internal/customers/" + id)
-                        .with(httpBasic("support-api", "service-secret")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ssn").value("123-45-6789"));
-    }
+    mockMvc
+        .perform(get("/internal/customers/" + id).with(httpBasic("support-api", "service-secret")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.ssn").value("123-45-6789"));
+  }
 
-    @Test
-    void humanCredentialsRejectedOnInternalApi() throws Exception {
-        mockMvc.perform(get("/internal/customers/00000000-0000-0000-0000-000000000001")
-                        .with(httpBasic("support", "wrong")))
-                .andExpect(status().isUnauthorized());
-    }
+  @Test
+  void humanCredentialsRejectedOnInternalApi() throws Exception {
+    mockMvc
+        .perform(
+            get("/internal/customers/00000000-0000-0000-0000-000000000001")
+                .with(httpBasic("support", "wrong")))
+        .andExpect(status().isUnauthorized());
+  }
 }

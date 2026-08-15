@@ -17,24 +17,27 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@TestPropertySource(properties = {
-        "DB_PASSWORD=audit-db-pass",
-        "SERVICE_CLIENT_PASSWORD=service-secret",
-        "COMPLIANCE_PASSWORD=compliance-secret"
-})
+@TestPropertySource(
+    properties = {
+      "DB_PASSWORD=audit-db-pass",
+      "SERVICE_CLIENT_PASSWORD=service-secret",
+      "COMPLIANCE_PASSWORD=compliance-secret"
+    })
 class AuditServiceTest {
 
-    @Autowired
-    MockMvc mockMvc;
+  @Autowired MockMvc mockMvc;
 
-    @Test
-    void recordAndQueryAuditTrail() throws Exception {
-        UUID customerId = UUID.randomUUID();
+  @Test
+  void recordAndQueryAuditTrail() throws Exception {
+    UUID customerId = UUID.randomUUID();
 
-        mockMvc.perform(post("/internal/audit/pii-access")
-                        .with(httpBasic("support-api", "service-secret"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+    mockMvc
+        .perform(
+            post("/internal/audit/pii-access")
+                .with(httpBasic("support-api", "service-secret"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
                                 {
                                   "at":"2026-08-12T10:00:00Z",
                                   "actor":"support",
@@ -44,13 +47,16 @@ class AuditServiceTest {
                                   "fullPiiGranted":false,
                                   "clientIp":"10.0.0.5"
                                 }
-                                """.formatted(customerId)))
-                .andExpect(status().isCreated());
+                                """
+                        .formatted(customerId)))
+        .andExpect(status().isCreated());
 
-        mockMvc.perform(get("/internal/audit/customers/" + customerId)
-                        .with(httpBasic("compliance", "compliance-secret")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].actor").value("support"))
-                .andExpect(jsonPath("$[0].fullPiiGranted").value(false));
-    }
+    mockMvc
+        .perform(
+            get("/internal/audit/customers/" + customerId)
+                .with(httpBasic("compliance", "compliance-secret")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].actor").value("support"))
+        .andExpect(jsonPath("$[0].fullPiiGranted").value(false));
+  }
 }

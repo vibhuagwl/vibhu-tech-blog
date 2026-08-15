@@ -7,8 +7,8 @@ import com.vibhu.ratelimit.clock.Clock;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Process-local token bucket. Correct for a single JVM; insufficient as the
- * sole store when multiple application servers must share one quota.
+ * Process-local token bucket. Correct for a single JVM; insufficient as the sole store when
+ * multiple application servers must share one quota.
  */
 public final class InMemoryRateLimitStore implements RateLimitStore {
 
@@ -23,14 +23,15 @@ public final class InMemoryRateLimitStore implements RateLimitStore {
   public RateLimitResult consume(RateLimitKey key, RateLimitPolicy policy, double cost) {
     String redisKey = key.redisKey();
     Holder holder = new Holder();
-    buckets.compute(redisKey, (k, existing) -> {
-      long now = clock.millis();
-      TokenBucketState current = existing == null
-          ? TokenBucketState.full(policy.capacity(), now)
-          : existing;
-      holder.decision = TokenBucketMath.consume(current, policy, now, cost);
-      return holder.decision.nextState();
-    });
+    buckets.compute(
+        redisKey,
+        (k, existing) -> {
+          long now = clock.millis();
+          TokenBucketState current =
+              existing == null ? TokenBucketState.full(policy.capacity(), now) : existing;
+          holder.decision = TokenBucketMath.consume(current, policy, now, cost);
+          return holder.decision.nextState();
+        });
     TokenBucketMath.Decision d = holder.decision;
     if (d.allowed()) {
       return RateLimitResult.allow(d.remaining(), d.limit(), redisKey, policy.id());

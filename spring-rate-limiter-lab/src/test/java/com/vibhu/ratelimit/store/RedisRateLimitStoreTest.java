@@ -25,9 +25,18 @@ class RedisRateLimitStoreTest {
   @Test
   void luaAllowPayloadMapsToAllowResult() {
     StringRedisTemplate redis = mock(StringRedisTemplate.class);
-    when(redis.execute(any(RedisScript.class), anyList(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+    when(redis.execute(
+            any(RedisScript.class),
+            anyList(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString()))
         .thenReturn(List.of(1L, 9L, 0L, 10L));
-    RedisRateLimitStore store = new RedisRateLimitStore(redis, new MutableClock(0), "return {1,9,0,10}");
+    RedisRateLimitStore store =
+        new RedisRateLimitStore(redis, new MutableClock(0), "return {1,9,0,10}");
     RateLimitResult result = store.consume(key(), policy(), 1);
     assertTrue(result.allowed());
     assertTrue(result.remainingTokens() == 9);
@@ -36,9 +45,18 @@ class RedisRateLimitStoreTest {
   @Test
   void luaRejectPayloadMapsToRejectResult() {
     StringRedisTemplate redis = mock(StringRedisTemplate.class);
-    when(redis.execute(any(RedisScript.class), anyList(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+    when(redis.execute(
+            any(RedisScript.class),
+            anyList(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString()))
         .thenReturn(List.of(0L, 0L, 1500L, 10L));
-    RedisRateLimitStore store = new RedisRateLimitStore(redis, new MutableClock(0), "return {0,0,1500,10}");
+    RedisRateLimitStore store =
+        new RedisRateLimitStore(redis, new MutableClock(0), "return {0,0,1500,10}");
     RateLimitResult result = store.consume(key(), policy(), 1);
     assertFalse(result.allowed());
     assertTrue(result.retryAfter().toMillis() >= 1500);
@@ -63,6 +81,7 @@ class RedisRateLimitStoreTest {
   }
 
   private static RateLimitKey key() {
-    return RateLimitKey.from(policy(), RequestContext.builder().tenantId("acme").clientId("c").build());
+    return RateLimitKey.from(
+        policy(), RequestContext.builder().tenantId("acme").clientId("c").build());
   }
 }

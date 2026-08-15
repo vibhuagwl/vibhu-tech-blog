@@ -9,8 +9,8 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 /**
- * Socket timeouts are mandatory even with Resilience4j TimeLimiter.
- * Connect 200ms / read 1500ms — TimeLimiter is an extra async bound, not a replacement.
+ * Socket timeouts are mandatory even with Resilience4j TimeLimiter. Connect 200ms / read 1500ms —
+ * TimeLimiter is an extra async bound, not a replacement.
  */
 @Configuration
 public class RestClientConfig {

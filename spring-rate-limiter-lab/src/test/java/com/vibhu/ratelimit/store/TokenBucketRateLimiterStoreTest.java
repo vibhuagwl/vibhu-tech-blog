@@ -26,22 +26,24 @@ class TokenBucketRateLimiterStoreTest {
   void setUp() {
     clock = new MutableClock(1_000_000L);
     store = new InMemoryRateLimitStore(clock);
-    policy = RateLimitPolicy.builder()
-        .id("client-api")
-        .scope(RateLimitScope.CLIENT_API)
-        .capacity(5)
-        .refillRate(5)
-        .refillPeriod(RefillPeriod.MINUTE)
-        .clientId("client-123")
-        .apiPath("/payments")
-        .build();
-    ctx = RequestContext.builder()
-        .tenantId("acme")
-        .clientId("client-123")
-        .userId("u-1")
-        .apiPath("/payments")
-        .httpMethod("POST")
-        .build();
+    policy =
+        RateLimitPolicy.builder()
+            .id("client-api")
+            .scope(RateLimitScope.CLIENT_API)
+            .capacity(5)
+            .refillRate(5)
+            .refillPeriod(RefillPeriod.MINUTE)
+            .clientId("client-123")
+            .apiPath("/payments")
+            .build();
+    ctx =
+        RequestContext.builder()
+            .tenantId("acme")
+            .clientId("client-123")
+            .userId("u-1")
+            .apiPath("/payments")
+            .httpMethod("POST")
+            .build();
     key = RateLimitKey.from(policy, ctx);
   }
 
@@ -80,15 +82,16 @@ class TokenBucketRateLimiterStoreTest {
 
   @Test
   void burstUsesCapacityAboveSustainedRefill() {
-    RateLimitPolicy bursty = RateLimitPolicy.builder()
-        .id("burst")
-        .scope(RateLimitScope.CLIENT_API)
-        .capacity(20)
-        .refillRate(10)
-        .refillPeriod(RefillPeriod.SECOND)
-        .clientId("client-123")
-        .apiPath("/payments")
-        .build();
+    RateLimitPolicy bursty =
+        RateLimitPolicy.builder()
+            .id("burst")
+            .scope(RateLimitScope.CLIENT_API)
+            .capacity(20)
+            .refillRate(10)
+            .refillPeriod(RefillPeriod.SECOND)
+            .clientId("client-123")
+            .apiPath("/payments")
+            .build();
     RateLimitKey burstKey = RateLimitKey.from(bursty, ctx);
     int allowed = 0;
     for (int i = 0; i < 25; i++) {
@@ -101,29 +104,32 @@ class TokenBucketRateLimiterStoreTest {
 
   @Test
   void multipleClientsHaveIndependentBuckets() {
-    RequestContext other = RequestContext.builder()
-        .tenantId("acme")
-        .clientId("client-999")
-        .apiPath("/payments")
-        .build();
-    RateLimitPolicy otherPolicy = RateLimitPolicy.builder()
-        .id("other")
-        .scope(RateLimitScope.CLIENT_API)
-        .capacity(2)
-        .refillRate(2)
-        .refillPeriod(RefillPeriod.MINUTE)
-        .clientId("client-999")
-        .apiPath("/payments")
-        .build();
-    RateLimitPolicy small = RateLimitPolicy.builder()
-        .id("small")
-        .scope(RateLimitScope.CLIENT_API)
-        .capacity(2)
-        .refillRate(2)
-        .refillPeriod(RefillPeriod.MINUTE)
-        .clientId("client-123")
-        .apiPath("/payments")
-        .build();
+    RequestContext other =
+        RequestContext.builder()
+            .tenantId("acme")
+            .clientId("client-999")
+            .apiPath("/payments")
+            .build();
+    RateLimitPolicy otherPolicy =
+        RateLimitPolicy.builder()
+            .id("other")
+            .scope(RateLimitScope.CLIENT_API)
+            .capacity(2)
+            .refillRate(2)
+            .refillPeriod(RefillPeriod.MINUTE)
+            .clientId("client-999")
+            .apiPath("/payments")
+            .build();
+    RateLimitPolicy small =
+        RateLimitPolicy.builder()
+            .id("small")
+            .scope(RateLimitScope.CLIENT_API)
+            .capacity(2)
+            .refillRate(2)
+            .refillPeriod(RefillPeriod.MINUTE)
+            .clientId("client-123")
+            .apiPath("/payments")
+            .build();
     RateLimitKey a = RateLimitKey.from(small, ctx);
     RateLimitKey b = RateLimitKey.from(otherPolicy, other);
     assertTrue(store.consume(a, small, 1).allowed());
@@ -134,13 +140,14 @@ class TokenBucketRateLimiterStoreTest {
 
   @Test
   void multipleTenantsHaveIndependentBuckets() {
-    RateLimitPolicy tenantPolicy = RateLimitPolicy.builder()
-        .id("tenant")
-        .scope(RateLimitScope.TENANT)
-        .capacity(1)
-        .refillRate(1)
-        .refillPeriod(RefillPeriod.HOUR)
-        .build();
+    RateLimitPolicy tenantPolicy =
+        RateLimitPolicy.builder()
+            .id("tenant")
+            .scope(RateLimitScope.TENANT)
+            .capacity(1)
+            .refillRate(1)
+            .refillPeriod(RefillPeriod.HOUR)
+            .build();
     RequestContext acme = RequestContext.builder().tenantId("acme").build();
     RequestContext globex = RequestContext.builder().tenantId("globex").build();
     assertTrue(store.consume(RateLimitKey.from(tenantPolicy, acme), tenantPolicy, 1).allowed());
@@ -159,14 +166,15 @@ class TokenBucketRateLimiterStoreTest {
 
   @Test
   void blockedPolicyRejectsImmediately() {
-    RateLimitPolicy blocked = RateLimitPolicy.builder()
-        .id("block")
-        .scope(RateLimitScope.CLIENT)
-        .capacity(100)
-        .refillRate(100)
-        .refillPeriod(RefillPeriod.MINUTE)
-        .blocked(true)
-        .build();
+    RateLimitPolicy blocked =
+        RateLimitPolicy.builder()
+            .id("block")
+            .scope(RateLimitScope.CLIENT)
+            .capacity(100)
+            .refillRate(100)
+            .refillPeriod(RefillPeriod.MINUTE)
+            .blocked(true)
+            .build();
     RateLimitResult result = store.consume(RateLimitKey.from(blocked, ctx), blocked, 1);
     assertFalse(result.allowed());
   }

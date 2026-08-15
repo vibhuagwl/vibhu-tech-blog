@@ -1,10 +1,8 @@
 package com.vibhu.msp.outbox;
 
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.function.Consumer;
 
 @Service
 public class OutboxService {
@@ -16,9 +14,13 @@ public class OutboxService {
   }
 
   @Transactional
-  public OutboxEntity saveInSameTransaction(String id, String aggregateType, String aggregateId,
-                                            String eventType, String payload,
-                                            Runnable businessWrite) {
+  public OutboxEntity saveInSameTransaction(
+      String id,
+      String aggregateType,
+      String aggregateId,
+      String eventType,
+      String payload,
+      Runnable businessWrite) {
     businessWrite.run();
     OutboxEntity entity = new OutboxEntity(id, aggregateType, aggregateId, eventType, payload);
     return repository.save(entity);
@@ -30,9 +32,12 @@ public class OutboxService {
 
   @Transactional
   public void markPublished(String id) {
-    repository.findById(id).ifPresent(entity -> {
-      entity.markPublished();
-      repository.save(entity);
-    });
+    repository
+        .findById(id)
+        .ifPresent(
+            entity -> {
+              entity.markPublished();
+              repository.save(entity);
+            });
   }
 }

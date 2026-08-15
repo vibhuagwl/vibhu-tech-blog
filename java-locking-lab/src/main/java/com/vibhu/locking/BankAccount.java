@@ -1,7 +1,7 @@
 package com.vibhu.locking;
 
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** Tiny demo types used by tests and runnable examples. */
 public final class BankAccount {

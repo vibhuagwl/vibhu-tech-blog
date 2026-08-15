@@ -50,7 +50,8 @@ import org.springframework.stereotype.Service;
 /**
  * In-process lab PKI: Root CA, leaf issuance, PKIX trust, hostname/SAN, CRL, sign, encrypt-to-cert.
  *
- * <p>Production: use a real CA / ACME / AWS PCA / cert-manager. Never keep a root private key in the app JVM.
+ * <p>Production: use a real CA / ACME / AWS PCA / cert-manager. Never keep a root private key in
+ * the app JVM.
  */
 @Service
 public class PkiService {
@@ -102,14 +103,21 @@ public class PkiService {
     if (cn == null || cn.isBlank()) {
       throw new CryptoException("cn required");
     }
-    List<String> names = san == null || san.isEmpty() ? List.of(cn.replaceFirst("^CN=", "")) : List.copyOf(san);
+    List<String> names =
+        san == null || san.isEmpty() ? List.of(cn.replaceFirst("^CN=", "")) : List.copyOf(san);
     try {
       KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
       kpg.initialize(2048, random);
       KeyPair leafKeys = kpg.generateKeyPair();
       Instant now = Instant.now();
-      Instant notAfter = validity.isNegative() || validity.isZero() ? now.minus(Duration.ofHours(1)) : now.plus(validity);
-      Instant notBefore = validity.isNegative() || validity.isZero() ? now.minus(Duration.ofDays(2)) : now.minus(Duration.ofMinutes(1));
+      Instant notAfter =
+          validity.isNegative() || validity.isZero()
+              ? now.minus(Duration.ofHours(1))
+              : now.plus(validity);
+      Instant notBefore =
+          validity.isNegative() || validity.isZero()
+              ? now.minus(Duration.ofDays(2))
+              : now.minus(Duration.ofMinutes(1));
       X509Certificate leaf =
           buildCertificate(
               new X500Name("CN=Vibhu Lab Root CA,O=Vibhu Tech Lab"),
@@ -154,7 +162,8 @@ public class PkiService {
       PKIXParameters params = new PKIXParameters(Set.of(anchor));
       params.setRevocationEnabled(false);
       params.setDate(new Date());
-      CertPath path = CertificateFactory.getInstance("X.509").generateCertPath(List.of((Certificate) leaf));
+      CertPath path =
+          CertificateFactory.getInstance("X.509").generateCertPath(List.of((Certificate) leaf));
       CertPathValidator.getInstance("PKIX").validate(path, params);
       chainOk = true;
     } catch (Exception ex) {
@@ -286,17 +295,22 @@ public class PkiService {
       throws Exception {
     BigInteger serial = new BigInteger(64, random).abs();
     JcaX509v3CertificateBuilder builder =
-        new JcaX509v3CertificateBuilder(issuer, serial, Date.from(notBefore), Date.from(notAfter), subject, subjectKey);
+        new JcaX509v3CertificateBuilder(
+            issuer, serial, Date.from(notBefore), Date.from(notAfter), subject, subjectKey);
     builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(ca));
     if (ca) {
-      builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
+      builder.addExtension(
+          Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
     } else {
       builder.addExtension(
-          Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature | KeyUsage.keyEncipherment));
+          Extension.keyUsage,
+          true,
+          new KeyUsage(KeyUsage.digitalSignature | KeyUsage.keyEncipherment));
       builder.addExtension(
           Extension.extendedKeyUsage,
           false,
-          new ExtendedKeyUsage(new KeyPurposeId[] {KeyPurposeId.id_kp_serverAuth, KeyPurposeId.id_kp_clientAuth}));
+          new ExtendedKeyUsage(
+              new KeyPurposeId[] {KeyPurposeId.id_kp_serverAuth, KeyPurposeId.id_kp_clientAuth}));
       if (!san.isEmpty()) {
         GeneralName[] names = new GeneralName[san.size()];
         for (int i = 0; i < san.size(); i++) {

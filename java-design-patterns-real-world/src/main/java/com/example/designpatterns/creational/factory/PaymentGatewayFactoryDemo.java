@@ -3,33 +3,56 @@ package com.example.designpatterns.creational.factory;
 /**
  * PATTERN: Factory Method
  *
- * WHEN TO IMPLEMENT
- * - Callers need one of several implementations but must not hard-code concrete classes (if/switch of {@code new}).
- * - Creation logic may grow (credentials, region, feature flags) while the product interface stays stable.
+ * <p>WHEN TO IMPLEMENT - Callers need one of several implementations but must not hard-code
+ * concrete classes (if/switch of {@code new}). - Creation logic may grow (credentials, region,
+ * feature flags) while the product interface stays stable.
  *
- * JAVA IMPLEMENTATION RULES
- * 1. Define a product interface (or abstract class); factories return that type, never leak concrete classes to callers.
- * 2. Put creation branching in one factory (or factory method); keep payment/business logic out of the factory.
- * 3. Prefer enum/map registries over deep if-else when providers are added often.
- * 4. Fail fast on unknown keys (IllegalArgumentException) — silent null returns hide misconfiguration.
- * 5. Keep factory methods pure of side effects beyond construction (no network I/O inside {@code create()}).
+ * <p>JAVA IMPLEMENTATION RULES 1. Define a product interface (or abstract class); factories return
+ * that type, never leak concrete classes to callers. 2. Put creation branching in one factory (or
+ * factory method); keep payment/business logic out of the factory. 3. Prefer enum/map registries
+ * over deep if-else when providers are added often. 4. Fail fast on unknown keys
+ * (IllegalArgumentException) — silent null returns hide misconfiguration. 5. Keep factory methods
+ * pure of side effects beyond construction (no network I/O inside {@code create()}).
  *
- * DO NOT USE WHEN
- * - There is only one implementation forever, or Spring already selects beans via @Qualifier / profiles.
+ * <p>DO NOT USE WHEN - There is only one implementation forever, or Spring already selects beans
+ * via @Qualifier / profiles.
  */
 public class PaymentGatewayFactoryDemo {
-    public enum Provider { STRIPE, PAYPAL, ADYEN }
-    public interface PaymentGateway { String charge(int amount); }
-    public static final class StripeGateway implements PaymentGateway { public String charge(int amount) { return "Stripe charged " + amount; } }
-    public static final class PaypalGateway implements PaymentGateway { public String charge(int amount) { return "PayPal charged " + amount; } }
-    public static final class AdyenGateway implements PaymentGateway { public String charge(int amount) { return "Adyen charged " + amount; } }
-    public static final class PaymentGatewayFactory {
-        public PaymentGateway create(Provider provider) {
-            return switch (provider) {
-                case STRIPE -> new StripeGateway();
-                case PAYPAL -> new PaypalGateway();
-                case ADYEN -> new AdyenGateway();
-            };
-        }
+  public enum Provider {
+    STRIPE,
+    PAYPAL,
+    ADYEN
+  }
+
+  public interface PaymentGateway {
+    String charge(int amount);
+  }
+
+  public static final class StripeGateway implements PaymentGateway {
+    public String charge(int amount) {
+      return "Stripe charged " + amount;
     }
+  }
+
+  public static final class PaypalGateway implements PaymentGateway {
+    public String charge(int amount) {
+      return "PayPal charged " + amount;
+    }
+  }
+
+  public static final class AdyenGateway implements PaymentGateway {
+    public String charge(int amount) {
+      return "Adyen charged " + amount;
+    }
+  }
+
+  public static final class PaymentGatewayFactory {
+    public PaymentGateway create(Provider provider) {
+      return switch (provider) {
+        case STRIPE -> new StripeGateway();
+        case PAYPAL -> new PaypalGateway();
+        case ADYEN -> new AdyenGateway();
+      };
+    }
+  }
 }

@@ -4,8 +4,8 @@ import java.time.Duration;
 import java.util.Objects;
 
 /**
- * Token-bucket policy: {@code capacity} is the burst ceiling; {@code refillRate}
- * tokens are added every {@code refillPeriod} (the sustained window).
+ * Token-bucket policy: {@code capacity} is the burst ceiling; {@code refillRate} tokens are added
+ * every {@code refillPeriod} (the sustained window).
  *
  * <p>Example: 100 req/min with burst 20 → capacity=120, refillRate=100, refillPeriod=MINUTE.
  */
@@ -22,8 +22,7 @@ public record RateLimitPolicy(
     String tenantId,
     String apiPath,
     String serviceName,
-    boolean blocked
-) {
+    boolean blocked) {
 
   public RateLimitPolicy {
     Objects.requireNonNull(id, "id");
@@ -45,7 +44,8 @@ public record RateLimitPolicy(
   }
 
   public long ttlMillis() {
-    // Keep idle buckets at least 2 windows so a slow client does not lose leftover tokens instantly.
+    // Keep idle buckets at least 2 windows so a slow client does not lose leftover tokens
+    // instantly.
     return Math.max(timeWindow.toMillis() * 2, refillPeriod.toMillis() * 2);
   }
 
@@ -177,12 +177,12 @@ public record RateLimitPolicy(
           blankToNull(tenantId),
           blankToNull(apiPath),
           blankToNull(serviceName),
-          blocked
-      );
+          blocked);
     }
 
     private String defaultId() {
-      return String.join(":",
+      return String.join(
+          ":",
           scope.name(),
           Objects.toString(tenantId, "*"),
           Objects.toString(clientId, "*"),

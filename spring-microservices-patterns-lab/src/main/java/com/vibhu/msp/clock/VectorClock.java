@@ -28,7 +28,12 @@ public final class VectorClock {
     return copy();
   }
 
-  public enum Relation { BEFORE, AFTER, CONCURRENT, EQUAL }
+  public enum Relation {
+    BEFORE,
+    AFTER,
+    CONCURRENT,
+    EQUAL
+  }
 
   public Relation compare(VectorClock other) {
     long[] a = flatten(this);

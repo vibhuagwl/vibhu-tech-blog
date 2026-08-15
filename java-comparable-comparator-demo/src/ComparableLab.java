@@ -6,7 +6,7 @@ import java.util.TreeSet;
 /**
  * Comparable fundamentals: natural order, Integer.compare, overflow trap, BigDecimal.
  *
- * Run: javac src/*.java && java -cp src ComparableLab
+ * <p>Run: javac src/*.java && java -cp src ComparableLab
  */
 public class ComparableLab {
 
@@ -75,7 +75,8 @@ public class ComparableLab {
     BadEmployee high = new BadEmployee(Integer.MAX_VALUE);
     int bad = low.compareTo(high);
     int good = Integer.compare(low.id, high.id);
-    System.out.println("(MIN_VALUE - MAX_VALUE) as compare result: " + bad + " (positive — wrong!)");
+    System.out.println(
+        "(MIN_VALUE - MAX_VALUE) as compare result: " + bad + " (positive — wrong!)");
     System.out.println("Integer.compare(MIN, MAX): " + good + " (negative — correct)");
   }
 

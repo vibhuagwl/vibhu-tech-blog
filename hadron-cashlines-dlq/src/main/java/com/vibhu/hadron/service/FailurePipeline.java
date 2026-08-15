@@ -1,8 +1,9 @@
 package com.vibhu.hadron.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vibhu.hadron.classify.ExceptionClassifier;
 import com.vibhu.hadron.config.HadronProperties;
 import com.vibhu.hadron.config.TopicNames;
-import com.vibhu.hadron.classify.ExceptionClassifier;
 import com.vibhu.hadron.domain.CashLineEvent;
 import com.vibhu.hadron.domain.EventEnvelope;
 import com.vibhu.hadron.domain.RetryDecision;
@@ -10,7 +11,6 @@ import com.vibhu.hadron.exception.PoisonMessageException;
 import com.vibhu.hadron.kafka.EventPublisher;
 import com.vibhu.hadron.metrics.HadronMetrics;
 import com.vibhu.hadron.security.PayloadMasker;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -79,7 +79,8 @@ public class FailurePipeline {
     if (decision == RetryDecision.IGNORE) {
       return;
     }
-    boolean poisonOrPermanent = decision == RetryDecision.DLQ_IMMEDIATE || ex instanceof PoisonMessageException;
+    boolean poisonOrPermanent =
+        decision == RetryDecision.DLQ_IMMEDIATE || ex instanceof PoisonMessageException;
     int nextRetry = envelope.retryCount() + 1;
     int max = properties.getRetry().getMaxAttempts();
     if (!poisonOrPermanent && nextRetry <= max) {

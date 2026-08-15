@@ -6,7 +6,13 @@ import java.time.Duration;
 import java.util.Optional;
 
 public interface LockManager {
-  LockToken acquire(String lockKey, LockMode mode, String ownerId, String transactionId, Duration wait, Duration lease);
+  LockToken acquire(
+      String lockKey,
+      LockMode mode,
+      String ownerId,
+      String transactionId,
+      Duration wait,
+      Duration lease);
 
   boolean renew(String lockKey, String ownerToken, Duration lease);
 

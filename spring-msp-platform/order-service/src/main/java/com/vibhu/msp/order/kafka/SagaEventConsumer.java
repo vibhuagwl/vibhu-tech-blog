@@ -24,7 +24,8 @@ public class SagaEventConsumer {
   private final OrderService orderService;
   private final ObjectMapper objectMapper;
 
-  public SagaEventConsumer(InboxService inboxService, OrderService orderService, ObjectMapper objectMapper) {
+  public SagaEventConsumer(
+      InboxService inboxService, OrderService orderService, ObjectMapper objectMapper) {
     this.inboxService = inboxService;
     this.orderService = orderService;
     this.objectMapper = objectMapper;
@@ -32,40 +33,51 @@ public class SagaEventConsumer {
 
   @KafkaListener(topics = MspTopics.PAYMENT_EVENTS, groupId = "order-saga")
   public void onPaymentEvent(ConsumerRecord<String, Object> record) {
-    inboxService.processIfNew(record.topic() + "-" + record.offset(), ignored -> {
-      try {
-        EventEnvelope<?> envelope = objectMapper.convertValue(record.value(), EventEnvelope.class);
-        String eventType = envelope.eventType();
-        if (EventTypes.PAYMENT_AUTHORIZED.equals(eventType)) {
-          PaymentAuthorized payload = objectMapper.convertValue(
-              ((java.util.Map<?, ?>) record.value()).get("payload"), PaymentAuthorized.class);
-          orderService.markPaymentAuthorized(payload.orderId());
-        } else if (EventTypes.PAYMENT_FAILED.equals(eventType)) {
-          PaymentFailed payload = objectMapper.convertValue(
-              ((java.util.Map<?, ?>) record.value()).get("payload"), PaymentFailed.class);
-          orderService.cancelOrder(payload.orderId(), payload.reason());
-        }
-      } catch (Exception ex) {
-        log.error("Failed to process payment event: {}", ex.getMessage());
-        throw new IllegalStateException(ex);
-      }
-    });
+    inboxService.processIfNew(
+        record.topic() + "-" + record.offset(),
+        ignored -> {
+          try {
+            EventEnvelope<?> envelope =
+                objectMapper.convertValue(record.value(), EventEnvelope.class);
+            String eventType = envelope.eventType();
+            if (EventTypes.PAYMENT_AUTHORIZED.equals(eventType)) {
+              PaymentAuthorized payload =
+                  objectMapper.convertValue(
+                      ((java.util.Map<?, ?>) record.value()).get("payload"),
+                      PaymentAuthorized.class);
+              orderService.markPaymentAuthorized(payload.orderId());
+            } else if (EventTypes.PAYMENT_FAILED.equals(eventType)) {
+              PaymentFailed payload =
+                  objectMapper.convertValue(
+                      ((java.util.Map<?, ?>) record.value()).get("payload"), PaymentFailed.class);
+              orderService.cancelOrder(payload.orderId(), payload.reason());
+            }
+          } catch (Exception ex) {
+            log.error("Failed to process payment event: {}", ex.getMessage());
+            throw new IllegalStateException(ex);
+          }
+        });
   }
 
   @KafkaListener(topics = MspTopics.INVENTORY_EVENTS, groupId = "order-saga")
   public void onInventoryEvent(ConsumerRecord<String, Object> record) {
-    inboxService.processIfNew(record.topic() + "-" + record.offset(), ignored -> {
-      try {
-        EventEnvelope<?> envelope = objectMapper.convertValue(record.value(), EventEnvelope.class);
-        if (EventTypes.INVENTORY_RESERVED.equals(envelope.eventType())) {
-          InventoryReserved payload = objectMapper.convertValue(
-              ((java.util.Map<?, ?>) record.value()).get("payload"), InventoryReserved.class);
-          orderService.markInventoryReserved(payload.orderId());
-        }
-      } catch (Exception ex) {
-        log.error("Failed to process inventory event: {}", ex.getMessage());
-        throw new IllegalStateException(ex);
-      }
-    });
+    inboxService.processIfNew(
+        record.topic() + "-" + record.offset(),
+        ignored -> {
+          try {
+            EventEnvelope<?> envelope =
+                objectMapper.convertValue(record.value(), EventEnvelope.class);
+            if (EventTypes.INVENTORY_RESERVED.equals(envelope.eventType())) {
+              InventoryReserved payload =
+                  objectMapper.convertValue(
+                      ((java.util.Map<?, ?>) record.value()).get("payload"),
+                      InventoryReserved.class);
+              orderService.markInventoryReserved(payload.orderId());
+            }
+          } catch (Exception ex) {
+            log.error("Failed to process inventory event: {}", ex.getMessage());
+            throw new IllegalStateException(ex);
+          }
+        });
   }
 }

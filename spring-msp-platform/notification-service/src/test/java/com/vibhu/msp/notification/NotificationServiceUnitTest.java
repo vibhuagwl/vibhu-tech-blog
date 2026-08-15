@@ -1,11 +1,12 @@
 package com.vibhu.msp.notification;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+
 import com.vibhu.msp.notification.repository.NotificationRepository;
 import com.vibhu.msp.notification.service.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
 
 class NotificationServiceUnitTest {
 

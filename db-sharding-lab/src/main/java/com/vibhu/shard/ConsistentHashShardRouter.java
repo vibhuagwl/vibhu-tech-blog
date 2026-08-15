@@ -8,8 +8,8 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * Consistent-hash ring with virtual nodes. Adding/removing a shard moves only
- * a fraction of keys vs {@code hash % N}.
+ * Consistent-hash ring with virtual nodes. Adding/removing a shard moves only a fraction of keys vs
+ * {@code hash % N}.
  */
 public final class ConsistentHashShardRouter implements ShardStrategy {
   private final NavigableMap<Integer, Integer> ring = new TreeMap<>();

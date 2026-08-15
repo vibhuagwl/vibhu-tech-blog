@@ -12,13 +12,12 @@ import org.springframework.kafka.core.ConsumerFactory;
 @EnableKafka
 @Profile("kafka")
 public class KafkaConsumerConfig {
-    @Bean
-    ConcurrentKafkaListenerContainerFactory<String, MessageCreatedEvent> kafkaListenerContainerFactory(
-            ConsumerFactory<String, MessageCreatedEvent> consumerFactory
-    ) {
-        ConcurrentKafkaListenerContainerFactory<String, MessageCreatedEvent> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory);
-        return factory;
-    }
+  @Bean
+  ConcurrentKafkaListenerContainerFactory<String, MessageCreatedEvent>
+      kafkaListenerContainerFactory(ConsumerFactory<String, MessageCreatedEvent> consumerFactory) {
+    ConcurrentKafkaListenerContainerFactory<String, MessageCreatedEvent> factory =
+        new ConcurrentKafkaListenerContainerFactory<>();
+    factory.setConsumerFactory(consumerFactory);
+    return factory;
+  }
 }

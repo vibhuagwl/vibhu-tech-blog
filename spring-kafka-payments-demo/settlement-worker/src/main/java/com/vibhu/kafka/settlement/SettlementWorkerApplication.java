@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class SettlementWorkerApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(SettlementWorkerApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(SettlementWorkerApplication.class, args);
+  }
 }

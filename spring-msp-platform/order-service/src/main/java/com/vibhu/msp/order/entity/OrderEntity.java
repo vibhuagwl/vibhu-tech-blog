@@ -13,8 +13,7 @@ import java.time.Instant;
 @Table(name = "orders")
 public class OrderEntity {
 
-  @Id
-  private String id;
+  @Id private String id;
 
   @Column(name = "customer_id", nullable = false)
   private String customerId;
@@ -45,7 +44,10 @@ public class OrderEntity {
   private boolean inventoryReserved = false;
 
   public enum OrderStatus {
-    PENDING, PAYMENT_PENDING, COMPLETED, CANCELLED
+    PENDING,
+    PAYMENT_PENDING,
+    COMPLETED,
+    CANCELLED
   }
 
   public String getId() {

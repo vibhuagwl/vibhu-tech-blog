@@ -14,23 +14,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class RecoveryManager {
   private static final Logger log = LoggerFactory.getLogger(RecoveryManager.class);
-  private static final EnumSet<TransactionState> RECOVERABLE = EnumSet.of(
-      TransactionState.ACTIVE,
-      TransactionState.LOCKING,
-      TransactionState.PRE_COMMIT,
-      TransactionState.COMMIT_READY,
-      TransactionState.COMMITTED,
-      TransactionState.ABORTING,
-      TransactionState.TIMED_OUT
-  );
+  private static final EnumSet<TransactionState> RECOVERABLE =
+      EnumSet.of(
+          TransactionState.ACTIVE,
+          TransactionState.LOCKING,
+          TransactionState.PRE_COMMIT,
+          TransactionState.COMMIT_READY,
+          TransactionState.COMMITTED,
+          TransactionState.ABORTING,
+          TransactionState.TIMED_OUT);
 
   private final TransactionRepository transactionRepository;
   private final ThreePhaseTransactionManager transactionManager;
 
   public RecoveryManager(
       TransactionRepository transactionRepository,
-      ThreePhaseTransactionManager transactionManager
-  ) {
+      ThreePhaseTransactionManager transactionManager) {
     this.transactionRepository = transactionRepository;
     this.transactionManager = transactionManager;
   }
@@ -43,17 +42,19 @@ public class RecoveryManager {
   }
 
   public TransactionView recover(String transactionId) {
-    TransactionEntity transaction = transactionRepository.findById(transactionId)
-        .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
-            "Transaction not found: " + transactionId));
+    TransactionEntity transaction =
+        transactionRepository
+            .findById(transactionId)
+            .orElseThrow(
+                () ->
+                    new jakarta.persistence.EntityNotFoundException(
+                        "Transaction not found: " + transactionId));
     return TransactionView.from(transactionManager.recoverOne(transaction));
   }
 
   public List<TransactionView> recoverStale(Duration staleAfter) {
     Instant cutoff = Instant.now().minus(staleAfter);
     log.info("Running recovery for transactions updated before {}", cutoff);
-    return transactionManager.recoverStale(cutoff).stream()
-        .map(TransactionView::from)
-        .toList();
+    return transactionManager.recoverStale(cutoff).stream().map(TransactionView::from).toList();
   }
 }

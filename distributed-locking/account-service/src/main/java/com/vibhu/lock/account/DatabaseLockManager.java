@@ -7,8 +7,8 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
- * Database-level protection companion to Redis distributed locks.
- * Uses Spring Data {@code @Lock(PESSIMISTIC_WRITE)} → {@code SELECT ... FOR UPDATE}.
+ * Database-level protection companion to Redis distributed locks. Uses Spring Data
+ * {@code @Lock(PESSIMISTIC_WRITE)} → {@code SELECT ... FOR UPDATE}.
  */
 @Component
 public class DatabaseLockManager {
@@ -23,12 +23,16 @@ public class DatabaseLockManager {
     List.of(accountIds).stream()
         .distinct()
         .sorted(Comparator.naturalOrder())
-        .forEach(accountId -> locked.put(
-            accountId,
-            accountRepository.findByIdForUpdate(accountId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
-                    "Account not found: " + accountId))
-        ));
+        .forEach(
+            accountId ->
+                locked.put(
+                    accountId,
+                    accountRepository
+                        .findByIdForUpdate(accountId)
+                        .orElseThrow(
+                            () ->
+                                new jakarta.persistence.EntityNotFoundException(
+                                    "Account not found: " + accountId))));
     return locked;
   }
 }

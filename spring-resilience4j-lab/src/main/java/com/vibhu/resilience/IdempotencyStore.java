@@ -5,8 +5,8 @@ import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 
 /**
- * In-memory stand-in for UNIQUE(idempotency_key). Production: Postgres/Redis with the same key
- * the bank sees on Idempotency-Key.
+ * In-memory stand-in for UNIQUE(idempotency_key). Production: Postgres/Redis with the same key the
+ * bank sees on Idempotency-Key.
  */
 @Component
 public class IdempotencyStore {

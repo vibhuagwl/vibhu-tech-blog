@@ -1,8 +1,7 @@
 package com.vibhu.msp.outbox;
 
-import org.springframework.stereotype.Component;
-
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 /** Polls pending outbox rows and relays to the in-memory bus. Maps to curriculum Part 08. */
 @Component

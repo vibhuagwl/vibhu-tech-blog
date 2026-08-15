@@ -7,18 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-/**
- * Logs state / retry events. Never log PAN, JWT, passwords, or full payment payloads.
- */
+/** Logs state / retry events. Never log PAN, JWT, passwords, or full payment payloads. */
 @Component
 public class ResilienceEventLogger {
   private static final Logger log = LoggerFactory.getLogger(ResilienceEventLogger.class);
 
   public ResilienceEventLogger(CircuitBreakerRegistry circuitBreakers, RetryRegistry retries) {
-    circuitBreakers
-        .getEventPublisher()
-        .onEntryAdded(
-            added -> subscribe(added.getAddedEntry()));
+    circuitBreakers.getEventPublisher().onEntryAdded(added -> subscribe(added.getAddedEntry()));
     circuitBreakers.getAllCircuitBreakers().forEach(this::subscribe);
     retries
         .getEventPublisher()

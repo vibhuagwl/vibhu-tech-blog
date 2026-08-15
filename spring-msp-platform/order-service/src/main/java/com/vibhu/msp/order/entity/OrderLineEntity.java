@@ -2,18 +2,14 @@ package com.vibhu.msp.order.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.Instant;
 
 @Entity
 @Table(name = "order_lines")
 public class OrderLineEntity {
 
-  @Id
-  private String id;
+  @Id private String id;
 
   @Column(name = "order_id", nullable = false)
   private String orderId;

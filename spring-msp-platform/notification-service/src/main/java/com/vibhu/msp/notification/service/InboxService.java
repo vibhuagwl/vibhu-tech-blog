@@ -10,7 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class InboxService {
   private final InboxRepository inboxRepository;
-  public InboxService(InboxRepository inboxRepository) { this.inboxRepository = inboxRepository; }
+
+  public InboxService(InboxRepository inboxRepository) {
+    this.inboxRepository = inboxRepository;
+  }
+
   @Transactional
   public boolean processIfNew(String messageId, Consumer<Void> handler) {
     if (inboxRepository.existsById(messageId)) return false;

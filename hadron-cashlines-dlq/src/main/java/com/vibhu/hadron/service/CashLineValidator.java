@@ -29,31 +29,38 @@ public class CashLineValidator {
       throw new InvalidCashLineException("Invalid transaction state / event type");
     }
     if (event.participantId() == null || !PARTICIPANTS.contains(event.participantId())) {
-      throw new InvalidCashLineException("Invalid or unknown participant: " + event.participantId());
+      throw new InvalidCashLineException(
+          "Invalid or unknown participant: " + event.participantId());
     }
     if (event.accountId() == null || !ACCOUNTS.contains(event.accountId())) {
       throw new InvalidCashLineException("Invalid account: " + event.accountId());
     }
-    if (event.currency() == null || !CURRENCIES.contains(event.currency().toUpperCase(Locale.ROOT))) {
+    if (event.currency() == null
+        || !CURRENCIES.contains(event.currency().toUpperCase(Locale.ROOT))) {
       throw new InvalidCashLineException("Invalid currency: " + event.currency());
     }
     if (event.amount() == null || event.amount().compareTo(BigDecimal.ZERO) <= 0) {
       throw new InvalidCashLineException("Invalid amount: " + event.amount());
     }
     if (event.transactionType() != null && !TX_TYPES.contains(event.transactionType())) {
-      throw new InvalidCashLineException("Unsupported transaction type: " + event.transactionType());
+      throw new InvalidCashLineException(
+          "Unsupported transaction type: " + event.transactionType());
     }
   }
 
   private void applyForcedFailure(CashLineEvent event) {
     String force = event.forceFailure();
     switch (force) {
-      case "POISON" -> throw new PoisonMessageException("Forced poison payload for event " + event.eventId());
+      case "POISON" ->
+          throw new PoisonMessageException("Forced poison payload for event " + event.eventId());
       case "TIMEOUT", "DB_TIMEOUT" ->
-          throw new TransientTechnicalException("Forced database timeout for event " + event.eventId());
-      case "DEADLOCK" -> throw new TransientTechnicalException("Forced deadlock for event " + event.eventId());
+          throw new TransientTechnicalException(
+              "Forced database timeout for event " + event.eventId());
+      case "DEADLOCK" ->
+          throw new TransientTechnicalException("Forced deadlock for event " + event.eventId());
       case "UNKNOWN_PARTICIPANT" ->
-          throw new TransientTechnicalException("Unknown participant reference, waiting for master data");
+          throw new TransientTechnicalException(
+              "Unknown participant reference, waiting for master data");
       case "NPE" -> throw new NullPointerException("Forced NPE for interview demo");
       default -> {
         // no-op

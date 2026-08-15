@@ -10,8 +10,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Service;
 
 /**
- * HMAC-SHA256 for integrity / API request signing / searchable lookup digests.
- * Shared secret — not a substitute for digital signatures (no non-repudiation).
+ * HMAC-SHA256 for integrity / API request signing / searchable lookup digests. Shared secret — not
+ * a substitute for digital signatures (no non-repudiation).
  */
 @Service
 public class HmacService {

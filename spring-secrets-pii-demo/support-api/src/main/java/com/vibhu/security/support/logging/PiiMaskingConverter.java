@@ -6,8 +6,8 @@ import com.vibhu.security.pii.common.secrets.SecretSanitizer;
 
 public class PiiMaskingConverter extends MessageConverter {
 
-    @Override
-    public String convert(ILoggingEvent event) {
-        return SecretSanitizer.redact(super.convert(event));
-    }
+  @Override
+  public String convert(ILoggingEvent event) {
+    return SecretSanitizer.redact(super.convert(event));
+  }
 }

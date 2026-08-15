@@ -24,25 +24,36 @@ class ExceptionClassifierAndStateMachineTest {
 
   @Test
   void timeoutAndDeadlockAreRetryable() {
-    assertThat(classifier.classify(new QueryTimeoutException("timeout"))).isEqualTo(RetryDecision.RETRY);
-    assertThat(classifier.classify(new CannotAcquireLockException("deadlock"))).isEqualTo(RetryDecision.RETRY);
-    assertThat(classifier.classify(new TransientTechnicalException("db down"))).isEqualTo(RetryDecision.RETRY);
-    assertThat(classifier.classify(new SQLException("deadlock", "40P01"))).isEqualTo(RetryDecision.RETRY);
+    assertThat(classifier.classify(new QueryTimeoutException("timeout")))
+        .isEqualTo(RetryDecision.RETRY);
+    assertThat(classifier.classify(new CannotAcquireLockException("deadlock")))
+        .isEqualTo(RetryDecision.RETRY);
+    assertThat(classifier.classify(new TransientTechnicalException("db down")))
+        .isEqualTo(RetryDecision.RETRY);
+    assertThat(classifier.classify(new SQLException("deadlock", "40P01")))
+        .isEqualTo(RetryDecision.RETRY);
   }
 
   @Test
   void poisonAndBusinessGoToDlqImmediately() {
-    assertThat(classifier.classify(new PoisonMessageException("bad json"))).isEqualTo(RetryDecision.DLQ_IMMEDIATE);
-    assertThat(classifier.classify(new InvalidCashLineException("bad amount"))).isEqualTo(RetryDecision.DLQ_IMMEDIATE);
-    assertThat(classifier.classify(new SerializationException("schema"))).isEqualTo(RetryDecision.DLQ_IMMEDIATE);
-    assertThat(classifier.classify(new NullPointerException("npe"))).isEqualTo(RetryDecision.DLQ_IMMEDIATE);
+    assertThat(classifier.classify(new PoisonMessageException("bad json")))
+        .isEqualTo(RetryDecision.DLQ_IMMEDIATE);
+    assertThat(classifier.classify(new InvalidCashLineException("bad amount")))
+        .isEqualTo(RetryDecision.DLQ_IMMEDIATE);
+    assertThat(classifier.classify(new SerializationException("schema")))
+        .isEqualTo(RetryDecision.DLQ_IMMEDIATE);
+    assertThat(classifier.classify(new NullPointerException("npe")))
+        .isEqualTo(RetryDecision.DLQ_IMMEDIATE);
   }
 
   @Test
   void legalAndIdempotentTransitions() {
-    assertThat(machine.next(CashLineStatus.NEW, EventType.CASHLINE_CREATED)).isEqualTo(CashLineStatus.VALIDATED);
-    assertThat(machine.next(CashLineStatus.SETTLED, EventType.CASHLINE_COMPLETED)).isEqualTo(CashLineStatus.COMPLETED);
-    assertThat(machine.next(CashLineStatus.COMPLETED, EventType.CASHLINE_COMPLETED)).isEqualTo(CashLineStatus.COMPLETED);
+    assertThat(machine.next(CashLineStatus.NEW, EventType.CASHLINE_CREATED))
+        .isEqualTo(CashLineStatus.VALIDATED);
+    assertThat(machine.next(CashLineStatus.SETTLED, EventType.CASHLINE_COMPLETED))
+        .isEqualTo(CashLineStatus.COMPLETED);
+    assertThat(machine.next(CashLineStatus.COMPLETED, EventType.CASHLINE_COMPLETED))
+        .isEqualTo(CashLineStatus.COMPLETED);
   }
 
   @Test

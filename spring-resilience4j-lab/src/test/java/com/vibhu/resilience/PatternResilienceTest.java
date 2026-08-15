@@ -90,14 +90,17 @@ class PatternResilienceTest {
         TimeLimiter.of(TimeLimiterConfig.custom().timeoutDuration(Duration.ofMillis(50)).build());
     Callable<String> slow =
         TimeLimiter.decorateFutureSupplier(
-            tl, () -> CompletableFuture.supplyAsync(() -> {
-              try {
-                Thread.sleep(400);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-              }
-              return "late";
-            }));
+            tl,
+            () ->
+                CompletableFuture.supplyAsync(
+                    () -> {
+                      try {
+                        Thread.sleep(400);
+                      } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                      }
+                      return "late";
+                    }));
     assertThatThrownBy(slow::call).isInstanceOf(TimeoutException.class);
   }
 
@@ -135,9 +138,7 @@ class PatternResilienceTest {
   @Test
   void programmatic_pipeline_succeeds() {
     PaymentResult r =
-        ProgrammaticDecorators.paymentPipeline(
-                () -> PaymentResult.captured("pipe"))
-            .get();
+        ProgrammaticDecorators.paymentPipeline(() -> PaymentResult.captured("pipe")).get();
     assertThat(r.status()).isEqualTo("CAPTURED");
   }
 }

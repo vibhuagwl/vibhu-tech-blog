@@ -1,14 +1,13 @@
 package com.vibhu.locking;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 class CoordinationTest {
 
@@ -19,19 +18,21 @@ class CoordinationTest {
     AtomicInteger max = new AtomicInteger();
     Thread[] threads = new Thread[20];
     for (int i = 0; i < threads.length; i++) {
-      threads[i] = new Thread(() -> {
-        try {
-          sem.acquire();
-          int now = inFlight.incrementAndGet();
-          max.accumulateAndGet(now, Math::max);
-          Thread.sleep(20);
-          inFlight.decrementAndGet();
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-        } finally {
-          sem.release();
-        }
-      });
+      threads[i] =
+          new Thread(
+              () -> {
+                try {
+                  sem.acquire();
+                  int now = inFlight.incrementAndGet();
+                  max.accumulateAndGet(now, Math::max);
+                  Thread.sleep(20);
+                  inFlight.decrementAndGet();
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                } finally {
+                  sem.release();
+                }
+              });
       threads[i].start();
     }
     for (Thread t : threads) {
@@ -55,14 +56,16 @@ class CoordinationTest {
     AtomicInteger after = new AtomicInteger();
     Thread[] threads = new Thread[n];
     for (int i = 0; i < n; i++) {
-      threads[i] = new Thread(() -> {
-        try {
-          barrier.await(2, TimeUnit.SECONDS);
-          after.incrementAndGet();
-        } catch (Exception e) {
-          Thread.currentThread().interrupt();
-        }
-      });
+      threads[i] =
+          new Thread(
+              () -> {
+                try {
+                  barrier.await(2, TimeUnit.SECONDS);
+                  after.incrementAndGet();
+                } catch (Exception e) {
+                  Thread.currentThread().interrupt();
+                }
+              });
       threads[i].start();
     }
     for (Thread t : threads) {

@@ -6,6 +6,4 @@ public record TransferRequest(
     String sourceAccountId,
     String destinationAccountId,
     BigDecimal amount,
-    String idempotencyKey
-) {
-}
+    String idempotencyKey) {}

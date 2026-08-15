@@ -20,8 +20,7 @@ public class IncompleteTransactionRecoveryJob {
   public IncompleteTransactionRecoveryJob(
       RestClient transactionServiceRestClient,
       RecoveryProperties properties,
-      MeterRegistry meterRegistry
-  ) {
+      MeterRegistry meterRegistry) {
     this.restClient = transactionServiceRestClient;
     this.properties = properties;
     this.recoveryRuns = meterRegistry.counter("transaction_recovery_total");
@@ -31,13 +30,17 @@ public class IncompleteTransactionRecoveryJob {
   public void recoverStale() {
     try {
       @SuppressWarnings("unchecked")
-      Map<String, Object> body = restClient.post()
-          .uri(uriBuilder -> uriBuilder
-              .path("/internal/recovery/run")
-              .queryParam("staleSeconds", properties.getStaleSeconds())
-              .build())
-          .retrieve()
-          .body(Map.class);
+      Map<String, Object> body =
+          restClient
+              .post()
+              .uri(
+                  uriBuilder ->
+                      uriBuilder
+                          .path("/internal/recovery/run")
+                          .queryParam("staleSeconds", properties.getStaleSeconds())
+                          .build())
+              .retrieve()
+              .body(Map.class);
       recoveryRuns.increment();
       log.info("Recovery sweep completed: {}", body);
     } catch (RuntimeException ex) {

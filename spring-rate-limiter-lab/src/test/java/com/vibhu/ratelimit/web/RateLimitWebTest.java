@@ -19,15 +19,15 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 class RateLimitWebTest {
 
-  @Autowired
-  MockMvc mvc;
+  @Autowired MockMvc mvc;
 
   @Test
   void paymentsWithinQuotaReturnAcceptedAndRateLimitHeaders() throws Exception {
-    mvc.perform(post("/api/payments")
-            .header("X-Tenant-Id", "acme")
-            .header("X-Client-Id", "web-test-client")
-            .header("X-User-Id", "u-web"))
+    mvc.perform(
+            post("/api/payments")
+                .header("X-Tenant-Id", "acme")
+                .header("X-Client-Id", "web-test-client")
+                .header("X-User-Id", "u-web"))
         .andExpect(status().isOk())
         .andExpect(header().exists(RateLimitHeaders.LIMIT))
         .andExpect(header().exists(RateLimitHeaders.REMAINING));
@@ -36,9 +36,11 @@ class RateLimitWebTest {
   @Test
   void listAndUpdatePoliciesWithoutRestart() throws Exception {
     mvc.perform(get("/api/rate-limits")).andExpect(status().isOk());
-    mvc.perform(put("/api/rate-limits/user-minute")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    mvc.perform(
+            put("/api/rate-limits/user-minute")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
                 {
                   "id": "user-minute",
                   "scope": "USER",
@@ -53,9 +55,11 @@ class RateLimitWebTest {
 
   @Test
   void createPolicyConflictWhenIdExists() throws Exception {
-    mvc.perform(post("/api/rate-limits")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    mvc.perform(
+            post("/api/rate-limits")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
                 {
                   "id": "global-hour",
                   "scope": "GLOBAL",

@@ -1,8 +1,8 @@
 package com.vibhu.bloom.core;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +66,8 @@ class BloomFilterTest {
   void configMemoryForOneMillionAtOnePercent() {
     BloomFilterConfig cfg = BloomFilterConfig.of(1_000_000, 0.01);
     // Classic rule of thumb ≈ 9.6 bits/key ≈ 1.2MB for 1% FPP
-    assertTrue(cfg.memoryBytes() > 1_000_000 && cfg.memoryBytes() < 2_000_000,
+    assertTrue(
+        cfg.memoryBytes() > 1_000_000 && cfg.memoryBytes() < 2_000_000,
         "bytes=" + cfg.memoryBytes());
     assertTrue(cfg.hashCount() >= 5 && cfg.hashCount() <= 10);
   }
@@ -82,22 +83,23 @@ class BloomFilterTest {
     AtomicInteger errors = new AtomicInteger();
     for (int t = 0; t < threads; t++) {
       int base = t * perThread;
-      pool.submit(() -> {
-        try {
-          start.await();
-          for (int i = 0; i < perThread; i++) {
-            String k = "k-" + (base + i);
-            bf.add(k);
-            if (!bf.mightContain(k)) {
+      pool.submit(
+          () -> {
+            try {
+              start.await();
+              for (int i = 0; i < perThread; i++) {
+                String k = "k-" + (base + i);
+                bf.add(k);
+                if (!bf.mightContain(k)) {
+                  errors.incrementAndGet();
+                }
+              }
+            } catch (Exception e) {
               errors.incrementAndGet();
+            } finally {
+              done.countDown();
             }
-          }
-        } catch (Exception e) {
-          errors.incrementAndGet();
-        } finally {
-          done.countDown();
-        }
-      });
+          });
     }
     start.countDown();
     assertTrue(done.await(30, TimeUnit.SECONDS));

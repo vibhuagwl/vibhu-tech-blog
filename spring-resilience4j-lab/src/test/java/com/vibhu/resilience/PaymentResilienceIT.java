@@ -69,8 +69,7 @@ class PaymentResilienceIT {
   @Test
   void http_order_endpoint_works() {
     ResponseEntity<PaymentResult> res =
-        http.postForEntity(
-            "/api/orders", new PayRequest("http-1", "c9", 500), PaymentResult.class);
+        http.postForEntity("/api/orders", new PayRequest("http-1", "c9", 500), PaymentResult.class);
     assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(res.getBody()).isNotNull();
     assertThat(res.getBody().status()).isEqualTo("CAPTURED");
@@ -78,13 +77,15 @@ class PaymentResilienceIT {
 
   @Test
   void idempotent_replay_does_not_double_charge() {
-    PaymentResult first = http.postForEntity(
-            "/api/orders", new PayRequest("same-key", "c9", 500), PaymentResult.class)
-        .getBody();
+    PaymentResult first =
+        http.postForEntity(
+                "/api/orders", new PayRequest("same-key", "c9", 500), PaymentResult.class)
+            .getBody();
     int calls = bank.callCount();
-    PaymentResult second = http.postForEntity(
-            "/api/orders", new PayRequest("same-key", "c9", 500), PaymentResult.class)
-        .getBody();
+    PaymentResult second =
+        http.postForEntity(
+                "/api/orders", new PayRequest("same-key", "c9", 500), PaymentResult.class)
+            .getBody();
     assertThat(first).isNotNull();
     assertThat(second).isNotNull();
     assertThat(first.status()).isEqualTo("CAPTURED");
@@ -101,7 +102,8 @@ class PaymentResilienceIT {
 
   @Test
   void simulate_endpoint_switches_mode() {
-    ResponseEntity<String> res = http.getForEntity("/api/payment/simulate?mode=ERROR", String.class);
+    ResponseEntity<String> res =
+        http.getForEntity("/api/payment/simulate?mode=ERROR", String.class);
     assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(bank.mode()).isEqualTo(BankMode.ERROR);
   }

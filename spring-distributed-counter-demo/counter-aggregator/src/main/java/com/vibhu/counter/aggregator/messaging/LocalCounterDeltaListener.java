@@ -9,14 +9,14 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("!kafka")
 public class LocalCounterDeltaListener {
-    private final CounterDeltaConsumer consumer;
+  private final CounterDeltaConsumer consumer;
 
-    public LocalCounterDeltaListener(CounterDeltaConsumer consumer) {
-        this.consumer = consumer;
-    }
+  public LocalCounterDeltaListener(CounterDeltaConsumer consumer) {
+    this.consumer = consumer;
+  }
 
-    @EventListener
-    public void onCounterDelta(CounterDeltaEvent event) {
-        consumer.onDelta(event);
-    }
+  @EventListener
+  public void onCounterDelta(CounterDeltaEvent event) {
+    consumer.onDelta(event);
+  }
 }

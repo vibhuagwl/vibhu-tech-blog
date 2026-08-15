@@ -1,12 +1,11 @@
 package com.vibhu.locking;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 class DeadlockPreventionTest {
 
@@ -16,22 +15,26 @@ class DeadlockPreventionTest {
     OrderedTransfer.Account b = new OrderedTransfer.Account("B", 1000);
     CountDownLatch start = new CountDownLatch(1);
 
-    Thread t1 = new Thread(() -> {
-      try {
-        start.await();
-        OrderedTransfer.transfer(a, b, 100);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    });
-    Thread t2 = new Thread(() -> {
-      try {
-        start.await();
-        OrderedTransfer.transfer(b, a, 100);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    });
+    Thread t1 =
+        new Thread(
+            () -> {
+              try {
+                start.await();
+                OrderedTransfer.transfer(a, b, 100);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+            });
+    Thread t2 =
+        new Thread(
+            () -> {
+              try {
+                start.await();
+                OrderedTransfer.transfer(b, a, 100);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+            });
     t1.start();
     t2.start();
     start.countDown();
@@ -45,16 +48,18 @@ class DeadlockPreventionTest {
   @Test
   void tryLockTimesOutInsteadOfBlockingForever() throws Exception {
     ReentrantLock lock = new ReentrantLock();
-    Thread holder = new Thread(() -> {
-      lock.lock();
-      try {
-        Thread.sleep(400);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      } finally {
-        lock.unlock();
-      }
-    });
+    Thread holder =
+        new Thread(
+            () -> {
+              lock.lock();
+              try {
+                Thread.sleep(400);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              } finally {
+                lock.unlock();
+              }
+            });
     holder.start();
     Thread.sleep(50);
     boolean acquired = lock.tryLock(50, TimeUnit.MILLISECONDS);

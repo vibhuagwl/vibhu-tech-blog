@@ -60,8 +60,7 @@ class MultiTenantIsolationTest {
   @Test
   void unauthenticatedRequestIsRejected() throws Exception {
     // Spring Security may return 401 or 403 depending on entry-point vs access-denied path.
-    int status =
-        mvc.perform(get("/api/orders")).andReturn().getResponse().getStatus();
+    int status = mvc.perform(get("/api/orders")).andReturn().getResponse().getStatus();
     assertThat(status).isIn(401, 403);
   }
 
@@ -101,8 +100,10 @@ class MultiTenantIsolationTest {
     UUID b = UUID.fromString("22222222-2222-2222-2222-222222222222");
     cache.put(a, "user:1", java.util.Map.of("name", "A"), java.time.Duration.ofMinutes(1));
     cache.put(b, "user:1", java.util.Map.of("name", "B"), java.time.Duration.ofMinutes(1));
-    assertThat(cache.get(a, "user:1", java.util.Map.class).orElseThrow().get("name")).isEqualTo("A");
-    assertThat(cache.get(b, "user:1", java.util.Map.class).orElseThrow().get("name")).isEqualTo("B");
+    assertThat(cache.get(a, "user:1", java.util.Map.class).orElseThrow().get("name"))
+        .isEqualTo("A");
+    assertThat(cache.get(b, "user:1", java.util.Map.class).orElseThrow().get("name"))
+        .isEqualTo("B");
   }
 
   @Test
@@ -122,8 +123,14 @@ class MultiTenantIsolationTest {
     createOrder(walmart, customerId, "10.00");
     Awaitility.await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(() -> assertThat(mvc.perform(get("/api/lab/consumed-events")).andReturn()
-            .getResponse().getContentAsString()).isNotEqualTo("[]"));
+        .untilAsserted(
+            () ->
+                assertThat(
+                        mvc.perform(get("/api/lab/consumed-events"))
+                            .andReturn()
+                            .getResponse()
+                            .getContentAsString())
+                    .isNotEqualTo("[]"));
   }
 
   @Test

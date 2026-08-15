@@ -15,32 +15,33 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 class ApiSecurityTest {
 
-    @Autowired
-    MockMvc mockMvc;
+  @Autowired MockMvc mockMvc;
 
-    @Test
-    void unauthenticatedGets401() throws Exception {
-        mockMvc.perform(get("/api/accounts/me"))
-                .andExpect(status().isUnauthorized());
-    }
+  @Test
+  void unauthenticatedGets401() throws Exception {
+    mockMvc.perform(get("/api/accounts/me")).andExpect(status().isUnauthorized());
+  }
 
-    @Test
-    void aliceCanReadAccounts() throws Exception {
-        mockMvc.perform(get("/api/accounts/me").with(httpBasic("alice", "password")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("alice"));
-    }
+  @Test
+  void aliceCanReadAccounts() throws Exception {
+    mockMvc
+        .perform(get("/api/accounts/me").with(httpBasic("alice", "password")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.username").value("alice"));
+  }
 
-    @Test
-    void aliceCannotReadAdminStats() throws Exception {
-        mockMvc.perform(get("/api/admin/stats").with(httpBasic("alice", "password")))
-                .andExpect(status().isForbidden());
-    }
+  @Test
+  void aliceCannotReadAdminStats() throws Exception {
+    mockMvc
+        .perform(get("/api/admin/stats").with(httpBasic("alice", "password")))
+        .andExpect(status().isForbidden());
+  }
 
-    @Test
-    void adminCanReadAdminStats() throws Exception {
-        mockMvc.perform(get("/api/admin/stats").with(httpBasic("admin", "password")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("ok"));
-    }
+  @Test
+  void adminCanReadAdminStats() throws Exception {
+    mockMvc
+        .perform(get("/api/admin/stats").with(httpBasic("admin", "password")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ok"));
+  }
 }

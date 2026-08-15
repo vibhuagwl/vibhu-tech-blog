@@ -1,5 +1,8 @@
 package com.vibhu.msp.customer;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
 import com.vibhu.msp.customer.cache.CustomerCacheService;
 import com.vibhu.msp.customer.entity.CustomerEntity;
 import com.vibhu.msp.customer.repository.CustomerRepository;
@@ -7,8 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 
 class CustomerCacheServiceUnitTest {
 

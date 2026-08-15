@@ -40,12 +40,15 @@ public class DlqController {
 
   @GetMapping("/{id}")
   public ResponseEntity<DeadLetterResponse> get(@PathVariable Long id) {
-    return dlq.find(id).map(row -> ResponseEntity.ok(toResponse(row))).orElse(ResponseEntity.notFound().build());
+    return dlq.find(id)
+        .map(row -> ResponseEntity.ok(toResponse(row)))
+        .orElse(ResponseEntity.notFound().build());
   }
 
   @PostMapping("/{id}/replay")
   public DeadLetterResponse replayOne(
-      @PathVariable Long id, @RequestHeader(name = "X-Replay-Actor", defaultValue = "lab-operator") String actor) {
+      @PathVariable Long id,
+      @RequestHeader(name = "X-Replay-Actor", defaultValue = "lab-operator") String actor) {
     return toResponse(replay.replay(id, actor));
   }
 
@@ -89,13 +92,15 @@ public class DlqController {
 
   @PostMapping("/{id}/resolve")
   public DeadLetterResponse resolve(
-      @PathVariable Long id, @RequestHeader(name = "X-Replay-Actor", defaultValue = "lab-operator") String actor) {
+      @PathVariable Long id,
+      @RequestHeader(name = "X-Replay-Actor", defaultValue = "lab-operator") String actor) {
     return toResponse(dlq.resolve(id, actor));
   }
 
   @PostMapping("/{id}/ignore")
   public DeadLetterResponse ignore(
-      @PathVariable Long id, @RequestHeader(name = "X-Replay-Actor", defaultValue = "lab-operator") String actor) {
+      @PathVariable Long id,
+      @RequestHeader(name = "X-Replay-Actor", defaultValue = "lab-operator") String actor) {
     return toResponse(dlq.ignore(id, actor));
   }
 

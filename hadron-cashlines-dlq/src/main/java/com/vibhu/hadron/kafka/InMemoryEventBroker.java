@@ -43,18 +43,21 @@ public class InMemoryEventBroker implements EventPublisher {
     int partitions = Math.max(1, properties.getKafka().getTopicPartitions());
     int partition = Math.floorMod(key == null ? 0 : key.hashCode(), partitions);
     long offset = offsets.computeIfAbsent(topic, t -> new AtomicLong()).incrementAndGet();
-    EventEnvelope envelope = new EventEnvelope(topic, partition, offset, key, payload, headers, retryCount(headers));
+    EventEnvelope envelope =
+        new EventEnvelope(topic, partition, offset, key, payload, headers, retryCount(headers));
     dispatch(envelope);
   }
 
   @Override
   public void publishDelayed(
       String topic, String key, String payload, Map<String, String> headers, Duration delay) {
-    scheduler.schedule(() -> publish(topic, key, payload, headers), delay.toMillis(), TimeUnit.MILLISECONDS);
+    scheduler.schedule(
+        () -> publish(topic, key, payload, headers), delay.toMillis(), TimeUnit.MILLISECONDS);
   }
 
   private void dispatch(EventEnvelope envelope) {
-    List<Consumer<EventEnvelope>> topicListeners = listeners.getOrDefault(envelope.topic(), new CopyOnWriteArrayList<>());
+    List<Consumer<EventEnvelope>> topicListeners =
+        listeners.getOrDefault(envelope.topic(), new CopyOnWriteArrayList<>());
     if (topicListeners.isEmpty()) {
       log.warn("No in-memory listener for topic {}", envelope.topic());
       return;

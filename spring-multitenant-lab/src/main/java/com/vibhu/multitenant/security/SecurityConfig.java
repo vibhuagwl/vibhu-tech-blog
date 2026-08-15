@@ -27,7 +27,8 @@ public class SecurityConfig {
 
   @Bean
   SecurityFilterChain filterChain(
-      HttpSecurity http, JwtAuthenticationFilter jwtFilter, TenantFilter tenantFilter) throws Exception {
+      HttpSecurity http, JwtAuthenticationFilter jwtFilter, TenantFilter tenantFilter)
+      throws Exception {
     http.csrf(csrf -> csrf.disable())
         .cors(Customizer.withDefaults())
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

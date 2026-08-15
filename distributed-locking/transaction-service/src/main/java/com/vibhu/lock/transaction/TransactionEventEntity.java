@@ -30,8 +30,7 @@ public class TransactionEventEntity {
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
-  protected TransactionEventEntity() {
-  }
+  protected TransactionEventEntity() {}
 
   public TransactionEventEntity(String transactionId, String type, String payload) {
     this.transactionId = transactionId;

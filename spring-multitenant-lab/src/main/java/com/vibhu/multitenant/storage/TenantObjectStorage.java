@@ -35,7 +35,10 @@ public class TenantObjectStorage {
   }
 
   public Path resolve(String tenantSlug, UUID orderId, String filename) {
-    return root.resolve(tenantSlug).resolve("orders").resolve(orderId.toString()).resolve(sanitize(filename));
+    return root.resolve(tenantSlug)
+        .resolve("orders")
+        .resolve(orderId.toString())
+        .resolve(sanitize(filename));
   }
 
   private String sanitize(String filename) {

@@ -8,6 +8,4 @@ public record LockToken(
     long fencingToken,
     LockMode mode,
     long leaseMillis,
-    Instant acquiredAt
-) {
-}
+    Instant acquiredAt) {}

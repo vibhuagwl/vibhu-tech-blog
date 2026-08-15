@@ -18,9 +18,10 @@ class WebAttacksDemoTest {
 
   @Test
   void xssGoodEscapesScript() throws Exception {
-    MvcResult result = mvc.perform(get("/xss/good").param("name", "<script>alert(1)</script>"))
-        .andExpect(status().isOk())
-        .andReturn();
+    MvcResult result =
+        mvc.perform(get("/xss/good").param("name", "<script>alert(1)</script>"))
+            .andExpect(status().isOk())
+            .andReturn();
     String html = result.getResponse().getContentAsString();
     assertThat(html).contains("&lt;script&gt;");
     assertThat(html).doesNotContain("<script>alert(1)</script>");
@@ -28,17 +29,19 @@ class WebAttacksDemoTest {
 
   @Test
   void xssApiGoodEscapes() throws Exception {
-    MvcResult result = mvc.perform(get("/xss/api/good").param("name", "<img onerror=alert(1)>"))
-        .andExpect(status().isOk())
-        .andReturn();
+    MvcResult result =
+        mvc.perform(get("/xss/api/good").param("name", "<img onerror=alert(1)>"))
+            .andExpect(status().isOk())
+            .andReturn();
     assertThat(result.getResponse().getContentAsString()).contains("&lt;img");
   }
 
   @Test
   void sqliBadOrBypassReturnsAllRows() throws Exception {
-    MvcResult result = mvc.perform(get("/sqli/bad").param("q", "electronics' OR '1'='1"))
-        .andExpect(status().isOk())
-        .andReturn();
+    MvcResult result =
+        mvc.perform(get("/sqli/bad").param("q", "electronics' OR '1'='1"))
+            .andExpect(status().isOk())
+            .andReturn();
     String body = result.getResponse().getContentAsString();
     assertThat(body).contains("Keyboard");
     assertThat(body).contains("Desk"); // furniture leaked via injection
@@ -46,9 +49,10 @@ class WebAttacksDemoTest {
 
   @Test
   void sqliGoodRejectsInjectionAsLiteral() throws Exception {
-    MvcResult result = mvc.perform(get("/sqli/good").param("q", "electronics' OR '1'='1"))
-        .andExpect(status().isOk())
-        .andReturn();
+    MvcResult result =
+        mvc.perform(get("/sqli/good").param("q", "electronics' OR '1'='1"))
+            .andExpect(status().isOk())
+            .andReturn();
     assertThat(result.getResponse().getContentAsString()).isEqualTo("[]");
   }
 

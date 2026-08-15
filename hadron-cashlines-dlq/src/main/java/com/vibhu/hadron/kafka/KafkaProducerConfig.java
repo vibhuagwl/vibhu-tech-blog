@@ -53,11 +53,12 @@ public class KafkaProducerConfig {
     public void publish(String topic, String key, String payload, Map<String, String> headers) {
       ProducerRecord<String, String> record = new ProducerRecord<>(topic, key, payload);
       if (headers != null) {
-        headers.forEach((k, v) -> {
-          if (v != null) {
-            record.headers().add(new RecordHeader(k, v.getBytes()));
-          }
-        });
+        headers.forEach(
+            (k, v) -> {
+              if (v != null) {
+                record.headers().add(new RecordHeader(k, v.getBytes()));
+              }
+            });
       }
       kafkaTemplate.send(record);
     }
@@ -66,7 +67,8 @@ public class KafkaProducerConfig {
     public void publishDelayed(
         String topic, String key, String payload, Map<String, String> headers, Duration delay) {
       Map<String, String> next = headers == null ? new HashMap<>() : new HashMap<>(headers);
-      next.put(TopicNames.HEADER_RETRY_AT, Long.toString(System.currentTimeMillis() + delay.toMillis()));
+      next.put(
+          TopicNames.HEADER_RETRY_AT, Long.toString(System.currentTimeMillis() + delay.toMillis()));
       publish(topic, key, payload, next);
     }
   }

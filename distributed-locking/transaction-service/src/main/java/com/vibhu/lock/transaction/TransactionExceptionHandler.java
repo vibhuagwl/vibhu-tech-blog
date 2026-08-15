@@ -26,11 +26,11 @@ public class TransactionExceptionHandler {
   }
 
   @ExceptionHandler({
-      IllegalStateException.class,
-      InsufficientFundsException.class,
-      FenceTokenRejectedException.class,
-      DeadlockException.class,
-      IdempotencyConflictException.class
+    IllegalStateException.class,
+    InsufficientFundsException.class,
+    FenceTokenRejectedException.class,
+    DeadlockException.class,
+    IdempotencyConflictException.class
   })
   ResponseEntity<ApiError> conflict(RuntimeException ex) {
     return error(HttpStatus.CONFLICT, ex.getMessage());
@@ -44,13 +44,13 @@ public class TransactionExceptionHandler {
   @ExceptionHandler(HttpStatusCodeException.class)
   ResponseEntity<ApiError> downstream(HttpStatusCodeException ex) {
     return ResponseEntity.status(ex.getStatusCode())
-        .body(new ApiError(ex.getStatusCode().value(), ex.getResponseBodyAsString(), Instant.now()));
+        .body(
+            new ApiError(ex.getStatusCode().value(), ex.getResponseBodyAsString(), Instant.now()));
   }
 
   private ResponseEntity<ApiError> error(HttpStatus status, String message) {
     return ResponseEntity.status(status).body(new ApiError(status.value(), message, Instant.now()));
   }
 
-  record ApiError(int status, String message, Instant timestamp) {
-  }
+  record ApiError(int status, String message, Instant timestamp) {}
 }

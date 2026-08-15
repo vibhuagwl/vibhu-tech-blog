@@ -7,11 +7,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class TransactionStateMachine {
-  private static final Set<TransactionState> TERMINAL = EnumSet.of(
-      TransactionState.RELEASED,
-      TransactionState.ABORTED,
-      TransactionState.TIMED_OUT
-  );
+  private static final Set<TransactionState> TERMINAL =
+      EnumSet.of(TransactionState.RELEASED, TransactionState.ABORTED, TransactionState.TIMED_OUT);
 
   public boolean canTransition(TransactionState from, TransactionState to) {
     if (from == null || to == null || from == to) {
@@ -21,17 +18,23 @@ public class TransactionStateMachine {
       return false;
     }
     return switch (from) {
-      case ACTIVE -> to == TransactionState.LOCKING || to == TransactionState.ABORTING || to == TransactionState.ABORTED;
-      case LOCKING -> to == TransactionState.PRE_COMMIT
-          || to == TransactionState.ABORTING
-          || to == TransactionState.ABORTED
-          || to == TransactionState.TIMED_OUT;
-      case PRE_COMMIT -> to == TransactionState.COMMIT_READY
-          || to == TransactionState.ABORTING
-          || to == TransactionState.ABORTED;
-      case COMMIT_READY -> to == TransactionState.COMMITTED
-          || to == TransactionState.ABORTING
-          || to == TransactionState.ABORTED;
+      case ACTIVE ->
+          to == TransactionState.LOCKING
+              || to == TransactionState.ABORTING
+              || to == TransactionState.ABORTED;
+      case LOCKING ->
+          to == TransactionState.PRE_COMMIT
+              || to == TransactionState.ABORTING
+              || to == TransactionState.ABORTED
+              || to == TransactionState.TIMED_OUT;
+      case PRE_COMMIT ->
+          to == TransactionState.COMMIT_READY
+              || to == TransactionState.ABORTING
+              || to == TransactionState.ABORTED;
+      case COMMIT_READY ->
+          to == TransactionState.COMMITTED
+              || to == TransactionState.ABORTING
+              || to == TransactionState.ABORTED;
       case COMMITTED -> to == TransactionState.RELEASED;
       case ABORTING -> to == TransactionState.ABORTED;
       case ABORTED -> to == TransactionState.RELEASED;

@@ -14,9 +14,11 @@ public class CustomerCacheService {
   private final StringRedisTemplate redisTemplate;
   private final Duration ttl;
 
-  public CustomerCacheService(CustomerRepository customerRepository,
-                              StringRedisTemplate redisTemplate,
-                              @org.springframework.beans.factory.annotation.Value("${msp.cache.ttl-seconds:300}") long ttlSeconds) {
+  public CustomerCacheService(
+      CustomerRepository customerRepository,
+      StringRedisTemplate redisTemplate,
+      @org.springframework.beans.factory.annotation.Value("${msp.cache.ttl-seconds:300}")
+          long ttlSeconds) {
     this.customerRepository = customerRepository;
     this.redisTemplate = redisTemplate;
     this.ttl = Duration.ofSeconds(ttlSeconds);
@@ -34,10 +36,13 @@ public class CustomerCacheService {
       entity.setTier(parts.length > 2 ? parts[2] : "STANDARD");
       return entity;
     }
-    CustomerEntity entity = customerRepository.findById(customerId)
-        .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
-    redisTemplate.opsForValue().set(cacheKey,
-        entity.getName() + "|" + entity.getEmail() + "|" + entity.getTier(), ttl);
+    CustomerEntity entity =
+        customerRepository
+            .findById(customerId)
+            .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
+    redisTemplate
+        .opsForValue()
+        .set(cacheKey, entity.getName() + "|" + entity.getEmail() + "|" + entity.getTier(), ttl);
     return entity;
   }
 }

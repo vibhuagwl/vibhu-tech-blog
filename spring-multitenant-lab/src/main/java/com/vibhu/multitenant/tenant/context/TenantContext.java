@@ -6,15 +6,17 @@ import java.util.UUID;
 /**
  * Request-scoped tenant identity.
  *
- * <p>ThreadLocal is correct for servlet request threads IF you always clear in a finally block.
- * It is NOT automatically inherited by:
+ * <p>ThreadLocal is correct for servlet request threads IF you always clear in a finally block. It
+ * is NOT automatically inherited by:
+ *
  * <ul>
- *   <li>@Async / Executor thread pools</li>
- *   <li>CompletableFuture.supplyAsync without wrapping</li>
- *   <li>Kafka listener threads (must set from the message)</li>
- *   <li>Reactor/WebFlux (use Reactor Context, not ThreadLocal)</li>
- *   <li>Virtual threads are fine per-task as long as clear() runs</li>
+ *   <li>@Async / Executor thread pools
+ *   <li>CompletableFuture.supplyAsync without wrapping
+ *   <li>Kafka listener threads (must set from the message)
+ *   <li>Reactor/WebFlux (use Reactor Context, not ThreadLocal)
+ *   <li>Virtual threads are fine per-task as long as clear() runs
  * </ul>
+ *
  * Thread-pool reuse without clear() causes the next request to see the previous tenant — a critical
  * cross-tenant leak.
  */
@@ -53,5 +55,10 @@ public final class TenantContext {
   }
 
   public record TenantSnapshot(
-      UUID tenantId, String slug, String status, String databaseStrategy, UUID userId, String roles) {}
+      UUID tenantId,
+      String slug,
+      String status,
+      String databaseStrategy,
+      UUID userId,
+      String roles) {}
 }

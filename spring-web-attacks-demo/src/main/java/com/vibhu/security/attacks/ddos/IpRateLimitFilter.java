@@ -44,13 +44,16 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
     long bucket = now / Math.max(1, props.windowSeconds());
     String key = ip + ":" + bucket;
 
-    Window window = windows.compute(key, (k, existing) -> {
-      if (existing == null) {
-        return new Window(new AtomicInteger(1));
-      }
-      existing.count.incrementAndGet();
-      return existing;
-    });
+    Window window =
+        windows.compute(
+            key,
+            (k, existing) -> {
+              if (existing == null) {
+                return new Window(new AtomicInteger(1));
+              }
+              existing.count.incrementAndGet();
+              return existing;
+            });
 
     // opportunistic cleanup of other buckets for this process
     windows.keySet().removeIf(k -> !k.endsWith(":" + bucket) && k.startsWith(ip + ":"));
@@ -59,12 +62,14 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
       response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
       response.setHeader("Retry-After", String.valueOf(props.windowSeconds()));
       response.setContentType("application/json");
-      response.getWriter().write(
-          "{\"error\":\"rate_limited\",\"limit\":"
-              + props.requestsPerWindow()
-              + ",\"windowSeconds\":"
-              + props.windowSeconds()
-              + "}");
+      response
+          .getWriter()
+          .write(
+              "{\"error\":\"rate_limited\",\"limit\":"
+                  + props.requestsPerWindow()
+                  + ",\"windowSeconds\":"
+                  + props.windowSeconds()
+                  + "}");
       return;
     }
 

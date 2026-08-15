@@ -12,8 +12,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Idempotent lifecycle event consumer. Failed poison messages are forwarded to DLQ.
- * Kafka is not on the synchronous lock/transfer path.
+ * Idempotent lifecycle event consumer. Failed poison messages are forwarded to DLQ. Kafka is not on
+ * the synchronous lock/transfer path.
  */
 @Component
 public class TransactionLifecycleConsumer {
@@ -40,8 +40,7 @@ public class TransactionLifecycleConsumer {
           eventType,
           transactionId,
           header(record, "correlation-id"),
-          record.value()
-      );
+          record.value());
     } catch (RuntimeException ex) {
       log.error("Failed processing lifecycle event, sending to DLQ: {}", ex.getMessage());
       kafkaTemplate.send(KafkaTopics.TRANSACTION_LIFECYCLE_DLQ, transactionId, record.value());

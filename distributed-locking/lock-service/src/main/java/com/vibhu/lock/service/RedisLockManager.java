@@ -16,7 +16,13 @@ public class RedisLockManager implements LockManager {
   }
 
   @Override
-  public LockToken acquire(String lockKey, LockMode mode, String ownerId, String transactionId, Duration wait, Duration lease) {
+  public LockToken acquire(
+      String lockKey,
+      LockMode mode,
+      String ownerId,
+      String transactionId,
+      Duration wait,
+      Duration lease) {
     return delegate.tryAcquire(lockKey, mode, ownerId, transactionId, wait, lease);
   }
 

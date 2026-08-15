@@ -40,8 +40,8 @@ public class BankService {
   }
 
   /**
-   * Technical failures throw RetryablePaymentException (Camunda retries).
-   * Hard declines throw BusinessPaymentException → BPMN error BANK_DECLINED.
+   * Technical failures throw RetryablePaymentException (Camunda retries). Hard declines throw
+   * BusinessPaymentException → BPMN error BANK_DECLINED.
    */
   @Transactional
   public Map<String, Object> processWithBank(String paymentId) {

@@ -43,12 +43,14 @@ public class DeadLetterMessageService {
 
   /**
    * REQUIRES_NEW so a DLQ insert survives rollback of the failed CashLine transaction.
-   * Unique(event_id) and unique(topic,partition,offset) make this idempotent if Kafka
-   * redelivers after a DLQ write but before offset commit.
+   * Unique(event_id) and unique(topic,partition,offset) make this idempotent if Kafka redelivers
+   * after a DLQ write but before offset commit.
    */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public DeadLetterMessageEntity persist(EventEnvelope envelope, CashLineEvent event, Throwable error) {
-    Optional<DeadLetterMessageEntity> existing = repository.findByEventId(safeEventId(event, envelope));
+  public DeadLetterMessageEntity persist(
+      EventEnvelope envelope, CashLineEvent event, Throwable error) {
+    Optional<DeadLetterMessageEntity> existing =
+        repository.findByEventId(safeEventId(event, envelope));
     if (existing.isPresent()) {
       DeadLetterMessageEntity row = existing.get();
       row.setLastFailedAt(Instant.now());

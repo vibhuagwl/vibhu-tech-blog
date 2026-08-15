@@ -8,9 +8,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 public class PasswordConfig {
 
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        // DelegatingPasswordEncoder — stores {bcrypt}... never plaintext
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
-    }
+  @Bean
+  PasswordEncoder passwordEncoder() {
+    // DelegatingPasswordEncoder — stores {bcrypt}... never plaintext
+    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+  }
 }

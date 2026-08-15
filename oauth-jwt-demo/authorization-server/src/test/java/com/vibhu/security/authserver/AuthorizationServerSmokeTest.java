@@ -14,22 +14,23 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 class AuthorizationServerSmokeTest {
 
-    @Autowired
-    MockMvc mockMvc;
+  @Autowired MockMvc mockMvc;
 
-    @Test
-    void openIdConfiguration_isPublic() throws Exception {
-        mockMvc.perform(get("/.well-known/openid-configuration"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.issuer").value("http://localhost:9000"))
-                .andExpect(jsonPath("$.jwks_uri").value("http://localhost:9000/oauth2/jwks"));
-    }
+  @Test
+  void openIdConfiguration_isPublic() throws Exception {
+    mockMvc
+        .perform(get("/.well-known/openid-configuration"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.issuer").value("http://localhost:9000"))
+        .andExpect(jsonPath("$.jwks_uri").value("http://localhost:9000/oauth2/jwks"));
+  }
 
-    @Test
-    void jwks_exposesKey() throws Exception {
-        mockMvc.perform(get("/oauth2/jwks"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.keys[0].kid").value("key-1"))
-                .andExpect(jsonPath("$.keys[0].kty").value("RSA"));
-    }
+  @Test
+  void jwks_exposesKey() throws Exception {
+    mockMvc
+        .perform(get("/oauth2/jwks"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.keys[0].kid").value("key-1"))
+        .andExpect(jsonPath("$.keys[0].kty").value("RSA"));
+  }
 }

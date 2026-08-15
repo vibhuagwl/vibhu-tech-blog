@@ -1,12 +1,10 @@
 package com.vibhu.msp.eventsourcing;
 
-import org.springframework.stereotype.Component;
-
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.springframework.stereotype.Component;
 
 /** In-memory append-only event store. Maps to curriculum Part 07. */
 @Component

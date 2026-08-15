@@ -3,9 +3,8 @@ package com.vibhu.shard;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Minimal Snowflake-style ID: timestamp | shardId | sequence.
- * Not Twitter-compatible bit layout — interview-friendly and collision-free
- * across shards when shardId differs.
+ * Minimal Snowflake-style ID: timestamp | shardId | sequence. Not Twitter-compatible bit layout —
+ * interview-friendly and collision-free across shards when shardId differs.
  */
 public final class SnowflakeIdGenerator {
   private static final int SHARD_BITS = 10;

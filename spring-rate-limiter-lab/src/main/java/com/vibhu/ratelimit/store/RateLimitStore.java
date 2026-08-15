@@ -5,8 +5,8 @@ import com.vibhu.ratelimit.api.RateLimitPolicy;
 import com.vibhu.ratelimit.api.RateLimitResult;
 
 /**
- * Repository for rate-limit counters. Implementations must make consume+update
- * atomic for a given key (Lua on Redis, {@code compute} on a ConcurrentHashMap).
+ * Repository for rate-limit counters. Implementations must make consume+update atomic for a given
+ * key (Lua on Redis, {@code compute} on a ConcurrentHashMap).
  */
 public interface RateLimitStore {
 

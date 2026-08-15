@@ -18,11 +18,13 @@ public class BloomFilterBeans {
 
   @Bean
   BloomFilter<String> userIdBloomFilter(BloomFilterConfig config) {
-    return new BloomFilter<>(config, new DoubleHashStrategy(), s -> s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    return new BloomFilter<>(
+        config, new DoubleHashStrategy(), s -> s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
   }
 
   @Bean
-  BloomFilterMetrics bloomFilterMetrics(MeterRegistry registry, BloomFilter<String> userIdBloomFilter) {
+  BloomFilterMetrics bloomFilterMetrics(
+      MeterRegistry registry, BloomFilter<String> userIdBloomFilter) {
     return new BloomFilterMetrics(registry, userIdBloomFilter);
   }
 }

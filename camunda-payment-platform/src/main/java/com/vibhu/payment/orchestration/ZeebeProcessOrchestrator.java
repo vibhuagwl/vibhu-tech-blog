@@ -11,8 +11,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /**
- * Starts / correlates against real Zeebe (Camunda 8). Requires profile {@code zeebe}
- * and a running gateway (see docker-compose.yml).
+ * Starts / correlates against real Zeebe (Camunda 8). Requires profile {@code zeebe} and a running
+ * gateway (see docker-compose.yml).
  */
 @Service
 @ConditionalOnProperty(name = "payment.orchestration-mode", havingValue = "zeebe")

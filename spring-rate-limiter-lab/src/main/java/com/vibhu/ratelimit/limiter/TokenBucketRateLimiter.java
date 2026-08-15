@@ -12,8 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Primary algorithm: token bucket over a {@link RateLimitStore}. Fail-open /
- * fail-closed / local-fallback is applied when the store throws.
+ * Primary algorithm: token bucket over a {@link RateLimitStore}. Fail-open / fail-closed /
+ * local-fallback is applied when the store throws.
  */
 public final class TokenBucketRateLimiter implements RateLimiter {
 
@@ -28,8 +28,7 @@ public final class TokenBucketRateLimiter implements RateLimiter {
       RateLimitPolicy policy,
       RateLimitStore store,
       RateLimitStore localFallback,
-      RateLimitMetrics metrics
-  ) {
+      RateLimitMetrics metrics) {
     this.policy = policy;
     this.store = store;
     this.localFallback = localFallback;
@@ -50,8 +49,12 @@ public final class TokenBucketRateLimiter implements RateLimiter {
       return result;
     } catch (RuntimeException ex) {
       metrics.recordStoreError(policy, ex);
-      log.warn("rate-limit store failed key={} policy={} failPolicy={}: {}",
-          key.redisKey(), policy.id(), policy.failPolicy(), ex.toString());
+      log.warn(
+          "rate-limit store failed key={} policy={} failPolicy={}: {}",
+          key.redisKey(),
+          policy.id(),
+          policy.failPolicy(),
+          ex.toString());
       return degrade(key, ex);
     }
   }
@@ -59,8 +62,11 @@ public final class TokenBucketRateLimiter implements RateLimiter {
   private RateLimitResult degrade(RateLimitKey key, RuntimeException ex) {
     FailPolicy fail = policy.failPolicy();
     return switch (fail) {
-      case FAIL_OPEN -> RateLimitResult.failOpen(key.redisKey(), policy.id(), policy.capacity(), "store_unavailable_fail_open");
-      case FAIL_CLOSED -> RateLimitResult.failClosed(key.redisKey(), policy.id(), "store_unavailable_fail_closed");
+      case FAIL_OPEN ->
+          RateLimitResult.failOpen(
+              key.redisKey(), policy.id(), policy.capacity(), "store_unavailable_fail_open");
+      case FAIL_CLOSED ->
+          RateLimitResult.failClosed(key.redisKey(), policy.id(), "store_unavailable_fail_closed");
       case LOCAL_FALLBACK -> {
         if (localFallback == null) {
           yield RateLimitResult.failClosed(key.redisKey(), policy.id(), "no_local_fallback");
@@ -74,8 +80,7 @@ public final class TokenBucketRateLimiter implements RateLimiter {
             local.key(),
             local.policyId(),
             true,
-            "local_fallback:" + ex.getClass().getSimpleName()
-        );
+            "local_fallback:" + ex.getClass().getSimpleName());
       }
     };
   }

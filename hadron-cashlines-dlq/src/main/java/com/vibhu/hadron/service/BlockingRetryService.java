@@ -9,9 +9,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Strategy 1: in-memory / thread-blocking retry. Dangerous for Kafka consumers because
- * Thread.sleep holds the consumer thread, stalls max.poll.interval, and can trigger rebalances.
- * Kept as an explicit anti-pattern behind hadron.retry.blocking-in-memory=true.
+ * Strategy 1: in-memory / thread-blocking retry. Dangerous for Kafka consumers because Thread.sleep
+ * holds the consumer thread, stalls max.poll.interval, and can trigger rebalances. Kept as an
+ * explicit anti-pattern behind hadron.retry.blocking-in-memory=true.
  */
 @Service
 public class BlockingRetryService {

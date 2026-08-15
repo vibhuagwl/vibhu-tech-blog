@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * SPA-style endpoints using CookieCsrfTokenRepository.
- * JS reads the non-HttpOnly XSRF-TOKEN cookie and sends X-XSRF-TOKEN on mutating calls.
+ * SPA-style endpoints using CookieCsrfTokenRepository. JS reads the non-HttpOnly XSRF-TOKEN cookie
+ * and sends X-XSRF-TOKEN on mutating calls.
  */
 @RestController
 @RequestMapping("/spa")
@@ -21,18 +21,11 @@ public class SpaTransferController {
     return Map.of(
         "headerName", token.getHeaderName(),
         "parameterName", token.getParameterName(),
-        "token", token.getToken()
-    );
+        "token", token.getToken());
   }
 
   @PostMapping("/transfer")
-  public Map<String, String> transfer(
-      @RequestParam String toAccount,
-      @RequestParam String amount
-  ) {
-    return Map.of(
-        "status", "OK",
-        "message", "SPA transfer ₹" + amount + " → " + toAccount
-    );
+  public Map<String, String> transfer(@RequestParam String toAccount, @RequestParam String amount) {
+    return Map.of("status", "OK", "message", "SPA transfer ₹" + amount + " → " + toAccount);
   }
 }

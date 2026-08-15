@@ -12,37 +12,33 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("kafka")
 public class DeliveryKafkaListener {
-    private final PresenceLookup presenceLookup;
-    private final WorkerDeliveryAttemptRepository deliveryAttemptRepository;
+  private final PresenceLookup presenceLookup;
+  private final WorkerDeliveryAttemptRepository deliveryAttemptRepository;
 
-    public DeliveryKafkaListener(
-            PresenceLookup presenceLookup,
-            WorkerDeliveryAttemptRepository deliveryAttemptRepository
-    ) {
-        this.presenceLookup = presenceLookup;
-        this.deliveryAttemptRepository = deliveryAttemptRepository;
+  public DeliveryKafkaListener(
+      PresenceLookup presenceLookup, WorkerDeliveryAttemptRepository deliveryAttemptRepository) {
+    this.presenceLookup = presenceLookup;
+    this.deliveryAttemptRepository = deliveryAttemptRepository;
+  }
+
+  @KafkaListener(topics = WhatsAppTopics.MESSAGE_CREATED, groupId = "delivery-worker")
+  public void onMessageCreated(MessageCreatedEvent event) {
+    PresenceView presence = presenceLookup.find(event.recipientId());
+    if (presence.online()) {
+      deliveryAttemptRepository.record(
+          event.serverMsgId(),
+          event.recipientId(),
+          presence.deviceId(),
+          presence.gatewayNode(),
+          DeliveryAttemptStatus.DELIVERED);
+      return;
     }
 
-    @KafkaListener(topics = WhatsAppTopics.MESSAGE_CREATED, groupId = "delivery-worker")
-    public void onMessageCreated(MessageCreatedEvent event) {
-        PresenceView presence = presenceLookup.find(event.recipientId());
-        if (presence.online()) {
-            deliveryAttemptRepository.record(
-                    event.serverMsgId(),
-                    event.recipientId(),
-                    presence.deviceId(),
-                    presence.gatewayNode(),
-                    DeliveryAttemptStatus.DELIVERED
-            );
-            return;
-        }
-
-        deliveryAttemptRepository.record(
-                event.serverMsgId(),
-                event.recipientId(),
-                null,
-                null,
-                DeliveryAttemptStatus.PENDING_OFFLINE
-        );
-    }
+    deliveryAttemptRepository.record(
+        event.serverMsgId(),
+        event.recipientId(),
+        null,
+        null,
+        DeliveryAttemptStatus.PENDING_OFFLINE);
+  }
 }

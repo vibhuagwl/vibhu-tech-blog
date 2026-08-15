@@ -4,8 +4,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 /**
- * Monotonic fencing tokens via Redis INCR fence:{lockKey}.
- * Tokens are embedded into lock values by {@link RedisDistributedLockManager}.
+ * Monotonic fencing tokens via Redis INCR fence:{lockKey}. Tokens are embedded into lock values by
+ * {@link RedisDistributedLockManager}.
  */
 @Service
 public class FencingTokenService {

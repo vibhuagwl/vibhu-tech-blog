@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Banking-style payment API.
- * SETTLED only after ledger commit — never from a gateway circuit-breaker fallback.
+ * Banking-style payment API. SETTLED only after ledger commit — never from a gateway
+ * circuit-breaker fallback.
  */
 @RestController
 @RequestMapping("/payments")

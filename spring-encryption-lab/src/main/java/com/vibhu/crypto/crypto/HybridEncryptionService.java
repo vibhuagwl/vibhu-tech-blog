@@ -14,8 +14,8 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.stereotype.Service;
 
 /**
- * Hybrid encryption: AES-GCM for the payload, RSA-OAEP for the ephemeral DEK.
- * Never RSA-encrypt large JSON directly.
+ * Hybrid encryption: AES-GCM for the payload, RSA-OAEP for the ephemeral DEK. Never RSA-encrypt
+ * large JSON directly.
  */
 @Service
 public class HybridEncryptionService {

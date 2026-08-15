@@ -9,7 +9,8 @@ import org.springframework.web.client.RestClient;
 @EnableConfigurationProperties(RecoveryProperties.class)
 public class RecoveryClientConfiguration {
   @Bean
-  RestClient transactionServiceRestClient(RestClient.Builder builder, RecoveryProperties properties) {
+  RestClient transactionServiceRestClient(
+      RestClient.Builder builder, RecoveryProperties properties) {
     return builder.baseUrl(properties.getTransactionServiceUrl()).build();
   }
 }

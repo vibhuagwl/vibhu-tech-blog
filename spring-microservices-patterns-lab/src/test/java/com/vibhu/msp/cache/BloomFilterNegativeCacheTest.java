@@ -1,15 +1,14 @@
 package com.vibhu.msp.cache;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Test;
 
 class BloomFilterNegativeCacheTest {
 
@@ -32,10 +31,13 @@ class BloomFilterNegativeCacheTest {
     Map<String, String> backend = new HashMap<>();
     AtomicInteger loads = new AtomicInteger();
 
-    assertNull(bloom.getOrLoad("ghost", k -> {
-      loads.incrementAndGet();
-      return backend.get(k);
-    }));
+    assertNull(
+        bloom.getOrLoad(
+            "ghost",
+            k -> {
+              loads.incrementAndGet();
+              return backend.get(k);
+            }));
     assertEquals(0, loads.get());
   }
 
@@ -45,10 +47,13 @@ class BloomFilterNegativeCacheTest {
     bloom.add("user:7");
     AtomicInteger loads = new AtomicInteger();
 
-    String value = bloom.getOrLoad("user:7", k -> {
-      loads.incrementAndGet();
-      return "cached-value";
-    });
+    String value =
+        bloom.getOrLoad(
+            "user:7",
+            k -> {
+              loads.incrementAndGet();
+              return "cached-value";
+            });
 
     assertEquals("cached-value", value);
     assertEquals(1, loads.get());

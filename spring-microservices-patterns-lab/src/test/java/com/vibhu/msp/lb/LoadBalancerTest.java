@@ -1,12 +1,10 @@
 package com.vibhu.msp.lb;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class LoadBalancerTest {
 
@@ -36,7 +34,8 @@ class LoadBalancerTest {
 
   @Test
   void consistentHash_sameKeyMapsToSameNode() {
-    ConsistentHashLoadBalancer<String> lb = new ConsistentHashLoadBalancer<>(List.of("N1", "N2", "N3"));
+    ConsistentHashLoadBalancer<String> lb =
+        new ConsistentHashLoadBalancer<>(List.of("N1", "N2", "N3"));
     String first = lb.selectForKey("user-42");
     for (int i = 0; i < 10; i++) {
       assertEquals(first, lb.selectForKey("user-42"));

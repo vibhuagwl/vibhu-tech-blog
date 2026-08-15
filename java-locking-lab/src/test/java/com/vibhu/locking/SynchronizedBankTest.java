@@ -1,14 +1,13 @@
 package com.vibhu.locking;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 class SynchronizedBankTest {
 
@@ -19,12 +18,13 @@ class SynchronizedBankTest {
     CountDownLatch start = new CountDownLatch(1);
     AtomicInteger started = new AtomicInteger();
     for (int i = 0; i < 8; i++) {
-      ex.submit(() -> {
-        started.incrementAndGet();
-        start.await();
-        account.safeWithdraw(700);
-        return null;
-      });
+      ex.submit(
+          () -> {
+            started.incrementAndGet();
+            start.await();
+            account.safeWithdraw(700);
+            return null;
+          });
     }
     while (started.get() < 8) {
       Thread.yield();

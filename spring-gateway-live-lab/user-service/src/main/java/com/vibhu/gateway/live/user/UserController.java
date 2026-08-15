@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Downstream User Service.
- * Phase 3: {@code instance} + {@code port} prove which replica handled the call.
+ * Downstream User Service. Phase 3: {@code instance} + {@code port} prove which replica handled the
+ * call.
  */
 @RestController
 @RequestMapping("/users")
@@ -51,9 +51,7 @@ public class UserController {
     body.put("port", port);
     body.put(
         "users",
-        List.of(
-            Map.of("id", 101, "name", "User-101"),
-            Map.of("id", 102, "name", "User-102")));
+        List.of(Map.of("id", 101, "name", "User-101"), Map.of("id", 102, "name", "User-102")));
     return body;
   }
 }

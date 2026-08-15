@@ -20,7 +20,8 @@ public class DeadLetterRetentionJob {
   private final DeadLetterMessageRepository repository;
   private final HadronProperties properties;
 
-  public DeadLetterRetentionJob(DeadLetterMessageRepository repository, HadronProperties properties) {
+  public DeadLetterRetentionJob(
+      DeadLetterMessageRepository repository, HadronProperties properties) {
     this.repository = repository;
     this.properties = properties;
   }
@@ -30,7 +31,8 @@ public class DeadLetterRetentionJob {
   public int cleanup() {
     Instant cutoff = Instant.now().minus(properties.getDlq().getRetentionDays(), ChronoUnit.DAYS);
     int removed =
-        repository.deleteExpired(EnumSet.of(DlqStatus.RESOLVED, DlqStatus.IGNORED, DlqStatus.REPLAYED), cutoff);
+        repository.deleteExpired(
+            EnumSet.of(DlqStatus.RESOLVED, DlqStatus.IGNORED, DlqStatus.REPLAYED), cutoff);
     if (removed > 0) {
       log.info("DLQ retention deleted {} rows older than {}", removed, cutoff);
     }

@@ -17,31 +17,33 @@ public class TwoPhaseLockingManager {
   private final LockServiceClient lockServiceClient;
   private final TransactionLockRepository lockRepository;
 
-  public TwoPhaseLockingManager(LockServiceClient lockServiceClient, TransactionLockRepository lockRepository) {
+  public TwoPhaseLockingManager(
+      LockServiceClient lockServiceClient, TransactionLockRepository lockRepository) {
     this.lockServiceClient = lockServiceClient;
     this.lockRepository = lockRepository;
   }
 
   @Transactional
   public List<TransactionLockEntity> acquireLocks(TransactionEntity transaction) {
-    List<String> accountIds = List.of(transaction.getSourceAccountId(), transaction.getDestinationAccountId())
-        .stream()
-        .distinct()
-        .sorted(Comparator.naturalOrder())
-        .toList();
+    List<String> accountIds =
+        List.of(transaction.getSourceAccountId(), transaction.getDestinationAccountId()).stream()
+            .distinct()
+            .sorted(Comparator.naturalOrder())
+            .toList();
 
     List<TransactionLockEntity> acquired = new ArrayList<>();
     try {
       for (String accountId : accountIds) {
         String lockKey = lockKey(accountId);
         LockToken token = lockServiceClient.acquireExclusive(lockKey, transaction.getId());
-        TransactionLockEntity lock = lockRepository.save(new TransactionLockEntity(
-            transaction.getId(),
-            lockKey,
-            LockMode.EXCLUSIVE,
-            token.ownerToken(),
-            token.fencingToken()
-        ));
+        TransactionLockEntity lock =
+            lockRepository.save(
+                new TransactionLockEntity(
+                    transaction.getId(),
+                    lockKey,
+                    LockMode.EXCLUSIVE,
+                    token.ownerToken(),
+                    token.fencingToken()));
         acquired.add(lock);
       }
       return acquired;
@@ -54,7 +56,8 @@ public class TwoPhaseLockingManager {
 
   @Transactional
   public void releaseLocks(String transactionId) {
-    List<TransactionLockEntity> locks = lockRepository.findByTransactionIdOrderByLockKeyAsc(transactionId);
+    List<TransactionLockEntity> locks =
+        lockRepository.findByTransactionIdOrderByLockKeyAsc(transactionId);
     locks.forEach(this::releaseQuietly);
     lockRepository.deleteByTransactionId(transactionId);
   }
@@ -63,7 +66,11 @@ public class TwoPhaseLockingManager {
     try {
       lockServiceClient.release(lock);
     } catch (RuntimeException ex) {
-      log.warn("Failed to release lock {} for transaction {}", lock.getLockKey(), lock.getTransactionId(), ex);
+      log.warn(
+          "Failed to release lock {} for transaction {}",
+          lock.getLockKey(),
+          lock.getTransactionId(),
+          ex);
     }
   }
 

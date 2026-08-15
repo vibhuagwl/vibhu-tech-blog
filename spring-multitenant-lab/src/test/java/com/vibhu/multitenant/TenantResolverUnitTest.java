@@ -3,10 +3,10 @@ package com.vibhu.multitenant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.vibhu.multitenant.config.MultiTenantProperties;
 import com.vibhu.multitenant.exception.TenantExceptions;
 import com.vibhu.multitenant.tenant.context.TenantContext;
 import com.vibhu.multitenant.tenant.resolver.HeaderTenantResolver;
-import com.vibhu.multitenant.config.MultiTenantProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 

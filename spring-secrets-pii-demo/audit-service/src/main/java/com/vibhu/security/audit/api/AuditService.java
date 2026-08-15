@@ -11,27 +11,27 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuditService {
 
-    private final PiiAccessAuditRepository repository;
+  private final PiiAccessAuditRepository repository;
 
-    public AuditService(PiiAccessAuditRepository repository) {
-        this.repository = repository;
-    }
+  public AuditService(PiiAccessAuditRepository repository) {
+    this.repository = repository;
+  }
 
-    @Transactional
-    public void record(PiiAccessEventRequest event) {
-        PiiAccessAuditEntity row = new PiiAccessAuditEntity();
-        row.setOccurredAt(event.at());
-        row.setActor(event.actor());
-        row.setSourceService(event.sourceService());
-        row.setAction(event.action());
-        row.setCustomerId(event.customerId());
-        row.setFullPiiGranted(event.fullPiiGranted());
-        row.setClientIp(event.clientIp());
-        repository.save(row);
-    }
+  @Transactional
+  public void record(PiiAccessEventRequest event) {
+    PiiAccessAuditEntity row = new PiiAccessAuditEntity();
+    row.setOccurredAt(event.at());
+    row.setActor(event.actor());
+    row.setSourceService(event.sourceService());
+    row.setAction(event.action());
+    row.setCustomerId(event.customerId());
+    row.setFullPiiGranted(event.fullPiiGranted());
+    row.setClientIp(event.clientIp());
+    repository.save(row);
+  }
 
-    @Transactional(readOnly = true)
-    public List<PiiAccessAuditEntity> findByCustomer(UUID customerId) {
-        return repository.findByCustomerIdOrderByOccurredAtDesc(customerId);
-    }
+  @Transactional(readOnly = true)
+  public List<PiiAccessAuditEntity> findByCustomer(UUID customerId) {
+    return repository.findByCustomerIdOrderByOccurredAtDesc(customerId);
+  }
 }

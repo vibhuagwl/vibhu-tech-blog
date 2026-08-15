@@ -3,11 +3,9 @@ package com.vibhu.lock.account;
 import java.math.BigDecimal;
 
 public final class AccountDtos {
-  private AccountDtos() {
-  }
+  private AccountDtos() {}
 
-  public record CreateAccountRequest(String accountId, BigDecimal initialBalance) {
-  }
+  public record CreateAccountRequest(String accountId, BigDecimal initialBalance) {}
 
   public record TransferApplyRequest(
       String transactionId,
@@ -15,9 +13,7 @@ public final class AccountDtos {
       String destAccountId,
       BigDecimal amount,
       long fencingTokenSource,
-      long fencingTokenDest
-  ) {
-  }
+      long fencingTokenDest) {}
 
   public record TransferApplyResponse(
       String transactionId,
@@ -26,7 +22,5 @@ public final class AccountDtos {
       long sourceVersion,
       String destAccountId,
       BigDecimal destBalance,
-      long destVersion
-  ) {
-  }
+      long destVersion) {}
 }

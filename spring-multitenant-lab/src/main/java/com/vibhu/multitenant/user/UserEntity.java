@@ -11,7 +11,10 @@ import java.util.UUID;
 @Entity
 @Table(
     name = "users",
-    uniqueConstraints = @UniqueConstraint(name = "uk_users_tenant_email", columnNames = {"tenant_id", "email"}))
+    uniqueConstraints =
+        @UniqueConstraint(
+            name = "uk_users_tenant_email",
+            columnNames = {"tenant_id", "email"}))
 public class UserEntity {
 
   @Id private UUID id;

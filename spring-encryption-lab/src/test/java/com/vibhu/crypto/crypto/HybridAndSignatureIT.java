@@ -32,7 +32,10 @@ class HybridAndSignatureIT {
     var packet = hybrid.encryptForServer("hello");
     String badPayload = packet.payload().substring(0, packet.payload().length() - 2) + "aa";
     assertThatThrownBy(
-            () -> hybrid.decryptOnServer(new HybridEncryptionService.HybridCiphertext(packet.encryptedDek(), badPayload)))
+            () ->
+                hybrid.decryptOnServer(
+                    new HybridEncryptionService.HybridCiphertext(
+                        packet.encryptedDek(), badPayload)))
         .isInstanceOf(CryptoException.class);
   }
 

@@ -30,10 +30,7 @@ public class TenantRateLimiter {
       // use default
     }
     String key = "rate-limit:" + (System.currentTimeMillis() / 60_000);
-    Counter counter =
-        cache
-            .get(tenantId, key, Counter.class)
-            .orElse(new Counter(0));
+    Counter counter = cache.get(tenantId, key, Counter.class).orElse(new Counter(0));
     if (counter.count() >= limit) {
       throw TenantExceptions.rateLimited();
     }

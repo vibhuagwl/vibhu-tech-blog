@@ -12,19 +12,21 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-process policy map. Production would back this with a DB + Kafka fan-out;
- * the contract is the same: upsert is immediately visible to the next request.
+ * In-process policy map. Production would back this with a DB + Kafka fan-out; the contract is the
+ * same: upsert is immediately visible to the next request.
  */
 public final class InMemoryRateLimitConfigProvider implements RateLimitConfigProvider {
 
-  private static final Comparator<RateLimitPolicy> EVAL_ORDER = Comparator.comparingInt(
-      p -> switch (p.scope()) {
-        case GLOBAL -> 0;
-        case TENANT, TENANT_API -> 1;
-        case CLIENT, CLIENT_API -> 2;
-        case USER -> 3;
-        case API, IP, SERVICE -> 4;
-      });
+  private static final Comparator<RateLimitPolicy> EVAL_ORDER =
+      Comparator.comparingInt(
+          p ->
+              switch (p.scope()) {
+                case GLOBAL -> 0;
+                case TENANT, TENANT_API -> 1;
+                case CLIENT, CLIENT_API -> 2;
+                case USER -> 3;
+                case API, IP, SERVICE -> 4;
+              });
 
   private final ConcurrentHashMap<String, RateLimitPolicy> policies = new ConcurrentHashMap<>();
 
@@ -33,65 +35,72 @@ public final class InMemoryRateLimitConfigProvider implements RateLimitConfigPro
   }
 
   private void seedDefaults() {
-    upsert(RateLimitPolicy.builder()
-        .id("global-hour")
-        .scope(RateLimitScope.GLOBAL)
-        .capacity(1_000_000)
-        .refillRate(1_000_000)
-        .refillPeriod(RefillPeriod.HOUR)
-        .failPolicy(FailPolicy.FAIL_OPEN)
-        .build());
-    upsert(RateLimitPolicy.builder()
-        .id("tenant-hour")
-        .scope(RateLimitScope.TENANT)
-        .capacity(100_000)
-        .refillRate(100_000)
-        .refillPeriod(RefillPeriod.HOUR)
-        .failPolicy(FailPolicy.FAIL_OPEN)
-        .build());
-    upsert(RateLimitPolicy.builder()
-        .id("client-hour")
-        .scope(RateLimitScope.CLIENT)
-        .capacity(10_000)
-        .refillRate(10_000)
-        .refillPeriod(RefillPeriod.HOUR)
-        .failPolicy(FailPolicy.FAIL_OPEN)
-        .build());
-    upsert(RateLimitPolicy.builder()
-        .id("user-minute")
-        .scope(RateLimitScope.USER)
-        .capacity(100)
-        .refillRate(100)
-        .refillPeriod(RefillPeriod.MINUTE)
-        .failPolicy(FailPolicy.FAIL_OPEN)
-        .build());
-    upsert(RateLimitPolicy.builder()
-        .id("payments-client-minute")
-        .scope(RateLimitScope.CLIENT_API)
-        .apiPath("/api/payments")
-        .capacity(120)
-        .refillRate(100)
-        .refillPeriod(RefillPeriod.MINUTE)
-        .failPolicy(FailPolicy.FAIL_CLOSED)
-        .build());
-    upsert(RateLimitPolicy.builder()
-        .id("api-second")
-        .scope(RateLimitScope.API)
-        .apiPath("/api/payments")
-        .capacity(20)
-        .refillRate(20)
-        .refillPeriod(RefillPeriod.SECOND)
-        .failPolicy(FailPolicy.FAIL_CLOSED)
-        .build());
-    upsert(RateLimitPolicy.builder()
-        .id("internal-service")
-        .scope(RateLimitScope.SERVICE)
-        .serviceName("ledger-worker")
-        .capacity(500)
-        .refillRate(500)
-        .refillPeriod(RefillPeriod.SECOND)
-        .failPolicy(FailPolicy.LOCAL_FALLBACK)
-        .build());
+    upsert(
+        RateLimitPolicy.builder()
+            .id("global-hour")
+            .scope(RateLimitScope.GLOBAL)
+            .capacity(1_000_000)
+            .refillRate(1_000_000)
+            .refillPeriod(RefillPeriod.HOUR)
+            .failPolicy(FailPolicy.FAIL_OPEN)
+            .build());
+    upsert(
+        RateLimitPolicy.builder()
+            .id("tenant-hour")
+            .scope(RateLimitScope.TENANT)
+            .capacity(100_000)
+            .refillRate(100_000)
+            .refillPeriod(RefillPeriod.HOUR)
+            .failPolicy(FailPolicy.FAIL_OPEN)
+            .build());
+    upsert(
+        RateLimitPolicy.builder()
+            .id("client-hour")
+            .scope(RateLimitScope.CLIENT)
+            .capacity(10_000)
+            .refillRate(10_000)
+            .refillPeriod(RefillPeriod.HOUR)
+            .failPolicy(FailPolicy.FAIL_OPEN)
+            .build());
+    upsert(
+        RateLimitPolicy.builder()
+            .id("user-minute")
+            .scope(RateLimitScope.USER)
+            .capacity(100)
+            .refillRate(100)
+            .refillPeriod(RefillPeriod.MINUTE)
+            .failPolicy(FailPolicy.FAIL_OPEN)
+            .build());
+    upsert(
+        RateLimitPolicy.builder()
+            .id("payments-client-minute")
+            .scope(RateLimitScope.CLIENT_API)
+            .apiPath("/api/payments")
+            .capacity(120)
+            .refillRate(100)
+            .refillPeriod(RefillPeriod.MINUTE)
+            .failPolicy(FailPolicy.FAIL_CLOSED)
+            .build());
+    upsert(
+        RateLimitPolicy.builder()
+            .id("api-second")
+            .scope(RateLimitScope.API)
+            .apiPath("/api/payments")
+            .capacity(20)
+            .refillRate(20)
+            .refillPeriod(RefillPeriod.SECOND)
+            .failPolicy(FailPolicy.FAIL_CLOSED)
+            .build());
+    upsert(
+        RateLimitPolicy.builder()
+            .id("internal-service")
+            .scope(RateLimitScope.SERVICE)
+            .serviceName("ledger-worker")
+            .capacity(500)
+            .refillRate(500)
+            .refillPeriod(RefillPeriod.SECOND)
+            .failPolicy(FailPolicy.LOCAL_FALLBACK)
+            .build());
   }
 
   @Override

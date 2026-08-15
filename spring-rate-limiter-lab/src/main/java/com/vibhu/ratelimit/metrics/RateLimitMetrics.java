@@ -13,7 +13,9 @@ public class RateLimitMetrics {
 
   public RateLimitMetrics(MeterRegistry registry) {
     this.registry = registry;
-    Counter.builder("rate_limit_requests_total").description("All rate-limit checks").register(registry);
+    Counter.builder("rate_limit_requests_total")
+        .description("All rate-limit checks")
+        .register(registry);
   }
 
   public void recordDecision(RateLimitPolicy policy, RateLimitResult result, long nanos) {

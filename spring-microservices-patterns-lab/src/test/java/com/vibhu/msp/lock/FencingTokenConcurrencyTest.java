@@ -1,7 +1,8 @@
 package com.vibhu.msp.lock;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -12,10 +13,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class FencingTokenConcurrencyTest {
 
@@ -37,24 +36,25 @@ class FencingTokenConcurrencyTest {
 
     try (ExecutorService pool = Executors.newFixedThreadPool(threads)) {
       for (int i = 0; i < threads; i++) {
-        pool.submit(() -> {
-          try {
-            start.await();
-            Optional<RedisStyleLock.LockHandle> handle = lock.tryLock();
-            if (handle.isPresent()) {
-              acquired.incrementAndGet();
-              int current = concurrentHolders.incrementAndGet();
-              maxConcurrent.updateAndGet(prev -> Math.max(prev, current));
-              Thread.sleep(5);
-              concurrentHolders.decrementAndGet();
-              handle.get().release();
-            }
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-          } finally {
-            done.countDown();
-          }
-        });
+        pool.submit(
+            () -> {
+              try {
+                start.await();
+                Optional<RedisStyleLock.LockHandle> handle = lock.tryLock();
+                if (handle.isPresent()) {
+                  acquired.incrementAndGet();
+                  int current = concurrentHolders.incrementAndGet();
+                  maxConcurrent.updateAndGet(prev -> Math.max(prev, current));
+                  Thread.sleep(5);
+                  concurrentHolders.decrementAndGet();
+                  handle.get().release();
+                }
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              } finally {
+                done.countDown();
+              }
+            });
       }
       start.countDown();
       assertTrue(done.await(30, TimeUnit.SECONDS));
@@ -73,16 +73,17 @@ class FencingTokenConcurrencyTest {
 
     try (ExecutorService pool = Executors.newFixedThreadPool(threads)) {
       for (int i = 0; i < threads; i++) {
-        pool.submit(() -> {
-          try {
-            start.await();
-            tokens.add(FencingToken.parse(FencingToken.next()));
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-          } finally {
-            done.countDown();
-          }
-        });
+        pool.submit(
+            () -> {
+              try {
+                start.await();
+                tokens.add(FencingToken.parse(FencingToken.next()));
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              } finally {
+                done.countDown();
+              }
+            });
       }
       start.countDown();
       assertTrue(done.await(30, TimeUnit.SECONDS));

@@ -1,8 +1,12 @@
 package com.vibhu.msp.it;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.vibhu.msp.outbox.InMemoryEventBus;
 import com.vibhu.msp.outbox.OutboxRelay;
 import com.vibhu.msp.outbox.OutboxService;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,18 +18,14 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 @SpringBootTest
 @Testcontainers
 @EnabledIfEnvironmentVariable(named = "MSP_IT", matches = "true")
-@TestPropertySource(properties = {
-    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
-        + "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
-})
+@TestPropertySource(
+    properties = {
+      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
+          + "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
+    })
 class PostgresOutboxIT {
 
   @Container
@@ -38,8 +38,8 @@ class PostgresOutboxIT {
     registry.add("spring.datasource.password", postgres::getPassword);
     registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
     registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
-    registry.add("spring.jpa.properties.hibernate.dialect",
-        () -> "org.hibernate.dialect.PostgreSQLDialect");
+    registry.add(
+        "spring.jpa.properties.hibernate.dialect", () -> "org.hibernate.dialect.PostgreSQLDialect");
   }
 
   @Autowired OutboxService outboxService;

@@ -21,10 +21,14 @@ public class Author {
   private String name;
 
   /**
-   * LAZY is the usual default for collections — and the root of N+1 when touched in a loop.
-   * Batch fetching is enabled only in AuthorController.batch() via Session#setFetchBatchSize.
+   * LAZY is the usual default for collections — and the root of N+1 when touched in a loop. Batch
+   * fetching is enabled only in AuthorController.batch() via Session#setFetchBatchSize.
    */
-  @OneToMany(mappedBy = "author", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+  @OneToMany(
+      mappedBy = "author",
+      cascade = CascadeType.ALL,
+      orphanRemoval = true,
+      fetch = FetchType.LAZY)
   private List<Book> books = new ArrayList<>();
 
   protected Author() {}

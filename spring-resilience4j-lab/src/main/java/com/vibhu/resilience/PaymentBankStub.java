@@ -4,8 +4,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.stereotype.Component;
 
 /**
- * In-memory bank stub — flips modes via {@link #setMode(BankMode)} for demos/tests.
- * Flaky mode fails first N calls then succeeds.
+ * In-memory bank stub — flips modes via {@link #setMode(BankMode)} for demos/tests. Flaky mode
+ * fails first N calls then succeeds.
  */
 @Component
 public class PaymentBankStub {

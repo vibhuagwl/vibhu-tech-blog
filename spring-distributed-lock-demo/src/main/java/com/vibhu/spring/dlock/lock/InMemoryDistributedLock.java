@@ -7,7 +7,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "app.lock.redis-enabled", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(
+    name = "app.lock.redis-enabled",
+    havingValue = "false",
+    matchIfMissing = true)
 public class InMemoryDistributedLock implements DistributedLock {
   private final Map<String, Entry> locks = new ConcurrentHashMap<>();
 

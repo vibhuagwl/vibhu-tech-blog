@@ -17,29 +17,32 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class AuthServiceTest {
 
-    @Autowired
-    AuthService authService;
+  @Autowired AuthService authService;
 
-    @Test
-    void registerThenLogin() {
-        UserResponse created = authService.register(new RegisterRequest("svc@example.com", "StrongPassword123!"));
-        assertThat(created.email()).isEqualTo("svc@example.com");
-        assertThat(created.roles()).contains("ROLE_USER");
-        var tokens = authService.login(new LoginRequest("svc@example.com", "StrongPassword123!"));
-        assertThat(tokens.accessToken()).isNotBlank();
-        assertThat(tokens.refreshToken()).isNotBlank();
-        assertThat(tokens.tokenType()).isEqualTo("Bearer");
-    }
+  @Test
+  void registerThenLogin() {
+    UserResponse created =
+        authService.register(new RegisterRequest("svc@example.com", "StrongPassword123!"));
+    assertThat(created.email()).isEqualTo("svc@example.com");
+    assertThat(created.roles()).contains("ROLE_USER");
+    var tokens = authService.login(new LoginRequest("svc@example.com", "StrongPassword123!"));
+    assertThat(tokens.accessToken()).isNotBlank();
+    assertThat(tokens.refreshToken()).isNotBlank();
+    assertThat(tokens.tokenType()).isEqualTo("Bearer");
+  }
 
-    @Test
-    void duplicateRegister() {
-        assertThatThrownBy(() -> authService.register(new RegisterRequest("user@example.com", "StrongPassword123!")))
-                .isInstanceOf(DuplicateUserException.class);
-    }
+  @Test
+  void duplicateRegister() {
+    assertThatThrownBy(
+            () ->
+                authService.register(new RegisterRequest("user@example.com", "StrongPassword123!")))
+        .isInstanceOf(DuplicateUserException.class);
+  }
 
-    @Test
-    void invalidPassword() {
-        assertThatThrownBy(() -> authService.login(new LoginRequest("user@example.com", "nope-nope-nope")))
-                .isInstanceOf(BadCredentialsException.class);
-    }
+  @Test
+  void invalidPassword() {
+    assertThatThrownBy(
+            () -> authService.login(new LoginRequest("user@example.com", "nope-nope-nope")))
+        .isInstanceOf(BadCredentialsException.class);
+  }
 }

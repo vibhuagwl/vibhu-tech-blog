@@ -9,12 +9,14 @@ import org.springframework.web.client.RestClient;
 @EnableConfigurationProperties(TransactionServiceProperties.class)
 public class TransactionClientConfiguration {
   @Bean
-  RestClient lockServiceRestClient(RestClient.Builder builder, TransactionServiceProperties properties) {
+  RestClient lockServiceRestClient(
+      RestClient.Builder builder, TransactionServiceProperties properties) {
     return builder.baseUrl(properties.getLockServiceUrl()).build();
   }
 
   @Bean
-  RestClient accountServiceRestClient(RestClient.Builder builder, TransactionServiceProperties properties) {
+  RestClient accountServiceRestClient(
+      RestClient.Builder builder, TransactionServiceProperties properties) {
     return builder.baseUrl(properties.getAccountServiceUrl()).build();
   }
 }

@@ -28,20 +28,87 @@ public class LabController {
           Map.of("name", "poison", "decision", "DLQ_NOW", "what", "Malformed JSON"),
           Map.of("name", "unknown-enum", "decision", "DLQ_NOW", "what", "Unknown eventType enum"),
           Map.of("name", "npe", "decision", "DLQ_NOW", "what", "Forced NullPointerException"),
-          Map.of("name", "invalid-amount", "decision", "DLQ_NOW", "what", "Amount <= 0; correct + replay"),
-          Map.of("name", "invalid-business", "decision", "DLQ_NOW", "what", "Unknown participant as business error"),
-          Map.of("name", "unknown-participant", "decision", "RETRY then DLQ", "what", "Master-data miss (transient)"),
-          Map.of("name", "invalid-currency", "decision", "DLQ_NOW", "what", "Currency not in allow-list"),
-          Map.of("name", "invalid-account", "decision", "DLQ_NOW", "what", "Account not in allow-list"),
-          Map.of("name", "transient-then-ok", "decision", "RETRY", "what", "Timeout twice then success"),
-          Map.of("name", "timeout", "decision", "DLQ_AFTER_CAP", "what", "Always timeout → retry-1/2/3 → DLQ"),
-          Map.of("name", "deadlock", "decision", "RETRY then DLQ", "what", "Forced deadlock (retryable)"),
+          Map.of(
+              "name",
+              "invalid-amount",
+              "decision",
+              "DLQ_NOW",
+              "what",
+              "Amount <= 0; correct + replay"),
+          Map.of(
+              "name",
+              "invalid-business",
+              "decision",
+              "DLQ_NOW",
+              "what",
+              "Unknown participant as business error"),
+          Map.of(
+              "name",
+              "unknown-participant",
+              "decision",
+              "RETRY then DLQ",
+              "what",
+              "Master-data miss (transient)"),
+          Map.of(
+              "name",
+              "invalid-currency",
+              "decision",
+              "DLQ_NOW",
+              "what",
+              "Currency not in allow-list"),
+          Map.of(
+              "name",
+              "invalid-account",
+              "decision",
+              "DLQ_NOW",
+              "what",
+              "Account not in allow-list"),
+          Map.of(
+              "name",
+              "transient-then-ok",
+              "decision",
+              "RETRY",
+              "what",
+              "Timeout twice then success"),
+          Map.of(
+              "name",
+              "timeout",
+              "decision",
+              "DLQ_AFTER_CAP",
+              "what",
+              "Always timeout → retry-1/2/3 → DLQ"),
+          Map.of(
+              "name",
+              "deadlock",
+              "decision",
+              "RETRY then DLQ",
+              "what",
+              "Forced deadlock (retryable)"),
           Map.of("name", "duplicate", "decision", "IGNORE", "what", "Same event_id twice"),
           Map.of("name", "out-of-order", "decision", "PARK", "what", "seq 1 then seq 3; park 3"),
-          Map.of("name", "stale-event", "decision", "IGNORE", "what", "seq 1 after seq 1 already applied"),
-          Map.of("name", "cancelled-then-settle", "decision", "DLQ_NOW", "what", "SETTLE after CANCELLED"),
-          Map.of("name", "replay-after-settle", "decision", "DLQ_NOW", "what", "UPDATE after SETTLED"),
-          Map.of("name", "currency-mismatch", "decision", "DLQ_NOW", "what", "EUR update on USD CashLine"));
+          Map.of(
+              "name",
+              "stale-event",
+              "decision",
+              "IGNORE",
+              "what",
+              "seq 1 after seq 1 already applied"),
+          Map.of(
+              "name",
+              "cancelled-then-settle",
+              "decision",
+              "DLQ_NOW",
+              "what",
+              "SETTLE after CANCELLED"),
+          Map.of(
+              "name", "replay-after-settle", "decision", "DLQ_NOW", "what", "UPDATE after SETTLED"),
+          Map.of(
+              "name",
+              "currency-mismatch",
+              "decision",
+              "DLQ_NOW",
+              "what",
+              "EUR update on USD CashLine"));
 
   private final CashLineProducer producer;
   private final CashLineRepository cashLines;
@@ -78,7 +145,8 @@ public class LabController {
   @PostMapping("/scenario/{name}")
   public Map<String, String> scenario(@PathVariable String name) {
     return switch (name) {
-      case "success" -> publish(event("CL-OK", "e-ok-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of()));
+      case "success" ->
+          publish(event("CL-OK", "e-ok-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of()));
       case "poison" -> {
         producer.publishRaw("CL-POISON", "{not-json", Map.of());
         yield Map.of("status", "PUBLISHED", "scenario", "poison");
@@ -93,10 +161,26 @@ public class LabController {
             Map.of());
         yield Map.of("status", "PUBLISHED", "scenario", "unknown-enum", "eventId", "e-enum-1");
       }
-      case "npe" -> publish(event("CL-NPE", "e-npe-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of("forceFailure", "NPE")));
-      case "invalid-business" -> publish(unknownParticipant("CL-BAD", "e-bad-1", EventType.CASHLINE_CREATED, 1));
+      case "npe" ->
+          publish(
+              event(
+                  "CL-NPE",
+                  "e-npe-1",
+                  EventType.CASHLINE_CREATED,
+                  1,
+                  "USD",
+                  Map.of("forceFailure", "NPE")));
+      case "invalid-business" ->
+          publish(unknownParticipant("CL-BAD", "e-bad-1", EventType.CASHLINE_CREATED, 1));
       case "unknown-participant" ->
-          publish(event("CL-UP", "e-up-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of("forceFailure", "UNKNOWN_PARTICIPANT")));
+          publish(
+              event(
+                  "CL-UP",
+                  "e-up-1",
+                  EventType.CASHLINE_CREATED,
+                  1,
+                  "USD",
+                  Map.of("forceFailure", "UNKNOWN_PARTICIPANT")));
       case "invalid-amount" -> {
         CashLineEvent e =
             new CashLineEvent(
@@ -120,18 +204,40 @@ public class LabController {
       case "invalid-account" ->
           publish(account("CL-ACC", "e-acc-1", EventType.CASHLINE_CREATED, 1, "USD", "ACC-9999"));
       case "transient-then-ok" ->
-          publish(event("CL-TMP", "e-tmp-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of("forceFailure", "TRANSIENT_THEN_OK")));
+          publish(
+              event(
+                  "CL-TMP",
+                  "e-tmp-1",
+                  EventType.CASHLINE_CREATED,
+                  1,
+                  "USD",
+                  Map.of("forceFailure", "TRANSIENT_THEN_OK")));
       case "timeout" ->
-          publish(event("CL-TO", "e-to-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of("forceFailure", "TIMEOUT")));
+          publish(
+              event(
+                  "CL-TO",
+                  "e-to-1",
+                  EventType.CASHLINE_CREATED,
+                  1,
+                  "USD",
+                  Map.of("forceFailure", "TIMEOUT")));
       case "deadlock" ->
-          publish(event("CL-DL", "e-dl-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of("forceFailure", "DEADLOCK")));
+          publish(
+              event(
+                  "CL-DL",
+                  "e-dl-1",
+                  EventType.CASHLINE_CREATED,
+                  1,
+                  "USD",
+                  Map.of("forceFailure", "DEADLOCK")));
       case "out-of-order" -> {
         publish(event("CL-ORD", "e-ord-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of()));
         publish(event("CL-ORD", "e-ord-3", EventType.CASHLINE_SETTLED, 3, "USD", Map.of()));
         yield Map.of("status", "PUBLISHED", "scenario", "out-of-order");
       }
       case "duplicate" -> {
-        CashLineEvent e = event("CL-DUP", "e-dup-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of());
+        CashLineEvent e =
+            event("CL-DUP", "e-dup-1", EventType.CASHLINE_CREATED, 1, "USD", Map.of());
         producer.publish(e, Map.of());
         producer.publish(e, Map.of());
         yield Map.of("status", "PUBLISHED", "eventId", e.eventId());
@@ -179,7 +285,12 @@ public class LabController {
   }
 
   private CashLineEvent event(
-      String cashLineId, String eventId, EventType type, int seq, String currency, Map<String, String> attributes) {
+      String cashLineId,
+      String eventId,
+      EventType type,
+      int seq,
+      String currency,
+      Map<String, String> attributes) {
     return new CashLineEvent(
         eventId,
         cashLineId,
@@ -195,7 +306,8 @@ public class LabController {
         attributes);
   }
 
-  private CashLineEvent unknownParticipant(String cashLineId, String eventId, EventType type, int seq) {
+  private CashLineEvent unknownParticipant(
+      String cashLineId, String eventId, EventType type, int seq) {
     return new CashLineEvent(
         eventId,
         cashLineId,
@@ -212,7 +324,12 @@ public class LabController {
   }
 
   private CashLineEvent account(
-      String cashLineId, String eventId, EventType type, int seq, String currency, String accountId) {
+      String cashLineId,
+      String eventId,
+      EventType type,
+      int seq,
+      String currency,
+      String accountId) {
     return new CashLineEvent(
         eventId,
         cashLineId,

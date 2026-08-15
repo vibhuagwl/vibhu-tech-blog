@@ -17,10 +17,7 @@ public class SqlInjectionController {
     this.jdbc = jdbc;
   }
 
-  /**
-   * BAD — concatenates user input into SQL.
-   * Example abuse: q=electronics' OR '1'='1
-   */
+  /** BAD — concatenates user input into SQL. Example abuse: q=electronics' OR '1'='1 */
   @GetMapping("/bad")
   public List<Map<String, Object>> bad(@RequestParam String q) {
     String sql = "SELECT id, name, category FROM products WHERE category = '" + q + "'";
@@ -30,8 +27,6 @@ public class SqlInjectionController {
   /** GOOD — parameterized query; payload cannot change SQL structure. */
   @GetMapping("/good")
   public List<Map<String, Object>> good(@RequestParam String q) {
-    return jdbc.queryForList(
-        "SELECT id, name, category FROM products WHERE category = ?",
-        q);
+    return jdbc.queryForList("SELECT id, name, category FROM products WHERE category = ?", q);
   }
 }

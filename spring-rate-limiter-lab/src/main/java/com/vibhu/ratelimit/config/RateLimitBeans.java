@@ -50,7 +50,8 @@ public class RateLimitBeans {
   @Bean
   @ConditionalOnProperty(name = "rate-limit.store", havingValue = "redis")
   LettuceConnectionFactory redisConnectionFactory(RateLimitProperties props) {
-    RedisStandaloneConfiguration cfg = new RedisStandaloneConfiguration(props.redis().host(), props.redis().port());
+    RedisStandaloneConfiguration cfg =
+        new RedisStandaloneConfiguration(props.redis().host(), props.redis().port());
     return new LettuceConnectionFactory(cfg);
   }
 
@@ -71,18 +72,14 @@ public class RateLimitBeans {
   RateLimiterFactory rateLimiterFactory(
       RateLimitStore primaryStore,
       InMemoryRateLimitStore inMemoryRateLimitStore,
-      RateLimitMetrics metrics
-  ) {
+      RateLimitMetrics metrics) {
     return new RateLimiterFactory(primaryStore, inMemoryRateLimitStore, metrics);
   }
 
   @Bean
   @Primary
   CompositeRateLimiter compositeRateLimiter(
-      RateLimitConfigProvider configs,
-      RateLimiterFactory factory,
-      RateLimitMetrics metrics
-  ) {
+      RateLimitConfigProvider configs, RateLimiterFactory factory, RateLimitMetrics metrics) {
     return new CompositeRateLimiter(configs, factory, metrics);
   }
 }

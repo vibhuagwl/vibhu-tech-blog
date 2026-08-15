@@ -21,7 +21,8 @@ public class OutboxService {
   }
 
   @Transactional
-  public OutboxEntity enqueue(String aggregateType, String aggregateId, String eventType, Object payload) {
+  public OutboxEntity enqueue(
+      String aggregateType, String aggregateId, String eventType, Object payload) {
     try {
       OutboxEntity entity = new OutboxEntity();
       entity.setId(UUID.randomUUID().toString());
@@ -43,10 +44,13 @@ public class OutboxService {
 
   @Transactional
   public void markPublished(String id) {
-    outboxRepository.findById(id).ifPresent(entity -> {
-      entity.setStatus(OutboxStatus.PUBLISHED);
-      entity.setPublishedAt(Instant.now());
-      outboxRepository.save(entity);
-    });
+    outboxRepository
+        .findById(id)
+        .ifPresent(
+            entity -> {
+              entity.setStatus(OutboxStatus.PUBLISHED);
+              entity.setPublishedAt(Instant.now());
+              outboxRepository.save(entity);
+            });
   }
 }

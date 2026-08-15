@@ -52,13 +52,23 @@ public class BusinessController {
 
   public record CustomerResponse(UUID id, String name, String email, Instant createdAt) {}
 
-  public record OrderRequest(@NotNull UUID customerId, @NotNull @DecimalMin("0.01") BigDecimal amount) {}
+  public record OrderRequest(
+      @NotNull UUID customerId, @NotNull @DecimalMin("0.01") BigDecimal amount) {}
 
   public record OrderResponse(
-      UUID id, UUID customerId, BigDecimal amount, String currency, OrderStatus status, Instant createdAt) {}
+      UUID id,
+      UUID customerId,
+      BigDecimal amount,
+      String currency,
+      OrderStatus status,
+      Instant createdAt) {}
 
   public record ConfigUpdateRequest(
-      String currency, String timezone, String locale, Integer rateLimitPerMinute, Integer maxUsers) {}
+      String currency,
+      String timezone,
+      String locale,
+      Integer rateLimitPerMinute,
+      Integer maxUsers) {}
 
   @PostMapping("/customers")
   public CustomerResponse createCustomer(@Valid @RequestBody CustomerRequest request) {
@@ -128,6 +138,11 @@ public class BusinessController {
 
   private OrderResponse toOrder(OrderEntity o) {
     return new OrderResponse(
-        o.getId(), o.getCustomerId(), o.getAmount(), o.getCurrency(), o.getStatus(), o.getCreatedAt());
+        o.getId(),
+        o.getCustomerId(),
+        o.getAmount(),
+        o.getCurrency(),
+        o.getStatus(),
+        o.getCreatedAt());
   }
 }

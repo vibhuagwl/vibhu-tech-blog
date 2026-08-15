@@ -16,7 +16,8 @@ public class TransientFailureSimulator {
     if (!"TRANSIENT_THEN_OK".equals(force) && !"TIMEOUT_TWICE".equals(force)) {
       return;
     }
-    int left = remaining.computeIfAbsent(event.eventId(), id -> new AtomicInteger(2)).getAndDecrement();
+    int left =
+        remaining.computeIfAbsent(event.eventId(), id -> new AtomicInteger(2)).getAndDecrement();
     if (left > 0) {
       throw new TransientTechnicalException("Simulated Hadron DB timeout remaining=" + left);
     }
