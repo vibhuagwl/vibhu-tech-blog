@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import {Manrope,IBM_Plex_Mono} from 'next/font/google';
 import SiteHeader from '@/components/site-header';
 import SiteFooter from '@/components/site-footer';
+import SiteClock from '@/components/site-clock';
 import './globals.css';
 
 const sans=Manrope({
@@ -75,6 +76,7 @@ export default function RootLayout({children}:{children:React.ReactNode}){
         <div id="main-content" tabIndex={-1} className="outline-none">
           {children}
         </div>
+        <SiteClock className="site-clock--corner" />
         <SiteFooter/>
       </body>
     </html>
