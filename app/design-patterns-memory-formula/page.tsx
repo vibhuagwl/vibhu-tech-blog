@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import Mermaid from '@/components/mermaid';
 
 export const metadata={
@@ -62,9 +63,9 @@ export default function DesignPatternsMemoryFormulaPage(){
           Use the cards below like flash cards before interviews.
         </p>
         <div className="mt-5 text-sm">
-          <a href="/vibhu-tech-blog/design-patterns-poster" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
+          <Link href="/design-patterns-poster" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Open visual poster →
-          </a>
+          </Link>
         </div>
       </header>
 

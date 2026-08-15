@@ -73,12 +73,6 @@ export const SECTION_CATEGORIES={
   'system-design':[
     'Fundamentals',
     'System Design',
-    'Infrastructure',
-    'Caching',
-    'Messaging',
-    'Distributed Systems',
-    'FinTech',
-    'Reliability',
     'Cheat Sheet',
   ],
   'distributed-systems':['Distributed Systems','Caching','Messaging','Infrastructure','Reliability'],

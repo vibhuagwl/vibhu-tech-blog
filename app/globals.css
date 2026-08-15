@@ -1411,6 +1411,105 @@ a{text-decoration:none}
   text-transform:uppercase;
   color:var(--accent);
 }
+.home-path{
+  display:flex;
+  flex-direction:column;
+  gap:.65rem;
+  border:1px solid var(--line);
+  background:var(--surface);
+  border-radius:var(--radius-lg);
+  padding:1.35rem 1.4rem 1.2rem;
+  transition:border-color .2s, box-shadow .2s;
+}
+.home-path:hover{
+  border-color:color-mix(in srgb, var(--accent) 40%, var(--line));
+  box-shadow:var(--shadow-sm);
+}
+.home-path__top{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:.5rem;
+}
+.home-path__step{
+  font-family:var(--font-mono);
+  font-size:.7rem;
+  font-weight:700;
+  letter-spacing:.12em;
+  color:var(--accent);
+}
+.home-path__memory{
+  font-size:.65rem;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:.25rem .65rem;
+}
+.home-path__title{
+  font-size:1.25rem;
+  font-weight:800;
+  letter-spacing:-.03em;
+  color:var(--ink);
+}
+.home-path__title a{color:inherit}
+.home-path__title a:hover{color:var(--accent)}
+.home-path__story{
+  font-size:.9rem;
+  line-height:1.65;
+  color:var(--muted);
+}
+.home-path__diagram{
+  margin:0;
+  padding:.85rem 1rem;
+  border-radius:12px;
+  background:color-mix(in srgb, var(--ink) 4%, var(--surface));
+  border:1px dashed color-mix(in srgb, var(--accent) 35%, var(--line));
+  font-family:var(--font-mono);
+  font-size:.72rem;
+  line-height:1.55;
+  color:var(--ink);
+  white-space:pre-wrap;
+  overflow-x:auto;
+}
+.home-path__footer{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:.75rem;
+  margin-top:.25rem;
+}
+.home-path__cta{
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  font-size:.85rem;
+  font-weight:800;
+  color:var(--accent);
+}
+.home-path__cta:hover{text-decoration:underline}
+.home-path__related{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.35rem;
+}
+.home-path__chip{
+  font-size:.68rem;
+  font-weight:700;
+  color:var(--muted);
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:.2rem .55rem;
+  transition:background .15s, color .15s;
+}
+.home-path__chip:hover{
+  background:var(--accent-soft);
+  color:var(--accent);
+}
 .home-topic{
   display:block;
   border-radius:10px;

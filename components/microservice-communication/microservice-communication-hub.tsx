@@ -272,8 +272,8 @@ export default function MicroserviceCommunicationHub() {
           How Microservice A Calls Microservice B
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Not client syntax — production reliability: discovery, load balancing, timeouts, retries, circuit breakers,
-          idempotency, Kafka vs REST, Feign vs RestClient, mesh vs app resilience, and Staff-level spoken answers.
+          Start in <strong>Story mode</strong>: draw sync vs async, retry storms, webhooks, CDC vs outbox. Deep theory
+          (clients, mesh, matrices) stays behind one toggle — open it only when you need the detail.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
