@@ -1,12 +1,13 @@
 'use client';
 
 import {useMemo,useState} from 'react';
-import {ALL,ARCHITECT,RAPID,SENIOR} from '@/lib/production-troubleshooting/interview';
+import {ALL,ARCHITECT,RAPID,SENIOR,STAFF} from '@/lib/production-troubleshooting/interview';
 
 export default function InterviewMode(){
-  const [mode,setMode]=useState<'senior'|'architect'|'rapid'>('senior');
+  const [mode,setMode]=useState<'senior'|'architect'|'staff'|'rapid'>('senior');
   const list=useMemo(()=>{
     if(mode==='architect') return ARCHITECT;
+    if(mode==='staff') return STAFF;
     if(mode==='rapid') return RAPID;
     return SENIOR;
   },[mode]);
@@ -20,6 +21,7 @@ export default function InterviewMode(){
         {([
           ['senior',SENIOR.length],
           ['architect',ARCHITECT.length],
+          ['staff',STAFF.length],
           ['rapid',RAPID.length],
         ] as const).map(([m,n])=>(
           <button key={m} type="button" onClick={()=>{setMode(m);setIdx(0);setRevealed(false);}}

@@ -4,7 +4,7 @@ import ProductionTroubleshootingHub from '@/components/production-troubleshootin
 export const metadata: Metadata = {
   title: 'Production Troubleshooting Playbook — Architect Incident Guide',
   description:
-    'Visual production incident playbook: golden signals, Spring/JVM dumps, cascade failures, DB/Redis/Kafka, AWS/K8s, rollback vs fix-forward, 50 scenarios, P1 escalation.',
+    'Visual production incident playbook: golden signals, Spring/JVM dumps, cascade failures, DB/Redis/Kafka/CDC, AWS/K8s, rollback vs fix-forward, 90+ scenarios, P1 escalation.',
 };
 
 export default function ProductionTroubleshootingPage() {

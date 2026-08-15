@@ -146,7 +146,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     title:'Platform & Java',
     description:'Runtime, security, Spring',
     topics:[
-      {href:'/production-troubleshooting',label:'Prod Troubleshooting',blurb:'50 incident scenarios'},
+      {href:'/production-troubleshooting',label:'Prod Troubleshooting',blurb:'90+ incident scenarios'},
       {href:'/spring-security',label:'Spring Security',blurb:'JWT · OAuth · CSRF · CORS'},
       {href:'/spring-annotations',label:'Spring Annotations',blurb:'Proxies · @Transactional'},
       {href:'/java-concurrency',label:'Java Concurrency',blurb:'JMM · pools · virtual threads'},
