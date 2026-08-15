@@ -20,6 +20,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     topics:[
       {href:'/system-design',label:'System Design',blurb:'HLD problems, estimation, Staff follow-ups'},
       {href:'/microservices-patterns',label:'Microservices Patterns',blurb:'154 patterns · Java 21 code · saga · outbox · 500 Qs'},
+      {href:'/microservice-communication',label:'Microservice Communication',blurb:'REST · Feign · gRPC · Kafka · CB · TRICKS-OLD · Staff'},
       {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking, messaging, resilience, consistency'},
       {href:'/cap-theorem',label:'CAP Theorem',blurb:'PACELC · quorum · Kafka/Cassandra · Staff interview'},
       {href:'/distributed-locking',label:'Distributed Locking',blurb:'Redis · DB · ZK · fencing · Spring Architect'},
