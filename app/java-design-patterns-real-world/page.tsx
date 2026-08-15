@@ -16,10 +16,11 @@ export default function JavaDesignPatternsRealWorldPage() {
   const files = listJavaDesignPatternsRealWorldFiles();
   const tree = buildJavaDesignPatternsRealWorldTree(files);
   const defaultPath =
+    files.find((f) => f.path === 'docs/patterns/composite-explanation.md')?.path ??
+    files.find((f) => f.path === 'docs/PATTERN_EXPLANATION_FORMAT.md')?.path ??
     files.find((f) => f.path === 'docs/problem-and-solution.md')?.path ??
     files.find((f) => f.path === 'docs/HOW_TO_RUN.md')?.path ??
     files.find((f) => f.path === 'README.md')?.path ??
-    files.find((f) => f.path.includes('DesignPatternDemo.java'))?.path ??
     files[0]?.path ??
     '';
 
@@ -44,38 +45,31 @@ export default function JavaDesignPatternsRealWorldPage() {
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fcomposite-problem-solution.md"
+            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2Fcomposite-explanation.md"
             className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
           >
-            Composite: problem-first interview board →
+            Composite full board (21 sections) →
           </Link>
           <span className="text-slate-300">·</span>
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fproblem-and-solution.md"
+            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2FREADME.md"
             className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
           >
-            Problem → pattern → solution →
+            All pattern boards →
+          </Link>
+          <span className="text-slate-300">·</span>
+          <Link
+            href="/java-design-patterns-real-world?path=docs%2FPATTERN_EXPLANATION_FORMAT.md"
+            className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
+          >
+            Explanation format →
           </Link>
           <span className="text-slate-300">·</span>
           <Link
             href="/java-design-patterns-real-world?path=docs%2FHOW_TO_RUN.md"
             className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
           >
-            Step-by-step how to run →
-          </Link>
-          <span className="text-slate-300">·</span>
-          <Link
-            href="/java-design-patterns-real-world?path=src%2Fmain%2Fjava%2Fcom%2Fexample%2Fdesignpatterns%2Fbehavioral%2Fstrategy%2FPaymentStrategyDemo.java"
-            className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
-          >
-            Example: Strategy problem/solution →
-          </Link>
-          <span className="text-slate-300">·</span>
-          <Link
-            href="/java-design-patterns-real-world?path=src%2Fmain%2Fjava%2Fcom%2Fexample%2Fdesignpatterns%2FDesignPatternDemo.java"
-            className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
-          >
-            All-demos main →
+            How to run →
           </Link>
           <span className="text-slate-300">·</span>
           <Link href="/design-patterns-revision" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
@@ -83,6 +77,38 @@ export default function JavaDesignPatternsRealWorldPage() {
           </Link>
         </div>
       </header>
+
+      <section className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+          How every pattern is explained (problem-first)
+        </h2>
+        <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+          Do <strong>not</strong> start with syntax. Each board uses the same interview structure: problem → why
+          naive code is bad → how the pattern solves it → code mapping → runtime flow → what the client need not know →
+          SOLID → trade-offs → 30–60s answer. Spec:{' '}
+          <Link
+            href="/java-design-patterns-real-world?path=docs%2FPATTERN_EXPLANATION_FORMAT.md"
+            className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
+          >
+            PATTERN_EXPLANATION_FORMAT.md
+          </Link>
+          . Index:{' '}
+          <Link
+            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2FREADME.md"
+            className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
+          >
+            docs/patterns/
+          </Link>
+          . Gold standard:{' '}
+          <Link
+            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2Fcomposite-explanation.md"
+            className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
+          >
+            Composite
+          </Link>
+          .
+        </p>
+      </section>
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
@@ -118,14 +144,21 @@ export default function JavaDesignPatternsRealWorldPage() {
           </div>
         </div>
         <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
-          Deep dive (problem → without → with → recursion → spoken answer):{' '}
+          Deep dive (full 21 sections):{' '}
           <Link
-            href="/java-design-patterns-real-world?path=docs%2Fcomposite-problem-solution.md"
+            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2Fcomposite-explanation.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
           >
-            docs/composite-problem-solution.md
+            docs/patterns/composite-explanation.md
           </Link>
-          . Catalog of all 23:{' '}
+          . All boards:{' '}
+          <Link
+            href="/java-design-patterns-real-world?path=docs%2Fpatterns%2FREADME.md"
+            className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
+          >
+            docs/patterns/
+          </Link>
+          . One-page catalog:{' '}
           <Link
             href="/java-design-patterns-real-world?path=docs%2Fproblem-and-solution.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"

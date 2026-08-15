@@ -40,7 +40,16 @@ Every GoF `*Demo.java` includes:
 - Structural: Adapter, Bridge, Composite, Decorator, Facade, Flyweight, Proxy
 - Behavioral: Chain, Command, Interpreter, Iterator, Mediator, Memento, Observer, State, Strategy, Template Method, Visitor
 
-## Implementation rules (in each Demo class)
+## Pattern explanation boards (problem-first)
+
+Every GoF pattern has a **21-section** interview board:
+
+- Format: [`docs/PATTERN_EXPLANATION_FORMAT.md`](docs/PATTERN_EXPLANATION_FORMAT.md)
+- Index: [`docs/patterns/README.md`](docs/patterns/README.md)
+- Gold standard: [`docs/patterns/composite-explanation.md`](docs/patterns/composite-explanation.md)
+
+Structure: problem → without pattern → how pattern solves it → code mapping → runtime flow → client benefit → SOLID → trade-offs → interview answer.
+
 
 Every GoF `*Demo.java` starts with a JavaDoc block:
 
