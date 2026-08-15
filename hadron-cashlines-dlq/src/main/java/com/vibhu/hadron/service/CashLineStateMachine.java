@@ -12,8 +12,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CashLineStateMachine {
 
-  private static final Map<EventType, CashLineStatus> TARGET =
-      new EnumMap<>(EventType.class);
+  private static final Map<EventType, CashLineStatus> TARGET = new EnumMap<>(EventType.class);
 
   private static final Map<CashLineStatus, Set<CashLineStatus>> ALLOWED =
       new EnumMap<>(CashLineStatus.class);
@@ -34,11 +33,13 @@ public class CashLineStateMachine {
     ALLOWED.put(
         CashLineStatus.PROCESSING,
         EnumSet.of(CashLineStatus.PROCESSED, CashLineStatus.SETTLED, CashLineStatus.CANCELLED));
-    ALLOWED.put(CashLineStatus.PROCESSED, EnumSet.of(CashLineStatus.SETTLED, CashLineStatus.CANCELLED));
+    ALLOWED.put(
+        CashLineStatus.PROCESSED, EnumSet.of(CashLineStatus.SETTLED, CashLineStatus.CANCELLED));
     ALLOWED.put(CashLineStatus.SETTLED, EnumSet.of(CashLineStatus.COMPLETED));
     ALLOWED.put(CashLineStatus.COMPLETED, EnumSet.of(CashLineStatus.COMPLETED));
     ALLOWED.put(CashLineStatus.CANCELLED, EnumSet.of(CashLineStatus.CANCELLED));
-    ALLOWED.put(CashLineStatus.RETRY, EnumSet.of(CashLineStatus.VALIDATED, CashLineStatus.PROCESSING));
+    ALLOWED.put(
+        CashLineStatus.RETRY, EnumSet.of(CashLineStatus.VALIDATED, CashLineStatus.PROCESSING));
     ALLOWED.put(CashLineStatus.DLQ, EnumSet.noneOf(CashLineStatus.class));
     ALLOWED.put(CashLineStatus.MANUAL_REVIEW, EnumSet.noneOf(CashLineStatus.class));
   }
@@ -54,7 +55,8 @@ public class CashLineStateMachine {
     }
     Set<CashLineStatus> allowed = ALLOWED.getOrDefault(from, Set.of());
     if (!allowed.contains(to)) {
-      throw new IllegalStateTransitionException("Illegal transition " + from + " -> " + to + " via " + eventType);
+      throw new IllegalStateTransitionException(
+          "Illegal transition " + from + " -> " + to + " via " + eventType);
     }
     return to;
   }

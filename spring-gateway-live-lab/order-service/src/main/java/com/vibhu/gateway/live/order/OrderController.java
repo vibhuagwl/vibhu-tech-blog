@@ -12,9 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-/**
- * Downstream Order Service — instance + port for multi-replica demos.
- */
+/** Downstream Order Service — instance + port for multi-replica demos. */
 @RestController
 @RequestMapping("/orders")
 public class OrderController {

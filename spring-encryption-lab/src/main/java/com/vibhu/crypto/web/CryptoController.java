@@ -30,8 +30,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Demo API: HTTP → Controller → Decrypt/Verify → Business → Encrypt Response.
- * Never log PAN, JWT, keys, or plaintext secrets.
+ * Demo API: HTTP → Controller → Decrypt/Verify → Business → Encrypt Response. Never log PAN, JWT,
+ * keys, or plaintext secrets.
  */
 @RestController
 @RequestMapping("/api/crypto")
@@ -94,7 +94,8 @@ public class CryptoController {
   }
 
   @PostMapping("/payments/signed")
-  public Map<String, Object> processSignedPayment(@Valid @RequestBody SignedPaymentRequest request) {
+  public Map<String, Object> processSignedPayment(
+      @Valid @RequestBody SignedPaymentRequest request) {
     if (!signatures.verify(request.payload(), request.signature())) {
       throw new CryptoException("invalid payment signature");
     }

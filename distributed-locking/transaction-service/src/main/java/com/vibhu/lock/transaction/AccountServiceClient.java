@@ -23,18 +23,20 @@ public class AccountServiceClient {
   }
 
   private AccountTransferApplyResponse post(String path, TransactionEntity transaction) {
-    AccountTransferApplyResponse response = restClient.post()
-        .uri(path)
-        .body(new AccountTransferApplyRequest(
-            transaction.getId(),
-            transaction.getSourceAccountId(),
-            transaction.getDestinationAccountId(),
-            transaction.getAmount(),
-            requireFence(transaction.getFencingSource(), "source"),
-            requireFence(transaction.getFencingDest(), "destination")
-        ))
-        .retrieve()
-        .body(AccountTransferApplyResponse.class);
+    AccountTransferApplyResponse response =
+        restClient
+            .post()
+            .uri(path)
+            .body(
+                new AccountTransferApplyRequest(
+                    transaction.getId(),
+                    transaction.getSourceAccountId(),
+                    transaction.getDestinationAccountId(),
+                    transaction.getAmount(),
+                    requireFence(transaction.getFencingSource(), "source"),
+                    requireFence(transaction.getFencingDest(), "destination")))
+            .retrieve()
+            .body(AccountTransferApplyResponse.class);
     if (response == null) {
       throw new IllegalStateException("Account service returned an empty transfer response");
     }

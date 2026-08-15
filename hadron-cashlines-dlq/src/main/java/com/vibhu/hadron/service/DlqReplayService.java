@@ -45,7 +45,8 @@ public class DlqReplayService {
   @Transactional
   public DeadLetterMessageEntity replay(Long id, String actor) {
     DeadLetterMessageEntity row =
-        dlq.findById(id).orElseThrow(() -> new ReplayConflictException("DLQ message not found: " + id));
+        dlq.findById(id)
+            .orElseThrow(() -> new ReplayConflictException("DLQ message not found: " + id));
     if (!REPLAYABLE.contains(row.getStatus())) {
       throw new ReplayConflictException("Concurrent replay or illegal status for DLQ " + id);
     }

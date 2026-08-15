@@ -61,7 +61,8 @@ class AesEncryptionServiceTest {
 
   @Test
   void binaryViaUtf8String() {
-    String binaryish = new String(new byte[] {0, 1, 2, 127, (byte) 0xff}, StandardCharsets.ISO_8859_1);
+    String binaryish =
+        new String(new byte[] {0, 1, 2, 127, (byte) 0xff}, StandardCharsets.ISO_8859_1);
     // Use encryptBytes path for true binary
     var key = keys.requireKey("v2");
     byte[] raw = new byte[] {0, 1, 2, 127, (byte) 0xff};

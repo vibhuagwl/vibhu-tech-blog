@@ -33,7 +33,8 @@ class TokenBucketRateLimiterTest {
   @Test
   void failOpenAllowsWhenStoreThrows() {
     RateLimitPolicy policy = policy(FailPolicy.FAIL_OPEN);
-    TokenBucketRateLimiter limiter = new TokenBucketRateLimiter(policy, failingStore(), store, metrics);
+    TokenBucketRateLimiter limiter =
+        new TokenBucketRateLimiter(policy, failingStore(), store, metrics);
     RateLimitResult result = limiter.allow(ctx());
     assertTrue(result.allowed());
     assertTrue(result.degraded());
@@ -42,7 +43,8 @@ class TokenBucketRateLimiterTest {
   @Test
   void failClosedRejectsWhenStoreThrows() {
     RateLimitPolicy policy = policy(FailPolicy.FAIL_CLOSED);
-    TokenBucketRateLimiter limiter = new TokenBucketRateLimiter(policy, failingStore(), store, metrics);
+    TokenBucketRateLimiter limiter =
+        new TokenBucketRateLimiter(policy, failingStore(), store, metrics);
     RateLimitResult result = limiter.allow(ctx());
     assertFalse(result.allowed());
     assertTrue(result.degraded());
@@ -50,28 +52,31 @@ class TokenBucketRateLimiterTest {
 
   @Test
   void localFallbackEnforcesInProcessBucket() {
-    RateLimitPolicy policy = RateLimitPolicy.builder()
-        .id("fb")
-        .scope(RateLimitScope.CLIENT)
-        .capacity(1)
-        .refillRate(1)
-        .refillPeriod(RefillPeriod.HOUR)
-        .failPolicy(FailPolicy.LOCAL_FALLBACK)
-        .build();
-    TokenBucketRateLimiter limiter = new TokenBucketRateLimiter(policy, failingStore(), store, metrics);
+    RateLimitPolicy policy =
+        RateLimitPolicy.builder()
+            .id("fb")
+            .scope(RateLimitScope.CLIENT)
+            .capacity(1)
+            .refillRate(1)
+            .refillPeriod(RefillPeriod.HOUR)
+            .failPolicy(FailPolicy.LOCAL_FALLBACK)
+            .build();
+    TokenBucketRateLimiter limiter =
+        new TokenBucketRateLimiter(policy, failingStore(), store, metrics);
     assertTrue(limiter.allow(ctx()).allowed());
     assertFalse(limiter.allow(ctx()).allowed());
   }
 
   @Test
   void concurrentRequestsNeverExceedCapacity() throws Exception {
-    RateLimitPolicy policy = RateLimitPolicy.builder()
-        .id("conc")
-        .scope(RateLimitScope.USER)
-        .capacity(50)
-        .refillRate(1)
-        .refillPeriod(RefillPeriod.DAY)
-        .build();
+    RateLimitPolicy policy =
+        RateLimitPolicy.builder()
+            .id("conc")
+            .scope(RateLimitScope.USER)
+            .capacity(50)
+            .refillRate(1)
+            .refillPeriod(RefillPeriod.DAY)
+            .build();
     TokenBucketRateLimiter limiter = new TokenBucketRateLimiter(policy, store, store, metrics);
     int threads = 32;
     int perThread = 10;
@@ -81,20 +86,21 @@ class TokenBucketRateLimiterTest {
     AtomicInteger allowed = new AtomicInteger();
     RequestContext ctx = ctx();
     for (int t = 0; t < threads; t++) {
-      pool.submit(() -> {
-        try {
-          start.await();
-          for (int i = 0; i < perThread; i++) {
-            if (limiter.allow(ctx).allowed()) {
-              allowed.incrementAndGet();
+      pool.submit(
+          () -> {
+            try {
+              start.await();
+              for (int i = 0; i < perThread; i++) {
+                if (limiter.allow(ctx).allowed()) {
+                  allowed.incrementAndGet();
+                }
+              }
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+            } finally {
+              done.countDown();
             }
-          }
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-        } finally {
-          done.countDown();
-        }
-      });
+          });
     }
     start.countDown();
     assertTrue(done.await(10, TimeUnit.SECONDS));
@@ -106,26 +112,28 @@ class TokenBucketRateLimiterTest {
   void configurationChangeAppliesOnNextRequest() {
     InMemoryRateLimitConfigProvider provider = new InMemoryRateLimitConfigProvider();
     provider.findAll().forEach(p -> provider.delete(p.id()));
-    RateLimitPolicy tight = RateLimitPolicy.builder()
-        .id("live")
-        .scope(RateLimitScope.CLIENT)
-        .capacity(1)
-        .refillRate(1)
-        .refillPeriod(RefillPeriod.HOUR)
-        .build();
+    RateLimitPolicy tight =
+        RateLimitPolicy.builder()
+            .id("live")
+            .scope(RateLimitScope.CLIENT)
+            .capacity(1)
+            .refillRate(1)
+            .refillPeriod(RefillPeriod.HOUR)
+            .build();
     provider.upsert(tight);
     RateLimiterFactory factory = new RateLimiterFactory(store, store, metrics);
     CompositeRateLimiter composite = new CompositeRateLimiter(provider, factory, metrics);
     RequestContext ctx = ctx();
     assertTrue(composite.allow(ctx).allowed());
     assertFalse(composite.allow(ctx).allowed());
-    provider.upsert(RateLimitPolicy.builder()
-        .id("live")
-        .scope(RateLimitScope.CLIENT)
-        .capacity(10)
-        .refillRate(10)
-        .refillPeriod(RefillPeriod.HOUR)
-        .build());
+    provider.upsert(
+        RateLimitPolicy.builder()
+            .id("live")
+            .scope(RateLimitScope.CLIENT)
+            .capacity(10)
+            .refillRate(10)
+            .refillPeriod(RefillPeriod.HOUR)
+            .build());
     factory.evict("live");
     clock.advance(java.time.Duration.ofHours(1).toMillis());
     assertTrue(composite.allow(ctx).allowed());
@@ -135,22 +143,24 @@ class TokenBucketRateLimiterTest {
   void compositeRejectsIfAnyLevelFails() {
     InMemoryRateLimitConfigProvider provider = new InMemoryRateLimitConfigProvider();
     provider.findAll().forEach(p -> provider.delete(p.id()));
-    provider.upsert(RateLimitPolicy.builder()
-        .id("global")
-        .scope(RateLimitScope.GLOBAL)
-        .capacity(100)
-        .refillRate(100)
-        .refillPeriod(RefillPeriod.HOUR)
-        .build());
-    provider.upsert(RateLimitPolicy.builder()
-        .id("user")
-        .scope(RateLimitScope.USER)
-        .capacity(1)
-        .refillRate(1)
-        .refillPeriod(RefillPeriod.MINUTE)
-        .build());
-    CompositeRateLimiter composite = new CompositeRateLimiter(
-        provider, new RateLimiterFactory(store, store, metrics), metrics);
+    provider.upsert(
+        RateLimitPolicy.builder()
+            .id("global")
+            .scope(RateLimitScope.GLOBAL)
+            .capacity(100)
+            .refillRate(100)
+            .refillPeriod(RefillPeriod.HOUR)
+            .build());
+    provider.upsert(
+        RateLimitPolicy.builder()
+            .id("user")
+            .scope(RateLimitScope.USER)
+            .capacity(1)
+            .refillRate(1)
+            .refillPeriod(RefillPeriod.MINUTE)
+            .build());
+    CompositeRateLimiter composite =
+        new CompositeRateLimiter(provider, new RateLimiterFactory(store, store, metrics), metrics);
     RequestContext ctx = ctx();
     assertTrue(composite.allow(ctx).allowed());
     RateLimitResult second = composite.allow(ctx);

@@ -1,7 +1,12 @@
 package com.vibhu.msp.it;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.vibhu.msp.lock.FencingToken;
 import com.vibhu.msp.lock.RedisLockStore;
+import java.time.Duration;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -15,23 +20,18 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import java.time.Duration;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @SpringBootTest
 @Testcontainers
 @EnabledIfEnvironmentVariable(named = "MSP_IT", matches = "true")
-@TestPropertySource(properties = {
-    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
-})
+@TestPropertySource(
+    properties = {
+      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
+    })
 class RedisLockIT {
 
   @Container
-  static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
-      .withExposedPorts(6379);
+  static GenericContainer<?> redis =
+      new GenericContainer<>(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
 
   @DynamicPropertySource
   static void redisProps(DynamicPropertyRegistry registry) {

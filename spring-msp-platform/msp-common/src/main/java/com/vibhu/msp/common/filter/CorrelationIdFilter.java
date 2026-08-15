@@ -2,11 +2,11 @@ package com.vibhu.msp.common.filter;
 
 import com.vibhu.msp.common.CorrelationIdContext;
 import com.vibhu.msp.common.MspHeaders;
-import java.io.IOException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.UUID;
 import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -21,8 +21,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
   @Override
-  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-                                  FilterChain filterChain) throws ServletException, IOException {
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+      throws ServletException, IOException {
     String correlationId = request.getHeader(MspHeaders.CORRELATION_ID);
     if (correlationId == null || correlationId.isBlank()) {
       correlationId = UUID.randomUUID().toString();

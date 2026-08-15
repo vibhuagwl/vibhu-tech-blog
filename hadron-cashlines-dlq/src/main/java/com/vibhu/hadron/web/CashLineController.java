@@ -44,7 +44,8 @@ public class CashLineController {
             request.occurredAt(),
             request.attributes());
     producer.publish(event, Map.of());
-    return Map.of("status", "PUBLISHED", "eventId", event.eventId(), "cashLineId", event.cashLineId());
+    return Map.of(
+        "status", "PUBLISHED", "eventId", event.eventId(), "cashLineId", event.cashLineId());
   }
 
   @PostMapping("/events/raw")

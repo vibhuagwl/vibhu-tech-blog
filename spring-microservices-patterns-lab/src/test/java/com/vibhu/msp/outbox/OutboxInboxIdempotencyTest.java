@@ -1,24 +1,24 @@
 package com.vibhu.msp.outbox;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.vibhu.msp.inbox.InboxService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @SpringBootTest
-@TestPropertySource(properties = {
-    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
-        + "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
-})
+@TestPropertySource(
+    properties = {
+      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,"
+          + "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
+    })
 class OutboxInboxIdempotencyTest {
 
   @Autowired OutboxService outboxService;
@@ -31,8 +31,8 @@ class OutboxInboxIdempotencyTest {
     List<String> received = new ArrayList<>();
     eventBus.subscribe(e -> received.add(e.getEventType()));
 
-    outboxService.saveInSameTransaction("evt-1", "Order", "ORD-1", "OrderCreated", "{\"id\":\"ORD-1\"}",
-        () -> {});
+    outboxService.saveInSameTransaction(
+        "evt-1", "Order", "ORD-1", "OrderCreated", "{\"id\":\"ORD-1\"}", () -> {});
     int relayed = outboxRelay.relayPending();
 
     assertEquals(1, relayed);

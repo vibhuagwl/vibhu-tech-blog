@@ -8,13 +8,13 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
 /**
- * Classic Bloom filter: probabilistic set membership with possible false positives and
- * <strong>no false negatives</strong> (for elements that were successfully added and never deleted —
- * standard Bloom filters do not support deletion).
+ * Classic Bloom filter: probabilistic set membership with possible false positives and <strong>no
+ * false negatives</strong> (for elements that were successfully added and never deleted — standard
+ * Bloom filters do not support deletion).
  *
- * <p>Thread-safety: this implementation uses a {@link ReentrantReadWriteLock}. Concurrent
- * {@code mightContain} calls share the read lock; {@code add} takes the write lock. For a
- * read-mostly filter loaded once at startup, you can wrap an immutable snapshot instead.
+ * <p>Thread-safety: this implementation uses a {@link ReentrantReadWriteLock}. Concurrent {@code
+ * mightContain} calls share the read lock; {@code add} takes the write lock. For a read-mostly
+ * filter loaded once at startup, you can wrap an immutable snapshot instead.
  *
  * @param <T> element type
  */
@@ -31,10 +31,14 @@ public final class BloomFilter<T> {
   private final AtomicLong definiteMisses = new AtomicLong();
 
   public BloomFilter(long expectedInsertions, double falsePositiveRate) {
-    this(BloomFilterConfig.of(expectedInsertions, falsePositiveRate), new DoubleHashStrategy(), BloomFilter::defaultEncode);
+    this(
+        BloomFilterConfig.of(expectedInsertions, falsePositiveRate),
+        new DoubleHashStrategy(),
+        BloomFilter::defaultEncode);
   }
 
-  public BloomFilter(BloomFilterConfig config, HashStrategy hashStrategy, Function<T, byte[]> encoder) {
+  public BloomFilter(
+      BloomFilterConfig config, HashStrategy hashStrategy, Function<T, byte[]> encoder) {
     this.config = Objects.requireNonNull(config);
     this.hashStrategy = Objects.requireNonNull(hashStrategy);
     this.encoder = Objects.requireNonNull(encoder);

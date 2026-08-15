@@ -6,11 +6,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Demonstrates the <strong>wrong</strong> vs <strong>right</strong> use of Bloom filters for
- * Kafka deduplication / idempotency.
+ * Demonstrates the <strong>wrong</strong> vs <strong>right</strong> use of Bloom filters for Kafka
+ * deduplication / idempotency.
  *
- * <p>Bloom alone is NOT a source of truth: a false positive would skip a never-seen event.
- * Correct pattern: Bloom as a cheap negative check, then Redis/DB unique constraint as truth.
+ * <p>Bloom alone is NOT a source of truth: a false positive would skip a never-seen event. Correct
+ * pattern: Bloom as a cheap negative check, then Redis/DB unique constraint as truth.
  */
 public final class IdempotencyGuard {
 

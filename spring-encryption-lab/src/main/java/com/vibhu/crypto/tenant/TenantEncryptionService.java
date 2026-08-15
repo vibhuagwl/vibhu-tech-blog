@@ -14,8 +14,8 @@ import javax.crypto.spec.GCMParameterSpec;
 import org.springframework.stereotype.Service;
 
 /**
- * Multi-tenant encryption: Tenant A → Key A. Isolation is a key-hierarchy + ACL problem,
- * not just "different ciphertext".
+ * Multi-tenant encryption: Tenant A → Key A. Isolation is a key-hierarchy + ACL problem, not just
+ * "different ciphertext".
  */
 @Service
 public class TenantEncryptionService {

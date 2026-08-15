@@ -1,7 +1,6 @@
 package com.vibhu.msp.order.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.vibhu.msp.common.EventEnvelope;
 import com.vibhu.msp.common.MspTopics;
 import com.vibhu.msp.order.entity.OutboxEntity;
 import org.slf4j.Logger;
@@ -19,9 +18,10 @@ public class OutboxRelay {
   private final KafkaTemplate<String, Object> kafkaTemplate;
   private final ObjectMapper objectMapper;
 
-  public OutboxRelay(OutboxService outboxService,
-                     KafkaTemplate<String, Object> kafkaTemplate,
-                     ObjectMapper objectMapper) {
+  public OutboxRelay(
+      OutboxService outboxService,
+      KafkaTemplate<String, Object> kafkaTemplate,
+      ObjectMapper objectMapper) {
     this.outboxService = outboxService;
     this.kafkaTemplate = kafkaTemplate;
     this.objectMapper = objectMapper;

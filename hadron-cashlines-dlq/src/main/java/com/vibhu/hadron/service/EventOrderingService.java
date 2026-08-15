@@ -10,7 +10,6 @@ import com.vibhu.hadron.repository.DeadLetterMessageRepository;
 import com.vibhu.hadron.repository.WaitingEventRepository;
 import java.time.Instant;
 import java.util.EnumSet;
-import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -87,7 +86,8 @@ public class EventOrderingService {
     }
     if (hasUnresolvedPriorFailure(event.cashLineId(), excludeOpenDlqId)) {
       waitingEvents.park(event, payload, expectedSequence(state));
-      throw new OutOfOrderEventException(event.cashLineId(), expectedSequence(state), event.sequenceNumber());
+      throw new OutOfOrderEventException(
+          event.cashLineId(), expectedSequence(state), event.sequenceNumber());
     }
     int expected = expectedSequence(state);
     if (event.sequenceNumber() != expected) {

@@ -21,7 +21,8 @@ public class InventoryEventConsumer {
   private final InventoryService inventoryService;
   private final ObjectMapper objectMapper;
 
-  public InventoryEventConsumer(InboxService inboxService, InventoryService inventoryService, ObjectMapper objectMapper) {
+  public InventoryEventConsumer(
+      InboxService inboxService, InventoryService inventoryService, ObjectMapper objectMapper) {
     this.inboxService = inboxService;
     this.inventoryService = inventoryService;
     this.objectMapper = objectMapper;
@@ -39,11 +40,16 @@ public class InventoryEventConsumer {
       var root = objectMapper.convertValue(record.value(), java.util.Map.class);
       String eventType = (String) root.get("eventType");
       if (EventTypes.ORDER_CANCELLED.equals(eventType)) {
-        String orderId = objectMapper.convertValue(root.get("payload"), java.util.Map.class).get("orderId").toString();
+        String orderId =
+            objectMapper
+                .convertValue(root.get("payload"), java.util.Map.class)
+                .get("orderId")
+                .toString();
         String correlationId = (String) root.get("correlationId");
         String compMessageId = "cancel-" + messageId(record);
-        inboxService.processIfNew(compMessageId, ignored ->
-            inventoryService.releaseForOrder(orderId, "order-cancelled", correlationId));
+        inboxService.processIfNew(
+            compMessageId,
+            ignored -> inventoryService.releaseForOrder(orderId, "order-cancelled", correlationId));
       }
     } catch (Exception ex) {
       log.error("Compensation handler failed: {}", ex.getMessage());

@@ -6,7 +6,7 @@ import java.util.TreeSet;
 /**
  * Comparator patterns: multi-level sort, nulls, PriorityQueue, TreeSet uniqueness.
  *
- * Run: javac src/*.java && java -cp src ComparatorLab
+ * <p>Run: javac src/*.java && java -cp src ComparatorLab
  */
 public class ComparatorLab {
 
@@ -48,7 +48,7 @@ public class ComparatorLab {
     set.add(new Employee("ENG", 2, "alice"));
     set.add(new Employee("ENG", 1, "bob"));
     set.add(new Employee("HR", 1, "carol"));
-  System.out.println("Sorted dept then id: " + set);
+    System.out.println("Sorted dept then id: " + set);
   }
 
   static void nullsLast() {
@@ -65,8 +65,7 @@ public class ComparatorLab {
 
   static void priorityQueuePollVsIterate() {
     System.out.println("\n--- PriorityQueue: poll order vs iteration ---");
-    PriorityQueue<Employee> pq =
-        new PriorityQueue<>(Comparator.comparingInt(Employee::id));
+    PriorityQueue<Employee> pq = new PriorityQueue<>(Comparator.comparingInt(Employee::id));
 
     pq.add(new Employee("ENG", 30, "a"));
     pq.add(new Employee("ENG", 10, "b"));

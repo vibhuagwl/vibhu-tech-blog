@@ -37,7 +37,8 @@ public final class BankAccountAggregate {
   }
 
   public static BankAccountAggregate fromSnapshot(Snapshot snapshot, List<DomainEvent> after) {
-    BankAccountAggregate agg = new BankAccountAggregate(snapshot.accountId(), snapshot.balance(), snapshot.version());
+    BankAccountAggregate agg =
+        new BankAccountAggregate(snapshot.accountId(), snapshot.balance(), snapshot.version());
     for (DomainEvent event : after) {
       agg.apply(event);
       agg.version = event.version();
@@ -48,7 +49,8 @@ public final class BankAccountAggregate {
   public void deposit(double amount) {
     if (amount <= 0) throw new IllegalArgumentException("Amount must be positive");
     long nextVersion = version + uncommitted.size() + 1;
-    DomainEvent event = new DomainEvent(accountId, "Deposited", String.valueOf(amount), Instant.now(), nextVersion);
+    DomainEvent event =
+        new DomainEvent(accountId, "Deposited", String.valueOf(amount), Instant.now(), nextVersion);
     apply(event);
     uncommitted.add(event);
   }
@@ -71,6 +73,11 @@ public final class BankAccountAggregate {
     return copy;
   }
 
-  public double balance() { return balance; }
-  public long version() { return version; }
+  public double balance() {
+    return balance;
+  }
+
+  public long version() {
+    return version;
+  }
 }

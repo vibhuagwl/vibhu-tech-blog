@@ -21,36 +21,36 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthService authService;
+  private final AuthService authService;
 
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }
+  public AuthController(AuthService authService) {
+    this.authService = authService;
+  }
 
-    @PostMapping("/register")
-    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
-    }
+  @PostMapping("/register")
+  public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+  }
 
-    @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
-    }
+  @PostMapping("/login")
+  public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+    return authService.login(request);
+  }
 
-    @PostMapping("/refresh")
-    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        return authService.refresh(request);
-    }
+  @PostMapping("/refresh")
+  public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+    return authService.refresh(request);
+  }
 
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout(
-            @Valid @RequestBody LogoutRequest request,
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
-        String access = null;
-        if (authorization != null && authorization.startsWith("Bearer ")) {
-            access = authorization.substring("Bearer ".length()).trim();
-        }
-        authService.logout(request, access);
-        return ResponseEntity.noContent().build();
+  @PostMapping("/logout")
+  public ResponseEntity<Void> logout(
+      @Valid @RequestBody LogoutRequest request,
+      @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
+    String access = null;
+    if (authorization != null && authorization.startsWith("Bearer ")) {
+      access = authorization.substring("Bearer ".length()).trim();
     }
+    authService.logout(request, access);
+    return ResponseEntity.noContent().build();
+  }
 }

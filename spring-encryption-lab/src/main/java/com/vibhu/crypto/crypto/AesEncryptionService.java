@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 /**
  * AES-256-GCM (recommended for new app-level encryption).
  *
- * <p>IV/nonce is 12 random bytes per encrypt — never reuse with the same key.
- * Auth tag (128-bit) is appended by Cipher; tampering fails decrypt.
+ * <p>IV/nonce is 12 random bytes per encrypt — never reuse with the same key. Auth tag (128-bit) is
+ * appended by Cipher; tampering fails decrypt.
  */
 @Service
 public class AesEncryptionService implements EncryptionService {

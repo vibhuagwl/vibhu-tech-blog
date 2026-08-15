@@ -33,26 +33,32 @@ public class UserController {
 
   @GetMapping("/users/{id}")
   public ResponseEntity<?> getUser(@PathVariable String id) {
-    return users.findUser(id)
+    return users
+        .findUser(id)
         .<ResponseEntity<?>>map(u -> ResponseEntity.ok(toDto(u)))
-        .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-            "error", "not_found",
-            "userId", id,
-            "bloomMightContain", bloom.mightContain(id)
-        )));
+        .orElseGet(
+            () ->
+                ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(
+                        Map.of(
+                            "error",
+                            "not_found",
+                            "userId",
+                            id,
+                            "bloomMightContain",
+                            bloom.mightContain(id))));
   }
 
-  /**
-   * Lab-only: skip Bloom to demonstrate cache/DB penetration cost for random missing ids.
-   */
+  /** Lab-only: skip Bloom to demonstrate cache/DB penetration cost for random missing ids. */
   @GetMapping("/lab/users/{id}")
   public ResponseEntity<?> getUserBypass(@PathVariable String id) {
-    return users.findUserBypassingBloom(id)
+    return users
+        .findUserBypassingBloom(id)
         .<ResponseEntity<?>>map(u -> ResponseEntity.ok(toDto(u)))
-        .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-            "error", "not_found",
-            "bypassedBloom", true
-        )));
+        .orElseGet(
+            () ->
+                ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "not_found", "bypassedBloom", true)));
   }
 
   @PostMapping("/users")
@@ -92,8 +98,5 @@ public class UserController {
   }
 
   public record CreateUserRequest(
-      @NotBlank String id,
-      @NotBlank String displayName,
-      @NotBlank @Email String email
-  ) {}
+      @NotBlank String id, @NotBlank String displayName, @NotBlank @Email String email) {}
 }

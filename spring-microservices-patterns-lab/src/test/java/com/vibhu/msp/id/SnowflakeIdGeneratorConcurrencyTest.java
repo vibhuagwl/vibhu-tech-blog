@@ -1,6 +1,7 @@
 package com.vibhu.msp.id;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -10,9 +11,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class SnowflakeIdGeneratorConcurrencyTest {
 
@@ -27,18 +26,19 @@ class SnowflakeIdGeneratorConcurrencyTest {
 
     try (ExecutorService pool = Executors.newFixedThreadPool(threads)) {
       for (int t = 0; t < threads; t++) {
-        pool.submit(() -> {
-          try {
-            start.await();
-            for (int i = 0; i < idsPerThread; i++) {
-              assertTrue(ids.add(gen.nextId()));
-            }
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-          } finally {
-            done.countDown();
-          }
-        });
+        pool.submit(
+            () -> {
+              try {
+                start.await();
+                for (int i = 0; i < idsPerThread; i++) {
+                  assertTrue(ids.add(gen.nextId()));
+                }
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              } finally {
+                done.countDown();
+              }
+            });
       }
       start.countDown();
       assertTrue(done.await(30, TimeUnit.SECONDS));
@@ -56,13 +56,14 @@ class SnowflakeIdGeneratorConcurrencyTest {
     try (ExecutorService pool = Executors.newFixedThreadPool(workers)) {
       for (int w = 0; w < workers; w++) {
         int workerId = w;
-        pool.submit(() -> {
-          SnowflakeIdGenerator gen = new SnowflakeIdGenerator(workerId, 1);
-          for (int i = 0; i < 200; i++) {
-            allIds.add(gen.nextId());
-          }
-          done.countDown();
-        });
+        pool.submit(
+            () -> {
+              SnowflakeIdGenerator gen = new SnowflakeIdGenerator(workerId, 1);
+              for (int i = 0; i < 200; i++) {
+                allIds.add(gen.nextId());
+              }
+              done.countDown();
+            });
       }
       assertTrue(done.await(30, TimeUnit.SECONDS));
     }

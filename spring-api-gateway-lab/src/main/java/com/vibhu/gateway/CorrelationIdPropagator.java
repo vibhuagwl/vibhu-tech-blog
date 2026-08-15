@@ -3,8 +3,8 @@ package com.vibhu.gateway;
 import java.util.UUID;
 
 /**
- * Propagate an existing correlation/trace id when present; otherwise mint one.
- * Mirrors the Spring Cloud Gateway GlobalFilter interview sketch.
+ * Propagate an existing correlation/trace id when present; otherwise mint one. Mirrors the Spring
+ * Cloud Gateway GlobalFilter interview sketch.
  */
 public final class CorrelationIdPropagator {
   public static final String HEADER = "X-Trace-Id";

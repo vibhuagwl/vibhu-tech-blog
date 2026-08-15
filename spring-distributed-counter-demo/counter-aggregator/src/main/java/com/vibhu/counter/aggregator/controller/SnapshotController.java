@@ -10,14 +10,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/snapshots")
 public class SnapshotController {
-    private final SnapshotStore snapshotStore;
+  private final SnapshotStore snapshotStore;
 
-    public SnapshotController(SnapshotStore snapshotStore) {
-        this.snapshotStore = snapshotStore;
-    }
+  public SnapshotController(SnapshotStore snapshotStore) {
+    this.snapshotStore = snapshotStore;
+  }
 
-    @GetMapping("/{resourceId}")
-    public SnapshotResponse get(@PathVariable String resourceId) {
-        return snapshotStore.get(resourceId);
-    }
+  @GetMapping("/{resourceId}")
+  public SnapshotResponse get(@PathVariable String resourceId) {
+    return snapshotStore.get(resourceId);
+  }
 }

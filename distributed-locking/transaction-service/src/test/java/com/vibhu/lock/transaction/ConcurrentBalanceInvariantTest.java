@@ -14,8 +14,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 /**
- * Pure concurrency invariant used by the E2E script: total money conserved and never negative
- * when exclusive serialization is applied (models Redis+DB locking).
+ * Pure concurrency invariant used by the E2E script: total money conserved and never negative when
+ * exclusive serialization is applied (models Redis+DB locking).
  */
 class ConcurrentBalanceInvariantTest {
   @Test
@@ -27,17 +27,18 @@ class ConcurrentBalanceInvariantTest {
     ExecutorService pool = Executors.newFixedThreadPool(32);
     List<Callable<Boolean>> tasks = new ArrayList<>();
     for (int i = 0; i < 100; i++) {
-      tasks.add(() -> {
-        synchronized (lock) {
-          BigDecimal amount = new BigDecimal("50");
-          if (source.get().compareTo(amount) < 0) {
-            return false;
-          }
-          source.set(source.get().subtract(amount));
-          sink.set(sink.get().add(amount));
-          return true;
-        }
-      });
+      tasks.add(
+          () -> {
+            synchronized (lock) {
+              BigDecimal amount = new BigDecimal("50");
+              if (source.get().compareTo(amount) < 0) {
+                return false;
+              }
+              source.set(source.get().subtract(amount));
+              sink.set(sink.get().add(amount));
+              return true;
+            }
+          });
     }
     List<Future<Boolean>> futures = pool.invokeAll(tasks);
     pool.shutdown();

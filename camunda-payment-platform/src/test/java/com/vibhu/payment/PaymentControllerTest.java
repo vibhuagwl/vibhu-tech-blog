@@ -21,7 +21,8 @@ class PaymentControllerTest {
     mvc.perform(
             post("/api/payments")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"paymentId\":\"\",\"customerId\":\"\",\"amount\":-1,\"currency\":\"\"}"))
+                .content(
+                    "{\"paymentId\":\"\",\"customerId\":\"\",\"amount\":-1,\"currency\":\"\"}"))
         .andExpect(status().isBadRequest());
   }
 }

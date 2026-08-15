@@ -15,26 +15,28 @@ import org.springframework.stereotype.Component;
 @Component
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
 
-    private final ObjectMapper objectMapper;
+  private final ObjectMapper objectMapper;
 
-    public RestAccessDeniedHandler(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
+  public RestAccessDeniedHandler(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
+  }
 
-    @Override
-    public void handle(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            AccessDeniedException accessDeniedException) throws IOException {
-        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        ApiError body = new ApiError(
-                Instant.now(),
-                403,
-                "Forbidden",
-                "Insufficient role",
-                request.getRequestURI(),
-                MDC.get("requestId"));
-        objectMapper.writeValue(response.getOutputStream(), body);
-    }
+  @Override
+  public void handle(
+      HttpServletRequest request,
+      HttpServletResponse response,
+      AccessDeniedException accessDeniedException)
+      throws IOException {
+    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+    ApiError body =
+        new ApiError(
+            Instant.now(),
+            403,
+            "Forbidden",
+            "Insufficient role",
+            request.getRequestURI(),
+            MDC.get("requestId"));
+    objectMapper.writeValue(response.getOutputStream(), body);
+  }
 }

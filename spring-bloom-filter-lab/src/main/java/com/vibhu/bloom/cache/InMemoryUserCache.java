@@ -8,8 +8,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Component;
 
 /**
- * In-process stand-in for Redis. Keys are user ids. Demonstrates cache penetration when
- * attackers query missing ids — without a Bloom filter every miss hits the DB.
+ * In-process stand-in for Redis. Keys are user ids. Demonstrates cache penetration when attackers
+ * query missing ids — without a Bloom filter every miss hits the DB.
  */
 @Component
 public class InMemoryUserCache {

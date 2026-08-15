@@ -49,7 +49,8 @@ public class CashLineService {
     }
     if (entity.getStatus() == CashLineStatus.SETTLED
         && event.eventType().name().contains("UPDATED")) {
-      throw new InvalidCashLineException("Replay after settlement is not allowed without ops override");
+      throw new InvalidCashLineException(
+          "Replay after settlement is not allowed without ops override");
     }
 
     CashLineStatus next = stateMachine.next(entity.getStatus(), event.eventType());

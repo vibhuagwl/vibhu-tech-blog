@@ -10,8 +10,8 @@ import java.util.Base64;
 import org.springframework.stereotype.Service;
 
 /**
- * RSA-PSS signatures (authenticity + integrity). Not confidentiality.
- * Private key signs; public key verifies.
+ * RSA-PSS signatures (authenticity + integrity). Not confidentiality. Private key signs; public key
+ * verifies.
  */
 @Service
 public class RsaSignatureService {
@@ -28,8 +28,9 @@ public class RsaSignatureService {
   public String sign(String payload) {
     try {
       Signature sig = Signature.getInstance(ALG);
-      sig.setParameter(new java.security.spec.PSSParameterSpec(
-          "SHA-256", "MGF1", java.security.spec.MGF1ParameterSpec.SHA256, 32, 1));
+      sig.setParameter(
+          new java.security.spec.PSSParameterSpec(
+              "SHA-256", "MGF1", java.security.spec.MGF1ParameterSpec.SHA256, 32, 1));
       sig.initSign(privateKey);
       sig.update(payload.getBytes(StandardCharsets.UTF_8));
       return Base64.getUrlEncoder().withoutPadding().encodeToString(sig.sign());
@@ -41,8 +42,9 @@ public class RsaSignatureService {
   public boolean verify(String payload, String signatureB64) {
     try {
       Signature sig = Signature.getInstance(ALG);
-      sig.setParameter(new java.security.spec.PSSParameterSpec(
-          "SHA-256", "MGF1", java.security.spec.MGF1ParameterSpec.SHA256, 32, 1));
+      sig.setParameter(
+          new java.security.spec.PSSParameterSpec(
+              "SHA-256", "MGF1", java.security.spec.MGF1ParameterSpec.SHA256, 32, 1));
       sig.initVerify(publicKey);
       sig.update(payload.getBytes(StandardCharsets.UTF_8));
       return sig.verify(Base64.getUrlDecoder().decode(signatureB64));

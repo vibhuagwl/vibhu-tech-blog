@@ -68,7 +68,10 @@ public class CashLineProcessingService {
   }
 
   private ProcessResult processEvent(EventEnvelope envelope, CashLineEvent event) {
-    log.info("Processing CashLine event type={} masked={}", event.eventType(), masker.mask(envelope.payload()));
+    log.info(
+        "Processing CashLine event type={} masked={}",
+        event.eventType(),
+        masker.mask(envelope.payload()));
     if (idempotency.alreadyProcessed(event.eventId())) {
       metrics.duplicate();
       maybeCompleteReplay(envelope);

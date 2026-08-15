@@ -30,106 +30,116 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 /**
  * Stateless Bearer JWT API.
  *
- * <p>CSRF is disabled because the client sends {@code Authorization: Bearer}
- * (not a cookie). Browsers do not attach that header on cross-site form posts,
- * so classic CSRF does not apply. If you store JWTs in cookies, enable CSRF.
+ * <p>CSRF is disabled because the client sends {@code Authorization: Bearer} (not a cookie).
+ * Browsers do not attach that header on cross-site form posts, so classic CSRF does not apply. If
+ * you store JWTs in cookies, enable CSRF.
  *
- * <p>Filter order: rate-limit → JWT → UsernamePasswordAuthenticationFilter.
- * JWT runs first so a valid Bearer token populates SecurityContext before
- * remaining authorization rules.
+ * <p>Filter order: rate-limit → JWT → UsernamePasswordAuthenticationFilter. JWT runs first so a
+ * valid Bearer token populates SecurityContext before remaining authorization rules.
  */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        // BCrypt cost 12. Argon2 alternative: Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8()
-        return new BCryptPasswordEncoder(12);
-    }
+  @Bean
+  PasswordEncoder passwordEncoder() {
+    // BCrypt cost 12. Argon2 alternative: Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8()
+    return new BCryptPasswordEncoder(12);
+  }
 
-    @Bean
-    DaoAuthenticationProvider authenticationProvider(
-            UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(passwordEncoder);
-        provider.setUserDetailsService(userDetailsService);
-        return provider;
-    }
+  @Bean
+  DaoAuthenticationProvider authenticationProvider(
+      UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(passwordEncoder);
+    provider.setUserDetailsService(userDetailsService);
+    return provider;
+  }
 
-    @Bean
-    AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
-        return configuration.getAuthenticationManager();
-    }
+  @Bean
+  AuthenticationManager authenticationManager(AuthenticationConfiguration configuration)
+      throws Exception {
+    return configuration.getAuthenticationManager();
+  }
 
-    @Bean
-    JwtAuthenticationFilter jwtAuthenticationFilter(
-            JwtService jwtService,
-            UserDetailsService userDetailsService,
-            AccessTokenDenylist denylist,
-            RestAuthenticationEntryPoint entryPoint) {
-        return new JwtAuthenticationFilter(jwtService, userDetailsService, denylist, entryPoint);
-    }
+  @Bean
+  JwtAuthenticationFilter jwtAuthenticationFilter(
+      JwtService jwtService,
+      UserDetailsService userDetailsService,
+      AccessTokenDenylist denylist,
+      RestAuthenticationEntryPoint entryPoint) {
+    return new JwtAuthenticationFilter(jwtService, userDetailsService, denylist, entryPoint);
+  }
 
-    @Bean
-    AuthRateLimitFilter authRateLimitFilter(JwtProperties properties, ObjectMapper objectMapper) {
-        return new AuthRateLimitFilter(properties, objectMapper);
-    }
+  @Bean
+  AuthRateLimitFilter authRateLimitFilter(JwtProperties properties, ObjectMapper objectMapper) {
+    return new AuthRateLimitFilter(properties, objectMapper);
+  }
 
-    /** Prevent Boot from also registering JWT/rate-limit filters as servlet filters (would run twice). */
-    @Bean
-    FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(JwtAuthenticationFilter filter) {
-        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
-        registration.setEnabled(false);
-        return registration;
-    }
+  /**
+   * Prevent Boot from also registering JWT/rate-limit filters as servlet filters (would run twice).
+   */
+  @Bean
+  FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(
+      JwtAuthenticationFilter filter) {
+    FilterRegistrationBean<JwtAuthenticationFilter> registration =
+        new FilterRegistrationBean<>(filter);
+    registration.setEnabled(false);
+    return registration;
+  }
 
-    @Bean
-    FilterRegistrationBean<AuthRateLimitFilter> rateLimitFilterRegistration(AuthRateLimitFilter filter) {
-        FilterRegistrationBean<AuthRateLimitFilter> registration = new FilterRegistrationBean<>(filter);
-        registration.setEnabled(false);
-        return registration;
-    }
+  @Bean
+  FilterRegistrationBean<AuthRateLimitFilter> rateLimitFilterRegistration(
+      AuthRateLimitFilter filter) {
+    FilterRegistrationBean<AuthRateLimitFilter> registration = new FilterRegistrationBean<>(filter);
+    registration.setEnabled(false);
+    return registration;
+  }
 
-    @Bean
-    CorsConfigurationSource corsConfigurationSource(JwtProperties properties) {
-        CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = properties.getCors().getAllowedOrigins();
-        config.setAllowedOrigins(origins);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id"));
-        config.setExposedHeaders(List.of("X-Request-Id"));
-        config.setAllowCredentials(false);
-        config.setMaxAge(3600L);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
+  @Bean
+  CorsConfigurationSource corsConfigurationSource(JwtProperties properties) {
+    CorsConfiguration config = new CorsConfiguration();
+    List<String> origins = properties.getCors().getAllowedOrigins();
+    config.setAllowedOrigins(origins);
+    config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+    config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id"));
+    config.setExposedHeaders(List.of("X-Request-Id"));
+    config.setAllowCredentials(false);
+    config.setMaxAge(3600L);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", config);
+    return source;
+  }
 
-    @Bean
-    SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter,
-            AuthRateLimitFilter authRateLimitFilter,
-            RestAuthenticationEntryPoint entryPoint,
-            RestAccessDeniedHandler accessDeniedHandler,
-            DaoAuthenticationProvider authenticationProvider) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> {})
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/**").authenticated()
-                        .anyRequest().denyAll())
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(entryPoint)
-                        .accessDeniedHandler(accessDeniedHandler))
-                .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-        return http.build();
-    }
+  @Bean
+  SecurityFilterChain securityFilterChain(
+      HttpSecurity http,
+      JwtAuthenticationFilter jwtAuthenticationFilter,
+      AuthRateLimitFilter authRateLimitFilter,
+      RestAuthenticationEntryPoint entryPoint,
+      RestAccessDeniedHandler accessDeniedHandler,
+      DaoAuthenticationProvider authenticationProvider)
+      throws Exception {
+    http.csrf(csrf -> csrf.disable())
+        .cors(cors -> {})
+        .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authenticationProvider(authenticationProvider)
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers("/actuator/health")
+                    .permitAll()
+                    .requestMatchers("/api/auth/**")
+                    .permitAll()
+                    .requestMatchers("/api/admin/**")
+                    .hasRole("ADMIN")
+                    .requestMatchers("/api/**")
+                    .authenticated()
+                    .anyRequest()
+                    .denyAll())
+        .exceptionHandling(
+            ex -> ex.authenticationEntryPoint(entryPoint).accessDeniedHandler(accessDeniedHandler))
+        .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+    return http.build();
+  }
 }

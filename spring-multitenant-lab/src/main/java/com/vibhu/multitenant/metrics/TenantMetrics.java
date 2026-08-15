@@ -22,7 +22,10 @@ public class TenantMetrics {
   }
 
   public void error(String tenantSlug) {
-    Counter.builder("tenant.errors").tag("tenant", sanitize(tenantSlug)).register(registry).increment();
+    Counter.builder("tenant.errors")
+        .tag("tenant", sanitize(tenantSlug))
+        .register(registry)
+        .increment();
   }
 
   /**

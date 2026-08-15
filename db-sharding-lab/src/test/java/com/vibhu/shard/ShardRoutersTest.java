@@ -48,7 +48,8 @@ class ShardRoutersTest {
       prev.put(k, router.getShard(k));
     }
     router.addShard(3);
-    long moved = prev.entrySet().stream().filter(e -> router.getShard(e.getKey()) != e.getValue()).count();
+    long moved =
+        prev.entrySet().stream().filter(e -> router.getShard(e.getKey()) != e.getValue()).count();
     long onNew = prev.keySet().stream().filter(k -> router.getShard(k) == 3).count();
     assertThat(onNew).isGreaterThan(100);
     assertThat(moved).isEqualTo(onNew);

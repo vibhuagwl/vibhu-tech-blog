@@ -23,7 +23,9 @@ class GatewayRouteConfigTest {
     StepVerifier.create(routeLocator.getRoutes().collectList())
         .assertNext(
             routes -> {
-              assertThat(routes).extracting(r -> r.getId()).contains("user-service", "order-service");
+              assertThat(routes)
+                  .extracting(r -> r.getId())
+                  .contains("user-service", "order-service");
               assertThat(routes)
                   .filteredOn(r -> "user-service".equals(r.getId()))
                   .extracting(r -> r.getUri().toString())

@@ -17,11 +17,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /**
- * Deterministic stand-in for Zeebe when profile is default/in-memory.
- * Mirrors payment-process.bpmn so API + worker business logic can be tested without Docker.
+ * Deterministic stand-in for Zeebe when profile is default/in-memory. Mirrors payment-process.bpmn
+ * so API + worker business logic can be tested without Docker.
  */
 @Service
-@ConditionalOnProperty(name = "payment.orchestration-mode", havingValue = "in-memory", matchIfMissing = true)
+@ConditionalOnProperty(
+    name = "payment.orchestration-mode",
+    havingValue = "in-memory",
+    matchIfMissing = true)
 public class InMemoryProcessOrchestrator implements ProcessOrchestrator {
   private static final Logger log = LoggerFactory.getLogger(InMemoryProcessOrchestrator.class);
 

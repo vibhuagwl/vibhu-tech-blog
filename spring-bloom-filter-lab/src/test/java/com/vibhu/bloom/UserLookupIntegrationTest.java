@@ -13,11 +13,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(properties = {
-    "bloom.seed-users=200",
-    "bloom.expected-insertions=10000",
-    "bloom.false-positive-rate=0.01"
-})
+@SpringBootTest(
+    properties = {
+      "bloom.seed-users=200",
+      "bloom.expected-insertions=10000",
+      "bloom.false-positive-rate=0.01"
+    })
 @AutoConfigureMockMvc
 class UserLookupIntegrationTest {
 
@@ -40,9 +41,11 @@ class UserLookupIntegrationTest {
 
   @Test
   void createUserUpdatesBloom() throws Exception {
-    mvc.perform(post("/api/users")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("""
+    mvc.perform(
+            post("/api/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
                 {"id":"user-new-42","displayName":"New","email":"new42@example.com"}
                 """))
         .andExpect(status().isCreated());

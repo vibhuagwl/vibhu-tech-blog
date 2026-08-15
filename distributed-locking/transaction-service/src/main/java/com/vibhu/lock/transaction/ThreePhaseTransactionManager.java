@@ -32,8 +32,7 @@ public class ThreePhaseTransactionManager {
       TwoPhaseLockingManager lockingManager,
       AccountServiceClient accountServiceClient,
       KafkaEventPublisher eventPublisher,
-      MeterRegistry meterRegistry
-  ) {
+      MeterRegistry meterRegistry) {
     this.transactionRepository = transactionRepository;
     this.lockingManager = lockingManager;
     this.accountServiceClient = accountServiceClient;
@@ -46,18 +45,21 @@ public class ThreePhaseTransactionManager {
 
   @Transactional
   public TransactionEntity begin(com.vibhu.lock.common.TransferRequest request) {
-    TransactionEntity transaction = transactionRepository.saveAndFlush(new TransactionEntity(
-        UUID.randomUUID().toString(),
-        request.sourceAccountId(),
-        request.destinationAccountId(),
-        request.amount()
-    ));
+    TransactionEntity transaction =
+        transactionRepository.saveAndFlush(
+            new TransactionEntity(
+                UUID.randomUUID().toString(),
+                request.sourceAccountId(),
+                request.destinationAccountId(),
+                request.amount()));
     eventPublisher.publishStarted(transaction);
-    eventPublisher.publishLifecycle(transaction, "transaction.begin", Map.of(
-        "sourceAccountId", transaction.getSourceAccountId(),
-        "destinationAccountId", transaction.getDestinationAccountId(),
-        "amount", transaction.getAmount()
-    ));
+    eventPublisher.publishLifecycle(
+        transaction,
+        "transaction.begin",
+        Map.of(
+            "sourceAccountId", transaction.getSourceAccountId(),
+            "destinationAccountId", transaction.getDestinationAccountId(),
+            "amount", transaction.getAmount()));
     return transaction;
   }
 
@@ -65,22 +67,28 @@ public class ThreePhaseTransactionManager {
   public TransactionEntity acquireLocks(TransactionEntity transaction) {
     transaction.transitionTo(TransactionState.LOCKING);
     transaction = transactionRepository.saveAndFlush(transaction);
-    eventPublisher.publishLifecycle(transaction, "transaction.locking", Map.of(
-        "lockOrder", List.of(transaction.getSourceAccountId(), transaction.getDestinationAccountId()).stream()
-            .distinct()
-            .sorted()
-            .toList()
-    ));
+    eventPublisher.publishLifecycle(
+        transaction,
+        "transaction.locking",
+        Map.of(
+            "lockOrder",
+            List.of(transaction.getSourceAccountId(), transaction.getDestinationAccountId())
+                .stream()
+                .distinct()
+                .sorted()
+                .toList()));
 
     List<TransactionLockEntity> locks = lockingManager.acquireLocks(transaction);
     transaction.setFencingSource(fenceFor(locks, transaction.getSourceAccountId()));
     transaction.setFencingDest(fenceFor(locks, transaction.getDestinationAccountId()));
     transaction = transactionRepository.saveAndFlush(transaction);
     eventPublisher.publishLockAcquired(transaction);
-    eventPublisher.publishLifecycle(transaction, "transaction.locks-acquired", Map.of(
-        "fencingSource", transaction.getFencingSource(),
-        "fencingDest", transaction.getFencingDest()
-    ));
+    eventPublisher.publishLifecycle(
+        transaction,
+        "transaction.locks-acquired",
+        Map.of(
+            "fencingSource", transaction.getFencingSource(),
+            "fencingDest", transaction.getFencingDest()));
     return transaction;
   }
 
@@ -91,10 +99,12 @@ public class ThreePhaseTransactionManager {
 
     AccountTransferApplyResponse response = accountServiceClient.prepareTransfer(transaction);
     eventPublisher.publishPrepared(transaction);
-    eventPublisher.publishLifecycle(transaction, "transaction.prepare", Map.of(
-        "sourceBalance", response.sourceBalance(),
-        "destinationBalance", response.destBalance()
-    ));
+    eventPublisher.publishLifecycle(
+        transaction,
+        "transaction.prepare",
+        Map.of(
+            "sourceBalance", response.sourceBalance(),
+            "destinationBalance", response.destBalance()));
     return transaction;
   }
 
@@ -102,9 +112,8 @@ public class ThreePhaseTransactionManager {
   public TransactionEntity preCommit(TransactionEntity transaction) {
     transaction.transitionTo(TransactionState.COMMIT_READY);
     transaction = transactionRepository.saveAndFlush(transaction);
-    eventPublisher.publishLifecycle(transaction, "transaction.pre-commit", Map.of(
-        "status", transaction.getStatus()
-    ));
+    eventPublisher.publishLifecycle(
+        transaction, "transaction.pre-commit", Map.of("status", transaction.getStatus()));
     return transaction;
   }
 
@@ -115,10 +124,12 @@ public class ThreePhaseTransactionManager {
     transaction = transactionRepository.saveAndFlush(transaction);
     successCounter.increment();
     eventPublisher.publishCommitted(transaction);
-    eventPublisher.publishLifecycle(transaction, "transaction.committed", Map.of(
-        "sourceBalance", response.sourceBalance(),
-        "destinationBalance", response.destBalance()
-    ));
+    eventPublisher.publishLifecycle(
+        transaction,
+        "transaction.committed",
+        Map.of(
+            "sourceBalance", response.sourceBalance(),
+            "destinationBalance", response.destBalance()));
     return transaction;
   }
 
@@ -144,15 +155,13 @@ public class ThreePhaseTransactionManager {
     transaction.transitionTo(TransactionState.RELEASED);
     transaction = transactionRepository.saveAndFlush(transaction);
     eventPublisher.publishLockReleased(transaction);
-    eventPublisher.publishLifecycle(transaction, "transaction.released", Map.of(
-        "status", transaction.getStatus()
-    ));
+    eventPublisher.publishLifecycle(
+        transaction, "transaction.released", Map.of("status", transaction.getStatus()));
     return transaction;
   }
 
   /**
-   * Crash recovery for incomplete 3PL states.
-   * PRE_COMMIT has not mutated balances → abort.
+   * Crash recovery for incomplete 3PL states. PRE_COMMIT has not mutated balances → abort.
    * COMMIT_READY may have crashed before apply → retry commit (idempotent via fencing/ledger).
    * COMMITTED without RELEASED → release locks only.
    */
@@ -164,8 +173,7 @@ public class ThreePhaseTransactionManager {
         transaction.getId(),
         transaction.getState(),
         transaction.getFencingSource(),
-        transaction.getFencingDest()
-    );
+        transaction.getFencingDest());
 
     return switch (transaction.getState()) {
       case COMMITTED -> releaseLocks(transaction);
@@ -177,7 +185,8 @@ public class ThreePhaseTransactionManager {
           TransactionEntity committed = commit(transaction);
           yield releaseLocks(committed);
         } catch (RuntimeException ex) {
-          log.warn("Recovery commit failed for {}, aborting: {}", transaction.getId(), ex.getMessage());
+          log.warn(
+              "Recovery commit failed for {}, aborting: {}", transaction.getId(), ex.getMessage());
           TransactionEntity aborted = rollback(transaction, "Recovery abort: " + ex.getMessage());
           yield releaseLocks(aborted);
         }
@@ -192,18 +201,17 @@ public class ThreePhaseTransactionManager {
 
   @Transactional
   public List<TransactionEntity> recoverStale(Instant updatedBefore) {
-    List<TransactionEntity> incomplete = transactionRepository.findByStateInAndUpdatedAtBefore(
-        EnumSet.of(
-            TransactionState.ACTIVE,
-            TransactionState.LOCKING,
-            TransactionState.PRE_COMMIT,
-            TransactionState.COMMIT_READY,
-            TransactionState.COMMITTED,
-            TransactionState.ABORTING,
-            TransactionState.TIMED_OUT
-        ),
-        updatedBefore
-    );
+    List<TransactionEntity> incomplete =
+        transactionRepository.findByStateInAndUpdatedAtBefore(
+            EnumSet.of(
+                TransactionState.ACTIVE,
+                TransactionState.LOCKING,
+                TransactionState.PRE_COMMIT,
+                TransactionState.COMMIT_READY,
+                TransactionState.COMMITTED,
+                TransactionState.ABORTING,
+                TransactionState.TIMED_OUT),
+            updatedBefore);
     return incomplete.stream().map(this::recoverOne).toList();
   }
 

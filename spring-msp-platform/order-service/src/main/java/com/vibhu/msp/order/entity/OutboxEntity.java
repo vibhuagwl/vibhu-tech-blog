@@ -12,8 +12,7 @@ import java.time.Instant;
 @Table(name = "outbox")
 public class OutboxEntity {
 
-  @Id
-  private String id;
+  @Id private String id;
 
   @Column(name = "aggregate_type", nullable = false)
   private String aggregateType;
@@ -38,7 +37,9 @@ public class OutboxEntity {
   private Instant publishedAt;
 
   public enum OutboxStatus {
-    PENDING, PUBLISHED, FAILED
+    PENDING,
+    PUBLISHED,
+    FAILED
   }
 
   public String getId() {

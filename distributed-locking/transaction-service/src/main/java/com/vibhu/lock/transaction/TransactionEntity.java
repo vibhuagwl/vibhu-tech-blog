@@ -50,10 +50,10 @@ public class TransactionEntity {
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
-  protected TransactionEntity() {
-  }
+  protected TransactionEntity() {}
 
-  public TransactionEntity(String id, String sourceAccountId, String destinationAccountId, BigDecimal amount) {
+  public TransactionEntity(
+      String id, String sourceAccountId, String destinationAccountId, BigDecimal amount) {
     this.id = id;
     this.sourceAccountId = sourceAccountId;
     this.destinationAccountId = destinationAccountId;
@@ -83,21 +83,30 @@ public class TransactionEntity {
 
   private static boolean isAllowed(TransactionState from, TransactionState to) {
     return switch (from) {
-      case ACTIVE -> to == TransactionState.LOCKING || to == TransactionState.ABORTING || to == TransactionState.ABORTED;
-      case LOCKING -> to == TransactionState.PRE_COMMIT
-          || to == TransactionState.ABORTING
-          || to == TransactionState.ABORTED
-          || to == TransactionState.TIMED_OUT;
-      case PRE_COMMIT -> to == TransactionState.COMMIT_READY
-          || to == TransactionState.ABORTING
-          || to == TransactionState.ABORTED;
-      case COMMIT_READY -> to == TransactionState.COMMITTED
-          || to == TransactionState.ABORTING
-          || to == TransactionState.ABORTED;
+      case ACTIVE ->
+          to == TransactionState.LOCKING
+              || to == TransactionState.ABORTING
+              || to == TransactionState.ABORTED;
+      case LOCKING ->
+          to == TransactionState.PRE_COMMIT
+              || to == TransactionState.ABORTING
+              || to == TransactionState.ABORTED
+              || to == TransactionState.TIMED_OUT;
+      case PRE_COMMIT ->
+          to == TransactionState.COMMIT_READY
+              || to == TransactionState.ABORTING
+              || to == TransactionState.ABORTED;
+      case COMMIT_READY ->
+          to == TransactionState.COMMITTED
+              || to == TransactionState.ABORTING
+              || to == TransactionState.ABORTED;
       case COMMITTED -> to == TransactionState.RELEASED;
       case ABORTING -> to == TransactionState.ABORTED;
       case ABORTED -> to == TransactionState.RELEASED;
-      case TIMED_OUT -> to == TransactionState.ABORTING || to == TransactionState.ABORTED || to == TransactionState.RELEASED;
+      case TIMED_OUT ->
+          to == TransactionState.ABORTING
+              || to == TransactionState.ABORTED
+              || to == TransactionState.RELEASED;
       case RELEASED -> false;
     };
   }

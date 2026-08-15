@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PiiAccessAuditRepository extends JpaRepository<PiiAccessAuditEntity, UUID> {
 
-    List<PiiAccessAuditEntity> findByCustomerIdOrderByOccurredAtDesc(UUID customerId);
+  List<PiiAccessAuditEntity> findByCustomerIdOrderByOccurredAtDesc(UUID customerId);
 }

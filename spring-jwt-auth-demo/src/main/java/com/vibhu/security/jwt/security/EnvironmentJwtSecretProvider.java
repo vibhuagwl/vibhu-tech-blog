@@ -19,36 +19,40 @@ import org.springframework.stereotype.Component;
  * </pre>
  */
 @Component
-@ConditionalOnProperty(name = "security.jwt.secret-source", havingValue = "env", matchIfMissing = true)
+@ConditionalOnProperty(
+    name = "security.jwt.secret-source",
+    havingValue = "env",
+    matchIfMissing = true)
 public class EnvironmentJwtSecretProvider implements JwtSecretProvider {
 
-    private final byte[] current;
-    private final byte[] previous;
+  private final byte[] current;
+  private final byte[] previous;
 
-    public EnvironmentJwtSecretProvider(JwtProperties properties) {
-        this.current = requireHmac(properties.getJwt().getSecret(), "JWT_SECRET / security.jwt.secret");
-        String prev = properties.getJwt().getPreviousSecret();
-        this.previous = (prev == null || prev.isBlank()) ? null : requireHmac(prev, "JWT_PREVIOUS_SECRET");
-    }
+  public EnvironmentJwtSecretProvider(JwtProperties properties) {
+    this.current = requireHmac(properties.getJwt().getSecret(), "JWT_SECRET / security.jwt.secret");
+    String prev = properties.getJwt().getPreviousSecret();
+    this.previous =
+        (prev == null || prev.isBlank()) ? null : requireHmac(prev, "JWT_PREVIOUS_SECRET");
+  }
 
-    static byte[] requireHmac(String secret, String name) {
-        if (secret == null || secret.isBlank()) {
-            throw new IllegalStateException(name + " is required and must not be empty");
-        }
-        byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length < 32) {
-            throw new IllegalStateException(name + " must be at least 32 bytes for HS256");
-        }
-        return bytes;
+  static byte[] requireHmac(String secret, String name) {
+    if (secret == null || secret.isBlank()) {
+      throw new IllegalStateException(name + " is required and must not be empty");
     }
+    byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
+    if (bytes.length < 32) {
+      throw new IllegalStateException(name + " must be at least 32 bytes for HS256");
+    }
+    return bytes;
+  }
 
-    @Override
-    public byte[] currentHmacSecret() {
-        return current;
-    }
+  @Override
+  public byte[] currentHmacSecret() {
+    return current;
+  }
 
-    @Override
-    public byte[] previousHmacSecret() {
-        return previous;
-    }
+  @Override
+  public byte[] previousHmacSecret() {
+    return previous;
+  }
 }

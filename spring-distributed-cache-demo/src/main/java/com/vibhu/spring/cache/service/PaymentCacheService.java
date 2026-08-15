@@ -75,8 +75,7 @@ public class PaymentCacheService {
         if (again != null) {
           return again;
         }
-        Payment loaded =
-            repo.findById(id).orElseThrow(() -> new PaymentNotFoundException(id));
+        Payment loaded = repo.findById(id).orElseThrow(() -> new PaymentNotFoundException(id));
         l1.put(id, loaded);
         return loaded;
       } finally {
@@ -119,10 +118,11 @@ public class PaymentCacheService {
     Payment current = repo.findById(id).orElseThrow(() -> new PaymentNotFoundException(id));
     Payment updated = new Payment(current.id(), status, current.amountCents());
     repo.save(updated);
-    Runnable bust = () -> {
-      evict(id);
-      log.info("cache invalidated after commit id={}", id);
-    };
+    Runnable bust =
+        () -> {
+          evict(id);
+          log.info("cache invalidated after commit id={}", id);
+        };
     if (TransactionSynchronizationManager.isSynchronizationActive()) {
       TransactionSynchronizationManager.registerSynchronization(
           new TransactionSynchronization() {

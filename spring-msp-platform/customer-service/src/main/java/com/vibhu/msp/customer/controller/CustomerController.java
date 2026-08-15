@@ -26,8 +26,9 @@ public class CustomerController {
   @GetMapping("/{customerId}")
   public ResponseEntity<CustomerResponse> getCustomer(@PathVariable String customerId) {
     CustomerEntity customer = customerCacheService.getCustomer(customerId);
-    return ResponseEntity.ok(new CustomerResponse(
-        customer.getId(), customer.getName(), customer.getEmail(), customer.getTier()));
+    return ResponseEntity.ok(
+        new CustomerResponse(
+            customer.getId(), customer.getName(), customer.getEmail(), customer.getTier()));
   }
 
   public record CustomerResponse(String id, String name, String email, String tier) {}

@@ -134,6 +134,9 @@ public class TenantProvisioningService {
   }
 
   private String slugify(String name) {
-    return name.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
+    return name.trim()
+        .toLowerCase(Locale.ROOT)
+        .replaceAll("[^a-z0-9]+", "-")
+        .replaceAll("^-|-$", "");
   }
 }

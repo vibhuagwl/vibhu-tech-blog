@@ -15,7 +15,8 @@ public class CashLineKafkaListeners {
   private final CashLineProcessingService processing;
   private final DeadLetterMessageService dlq;
 
-  public CashLineKafkaListeners(CashLineProcessingService processing, DeadLetterMessageService dlq) {
+  public CashLineKafkaListeners(
+      CashLineProcessingService processing, DeadLetterMessageService dlq) {
     this.processing = processing;
     this.dlq = dlq;
   }
@@ -50,8 +51,8 @@ public class CashLineKafkaListeners {
   }
 
   /**
-   * Lab-grade delay for retry topics using hadron-retry-at header.
-   * Production should use a dedicated delay mechanism, not listener Thread.sleep.
+   * Lab-grade delay for retry topics using hadron-retry-at header. Production should use a
+   * dedicated delay mechanism, not listener Thread.sleep.
    */
   private void waitIfNeeded(ConsumerRecord<String, String> record) {
     var envelope = KafkaConsumerConfig.toEnvelope(record);

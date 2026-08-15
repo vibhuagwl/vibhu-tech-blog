@@ -11,8 +11,7 @@ public record RateLimitResult(
     String key,
     String policyId,
     boolean degraded,
-    String reason
-) {
+    String reason) {
 
   public RateLimitResult {
     retryAfter = retryAfter == null ? Duration.ZERO : retryAfter;
@@ -25,12 +24,15 @@ public record RateLimitResult(
     return new RateLimitResult(true, remaining, Duration.ZERO, limit, key, policyId, false, "ok");
   }
 
-  public static RateLimitResult reject(long remaining, Duration retryAfter, long limit, String key, String policyId) {
-    return new RateLimitResult(false, remaining, retryAfter, limit, key, policyId, false, "quota_exceeded");
+  public static RateLimitResult reject(
+      long remaining, Duration retryAfter, long limit, String key, String policyId) {
+    return new RateLimitResult(
+        false, remaining, retryAfter, limit, key, policyId, false, "quota_exceeded");
   }
 
   public static RateLimitResult blocked(String key, String policyId) {
-    return new RateLimitResult(false, 0, Duration.ofHours(1), 0, key, policyId, false, "client_blocked");
+    return new RateLimitResult(
+        false, 0, Duration.ofHours(1), 0, key, policyId, false, "client_blocked");
   }
 
   public static RateLimitResult failClosed(String key, String policyId, String reason) {

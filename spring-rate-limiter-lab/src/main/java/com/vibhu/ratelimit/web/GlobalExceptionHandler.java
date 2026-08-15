@@ -16,12 +16,13 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
         .header(RateLimitHeaders.LIMIT, Long.toString(result.limit()))
         .header(RateLimitHeaders.REMAINING, Long.toString(result.remainingTokens()))
-        .header(RateLimitHeaders.RETRY_AFTER, Long.toString(Math.max(1, result.retryAfterSeconds())))
-        .body(Map.of(
-            "error", "rate_limited",
-            "reason", result.reason(),
-            "policy", result.policyId()
-        ));
+        .header(
+            RateLimitHeaders.RETRY_AFTER, Long.toString(Math.max(1, result.retryAfterSeconds())))
+        .body(
+            Map.of(
+                "error", "rate_limited",
+                "reason", result.reason(),
+                "policy", result.policyId()));
   }
 
   @ExceptionHandler(IllegalArgumentException.class)

@@ -12,8 +12,8 @@ public class PaymentClient {
 
   private final RestClient restClient;
 
-  public PaymentClient(RestClient.Builder builder,
-                       @Value("${msp.payment.base-url}") String baseUrl) {
+  public PaymentClient(
+      RestClient.Builder builder, @Value("${msp.payment.base-url}") String baseUrl) {
     this.restClient = builder.baseUrl(baseUrl).build();
   }
 
@@ -21,10 +21,7 @@ public class PaymentClient {
   @Retry(name = "payment")
   @Bulkhead(name = "payment")
   public String ping() {
-    return restClient.get()
-        .uri("/api/payments/health")
-        .retrieve()
-        .body(String.class);
+    return restClient.get().uri("/api/payments/health").retrieve().body(String.class);
   }
 
   @SuppressWarnings("unused")

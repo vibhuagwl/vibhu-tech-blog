@@ -13,8 +13,7 @@ import java.time.Instant;
 @Table(name = "payments")
 public class PaymentEntity {
 
-  @Id
-  private String id;
+  @Id private String id;
 
   @Column(name = "order_id", nullable = false)
   private String orderId;
@@ -33,19 +32,55 @@ public class PaymentEntity {
   private Instant createdAt;
 
   public enum PaymentStatus {
-    AUTHORIZED, FAILED
+    AUTHORIZED,
+    FAILED
   }
 
-  public String getId() { return id; }
-  public void setId(String id) { this.id = id; }
-  public String getOrderId() { return orderId; }
-  public void setOrderId(String orderId) { this.orderId = orderId; }
-  public BigDecimal getAmount() { return amount; }
-  public void setAmount(BigDecimal amount) { this.amount = amount; }
-  public PaymentStatus getStatus() { return status; }
-  public void setStatus(PaymentStatus status) { this.status = status; }
-  public String getFailureReason() { return failureReason; }
-  public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
-  public Instant getCreatedAt() { return createdAt; }
-  public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+  public String getId() {
+    return id;
+  }
+
+  public void setId(String id) {
+    this.id = id;
+  }
+
+  public String getOrderId() {
+    return orderId;
+  }
+
+  public void setOrderId(String orderId) {
+    this.orderId = orderId;
+  }
+
+  public BigDecimal getAmount() {
+    return amount;
+  }
+
+  public void setAmount(BigDecimal amount) {
+    this.amount = amount;
+  }
+
+  public PaymentStatus getStatus() {
+    return status;
+  }
+
+  public void setStatus(PaymentStatus status) {
+    this.status = status;
+  }
+
+  public String getFailureReason() {
+    return failureReason;
+  }
+
+  public void setFailureReason(String failureReason) {
+    this.failureReason = failureReason;
+  }
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
+  public void setCreatedAt(Instant createdAt) {
+    this.createdAt = createdAt;
+  }
 }

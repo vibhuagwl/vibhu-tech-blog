@@ -18,9 +18,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Admin CRUD for policies. Production must sit behind authz (role RATE_LIMIT_ADMIN)
- * and publish change events so every replica refreshes. This lab updates the
- * in-process provider immediately — the next {@code allow()} sees the new quota.
+ * Admin CRUD for policies. Production must sit behind authz (role RATE_LIMIT_ADMIN) and publish
+ * change events so every replica refreshes. This lab updates the in-process provider immediately —
+ * the next {@code allow()} sees the new quota.
  */
 @RestController
 @RequestMapping("/api/rate-limits")
@@ -41,11 +41,15 @@ public class RateLimitConfigController {
 
   @GetMapping("/{key}")
   public ResponseEntity<RateLimitPolicy> get(@PathVariable String key) {
-    return provider.findById(key).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    return provider
+        .findById(key)
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.notFound().build());
   }
 
   @PostMapping
-  public ResponseEntity<RateLimitPolicy> create(@Valid @RequestBody RateLimitConfigRequest request) {
+  public ResponseEntity<RateLimitPolicy> create(
+      @Valid @RequestBody RateLimitConfigRequest request) {
     if (provider.findById(request.id()).isPresent()) {
       return ResponseEntity.status(HttpStatus.CONFLICT).build();
     }
@@ -55,7 +59,8 @@ public class RateLimitConfigController {
   }
 
   @PutMapping("/{key}")
-  public RateLimitPolicy update(@PathVariable String key, @Valid @RequestBody RateLimitConfigRequest request) {
+  public RateLimitPolicy update(
+      @PathVariable String key, @Valid @RequestBody RateLimitConfigRequest request) {
     RateLimitPolicy policy = request.toPolicy();
     if (!key.equals(policy.id())) {
       throw new IllegalArgumentException("path key must match body id");

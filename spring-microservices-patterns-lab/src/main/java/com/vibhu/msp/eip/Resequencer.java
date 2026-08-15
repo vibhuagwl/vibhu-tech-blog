@@ -16,7 +16,7 @@ public final class Resequencer<T> {
 
   public List<T> accept(SequencedMessage<T> message) {
     buffer.put(message.sequence(), message.payload());
-  return drainReady();
+    return drainReady();
   }
 
   public List<T> drainReady() {

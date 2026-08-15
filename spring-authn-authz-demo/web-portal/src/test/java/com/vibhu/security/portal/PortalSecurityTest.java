@@ -17,45 +17,47 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 class PortalSecurityTest {
 
-    @Autowired
-    MockMvc mockMvc;
+  @Autowired MockMvc mockMvc;
 
-    @Test
-    void homeIsPublic() throws Exception {
-        mockMvc.perform(get("/")).andExpect(status().isOk());
-    }
+  @Test
+  void homeIsPublic() throws Exception {
+    mockMvc.perform(get("/")).andExpect(status().isOk());
+  }
 
-    @Test
-    void paymentsRequiresAuth() throws Exception {
-        mockMvc.perform(get("/payments")).andExpect(status().is3xxRedirection());
-    }
+  @Test
+  void paymentsRequiresAuth() throws Exception {
+    mockMvc.perform(get("/payments")).andExpect(status().is3xxRedirection());
+  }
 
-    @Test
-    void userCanAccessPayments() throws Exception {
-        mockMvc.perform(get("/payments").with(user("alice").roles("USER")))
-                .andExpect(status().isOk());
-    }
+  @Test
+  void userCanAccessPayments() throws Exception {
+    mockMvc.perform(get("/payments").with(user("alice").roles("USER"))).andExpect(status().isOk());
+  }
 
-    @Test
-    void userCannotAccessAdmin() throws Exception {
-        mockMvc.perform(get("/admin").with(user("alice").roles("USER")))
-                .andExpect(status().isForbidden());
-    }
+  @Test
+  void userCannotAccessAdmin() throws Exception {
+    mockMvc
+        .perform(get("/admin").with(user("alice").roles("USER")))
+        .andExpect(status().isForbidden());
+  }
 
-    @Test
-    void adminCanAccessAdmin() throws Exception {
-        mockMvc.perform(get("/admin").with(user("admin").roles("ADMIN", "USER")))
-                .andExpect(status().isOk());
-    }
+  @Test
+  void adminCanAccessAdmin() throws Exception {
+    mockMvc
+        .perform(get("/admin").with(user("admin").roles("ADMIN", "USER")))
+        .andExpect(status().isOk());
+  }
 
-    @Test
-    void createPaymentWithCsrf() throws Exception {
-        mockMvc.perform(post("/payments")
-                        .param("amount", "10.00")
-                        .param("note", "test")
-                        .with(user("alice").roles("USER"))
-                        .with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/payments"));
-    }
+  @Test
+  void createPaymentWithCsrf() throws Exception {
+    mockMvc
+        .perform(
+            post("/payments")
+                .param("amount", "10.00")
+                .param("note", "test")
+                .with(user("alice").roles("USER"))
+                .with(csrf()))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/payments"));
+  }
 }

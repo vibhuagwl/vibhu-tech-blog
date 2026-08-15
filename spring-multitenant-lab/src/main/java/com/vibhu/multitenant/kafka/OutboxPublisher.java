@@ -57,7 +57,8 @@ public class OutboxPublisher {
     List<OutboxEventEntity> pending = outbox.findTop50ByStatusOrderByCreatedAtAsc("PENDING");
     for (OutboxEventEntity event : pending) {
       try {
-        bus.publish(properties.getKafka().getTopicOrders(), event.getAggregateId(), event.getPayload());
+        bus.publish(
+            properties.getKafka().getTopicOrders(), event.getAggregateId(), event.getPayload());
         event.setStatus("PUBLISHED");
         event.setPublishedAt(Instant.now());
         outbox.save(event);

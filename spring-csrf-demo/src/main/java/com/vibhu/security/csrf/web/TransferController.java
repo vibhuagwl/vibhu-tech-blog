@@ -31,15 +31,14 @@ public class TransferController {
   }
 
   /**
-   * State-changing POST. Spring Security requires a valid CSRF token
-   * (_csrf form field or X-XSRF-TOKEN header) or the request is rejected with 403.
+   * State-changing POST. Spring Security requires a valid CSRF token (_csrf form field or
+   * X-XSRF-TOKEN header) or the request is rejected with 403.
    */
   @PostMapping("/transfer")
   public String transfer(
       @RequestParam String toAccount,
       @RequestParam String amount,
-      RedirectAttributes redirectAttributes
-  ) {
+      RedirectAttributes redirectAttributes) {
     String entry = "Transferred ₹" + amount + " → " + toAccount;
     ledger.add(entry);
     redirectAttributes.addFlashAttribute("message", entry + " (CSRF token accepted)");

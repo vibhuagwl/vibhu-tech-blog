@@ -13,21 +13,20 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 @Configuration
 public class OAuth2ClientConfig {
 
-    @Bean
-    OAuth2AuthorizedClientService authorizedClientService(ClientRegistrationRepository registrations) {
-        return new InMemoryOAuth2AuthorizedClientService(registrations);
-    }
+  @Bean
+  OAuth2AuthorizedClientService authorizedClientService(
+      ClientRegistrationRepository registrations) {
+    return new InMemoryOAuth2AuthorizedClientService(registrations);
+  }
 
-    @Bean
-    OAuth2AuthorizedClientManager authorizedClientManager(
-            ClientRegistrationRepository registrations,
-            OAuth2AuthorizedClientService clientService) {
-        OAuth2AuthorizedClientProvider provider = OAuth2AuthorizedClientProviderBuilder.builder()
-                .clientCredentials()
-                .build();
-        AuthorizedClientServiceOAuth2AuthorizedClientManager manager =
-                new AuthorizedClientServiceOAuth2AuthorizedClientManager(registrations, clientService);
-        manager.setAuthorizedClientProvider(provider);
-        return manager;
-    }
+  @Bean
+  OAuth2AuthorizedClientManager authorizedClientManager(
+      ClientRegistrationRepository registrations, OAuth2AuthorizedClientService clientService) {
+    OAuth2AuthorizedClientProvider provider =
+        OAuth2AuthorizedClientProviderBuilder.builder().clientCredentials().build();
+    AuthorizedClientServiceOAuth2AuthorizedClientManager manager =
+        new AuthorizedClientServiceOAuth2AuthorizedClientManager(registrations, clientService);
+    manager.setAuthorizedClientProvider(provider);
+    return manager;
+  }
 }

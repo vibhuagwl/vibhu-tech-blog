@@ -1,6 +1,11 @@
 package com.vibhu.msp.it;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.vibhu.msp.kafka.OrderCreatedListener;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,26 +24,21 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @SpringBootTest
 @Testcontainers
 @EnabledIfEnvironmentVariable(named = "MSP_IT", matches = "true")
-@TestPropertySource(properties = {
-    "msp.kafka.enabled=true",
-    "msp.kafka.order-topic=order-created-it",
-    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
-    "spring.kafka.listener.auto-startup=true"
-})
+@TestPropertySource(
+    properties = {
+      "msp.kafka.enabled=true",
+      "msp.kafka.order-topic=order-created-it",
+      "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
+      "spring.kafka.listener.auto-startup=true"
+    })
 class KafkaConsumerIT {
 
   @Container
-  static KafkaContainer kafka = new KafkaContainer(
-      DockerImageName.parse("confluentinc/cp-kafka:7.6.0"));
+  static KafkaContainer kafka =
+      new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"));
 
   @DynamicPropertySource
   static void kafkaProps(DynamicPropertyRegistry registry) {

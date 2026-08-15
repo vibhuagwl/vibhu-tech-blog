@@ -26,28 +26,28 @@ public class AccountService {
   @Transactional
   public AccountView create(CreateAccountRequest request) {
     requirePositiveOrZero(request.initialBalance(), "initialBalance");
-    AccountEntity account = new AccountEntity(request.accountId(), request.initialBalance(), "OPEN");
+    AccountEntity account =
+        new AccountEntity(request.accountId(), request.initialBalance(), "OPEN");
     return toView(accountRepository.save(account));
   }
 
   @Transactional(readOnly = true)
   public AccountView get(String id) {
-    return accountRepository.findById(id)
+    return accountRepository
+        .findById(id)
         .map(this::toView)
         .orElseThrow(() -> new EntityNotFoundException("Account not found: " + id));
   }
 
   /**
-   * 3PL prepare: take {@code SELECT ... FOR UPDATE} row locks, validate fencing + funds,
-   * but do not mutate balances. Commit applies the mutation under the same Redis lease.
+   * 3PL prepare: take {@code SELECT ... FOR UPDATE} row locks, validate fencing + funds, but do not
+   * mutate balances. Commit applies the mutation under the same Redis lease.
    */
   @Transactional
   public TransferApplyResponse prepareTransfer(TransferApplyRequest request) {
     requirePositive(request.amount(), "amount");
-    Map<String, AccountEntity> locked = lockAccountsInDeterministicOrder(
-        request.sourceAccountId(),
-        request.destAccountId()
-    );
+    Map<String, AccountEntity> locked =
+        lockAccountsInDeterministicOrder(request.sourceAccountId(), request.destAccountId());
     AccountEntity source = locked.get(request.sourceAccountId());
     AccountEntity destination = locked.get(request.destAccountId());
     validateFence(source, request.fencingTokenSource(), "source");
@@ -69,10 +69,8 @@ public class AccountService {
      * fencing rejects stale lock holders after lease loss, and the DB transaction
      * makes debit/credit atomic as the final consistency boundary.
      */
-    Map<String, AccountEntity> locked = lockAccountsInDeterministicOrder(
-        request.sourceAccountId(),
-        request.destAccountId()
-    );
+    Map<String, AccountEntity> locked =
+        lockAccountsInDeterministicOrder(request.sourceAccountId(), request.destAccountId());
 
     AccountEntity source = locked.get(request.sourceAccountId());
     AccountEntity destination = locked.get(request.destAccountId());
@@ -80,7 +78,8 @@ public class AccountService {
     validateFence(destination, request.fencingTokenDest(), "destination");
 
     if (source == destination) {
-      source.setLastAppliedFence(Math.max(source.getLastAppliedFence(), request.fencingTokenSource()));
+      source.setLastAppliedFence(
+          Math.max(source.getLastAppliedFence(), request.fencingTokenSource()));
       return response(request, source, destination);
     }
 
@@ -90,38 +89,41 @@ public class AccountService {
 
     source.setBalance(source.getBalance().subtract(request.amount()));
     destination.setBalance(destination.getBalance().add(request.amount()));
-    source.setLastAppliedFence(Math.max(source.getLastAppliedFence(), request.fencingTokenSource()));
-    destination.setLastAppliedFence(Math.max(destination.getLastAppliedFence(), request.fencingTokenDest()));
+    source.setLastAppliedFence(
+        Math.max(source.getLastAppliedFence(), request.fencingTokenSource()));
+    destination.setLastAppliedFence(
+        Math.max(destination.getLastAppliedFence(), request.fencingTokenDest()));
 
     return response(request, source, destination);
   }
 
-  private Map<String, AccountEntity> lockAccountsInDeterministicOrder(String sourceId, String destinationId) {
+  private Map<String, AccountEntity> lockAccountsInDeterministicOrder(
+      String sourceId, String destinationId) {
     Map<String, AccountEntity> locked = new LinkedHashMap<>();
     List.of(sourceId, destinationId).stream()
         .distinct()
         .sorted(Comparator.naturalOrder())
-        .forEach(accountId -> {
-          AccountEntity account = accountRepository.findByIdForUpdate(accountId)
-              .orElseThrow(() -> new EntityNotFoundException("Account not found: " + accountId));
-          locked.put(accountId, account);
-        });
+        .forEach(
+            accountId -> {
+              AccountEntity account =
+                  accountRepository
+                      .findByIdForUpdate(accountId)
+                      .orElseThrow(
+                          () -> new EntityNotFoundException("Account not found: " + accountId));
+              locked.put(accountId, account);
+            });
     return locked;
   }
 
   private void validateFence(AccountEntity account, long fencingToken, String role) {
     if (fencingToken < account.getLastAppliedFence()) {
       throw new FenceTokenRejectedException(
-          "Rejected stale " + role + " fence " + fencingToken + " for account " + account.getId()
-      );
+          "Rejected stale " + role + " fence " + fencingToken + " for account " + account.getId());
     }
   }
 
   private TransferApplyResponse response(
-      TransferApplyRequest request,
-      AccountEntity source,
-      AccountEntity destination
-  ) {
+      TransferApplyRequest request, AccountEntity source, AccountEntity destination) {
     return new TransferApplyResponse(
         request.transactionId(),
         source.getId(),
@@ -129,12 +131,12 @@ public class AccountService {
         source.getVersion(),
         destination.getId(),
         destination.getBalance(),
-        destination.getVersion()
-    );
+        destination.getVersion());
   }
 
   private AccountView toView(AccountEntity entity) {
-    return new AccountView(entity.getId(), entity.getBalance(), entity.getVersion(), entity.getStatus());
+    return new AccountView(
+        entity.getId(), entity.getBalance(), entity.getVersion(), entity.getStatus());
   }
 
   private void requirePositive(BigDecimal value, String field) {

@@ -28,8 +28,7 @@ public class CashLineStateEntity {
   @Column(length = 64)
   private String blockedReason;
 
-  @Version
-  private int version;
+  @Version private int version;
 
   @Column(nullable = false)
   private Instant updatedAt = Instant.now();

@@ -10,22 +10,42 @@ public class MasterGapsLab {
 
   static class Point {
     final int x, y;
-    Point(int x, int y) { this.x = x; this.y = y; }
-    @Override public boolean equals(Object o) {
+
+    Point(int x, int y) {
+      this.x = x;
+      this.y = y;
+    }
+
+    @Override
+    public boolean equals(Object o) {
       if (!(o instanceof Point p)) return false;
       return x == p.x && y == p.y;
     }
-    @Override public int hashCode() { return Objects.hash(x, y); }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(x, y);
+    }
   }
 
   static class ColoredPoint extends Point {
     final String color;
-    ColoredPoint(int x, int y, String color) { super(x, y); this.color = color; }
-    @Override public boolean equals(Object o) {
+
+    ColoredPoint(int x, int y, String color) {
+      super(x, y);
+      this.color = color;
+    }
+
+    @Override
+    public boolean equals(Object o) {
       if (!(o instanceof ColoredPoint cp)) return false;
       return super.equals(cp) && Objects.equals(color, cp.color);
     }
-    @Override public int hashCode() { return Objects.hash(super.hashCode(), color); }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(super.hashCode(), color);
+    }
   }
 
   public static void main(String[] args) {
@@ -61,7 +81,8 @@ public class MasterGapsLab {
     System.out.println("before clear strong ref size=" + weak.size());
     key = null;
     System.gc();
-    System.out.println("after null+gc size=" + weak.size() + " (may still be 1 — GC timing not guaranteed)");
+    System.out.println(
+        "after null+gc size=" + weak.size() + " (may still be 1 — GC timing not guaranteed)");
 
     System.out.println("\n== put replacement keeps first key instance ==");
     record Emp(String name) {}
@@ -71,7 +92,14 @@ public class MasterGapsLab {
     map.put(k1, "v1");
     map.put(k2, "v2");
     Emp stored = map.keySet().iterator().next();
-    System.out.println("size=" + map.size() + " value=" + map.get(new Emp("a"))
-        + " storedKey==k1=" + (stored == k1) + " storedKey==k2=" + (stored == k2));
+    System.out.println(
+        "size="
+            + map.size()
+            + " value="
+            + map.get(new Emp("a"))
+            + " storedKey==k1="
+            + (stored == k1)
+            + " storedKey==k2="
+            + (stored == k2));
   }
 }

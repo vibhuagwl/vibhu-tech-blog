@@ -22,11 +22,11 @@ public class ApiController {
   public ResponseEntity<Map<String, Object>> me() {
     return ResponseEntity.ok()
         .header("X-Request-Id", UUID.randomUUID().toString())
-        .body(Map.of(
-            "username", "alice",
-            "balance", 10_000,
-            "currency", "INR"
-        ));
+        .body(
+            Map.of(
+                "username", "alice",
+                "balance", 10_000,
+                "currency", "INR"));
   }
 
   @PostMapping("/transfers")
@@ -34,10 +34,8 @@ public class ApiController {
     return Map.of(
         "status", "ACCEPTED",
         "toAccount", request.toAccount(),
-        "amount", request.amount()
-    );
+        "amount", request.amount());
   }
 
-  public record TransferRequest(String toAccount, int amount) {
-  }
+  public record TransferRequest(String toAccount, int amount) {}
 }

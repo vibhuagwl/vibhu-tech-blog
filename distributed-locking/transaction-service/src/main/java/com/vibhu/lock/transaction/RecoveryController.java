@@ -27,7 +27,8 @@ public class RecoveryController {
 
   @PostMapping("/run")
   public Map<String, Object> run(@RequestParam(defaultValue = "30") long staleSeconds) {
-    List<TransactionView> recovered = recoveryManager.recoverStale(Duration.ofSeconds(staleSeconds));
+    List<TransactionView> recovered =
+        recoveryManager.recoverStale(Duration.ofSeconds(staleSeconds));
     return Map.of("recovered", recovered.size(), "transactions", recovered);
   }
 

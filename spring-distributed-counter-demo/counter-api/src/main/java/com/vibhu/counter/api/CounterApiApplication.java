@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @SpringBootApplication
 @EnableConfigurationProperties(CounterProperties.class)
 public class CounterApiApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(CounterApiApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(CounterApiApplication.class, args);
+  }
 }

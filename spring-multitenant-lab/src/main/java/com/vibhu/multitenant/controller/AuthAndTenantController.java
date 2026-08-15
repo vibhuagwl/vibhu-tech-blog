@@ -47,10 +47,14 @@ public class AuthAndTenantController {
     this.provisioning = provisioning;
   }
 
-  public record LoginRequest(@NotBlank String tenantSlug, @Email String email, @NotBlank String password) {}
+  public record LoginRequest(
+      @NotBlank String tenantSlug, @Email String email, @NotBlank String password) {}
 
   public record ProvisionRequest(
-      @NotBlank String name, String plan, @Email String adminEmail, @NotBlank String adminPassword) {}
+      @NotBlank String name,
+      String plan,
+      @Email String adminEmail,
+      @NotBlank String adminPassword) {}
 
   public record TenantResponse(
       UUID id,

@@ -20,54 +20,65 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * customer-service is internal-only — only other microservices (support-api) may call it.
- */
+/** customer-service is internal-only — only other microservices (support-api) may call it. */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
-    }
+  @Bean
+  PasswordEncoder passwordEncoder() {
+    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+  }
 
-    @Bean
-    UserDetailsService userDetailsService(SecretProvider secrets, PasswordEncoder encoder) {
-        UserDetails serviceClient = User.builder()
-                .username(secrets.optional("SERVICE_CLIENT_USER", "support-api"))
-                .password(encoder.encode(secrets.require("SERVICE_CLIENT_PASSWORD")))
-                .roles("SERVICE")
-                .build();
-        return new InMemoryUserDetailsManager(serviceClient);
-    }
+  @Bean
+  UserDetailsService userDetailsService(SecretProvider secrets, PasswordEncoder encoder) {
+    UserDetails serviceClient =
+        User.builder()
+            .username(secrets.optional("SERVICE_CLIENT_USER", "support-api"))
+            .password(encoder.encode(secrets.require("SERVICE_CLIENT_PASSWORD")))
+            .roles("SERVICE")
+            .build();
+    return new InMemoryUserDetailsManager(serviceClient);
+  }
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/internal/**").hasRole("SERVICE")
-                        .anyRequest().denyAll())
-                .httpBasic(Customizer.withDefaults())
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((req, res, e) -> {
-                            res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            res.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                            objectMapper.writeValue(res.getOutputStream(),
-                                    Map.of("error", "unauthorized", "message", "Service credentials required"));
+  @Bean
+  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http.csrf(csrf -> csrf.disable())
+        .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers("/actuator/health", "/actuator/info")
+                    .permitAll()
+                    .requestMatchers("/internal/**")
+                    .hasRole("SERVICE")
+                    .anyRequest()
+                    .denyAll())
+        .httpBasic(Customizer.withDefaults())
+        .exceptionHandling(
+            ex ->
+                ex.authenticationEntryPoint(
+                        (req, res, e) -> {
+                          res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                          res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                          objectMapper.writeValue(
+                              res.getOutputStream(),
+                              Map.of(
+                                  "error",
+                                  "unauthorized",
+                                  "message",
+                                  "Service credentials required"));
                         })
-                        .accessDeniedHandler((req, res, e) -> {
-                            res.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                            res.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                            objectMapper.writeValue(res.getOutputStream(),
-                                    Map.of("error", "forbidden", "message", "Internal service only"));
+                    .accessDeniedHandler(
+                        (req, res, e) -> {
+                          res.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                          res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                          objectMapper.writeValue(
+                              res.getOutputStream(),
+                              Map.of("error", "forbidden", "message", "Internal service only"));
                         }));
-        return http.build();
-    }
+    return http.build();
+  }
 }

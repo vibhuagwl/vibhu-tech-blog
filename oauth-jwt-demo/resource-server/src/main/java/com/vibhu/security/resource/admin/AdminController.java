@@ -10,12 +10,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    @GetMapping("/reports")
-    @PreAuthorize("hasRole('ADMIN') and hasAuthority('SCOPE_report.read')")
-    public Map<String, Object> reports() {
-        return Map.of(
-                "report", "daily-settlement",
-                "status", "OK",
-                "note", "Requires ROLE_ADMIN + SCOPE_report.read");
-    }
+  @GetMapping("/reports")
+  @PreAuthorize("hasRole('ADMIN') and hasAuthority('SCOPE_report.read')")
+  public Map<String, Object> reports() {
+    return Map.of(
+        "report", "daily-settlement",
+        "status", "OK",
+        "note", "Requires ROLE_ADMIN + SCOPE_report.read");
+  }
 }

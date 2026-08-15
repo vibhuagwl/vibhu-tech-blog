@@ -7,16 +7,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Simulates account-service endpoint called via client_credentials from payment-service.
- */
+/** Simulates account-service endpoint called via client_credentials from payment-service. */
 @RestController
 @RequestMapping("/api/accounts")
 public class AccountController {
 
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_account.read')")
-    public Map<String, Object> get(@PathVariable String id) {
-        return Map.of("accountId", id, "currency", "USD", "status", "ACTIVE");
-    }
+  @GetMapping("/{id}")
+  @PreAuthorize("hasAuthority('SCOPE_account.read')")
+  public Map<String, Object> get(@PathVariable String id) {
+    return Map.of("accountId", id, "currency", "USD", "status", "ACTIVE");
+  }
 }

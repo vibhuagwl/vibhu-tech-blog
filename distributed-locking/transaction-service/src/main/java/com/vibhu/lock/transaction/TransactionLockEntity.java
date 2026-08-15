@@ -38,16 +38,10 @@ public class TransactionLockEntity {
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
-  protected TransactionLockEntity() {
-  }
+  protected TransactionLockEntity() {}
 
   public TransactionLockEntity(
-      String transactionId,
-      String lockKey,
-      LockMode mode,
-      String ownerToken,
-      long fencingToken
-  ) {
+      String transactionId, String lockKey, LockMode mode, String ownerToken, long fencingToken) {
     this.transactionId = transactionId;
     this.lockKey = lockKey;
     this.mode = mode;

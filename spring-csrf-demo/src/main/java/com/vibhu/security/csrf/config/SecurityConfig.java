@@ -19,11 +19,14 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 /**
  * Two filter chains:
+ *
  * <ul>
- *   <li>{@code /spa/**} — CookieCsrfTokenRepository (XSRF-TOKEN) for JS clients</li>
- *   <li>everything else — session CSRF (hidden form field) for classic browser apps</li>
+ *   <li>{@code /spa/**} — CookieCsrfTokenRepository (XSRF-TOKEN) for JS clients
+ *   <li>everything else — session CSRF (hidden form field) for classic browser apps
  * </ul>
- * Stateless JWT APIs typically disable CSRF because the browser does not auto-attach a session cookie.
+ *
+ * Stateless JWT APIs typically disable CSRF because the browser does not auto-attach a session
+ * cookie.
  */
 @Configuration
 @EnableWebSecurity
@@ -37,11 +40,7 @@ public class SecurityConfig {
   @Bean
   UserDetailsService users(PasswordEncoder encoder) {
     return new InMemoryUserDetailsManager(
-        User.withUsername("alice")
-            .password(encoder.encode("password"))
-            .roles("USER")
-            .build()
-    );
+        User.withUsername("alice").password(encoder.encode("password")).roles("USER").build());
   }
 
   @Bean
@@ -51,13 +50,10 @@ public class SecurityConfig {
     CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
     requestHandler.setCsrfRequestAttributeName(null);
 
-    http
-        .securityMatcher("/spa/**")
+    http.securityMatcher("/spa/**")
         .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
         .httpBasic(Customizer.withDefaults())
-        .csrf(csrf -> csrf
-            .csrfTokenRepository(repo)
-            .csrfTokenRequestHandler(requestHandler))
+        .csrf(csrf -> csrf.csrfTokenRepository(repo).csrfTokenRequestHandler(requestHandler))
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
     return http.build();
   }
@@ -65,15 +61,16 @@ public class SecurityConfig {
   @Bean
   @Order(2)
   SecurityFilterChain browserSecurity(HttpSecurity http) throws Exception {
-    http
-        .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/", "/css/**", "/login", "/error", "/actuator/health").permitAll()
-            .requestMatchers(HttpMethod.POST, "/transfer").authenticated()
-            .anyRequest().authenticated())
-        .formLogin(form -> form
-            .loginPage("/login")
-            .defaultSuccessUrl("/transfer", true)
-            .permitAll())
+    http.authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers("/", "/css/**", "/login", "/error", "/actuator/health")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/transfer")
+                    .authenticated()
+                    .anyRequest()
+                    .authenticated())
+        .formLogin(
+            form -> form.loginPage("/login").defaultSuccessUrl("/transfer", true).permitAll())
         .logout(logout -> logout.logoutSuccessUrl("/login?logout").permitAll())
         // Default: HttpSessionCsrfTokenRepository — Thymeleaf renders ${_csrf.token}
         .csrf(Customizer.withDefaults());

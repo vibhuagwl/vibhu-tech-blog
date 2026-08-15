@@ -1,15 +1,14 @@
 package com.vibhu.msp.lock;
 
-import org.springframework.data.redis.core.StringRedisTemplate;
-
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
- * Redis-backed lock store using SET NX PX semantics.
- * Fencing token maxima are tracked in-process (production would use a durable store).
+ * Redis-backed lock store using SET NX PX semantics. Fencing token maxima are tracked in-process
+ * (production would use a durable store).
  */
 public final class RedisLockStore {
 

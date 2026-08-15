@@ -9,14 +9,13 @@ import java.time.Instant;
  * outbox boundary is visible without requiring a database.
  */
 public record OutboxRecord(
-        String outboxId,
-        String aggregateId,
-        String eventType,
-        Object payload,
-        Instant createdAt,
-        boolean published
-) {
-    public OutboxRecord markPublished() {
-        return new OutboxRecord(outboxId, aggregateId, eventType, payload, createdAt, true);
-    }
+    String outboxId,
+    String aggregateId,
+    String eventType,
+    Object payload,
+    Instant createdAt,
+    boolean published) {
+  public OutboxRecord markPublished() {
+    return new OutboxRecord(outboxId, aggregateId, eventType, payload, createdAt, true);
+  }
 }

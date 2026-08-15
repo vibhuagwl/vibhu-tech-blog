@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class PaymentProperties {
   /** in-memory | zeebe */
   private String orchestrationMode = "in-memory";
+
   private BigDecimal highValueThreshold = new BigDecimal("100000");
   private final Bank bank = new Bank();
 

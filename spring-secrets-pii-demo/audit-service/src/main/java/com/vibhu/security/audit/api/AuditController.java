@@ -20,22 +20,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/internal/audit")
 public class AuditController {
 
-    private final AuditService auditService;
+  private final AuditService auditService;
 
-    public AuditController(AuditService auditService) {
-        this.auditService = auditService;
-    }
+  public AuditController(AuditService auditService) {
+    this.auditService = auditService;
+  }
 
-    @PostMapping("/pii-access")
-    @PreAuthorize("hasRole('SERVICE')")
-    public ResponseEntity<Map<String, String>> record(@Valid @RequestBody PiiAccessEventRequest event) {
-        auditService.record(event);
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "recorded"));
-    }
+  @PostMapping("/pii-access")
+  @PreAuthorize("hasRole('SERVICE')")
+  public ResponseEntity<Map<String, String>> record(
+      @Valid @RequestBody PiiAccessEventRequest event) {
+    auditService.record(event);
+    return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "recorded"));
+  }
 
-    @GetMapping("/customers/{customerId}")
-    @PreAuthorize("hasRole('COMPLIANCE')")
-    public List<PiiAccessAuditEntity> history(@PathVariable UUID customerId) {
-        return auditService.findByCustomer(customerId);
-    }
+  @GetMapping("/customers/{customerId}")
+  @PreAuthorize("hasRole('COMPLIANCE')")
+  public List<PiiAccessAuditEntity> history(@PathVariable UUID customerId) {
+    return auditService.findByCustomer(customerId);
+  }
 }

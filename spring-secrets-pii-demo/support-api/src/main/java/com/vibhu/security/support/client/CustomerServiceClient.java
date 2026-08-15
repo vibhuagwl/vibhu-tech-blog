@@ -10,24 +10,26 @@ import org.springframework.web.client.RestClient;
 @Component
 public class CustomerServiceClient {
 
-    private final RestClient restClient;
+  private final RestClient restClient;
 
-    public CustomerServiceClient(@Qualifier("customerServiceRestClient") RestClient restClient) {
-        this.restClient = restClient;
-    }
+  public CustomerServiceClient(@Qualifier("customerServiceRestClient") RestClient restClient) {
+    this.restClient = restClient;
+  }
 
-    public CustomerRecord create(CreateCustomerRequest request) {
-        return restClient.post()
-                .uri("/internal/customers")
-                .body(request)
-                .retrieve()
-                .body(CustomerRecord.class);
-    }
+  public CustomerRecord create(CreateCustomerRequest request) {
+    return restClient
+        .post()
+        .uri("/internal/customers")
+        .body(request)
+        .retrieve()
+        .body(CustomerRecord.class);
+  }
 
-    public CustomerRecord get(UUID id) {
-        return restClient.get()
-                .uri("/internal/customers/{id}", id)
-                .retrieve()
-                .body(CustomerRecord.class);
-    }
+  public CustomerRecord get(UUID id) {
+    return restClient
+        .get()
+        .uri("/internal/customers/{id}", id)
+        .retrieve()
+        .body(CustomerRecord.class);
+  }
 }

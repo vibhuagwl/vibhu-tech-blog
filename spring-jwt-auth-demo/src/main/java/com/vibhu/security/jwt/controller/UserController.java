@@ -13,9 +13,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/users")
 public class UserController {
 
-    @GetMapping("/me")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public UserResponse me(@AuthenticationPrincipal CustomUserDetails principal) {
-        return AuthService.toResponse(principal.getUser());
-    }
+  @GetMapping("/me")
+  @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+  public UserResponse me(@AuthenticationPrincipal CustomUserDetails principal) {
+    return AuthService.toResponse(principal.getUser());
+  }
 }

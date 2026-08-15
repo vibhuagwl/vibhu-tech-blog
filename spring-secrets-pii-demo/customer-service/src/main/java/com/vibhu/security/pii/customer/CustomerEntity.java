@@ -15,64 +15,64 @@ import java.util.UUID;
 @Table(name = "customers")
 public class CustomerEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-    @Column(nullable = false, length = 120)
-    private String fullName;
+  @Column(nullable = false, length = 120)
+  private String fullName;
 
-    @Convert(converter = AesGcmAttributeConverter.class)
-    @Column(nullable = false, length = 512)
-    private String emailEncrypted;
+  @Convert(converter = AesGcmAttributeConverter.class)
+  @Column(nullable = false, length = 512)
+  private String emailEncrypted;
 
-    @Convert(converter = AesGcmAttributeConverter.class)
-    @Column(nullable = false, length = 512)
-    private String ssnEncrypted;
+  @Convert(converter = AesGcmAttributeConverter.class)
+  @Column(nullable = false, length = 512)
+  private String ssnEncrypted;
 
-    @Column(name = "pan_last4", nullable = false, length = 4)
-    private String panLast4;
+  @Column(name = "pan_last4", nullable = false, length = 4)
+  private String panLast4;
 
-    @Column(nullable = false)
-    private Instant createdAt = Instant.now();
+  @Column(nullable = false)
+  private Instant createdAt = Instant.now();
 
-    public UUID getId() {
-        return id;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public String getFullName() {
-        return fullName;
-    }
+  public String getFullName() {
+    return fullName;
+  }
 
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
+  public void setFullName(String fullName) {
+    this.fullName = fullName;
+  }
 
-    public String getEmailEncrypted() {
-        return emailEncrypted;
-    }
+  public String getEmailEncrypted() {
+    return emailEncrypted;
+  }
 
-    public void setEmailEncrypted(String emailEncrypted) {
-        this.emailEncrypted = emailEncrypted;
-    }
+  public void setEmailEncrypted(String emailEncrypted) {
+    this.emailEncrypted = emailEncrypted;
+  }
 
-    public String getSsnEncrypted() {
-        return ssnEncrypted;
-    }
+  public String getSsnEncrypted() {
+    return ssnEncrypted;
+  }
 
-    public void setSsnEncrypted(String ssnEncrypted) {
-        this.ssnEncrypted = ssnEncrypted;
-    }
+  public void setSsnEncrypted(String ssnEncrypted) {
+    this.ssnEncrypted = ssnEncrypted;
+  }
 
-    public String getPanLast4() {
-        return panLast4;
-    }
+  public String getPanLast4() {
+    return panLast4;
+  }
 
-    public void setPanLast4(String panLast4) {
-        this.panLast4 = panLast4;
-    }
+  public void setPanLast4(String panLast4) {
+    this.panLast4 = panLast4;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 }

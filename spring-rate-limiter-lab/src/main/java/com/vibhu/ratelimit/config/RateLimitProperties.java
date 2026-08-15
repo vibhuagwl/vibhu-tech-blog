@@ -9,8 +9,7 @@ public record RateLimitProperties(
     FailPolicy defaultFailPolicy,
     FailPolicy paymentFailPolicy,
     boolean filterEnabled,
-    Redis redis
-) {
+    Redis redis) {
   public RateLimitProperties {
     if (store == null || store.isBlank()) {
       store = "memory";

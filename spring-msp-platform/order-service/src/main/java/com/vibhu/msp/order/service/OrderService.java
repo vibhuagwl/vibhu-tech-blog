@@ -33,11 +33,12 @@ public class OrderService {
   private final PaymentClient paymentClient;
   private final ObjectMapper objectMapper;
 
-  public OrderService(OrderRepository orderRepository,
-                      OrderLineRepository orderLineRepository,
-                      OutboxService outboxService,
-                      PaymentClient paymentClient,
-                      ObjectMapper objectMapper) {
+  public OrderService(
+      OrderRepository orderRepository,
+      OrderLineRepository orderLineRepository,
+      OutboxService outboxService,
+      PaymentClient paymentClient,
+      ObjectMapper objectMapper) {
     this.orderRepository = orderRepository;
     this.orderLineRepository = orderLineRepository;
     this.outboxService = outboxService;
@@ -46,21 +47,23 @@ public class OrderService {
   }
 
   @Transactional
-  public OrderEntity createOrder(String idempotencyKey, String customerId,
-                                 List<CreateOrderLine> lines) {
+  public OrderEntity createOrder(
+      String idempotencyKey, String customerId, List<CreateOrderLine> lines) {
     if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-      return orderRepository.findByIdempotencyKey(idempotencyKey)
+      return orderRepository
+          .findByIdempotencyKey(idempotencyKey)
           .orElseGet(() -> persistNewOrder(idempotencyKey, customerId, lines));
     }
     return persistNewOrder(null, customerId, lines);
   }
 
-  private OrderEntity persistNewOrder(String idempotencyKey, String customerId,
-                                      List<CreateOrderLine> lines) {
+  private OrderEntity persistNewOrder(
+      String idempotencyKey, String customerId, List<CreateOrderLine> lines) {
     String orderId = UUID.randomUUID().toString();
-    BigDecimal total = lines.stream()
-        .map(l -> l.unitPrice().multiply(BigDecimal.valueOf(l.quantity())))
-        .reduce(BigDecimal.ZERO, BigDecimal::add);
+    BigDecimal total =
+        lines.stream()
+            .map(l -> l.unitPrice().multiply(BigDecimal.valueOf(l.quantity())))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
     OrderEntity order = new OrderEntity();
     order.setId(orderId);
@@ -83,20 +86,18 @@ public class OrderService {
       orderLineRepository.save(lineEntity);
     }
 
-    List<OrderCreated.OrderLine> eventLines = lines.stream()
-        .map(l -> new OrderCreated.OrderLine(l.sku(), l.quantity(), l.unitPrice()))
-        .toList();
+    List<OrderCreated.OrderLine> eventLines =
+        lines.stream()
+            .map(l -> new OrderCreated.OrderLine(l.sku(), l.quantity(), l.unitPrice()))
+            .toList();
     OrderCreated event = new OrderCreated(orderId, customerId, total, eventLines);
-    EventEnvelope<OrderCreated> envelope = EventEnvelope.of(
-        EventTypes.ORDER_CREATED,
-        order.getCorrelationId(),
-        event
-    );
+    EventEnvelope<OrderCreated> envelope =
+        EventEnvelope.of(EventTypes.ORDER_CREATED, order.getCorrelationId(), event);
     outboxService.enqueue("Order", orderId, EventTypes.ORDER_CREATED, envelope);
 
     log.info("Order created orderId={} customerId={} total={}", orderId, customerId, total);
 
-  try {
+    try {
       paymentClient.ping();
     } catch (Exception ex) {
       log.warn("Payment service ping failed (saga continues via Kafka): {}", ex.getMessage());
@@ -107,28 +108,34 @@ public class OrderService {
 
   @Transactional
   public void markPaymentAuthorized(String orderId) {
-    orderRepository.findById(orderId).ifPresent(order -> {
-      if (order.getStatus() == OrderStatus.CANCELLED) {
-        return;
-      }
-      order.setPaymentAuthorized(true);
-      order.setUpdatedAt(Instant.now());
-      orderRepository.save(order);
-      tryCompleteOrder(order);
-    });
+    orderRepository
+        .findById(orderId)
+        .ifPresent(
+            order -> {
+              if (order.getStatus() == OrderStatus.CANCELLED) {
+                return;
+              }
+              order.setPaymentAuthorized(true);
+              order.setUpdatedAt(Instant.now());
+              orderRepository.save(order);
+              tryCompleteOrder(order);
+            });
   }
 
   @Transactional
   public void markInventoryReserved(String orderId) {
-    orderRepository.findById(orderId).ifPresent(order -> {
-      if (order.getStatus() == OrderStatus.CANCELLED) {
-        return;
-      }
-      order.setInventoryReserved(true);
-      order.setUpdatedAt(Instant.now());
-      orderRepository.save(order);
-      tryCompleteOrder(order);
-    });
+    orderRepository
+        .findById(orderId)
+        .ifPresent(
+            order -> {
+              if (order.getStatus() == OrderStatus.CANCELLED) {
+                return;
+              }
+              order.setInventoryReserved(true);
+              order.setUpdatedAt(Instant.now());
+              orderRepository.save(order);
+              tryCompleteOrder(order);
+            });
   }
 
   private void tryCompleteOrder(OrderEntity order) {
@@ -139,11 +146,11 @@ public class OrderService {
       order.setStatus(OrderStatus.COMPLETED);
       order.setUpdatedAt(Instant.now());
       orderRepository.save(order);
-      EventEnvelope<OrderCompleted> envelope = EventEnvelope.of(
-          EventTypes.ORDER_COMPLETED,
-          order.getCorrelationId(),
-          new OrderCompleted(order.getId())
-      );
+      EventEnvelope<OrderCompleted> envelope =
+          EventEnvelope.of(
+              EventTypes.ORDER_COMPLETED,
+              order.getCorrelationId(),
+              new OrderCompleted(order.getId()));
       outboxService.enqueue("Order", order.getId(), EventTypes.ORDER_COMPLETED, envelope);
       log.info("Order completed orderId={}", order.getId());
     }
@@ -151,21 +158,25 @@ public class OrderService {
 
   @Transactional
   public void cancelOrder(String orderId, String reason) {
-    orderRepository.findById(orderId).ifPresent(order -> {
-      if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.COMPLETED) {
-        return;
-      }
-      order.setStatus(OrderStatus.CANCELLED);
-      order.setUpdatedAt(Instant.now());
-      orderRepository.save(order);
-      EventEnvelope<OrderCancelled> envelope = EventEnvelope.of(
-          EventTypes.ORDER_CANCELLED,
-          order.getCorrelationId(),
-          new OrderCancelled(orderId, reason)
-      );
-      outboxService.enqueue("Order", orderId, EventTypes.ORDER_CANCELLED, envelope);
-      log.info("Order cancelled orderId={} reason={}", orderId, reason);
-    });
+    orderRepository
+        .findById(orderId)
+        .ifPresent(
+            order -> {
+              if (order.getStatus() == OrderStatus.CANCELLED
+                  || order.getStatus() == OrderStatus.COMPLETED) {
+                return;
+              }
+              order.setStatus(OrderStatus.CANCELLED);
+              order.setUpdatedAt(Instant.now());
+              orderRepository.save(order);
+              EventEnvelope<OrderCancelled> envelope =
+                  EventEnvelope.of(
+                      EventTypes.ORDER_CANCELLED,
+                      order.getCorrelationId(),
+                      new OrderCancelled(orderId, reason));
+              outboxService.enqueue("Order", orderId, EventTypes.ORDER_CANCELLED, envelope);
+              log.info("Order cancelled orderId={} reason={}", orderId, reason);
+            });
   }
 
   public OrderEntity getOrder(String orderId) {

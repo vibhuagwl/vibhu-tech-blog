@@ -9,9 +9,23 @@ import jakarta.persistence.Table;
 @Table(name = "stock")
 public class StockEntity {
   @Id private String sku;
-  @Column(nullable = false) private int available;
-  public String getSku() { return sku; }
-  public void setSku(String sku) { this.sku = sku; }
-  public int getAvailable() { return available; }
-  public void setAvailable(int available) { this.available = available; }
+
+  @Column(nullable = false)
+  private int available;
+
+  public String getSku() {
+    return sku;
+  }
+
+  public void setSku(String sku) {
+    this.sku = sku;
+  }
+
+  public int getAvailable() {
+    return available;
+  }
+
+  public void setAvailable(int available) {
+    this.available = available;
+  }
 }

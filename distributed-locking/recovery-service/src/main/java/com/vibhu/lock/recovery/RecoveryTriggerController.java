@@ -12,18 +12,22 @@ public class RecoveryTriggerController {
   private final RestClient restClient;
   private final RecoveryProperties properties;
 
-  public RecoveryTriggerController(RestClient transactionServiceRestClient, RecoveryProperties properties) {
+  public RecoveryTriggerController(
+      RestClient transactionServiceRestClient, RecoveryProperties properties) {
     this.restClient = transactionServiceRestClient;
     this.properties = properties;
   }
 
   @PostMapping("/run")
   public Map<?, ?> run() {
-    return restClient.post()
-        .uri(uriBuilder -> uriBuilder
-            .path("/internal/recovery/run")
-            .queryParam("staleSeconds", properties.getStaleSeconds())
-            .build())
+    return restClient
+        .post()
+        .uri(
+            uriBuilder ->
+                uriBuilder
+                    .path("/internal/recovery/run")
+                    .queryParam("staleSeconds", properties.getStaleSeconds())
+                    .build())
         .retrieve()
         .body(Map.class);
   }

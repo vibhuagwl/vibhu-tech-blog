@@ -13,88 +13,88 @@ import java.util.UUID;
 @Table(name = "pii_access_audit")
 public class PiiAccessAuditEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-    @Column(nullable = false)
-    private Instant occurredAt;
+  @Column(nullable = false)
+  private Instant occurredAt;
 
-    @Column(nullable = false, length = 120)
-    private String actor;
+  @Column(nullable = false, length = 120)
+  private String actor;
 
-    @Column(nullable = false, length = 64)
-    private String sourceService;
+  @Column(nullable = false, length = 64)
+  private String sourceService;
 
-    @Column(nullable = false, length = 64)
-    private String action;
+  @Column(nullable = false, length = 64)
+  private String action;
 
-    @Column(nullable = false)
-    private UUID customerId;
+  @Column(nullable = false)
+  private UUID customerId;
 
-    @Column(nullable = false)
-    private boolean fullPiiGranted;
+  @Column(nullable = false)
+  private boolean fullPiiGranted;
 
-    @Column(nullable = false, length = 64)
-    private String clientIp;
+  @Column(nullable = false, length = 64)
+  private String clientIp;
 
-    public UUID getId() {
-        return id;
-    }
+  public UUID getId() {
+    return id;
+  }
 
-    public Instant getOccurredAt() {
-        return occurredAt;
-    }
+  public Instant getOccurredAt() {
+    return occurredAt;
+  }
 
-    public void setOccurredAt(Instant occurredAt) {
-        this.occurredAt = occurredAt;
-    }
+  public void setOccurredAt(Instant occurredAt) {
+    this.occurredAt = occurredAt;
+  }
 
-    public String getActor() {
-        return actor;
-    }
+  public String getActor() {
+    return actor;
+  }
 
-    public void setActor(String actor) {
-        this.actor = actor;
-    }
+  public void setActor(String actor) {
+    this.actor = actor;
+  }
 
-    public String getSourceService() {
-        return sourceService;
-    }
+  public String getSourceService() {
+    return sourceService;
+  }
 
-    public void setSourceService(String sourceService) {
-        this.sourceService = sourceService;
-    }
+  public void setSourceService(String sourceService) {
+    this.sourceService = sourceService;
+  }
 
-    public String getAction() {
-        return action;
-    }
+  public String getAction() {
+    return action;
+  }
 
-    public void setAction(String action) {
-        this.action = action;
-    }
+  public void setAction(String action) {
+    this.action = action;
+  }
 
-    public UUID getCustomerId() {
-        return customerId;
-    }
+  public UUID getCustomerId() {
+    return customerId;
+  }
 
-    public void setCustomerId(UUID customerId) {
-        this.customerId = customerId;
-    }
+  public void setCustomerId(UUID customerId) {
+    this.customerId = customerId;
+  }
 
-    public boolean isFullPiiGranted() {
-        return fullPiiGranted;
-    }
+  public boolean isFullPiiGranted() {
+    return fullPiiGranted;
+  }
 
-    public void setFullPiiGranted(boolean fullPiiGranted) {
-        this.fullPiiGranted = fullPiiGranted;
-    }
+  public void setFullPiiGranted(boolean fullPiiGranted) {
+    this.fullPiiGranted = fullPiiGranted;
+  }
 
-    public String getClientIp() {
-        return clientIp;
-    }
+  public String getClientIp() {
+    return clientIp;
+  }
 
-    public void setClientIp(String clientIp) {
-        this.clientIp = clientIp;
-    }
+  public void setClientIp(String clientIp) {
+    this.clientIp = clientIp;
+  }
 }

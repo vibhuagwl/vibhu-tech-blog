@@ -1,6 +1,5 @@
 package com.vibhu.multitenant.security;
 
-import com.vibhu.multitenant.common.TenantStatus;
 import com.vibhu.multitenant.exception.MultiTenantException;
 import com.vibhu.multitenant.exception.TenantExceptions;
 import com.vibhu.multitenant.tenant.TenantEntity;
@@ -52,7 +51,9 @@ public class TenantFilter extends OncePerRequestFilter {
       String roles = null;
       if (auth != null && auth.getPrincipal() instanceof TenantUserPrincipal principal) {
         userId = principal.getUserId();
-        roles = String.join(",", principal.getAuthorities().stream().map(a -> a.getAuthority()).toList());
+        roles =
+            String.join(
+                ",", principal.getAuthorities().stream().map(a -> a.getAuthority()).toList());
         if (slug.isPresent() && !slug.get().equals(principal.getTenantSlug())) {
           throw TenantExceptions.mismatch();
         }
@@ -61,7 +62,9 @@ public class TenantFilter extends OncePerRequestFilter {
         }
       }
       if (slug.isEmpty()) {
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(String.valueOf(auth.getPrincipal()))) {
+        if (auth == null
+            || !auth.isAuthenticated()
+            || "anonymousUser".equals(String.valueOf(auth.getPrincipal()))) {
           filterChain.doFilter(request, response);
           return;
         }
@@ -89,7 +92,9 @@ public class TenantFilter extends OncePerRequestFilter {
     } catch (MultiTenantException ex) {
       response.setStatus(ex.httpStatus());
       response.setContentType("application/json");
-      response.getWriter().write("{\"error\":\"" + ex.code() + "\",\"message\":\"" + ex.getMessage() + "\"}");
+      response
+          .getWriter()
+          .write("{\"error\":\"" + ex.code() + "\",\"message\":\"" + ex.getMessage() + "\"}");
     } finally {
       TenantContext.clear();
       MDC.remove("tenantId");

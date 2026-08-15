@@ -5,8 +5,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 public final class TransactionDtos {
-  private TransactionDtos() {
-  }
+  private TransactionDtos() {}
 
   public record TransactionView(
       String transactionId,
@@ -18,8 +17,7 @@ public final class TransactionDtos {
       Long fencingTokenDest,
       String error,
       Instant createdAt,
-      Instant updatedAt
-  ) {
+      Instant updatedAt) {
     static TransactionView from(TransactionEntity entity) {
       return new TransactionView(
           entity.getId(),
@@ -31,8 +29,7 @@ public final class TransactionDtos {
           entity.getFencingDest(),
           entity.getError(),
           entity.getCreatedAt(),
-          entity.getUpdatedAt()
-      );
+          entity.getUpdatedAt());
     }
   }
 
@@ -42,9 +39,7 @@ public final class TransactionDtos {
       String destAccountId,
       BigDecimal amount,
       long fencingTokenSource,
-      long fencingTokenDest
-  ) {
-  }
+      long fencingTokenDest) {}
 
   public record AccountTransferApplyResponse(
       String transactionId,
@@ -53,13 +48,9 @@ public final class TransactionDtos {
       long sourceVersion,
       String destAccountId,
       BigDecimal destBalance,
-      long destVersion
-  ) {
-  }
+      long destVersion) {}
 
-  public record LockAcquireRequest(String lockKey, String mode, String ownerId, long ttlMillis) {
-  }
+  public record LockAcquireRequest(String lockKey, String mode, String ownerId, long ttlMillis) {}
 
-  public record LockReleaseRequest(String lockKey, String ownerToken) {
-  }
+  public record LockReleaseRequest(String lockKey, String ownerToken) {}
 }

@@ -10,24 +10,24 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("kafka | redis")
 public class RedisPresenceLookup implements PresenceLookup {
-    private final StringRedisTemplate redisTemplate;
-    private final ObjectMapper objectMapper;
+  private final StringRedisTemplate redisTemplate;
+  private final ObjectMapper objectMapper;
 
-    public RedisPresenceLookup(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
-        this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
-    }
+  public RedisPresenceLookup(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
+    this.redisTemplate = redisTemplate;
+    this.objectMapper = objectMapper;
+  }
 
-    @Override
-    public PresenceView find(String userId) {
-        String json = redisTemplate.opsForValue().get("presence:" + userId);
-        if (json == null) {
-            return new PresenceView(userId, null, null, false, null);
-        }
-        try {
-            return objectMapper.readValue(json, PresenceView.class);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Unable to deserialize presence heartbeat", e);
-        }
+  @Override
+  public PresenceView find(String userId) {
+    String json = redisTemplate.opsForValue().get("presence:" + userId);
+    if (json == null) {
+      return new PresenceView(userId, null, null, false, null);
     }
+    try {
+      return objectMapper.readValue(json, PresenceView.class);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException("Unable to deserialize presence heartbeat", e);
+    }
+  }
 }

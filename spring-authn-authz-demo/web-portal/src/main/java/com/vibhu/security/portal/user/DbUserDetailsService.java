@@ -15,24 +15,27 @@ import org.springframework.stereotype.Service;
 @Service
 public class DbUserDetailsService implements UserDetailsService {
 
-    private final UserRepository userRepository;
+  private final UserRepository userRepository;
 
-    public DbUserDetailsService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+  public DbUserDetailsService(UserRepository userRepository) {
+    this.userRepository = userRepository;
+  }
 
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        UserEntity entity = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
-        return User.builder()
-                .username(entity.getUsername())
-                .password(entity.getPassword())
-                .disabled(!entity.isEnabled())
-                .authorities(entity.getRoles().stream()
-                        .map(RoleEntity::getName)
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toSet()))
-                .build();
-    }
+  @Override
+  public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+    UserEntity entity =
+        userRepository
+            .findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+    return User.builder()
+        .username(entity.getUsername())
+        .password(entity.getPassword())
+        .disabled(!entity.isEnabled())
+        .authorities(
+            entity.getRoles().stream()
+                .map(RoleEntity::getName)
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toSet()))
+        .build();
+  }
 }

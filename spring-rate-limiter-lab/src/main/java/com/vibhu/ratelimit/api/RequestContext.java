@@ -3,8 +3,8 @@ package com.vibhu.ratelimit.api;
 import java.util.Objects;
 
 /**
- * Identity + routing attributes extracted from the inbound request (after auth).
- * Rate-limit keys must come from authenticated identity, not spoofable headers alone.
+ * Identity + routing attributes extracted from the inbound request (after auth). Rate-limit keys
+ * must come from authenticated identity, not spoofable headers alone.
  */
 public record RequestContext(
     String userId,
@@ -13,8 +13,7 @@ public record RequestContext(
     String ipAddress,
     String apiPath,
     String httpMethod,
-    String serviceName
-) {
+    String serviceName) {
 
   public static Builder builder() {
     return new Builder();
@@ -72,8 +71,7 @@ public record RequestContext(
           blankToNull(ipAddress),
           blankToNull(apiPath),
           blankToNull(httpMethod),
-          blankToNull(serviceName)
-      );
+          blankToNull(serviceName));
     }
 
     private static String blankToNull(String value) {
@@ -87,7 +85,8 @@ public record RequestContext(
 
   public String require(String value, String field) {
     if (value == null || value.isBlank()) {
-      throw new IllegalArgumentException("RequestContext." + field + " is required for this policy");
+      throw new IllegalArgumentException(
+          "RequestContext." + field + " is required for this policy");
     }
     return value;
   }
@@ -106,10 +105,14 @@ public record RequestContext(
 
   @Override
   public String toString() {
-    return "RequestContext{tenant=" + Objects.toString(tenantId, "-")
-        + ", client=" + Objects.toString(clientId, "-")
-        + ", user=" + Objects.toString(userId, "-")
-        + ", api=" + Objects.toString(apiPath, "-")
+    return "RequestContext{tenant="
+        + Objects.toString(tenantId, "-")
+        + ", client="
+        + Objects.toString(clientId, "-")
+        + ", user="
+        + Objects.toString(userId, "-")
+        + ", api="
+        + Objects.toString(apiPath, "-")
         + "}";
   }
 }

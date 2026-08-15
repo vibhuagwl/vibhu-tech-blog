@@ -5,8 +5,8 @@ import java.util.BitSet;
 import java.util.function.Function;
 
 /**
- * Bloom-filter negative cache — cheap "definitely not present" checks to reduce
- * cache penetration on hot missing keys. False positives are possible; false negatives are not.
+ * Bloom-filter negative cache — cheap "definitely not present" checks to reduce cache penetration
+ * on hot missing keys. False positives are possible; false negatives are not.
  */
 public final class BloomFilterNegativeCache {
 
@@ -35,9 +35,7 @@ public final class BloomFilterNegativeCache {
     return true;
   }
 
-  /**
-   * Cache-aside with bloom guard: skip backend lookup when bloom says key was never seen.
-   */
+  /** Cache-aside with bloom guard: skip backend lookup when bloom says key was never seen. */
   public <T> T getOrLoad(String key, Function<String, T> loader) {
     if (!mightContain(key)) {
       return null;

@@ -20,8 +20,7 @@ public record RateLimitConfigRequest(
     @Min(1) long refillRate,
     RefillPeriod refillPeriod,
     String failPolicy,
-    boolean blocked
-) {
+    boolean blocked) {
   public RateLimitPolicy toPolicy() {
     return RateLimitPolicy.builder()
         .id(id)
@@ -34,7 +33,8 @@ public record RateLimitConfigRequest(
         .capacity(capacity)
         .refillRate(refillRate)
         .refillPeriod(refillPeriod == null ? RefillPeriod.MINUTE : refillPeriod)
-        .failPolicy(failPolicy == null ? null : com.vibhu.ratelimit.api.FailPolicy.valueOf(failPolicy))
+        .failPolicy(
+            failPolicy == null ? null : com.vibhu.ratelimit.api.FailPolicy.valueOf(failPolicy))
         .blocked(blocked)
         .build();
   }

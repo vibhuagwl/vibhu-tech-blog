@@ -1,15 +1,16 @@
 package com.vibhu.bloom.core;
 
 /**
- * Immutable sizing for a Bloom filter: expected insertions {@code n}, target FPP {@code p},
- * derived bit count {@code m} and hash count {@code k}.
+ * Immutable sizing for a Bloom filter: expected insertions {@code n}, target FPP {@code p}, derived
+ * bit count {@code m} and hash count {@code k}.
  *
  * <pre>
  *   m = -n * ln(p) / (ln 2)^2
  *   k = (m / n) * ln 2
  * </pre>
  */
-public record BloomFilterConfig(long expectedInsertions, double falsePositiveRate, int bitSize, int hashCount) {
+public record BloomFilterConfig(
+    long expectedInsertions, double falsePositiveRate, int bitSize, int hashCount) {
 
   public BloomFilterConfig {
     if (expectedInsertions <= 0) {
@@ -28,7 +29,8 @@ public record BloomFilterConfig(long expectedInsertions, double falsePositiveRat
     double m = -expectedInsertions * Math.log(falsePositiveRate) / (Math.log(2) * Math.log(2));
     int bitSize = (int) Math.max(64, Math.ceil(m));
     // k = (m/n) ln 2
-    int hashCount = Math.max(1, (int) Math.round((bitSize / (double) expectedInsertions) * Math.log(2)));
+    int hashCount =
+        Math.max(1, (int) Math.round((bitSize / (double) expectedInsertions) * Math.log(2)));
     return new BloomFilterConfig(expectedInsertions, falsePositiveRate, bitSize, hashCount);
   }
 
@@ -47,11 +49,16 @@ public record BloomFilterConfig(long expectedInsertions, double falsePositiveRat
 
   @Override
   public String toString() {
-    return "BloomFilterConfig{n=" + expectedInsertions
-        + ", p=" + falsePositiveRate
-        + ", m=" + bitSize
-        + ", k=" + hashCount
-        + ", bytes≈" + memoryBytes()
+    return "BloomFilterConfig{n="
+        + expectedInsertions
+        + ", p="
+        + falsePositiveRate
+        + ", m="
+        + bitSize
+        + ", k="
+        + hashCount
+        + ", bytes≈"
+        + memoryBytes()
         + '}';
   }
 }

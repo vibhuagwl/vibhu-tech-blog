@@ -16,8 +16,7 @@ public class DemoController {
     return Map.of(
         "status", "accepted",
         "at", Instant.now().toString(),
-        "note", "Would publish to Kafka and write the payment DB after the rate-limit filter."
-    );
+        "note", "Would publish to Kafka and write the payment DB after the rate-limit filter.");
   }
 
   @GetMapping("/public/ping")

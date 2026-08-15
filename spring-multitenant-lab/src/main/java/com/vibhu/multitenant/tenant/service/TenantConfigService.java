@@ -27,7 +27,8 @@ public class TenantConfigService {
   public TenantConfigurationEntity getCurrent() {
     UUID tenantId = TenantContext.requireTenantId();
     String key = "config";
-    Optional<TenantConfigurationEntity> cached = cache.get(tenantId, key, TenantConfigurationEntity.class);
+    Optional<TenantConfigurationEntity> cached =
+        cache.get(tenantId, key, TenantConfigurationEntity.class);
     if (cached.isPresent()) {
       return cached.get();
     }

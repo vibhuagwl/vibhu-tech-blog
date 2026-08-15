@@ -34,8 +34,7 @@ public class UserService {
       BloomFilterService bloom,
       InMemoryUserCache cache,
       UserRepository users,
-      MeterRegistry registry
-  ) {
+      MeterRegistry registry) {
     this.bloom = bloom;
     this.cache = cache;
     this.users = users;
@@ -90,9 +89,12 @@ public class UserService {
       return cached;
     }
     dbQueries.increment();
-    return users.findById(userId).map(u -> {
-      cache.put(u);
-      return u;
-    });
+    return users
+        .findById(userId)
+        .map(
+            u -> {
+              cache.put(u);
+              return u;
+            });
   }
 }

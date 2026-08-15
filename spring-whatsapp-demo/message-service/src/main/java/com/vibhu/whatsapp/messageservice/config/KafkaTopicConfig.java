@@ -10,11 +10,8 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 @Profile("kafka")
 public class KafkaTopicConfig {
-    @Bean
-    NewTopic messageCreatedTopic() {
-        return TopicBuilder.name(WhatsAppTopics.MESSAGE_CREATED)
-                .partitions(3)
-                .replicas(1)
-                .build();
-    }
+  @Bean
+  NewTopic messageCreatedTopic() {
+    return TopicBuilder.name(WhatsAppTopics.MESSAGE_CREATED).partitions(3).replicas(1).build();
+  }
 }

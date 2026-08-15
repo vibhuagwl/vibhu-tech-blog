@@ -39,9 +39,10 @@ public class OrderController {
   public ResponseEntity<OrderResponse> createOrder(
       @RequestHeader(value = MspHeaders.IDEMPOTENCY_KEY, required = false) String idempotencyKey,
       @Valid @RequestBody CreateOrderRequest request) {
-    List<CreateOrderLine> lines = request.lines().stream()
-        .map(l -> new CreateOrderLine(l.sku(), l.quantity(), l.unitPrice()))
-        .toList();
+    List<CreateOrderLine> lines =
+        request.lines().stream()
+            .map(l -> new CreateOrderLine(l.sku(), l.quantity(), l.unitPrice()))
+            .toList();
     OrderEntity order = orderService.createOrder(idempotencyKey, request.customerId(), lines);
     return ResponseEntity.ok(toResponse(order));
   }
@@ -61,19 +62,12 @@ public class OrderController {
         order.getCustomerId(),
         order.getTotalAmount(),
         order.getStatus().name(),
-        order.getCorrelationId()
-    );
+        order.getCorrelationId());
   }
 
-  public record CreateOrderRequest(
-      @NotBlank String customerId,
-      @NotEmpty List<LineRequest> lines
-  ) {
+  public record CreateOrderRequest(@NotBlank String customerId, @NotEmpty List<LineRequest> lines) {
     public record LineRequest(
-        @NotBlank String sku,
-        @Positive int quantity,
-        @NotNull BigDecimal unitPrice
-    ) {}
+        @NotBlank String sku, @Positive int quantity, @NotNull BigDecimal unitPrice) {}
   }
 
   public record OrderResponse(
@@ -81,6 +75,5 @@ public class OrderController {
       String customerId,
       BigDecimal totalAmount,
       String status,
-      String correlationId
-  ) {}
+      String correlationId) {}
 }

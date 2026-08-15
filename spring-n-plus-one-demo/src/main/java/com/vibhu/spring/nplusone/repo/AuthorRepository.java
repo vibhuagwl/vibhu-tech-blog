@@ -23,7 +23,8 @@ public interface AuthorRepository extends JpaRepository<Author, Long> {
   List<Author> findAllWithBooksEntityGraph();
 
   /** Fix 4: DTO / interface projection — SQL selects only needed columns. */
-  @Query("""
+  @Query(
+      """
       select a.name as authorName, b.title as bookTitle
       from Author a
       left join a.books b

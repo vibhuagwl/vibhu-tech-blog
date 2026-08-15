@@ -52,8 +52,8 @@ public class NeptunePollerService {
   }
 
   /**
-   * Cursor is (updated_at, id), never updated_at alone. Equal timestamps would skip rows
-   * if the poller stored only the last timestamp.
+   * Cursor is (updated_at, id), never updated_at alone. Equal timestamps would skip rows if the
+   * poller stored only the last timestamp.
    */
   @Transactional
   public int poll() {
@@ -93,9 +93,7 @@ public class NeptunePollerService {
 
   private void publish(NeptuneCashLineEntity row) {
     EventType type =
-        row.isDeleted()
-            ? EventType.CASHLINE_CANCELLED
-            : EventType.valueOf(row.getEventType());
+        row.isDeleted() ? EventType.CASHLINE_CANCELLED : EventType.valueOf(row.getEventType());
     String eventId = "neptune-" + row.getId() + "-v" + row.getVersion();
     CashLineEvent event =
         new CashLineEvent(
@@ -115,7 +113,10 @@ public class NeptunePollerService {
       Map<String, String> headers = new HashMap<>();
       headers.put(TopicNames.HEADER_CORRELATION_ID, UUID.randomUUID().toString());
       publisher.publish(
-          TopicNames.CASHLINE_EVENTS, row.getCashLineId(), mapper.writeValueAsString(event), headers);
+          TopicNames.CASHLINE_EVENTS,
+          row.getCashLineId(),
+          mapper.writeValueAsString(event),
+          headers);
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Unable to serialize Neptune CashLine", e);
     }

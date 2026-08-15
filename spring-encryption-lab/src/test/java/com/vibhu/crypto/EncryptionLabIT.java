@@ -101,7 +101,8 @@ class EncryptionLabIT {
                     .content("{\"plaintext\":\"amount=10\"}"))
             .andExpect(status().isOk())
             .andReturn();
-    String sig = mapper.readTree(signed.getResponse().getContentAsString()).get("signature").asText();
+    String sig =
+        mapper.readTree(signed.getResponse().getContentAsString()).get("signature").asText();
 
     mvc.perform(
             post("/api/crypto/payments/signed")
@@ -132,7 +133,8 @@ class EncryptionLabIT {
     byte[] payload = "x".getBytes(StandardCharsets.UTF_8);
     byte[] sig = ecc.signEcdsa(payload);
     assertThat(ecc.verifyEcdsa(payload, sig)).isTrue();
-    assertThat(Arrays.equals(ecc.deriveSharedSecretFromA(), ecc.deriveSharedSecretFromB())).isTrue();
+    assertThat(Arrays.equals(ecc.deriveSharedSecretFromA(), ecc.deriveSharedSecretFromB()))
+        .isTrue();
 
     String a = passwords.hashArgon2("CorrectHorseBattery");
     String b = passwords.hashBcrypt("CorrectHorseBattery");
@@ -157,7 +159,10 @@ class EncryptionLabIT {
             + "\",\"payload\":\""
             + node.get("payload").asText()
             + "\"}";
-    mvc.perform(post("/api/crypto/hybrid/decrypt").contentType(MediaType.APPLICATION_JSON).content(body))
+    mvc.perform(
+            post("/api/crypto/hybrid/decrypt")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.plaintext").value("big-json"));
   }

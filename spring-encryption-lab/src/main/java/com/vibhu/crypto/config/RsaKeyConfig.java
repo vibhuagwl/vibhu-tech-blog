@@ -16,8 +16,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Loads RSA-3072 from PEM env vars, or generates an ephemeral pair for the local lab.
- * Private keys must never be committed to Git.
+ * Loads RSA-3072 from PEM env vars, or generates an ephemeral pair for the local lab. Private keys
+ * must never be committed to Git.
  */
 @Configuration
 public class RsaKeyConfig {

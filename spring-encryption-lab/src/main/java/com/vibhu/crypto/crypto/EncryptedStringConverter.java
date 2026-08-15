@@ -6,8 +6,8 @@ import jakarta.persistence.Converter;
 import org.springframework.stereotype.Component;
 
 /**
- * Transparent AES-GCM for JPA String fields. Searching this column with LIKE/equals
- * on plaintext will not work — use a separate HMAC lookup column.
+ * Transparent AES-GCM for JPA String fields. Searching this column with LIKE/equals on plaintext
+ * will not work — use a separate HMAC lookup column.
  */
 @Converter
 @Component

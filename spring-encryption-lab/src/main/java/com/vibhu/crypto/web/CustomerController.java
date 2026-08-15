@@ -26,14 +26,15 @@ public class CustomerController {
   }
 
   @PostMapping
-  public ResponseEntity<CustomerResponse> create(@Valid @RequestBody CustomerCreateRequest request) {
+  public ResponseEntity<CustomerResponse> create(
+      @Valid @RequestBody CustomerCreateRequest request) {
     Customer c = customers.create(request.name(), request.accountNumber(), request.pan());
     return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(c));
   }
 
   /**
-   * Search via HMAC lookup column — equality on AES-GCM ciphertext would fail.
-   * Never log the account number or PAN.
+   * Search via HMAC lookup column — equality on AES-GCM ciphertext would fail. Never log the
+   * account number or PAN.
    */
   @GetMapping("/by-account")
   public ResponseEntity<?> findByAccount(@RequestParam @NotBlank String accountNumber) {

@@ -6,14 +6,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 /**
- * Passwords must be hashed (Argon2id / bcrypt), never encrypted for storage.
- * Encryption is reversible — password storage must not be.
+ * Passwords must be hashed (Argon2id / bcrypt), never encrypted for storage. Encryption is
+ * reversible — password storage must not be.
  */
 @Component
 public class PasswordHashingDemo {
 
-  private final PasswordEncoder argon2 =
-      Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8();
+  private final PasswordEncoder argon2 = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8();
   private final PasswordEncoder bcrypt = new BCryptPasswordEncoder(12);
 
   public String hashArgon2(String rawPassword) {

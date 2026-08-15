@@ -9,8 +9,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Production cache is Caffeine/Redis — not Resilience4j Cache (that module wraps javax.cache).
- * Same idea: do not ask the bank the FX question 1000 times.
+ * Production cache is Caffeine/Redis — not Resilience4j Cache (that module wraps javax.cache). Same
+ * idea: do not ask the bank the FX question 1000 times.
  */
 @Configuration
 @EnableCaching

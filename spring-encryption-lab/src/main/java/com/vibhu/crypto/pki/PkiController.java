@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Lab PKI API: issue → validate chain/SAN/CRL → sign / encrypt-to-cert.
- * Private keys in issue responses are for local learning only.
+ * Lab PKI API: issue → validate chain/SAN/CRL → sign / encrypt-to-cert. Private keys in issue
+ * responses are for local learning only.
  */
 @RestController
 @RequestMapping("/api/crypto/pki")
@@ -54,7 +54,8 @@ public class PkiController {
 
   @PostMapping("/verify")
   public Map<String, Boolean> verify(@Valid @RequestBody VerifyRequest request) {
-    return Map.of("valid", pki.verify(request.certificatePem(), request.payload(), request.signature()));
+    return Map.of(
+        "valid", pki.verify(request.certificatePem(), request.payload(), request.signature()));
   }
 
   @PostMapping("/encrypt-to-cert")

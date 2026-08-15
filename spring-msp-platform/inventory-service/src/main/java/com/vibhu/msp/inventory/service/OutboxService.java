@@ -14,12 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class OutboxService {
   private final OutboxRepository outboxRepository;
   private final ObjectMapper objectMapper;
+
   public OutboxService(OutboxRepository outboxRepository, ObjectMapper objectMapper) {
     this.outboxRepository = outboxRepository;
     this.objectMapper = objectMapper;
   }
+
   @Transactional
-  public OutboxEntity enqueue(String aggregateType, String aggregateId, String eventType, Object payload) {
+  public OutboxEntity enqueue(
+      String aggregateType, String aggregateId, String eventType, Object payload) {
     try {
       OutboxEntity entity = new OutboxEntity();
       entity.setId(UUID.randomUUID().toString());
@@ -34,15 +37,20 @@ public class OutboxService {
       throw new IllegalStateException("Failed to serialize outbox payload", ex);
     }
   }
+
   public List<OutboxEntity> findPending() {
     return outboxRepository.findByStatusOrderByCreatedAtAsc(OutboxStatus.PENDING);
   }
+
   @Transactional
   public void markPublished(String id) {
-    outboxRepository.findById(id).ifPresent(entity -> {
-      entity.setStatus(OutboxStatus.PUBLISHED);
-      entity.setPublishedAt(Instant.now());
-      outboxRepository.save(entity);
-    });
+    outboxRepository
+        .findById(id)
+        .ifPresent(
+            entity -> {
+              entity.setStatus(OutboxStatus.PUBLISHED);
+              entity.setPublishedAt(Instant.now());
+              outboxRepository.save(entity);
+            });
   }
 }

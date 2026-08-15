@@ -15,7 +15,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(IllegalArgumentException.class)
   ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException ex) {
-    return ResponseEntity.badRequest().body(Map.of("error", "bad_request", "message", ex.getMessage()));
+    return ResponseEntity.badRequest()
+        .body(Map.of("error", "bad_request", "message", ex.getMessage()));
   }
 
   @ExceptionHandler(BusinessException.class)
@@ -30,7 +31,11 @@ public class GlobalExceptionHandler {
         .body(Map.of("error", "rate_limited", "message", "Try later"));
   }
 
-  @ExceptionHandler({BulkheadFullException.class, CallNotPermittedException.class, TimeoutException.class})
+  @ExceptionHandler({
+    BulkheadFullException.class,
+    CallNotPermittedException.class,
+    TimeoutException.class
+  })
   ResponseEntity<Map<String, String>> unavailable() {
     return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
         .body(Map.of("error", "unavailable", "message", "Payment path degraded"));

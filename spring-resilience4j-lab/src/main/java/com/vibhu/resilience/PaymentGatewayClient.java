@@ -31,7 +31,10 @@ public class PaymentGatewayClient {
   @CircuitBreaker(name = "payment", fallbackMethod = "pendingFallback")
   @Retry(name = "payment")
   public PaymentResult charge(PayRequest request) {
-    log.info("charging keyHash={} customerHash={}", hash(request.idempotencyKey()), hash(request.customerId()));
+    log.info(
+        "charging keyHash={} customerHash={}",
+        hash(request.idempotencyKey()),
+        hash(request.customerId()));
     return bank.charge(request);
   }
 
@@ -46,7 +49,10 @@ public class PaymentGatewayClient {
     if (t instanceof BusinessException biz) {
       throw biz;
     }
-    log.warn("payment degraded keyHash={} reason={}", hash(request.idempotencyKey()), t.getClass().getSimpleName());
+    log.warn(
+        "payment degraded keyHash={} reason={}",
+        hash(request.idempotencyKey()),
+        t.getClass().getSimpleName());
     return PaymentResult.pending(request.idempotencyKey(), t.getClass().getSimpleName());
   }
 

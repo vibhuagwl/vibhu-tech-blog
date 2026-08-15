@@ -12,7 +12,9 @@ public class DdosController {
   @GetMapping("/ping")
   public Map<String, Object> ping() {
     return Map.of(
-        "ok", true,
-        "message", "Healthy. Burst this endpoint to see HTTP 429 from IpRateLimitFilter.");
+        "ok",
+        true,
+        "message",
+        "Healthy. Burst this endpoint to see HTTP 429 from IpRateLimitFilter.");
   }
 }

@@ -23,8 +23,8 @@ import org.springframework.stereotype.Service;
  *   Encrypt data with DEK, store encrypted DEK beside ciphertext, discard plain DEK
  * </pre>
  *
- * <p>In AWS: use GenerateDataKey / Decrypt via KMS SDK. Never persist the plaintext DEK.
- * Never repeatedly fetch a master key into the app for bulk crypto.
+ * <p>In AWS: use GenerateDataKey / Decrypt via KMS SDK. Never persist the plaintext DEK. Never
+ * repeatedly fetch a master key into the app for bulk crypto.
  */
 @Service
 public class EnvelopeEncryptionService {
@@ -51,19 +51,14 @@ public class EnvelopeEncryptionService {
     secureRandom.nextBytes(iv);
     byte[] ciphertext = aesGcm(Cipher.ENCRYPT_MODE, dek, iv, plaintext);
 
-    return new EnvelopePackage(
-        kekId,
-        b64(encryptedDek),
-        b64(iv),
-        b64(ciphertext));
+    return new EnvelopePackage(kekId, b64(encryptedDek), b64(iv), b64(ciphertext));
   }
 
   public byte[] decrypt(EnvelopePackage pkg) {
     SecretKey kek = requireKek(pkg.kekId());
     byte[] dekBytes = unwrapKey(kek, unb64(pkg.encryptedDek()));
     SecretKey dek = new SecretKeySpec(dekBytes, "AES");
-    return aesGcm(
-        Cipher.DECRYPT_MODE, dek, unb64(pkg.iv()), unb64(pkg.ciphertext()));
+    return aesGcm(Cipher.DECRYPT_MODE, dek, unb64(pkg.iv()), unb64(pkg.ciphertext()));
   }
 
   public String encryptToWireFormat(String kekId, String plaintext) {

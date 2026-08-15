@@ -6,20 +6,18 @@ import com.vibhu.ratelimit.api.RateLimiter;
 import com.vibhu.ratelimit.api.RequestContext;
 import com.vibhu.ratelimit.config.RateLimitConfigProvider;
 import com.vibhu.ratelimit.metrics.RateLimitMetrics;
-import com.vibhu.ratelimit.store.RateLimitStore;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Evaluates every matching policy in order (global → tenant → client → user → API).
- * A request is allowed only if every applicable bucket grants a token.
+ * Evaluates every matching policy in order (global → tenant → client → user → API). A request is
+ * allowed only if every applicable bucket grants a token.
  *
- * <p>Checks are sequential, not one multi-key Redis transaction: Cluster hash
- * slots would otherwise force CROSSSLOT errors. Fail-fast on the first reject
- * so we do not spend tokens on inner buckets after an outer reject. That is a
- * trade-off (outer reject "wastes" no inner tokens; a later retry may see a
- * slightly different inner remaining count).
+ * <p>Checks are sequential, not one multi-key Redis transaction: Cluster hash slots would otherwise
+ * force CROSSSLOT errors. Fail-fast on the first reject so we do not spend tokens on inner buckets
+ * after an outer reject. That is a trade-off (outer reject "wastes" no inner tokens; a later retry
+ * may see a slightly different inner remaining count).
  */
 public final class CompositeRateLimiter implements RateLimiter {
 
@@ -28,10 +26,7 @@ public final class CompositeRateLimiter implements RateLimiter {
   private final RateLimitMetrics metrics;
 
   public CompositeRateLimiter(
-      RateLimitConfigProvider configs,
-      RateLimiterFactory factory,
-      RateLimitMetrics metrics
-  ) {
+      RateLimitConfigProvider configs, RateLimiterFactory factory, RateLimitMetrics metrics) {
     this.configs = configs;
     this.factory = factory;
     this.metrics = metrics;
@@ -59,8 +54,8 @@ public final class CompositeRateLimiter implements RateLimiter {
   }
 
   /**
-   * Variant that still evaluates remaining policies after a reject — useful for
-   * diagnostics, not the hot path.
+   * Variant that still evaluates remaining policies after a reject — useful for diagnostics, not
+   * the hot path.
    */
   public List<RateLimitResult> evaluateAll(RequestContext request) {
     List<RateLimitResult> out = new ArrayList<>();

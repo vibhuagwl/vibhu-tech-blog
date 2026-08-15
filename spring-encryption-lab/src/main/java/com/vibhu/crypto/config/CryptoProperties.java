@@ -8,10 +8,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class CryptoProperties {
   /** Key id used for new ciphertext (rotation). */
   private String activeKeyId = "v2";
+
   /** Base64-encoded AES-256 keys keyed by id. */
   private Map<String, String> keys = new LinkedHashMap<>();
+
   /** HMAC key for searchable lookup hashes (not reversible encryption). */
   private String lookupHmacSecret = "";
+
   private final Rsa rsa = new Rsa();
 
   public String getActiveKeyId() {

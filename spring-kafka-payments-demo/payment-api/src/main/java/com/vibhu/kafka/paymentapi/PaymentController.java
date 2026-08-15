@@ -20,40 +20,50 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/payments")
 public class PaymentController {
 
-    private final PaymentApiConfig.PaymentPublisher publisher;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+  private final PaymentApiConfig.PaymentPublisher publisher;
+  private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public PaymentController(PaymentApiConfig.PaymentPublisher publisher, KafkaTemplate<String, Object> kafkaTemplate) {
-        this.publisher = publisher;
-        this.kafkaTemplate = kafkaTemplate;
-    }
+  public PaymentController(
+      PaymentApiConfig.PaymentPublisher publisher, KafkaTemplate<String, Object> kafkaTemplate) {
+    this.publisher = publisher;
+    this.kafkaTemplate = kafkaTemplate;
+  }
 
-    @PostMapping
-    public ResponseEntity<Map<String, String>> create(@Validated @RequestBody CreatePaymentRequest request) {
-        String key = PaymentKeyStrategy.forPayment(request.accountId(), request.paymentId());
-        String traceId = UUID.randomUUID().toString();
-        PaymentRequestedEvent event = new PaymentRequestedEvent(
-                request.paymentId(),
-                request.accountId(),
-                request.amount(),
-                request.currency(),
-                request.merchantRef(),
-                request.failMode(),
-                Instant.now());
+  @PostMapping
+  public ResponseEntity<Map<String, String>> create(
+      @Validated @RequestBody CreatePaymentRequest request) {
+    String key = PaymentKeyStrategy.forPayment(request.accountId(), request.paymentId());
+    String traceId = UUID.randomUUID().toString();
+    PaymentRequestedEvent event =
+        new PaymentRequestedEvent(
+            request.paymentId(),
+            request.accountId(),
+            request.amount(),
+            request.currency(),
+            request.merchantRef(),
+            request.failMode(),
+            Instant.now());
 
-        kafkaTemplate.executeInTransaction(ops -> {
-            var message = publisher.buildMessage(PaymentTopics.PAYMENT_REQUESTS, key, traceId, event);
-            publisher.publish(message);
-            return null;
+    kafkaTemplate.executeInTransaction(
+        ops -> {
+          var message = publisher.buildMessage(PaymentTopics.PAYMENT_REQUESTS, key, traceId, event);
+          publisher.publish(message);
+          return null;
         });
 
-        return ResponseEntity.accepted()
-                .location(URI.create("/api/payments/" + request.paymentId()))
-                .body(Map.of(
-                        "paymentId", request.paymentId(),
-                        "accountId", request.accountId(),
-                        "kafkaKey", key,
-                        "topic", PaymentTopics.PAYMENT_REQUESTS,
-                        "traceId", traceId));
-    }
+    return ResponseEntity.accepted()
+        .location(URI.create("/api/payments/" + request.paymentId()))
+        .body(
+            Map.of(
+                "paymentId",
+                request.paymentId(),
+                "accountId",
+                request.accountId(),
+                "kafkaKey",
+                key,
+                "topic",
+                PaymentTopics.PAYMENT_REQUESTS,
+                "traceId",
+                traceId));
+  }
 }

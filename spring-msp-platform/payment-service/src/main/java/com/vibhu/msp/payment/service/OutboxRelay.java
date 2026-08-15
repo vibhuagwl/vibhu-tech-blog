@@ -18,9 +18,10 @@ public class OutboxRelay {
   private final KafkaTemplate<String, Object> kafkaTemplate;
   private final ObjectMapper objectMapper;
 
-  public OutboxRelay(OutboxService outboxService,
-                     KafkaTemplate<String, Object> kafkaTemplate,
-                     ObjectMapper objectMapper) {
+  public OutboxRelay(
+      OutboxService outboxService,
+      KafkaTemplate<String, Object> kafkaTemplate,
+      ObjectMapper objectMapper) {
     this.outboxService = outboxService;
     this.kafkaTemplate = kafkaTemplate;
     this.objectMapper = objectMapper;

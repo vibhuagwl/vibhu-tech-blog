@@ -22,7 +22,8 @@ public class CashLineProducer {
 
   public void publish(CashLineEvent event, Map<String, String> extraHeaders) {
     try {
-      Map<String, String> headers = extraHeaders == null ? new HashMap<>() : new HashMap<>(extraHeaders);
+      Map<String, String> headers =
+          extraHeaders == null ? new HashMap<>() : new HashMap<>(extraHeaders);
       headers.putIfAbsent(TopicNames.HEADER_CORRELATION_ID, UUID.randomUUID().toString());
       publisher.publish(
           TopicNames.CASHLINE_EVENTS,

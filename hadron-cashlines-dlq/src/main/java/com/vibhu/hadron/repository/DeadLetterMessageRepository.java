@@ -32,7 +32,8 @@ public interface DeadLetterMessageRepository extends JpaRepository<DeadLetterMes
       WHERE d.cashLineId = :cashLineId
         AND d.status IN :open
       """)
-  boolean hasOpenFailure(@Param("cashLineId") String cashLineId, @Param("open") Collection<DlqStatus> open);
+  boolean hasOpenFailure(
+      @Param("cashLineId") String cashLineId, @Param("open") Collection<DlqStatus> open);
 
   @Modifying
   @Query(
@@ -55,6 +56,8 @@ public interface DeadLetterMessageRepository extends JpaRepository<DeadLetterMes
       @Param("now") Instant now);
 
   @Modifying
-  @Query("DELETE FROM DeadLetterMessageEntity d WHERE d.status IN :statuses AND d.createdAt < :cutoff")
-  int deleteExpired(@Param("statuses") Collection<DlqStatus> statuses, @Param("cutoff") Instant cutoff);
+  @Query(
+      "DELETE FROM DeadLetterMessageEntity d WHERE d.status IN :statuses AND d.createdAt < :cutoff")
+  int deleteExpired(
+      @Param("statuses") Collection<DlqStatus> statuses, @Param("cutoff") Instant cutoff);
 }

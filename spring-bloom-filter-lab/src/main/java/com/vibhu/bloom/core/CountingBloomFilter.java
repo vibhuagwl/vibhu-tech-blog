@@ -19,11 +19,14 @@ public final class CountingBloomFilter<T> {
   private final AtomicIntegerArray counters;
 
   public CountingBloomFilter(long expectedInsertions, double falsePositiveRate) {
-    this(BloomFilterConfig.of(expectedInsertions, falsePositiveRate), new DoubleHashStrategy(),
+    this(
+        BloomFilterConfig.of(expectedInsertions, falsePositiveRate),
+        new DoubleHashStrategy(),
         v -> String.valueOf(v).getBytes(StandardCharsets.UTF_8));
   }
 
-  public CountingBloomFilter(BloomFilterConfig config, HashStrategy hashStrategy, Function<T, byte[]> encoder) {
+  public CountingBloomFilter(
+      BloomFilterConfig config, HashStrategy hashStrategy, Function<T, byte[]> encoder) {
     this.config = Objects.requireNonNull(config);
     this.hashStrategy = Objects.requireNonNull(hashStrategy);
     this.encoder = Objects.requireNonNull(encoder);

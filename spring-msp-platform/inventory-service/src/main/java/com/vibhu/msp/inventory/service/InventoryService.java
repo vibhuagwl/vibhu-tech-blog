@@ -26,9 +26,10 @@ public class InventoryService {
   private final ReservationRepository reservationRepository;
   private final OutboxService outboxService;
 
-  public InventoryService(StockRepository stockRepository,
-                          ReservationRepository reservationRepository,
-                          OutboxService outboxService) {
+  public InventoryService(
+      StockRepository stockRepository,
+      ReservationRepository reservationRepository,
+      OutboxService outboxService) {
     this.stockRepository = stockRepository;
     this.reservationRepository = reservationRepository;
     this.outboxService = outboxService;
@@ -40,8 +41,10 @@ public class InventoryService {
       return;
     }
     for (OrderCreated.OrderLine line : order.lines()) {
-      StockEntity stock = stockRepository.findById(line.sku())
-          .orElseThrow(() -> new IllegalStateException("SKU not found: " + line.sku()));
+      StockEntity stock =
+          stockRepository
+              .findById(line.sku())
+              .orElseThrow(() -> new IllegalStateException("SKU not found: " + line.sku()));
       if (stock.getAvailable() < line.quantity()) {
         throw new IllegalStateException("Insufficient stock for " + line.sku());
       }
@@ -58,35 +61,39 @@ public class InventoryService {
     reservation.setCreatedAt(Instant.now());
     reservationRepository.save(reservation);
 
-    EventEnvelope<InventoryReserved> envelope = EventEnvelope.of(
-        EventTypes.INVENTORY_RESERVED,
-        correlationId,
-        new InventoryReserved(order.orderId(), reservationId)
-    );
+    EventEnvelope<InventoryReserved> envelope =
+        EventEnvelope.of(
+            EventTypes.INVENTORY_RESERVED,
+            correlationId,
+            new InventoryReserved(order.orderId(), reservationId));
     outboxService.enqueue("Inventory", reservationId, EventTypes.INVENTORY_RESERVED, envelope);
     log.info("Inventory reserved orderId={} reservationId={}", order.orderId(), reservationId);
   }
 
   @Transactional
   public void releaseForOrder(String orderId, String reason, String correlationId) {
-    reservationRepository.findByOrderId(orderId).ifPresent(reservation -> {
-      if (reservation.getStatus() == ReservationStatus.RELEASED) {
-        return;
-      }
-      StockEntity stock = stockRepository.findById(reservation.getSku()).orElse(null);
-      if (stock != null) {
-        stock.setAvailable(stock.getAvailable() + reservation.getQuantity());
-        stockRepository.save(stock);
-      }
-      reservation.setStatus(ReservationStatus.RELEASED);
-      reservationRepository.save(reservation);
-      EventEnvelope<InventoryReleased> envelope = EventEnvelope.of(
-          EventTypes.INVENTORY_RELEASED,
-          correlationId,
-          new InventoryReleased(orderId, reservation.getId(), reason)
-      );
-      outboxService.enqueue("Inventory", reservation.getId(), EventTypes.INVENTORY_RELEASED, envelope);
-      log.info("Inventory released orderId={}", orderId);
-    });
+    reservationRepository
+        .findByOrderId(orderId)
+        .ifPresent(
+            reservation -> {
+              if (reservation.getStatus() == ReservationStatus.RELEASED) {
+                return;
+              }
+              StockEntity stock = stockRepository.findById(reservation.getSku()).orElse(null);
+              if (stock != null) {
+                stock.setAvailable(stock.getAvailable() + reservation.getQuantity());
+                stockRepository.save(stock);
+              }
+              reservation.setStatus(ReservationStatus.RELEASED);
+              reservationRepository.save(reservation);
+              EventEnvelope<InventoryReleased> envelope =
+                  EventEnvelope.of(
+                      EventTypes.INVENTORY_RELEASED,
+                      correlationId,
+                      new InventoryReleased(orderId, reservation.getId(), reason));
+              outboxService.enqueue(
+                  "Inventory", reservation.getId(), EventTypes.INVENTORY_RELEASED, envelope);
+              log.info("Inventory released orderId={}", orderId);
+            });
   }
 }

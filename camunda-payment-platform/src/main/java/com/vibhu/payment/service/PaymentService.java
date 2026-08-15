@@ -67,8 +67,7 @@ public class PaymentService {
     payment.setStatus(PaymentStatus.VALIDATED);
     boolean requiresApproval =
         payment.getAmount().compareTo(properties.getHighValueThreshold()) > 0;
-    log.info(
-        "payment validated paymentId={} requiresApproval={}", paymentId, requiresApproval);
+    log.info("payment validated paymentId={} requiresApproval={}", paymentId, requiresApproval);
     Map<String, Object> vars = new LinkedHashMap<>();
     vars.put("paymentId", paymentId);
     vars.put("customerId", payment.getCustomerId());

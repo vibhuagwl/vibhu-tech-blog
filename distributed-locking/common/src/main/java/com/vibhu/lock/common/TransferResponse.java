@@ -1,9 +1,6 @@
 package com.vibhu.lock.common;
 
-public record TransferResponse(
-    String transactionId,
-    String status
-) {
+public record TransferResponse(String transactionId, String status) {
   public TransferResponse(String transactionId, TransactionState state) {
     this(transactionId, mapStatus(state));
   }

@@ -20,8 +20,8 @@ public class FraudService {
   }
 
   /**
-   * Demo rule: customerId ending with "-FRAUD" is rejected.
-   * Workers must be idempotent — re-running must yield the same decision.
+   * Demo rule: customerId ending with "-FRAUD" is rejected. Workers must be idempotent — re-running
+   * must yield the same decision.
    */
   @Transactional
   public Map<String, Object> check(String paymentId) {

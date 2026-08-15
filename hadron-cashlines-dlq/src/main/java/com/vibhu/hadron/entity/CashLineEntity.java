@@ -41,8 +41,7 @@ public class CashLineEntity {
   @Column(nullable = false)
   private int lastSequence;
 
-  @Version
-  private int version;
+  @Version private int version;
 
   @Column(nullable = false)
   private Instant createdAt = Instant.now();

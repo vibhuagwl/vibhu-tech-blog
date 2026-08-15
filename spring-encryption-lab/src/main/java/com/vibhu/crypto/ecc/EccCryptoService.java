@@ -11,8 +11,8 @@ import org.springframework.stereotype.Service;
 /**
  * ECC demos: ECDSA (signatures) vs ECDH (key agreement). Do not mix the two.
  *
- * <p>Prefer ECC over RSA when key size / performance matters at equivalent security
- * (e.g. P-256 ≈ RSA-3072 for classical security estimates).
+ * <p>Prefer ECC over RSA when key size / performance matters at equivalent security (e.g. P-256 ≈
+ * RSA-3072 for classical security estimates).
  */
 @Service
 public class EccCryptoService {
@@ -60,8 +60,8 @@ public class EccCryptoService {
   }
 
   /**
-   * ECDH = key agreement. Both parties derive the same shared secret; then use AES-GCM
-   * for bulk data (hybrid pattern).
+   * ECDH = key agreement. Both parties derive the same shared secret; then use AES-GCM for bulk
+   * data (hybrid pattern).
    */
   public byte[] deriveSharedSecretFromA() {
     try {

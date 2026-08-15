@@ -10,11 +10,8 @@ import org.springframework.kafka.config.TopicBuilder;
 @Configuration
 @Profile("kafka")
 public class KafkaTopicConfig {
-    @Bean
-    NewTopic counterDeltasTopic() {
-        return TopicBuilder.name(CounterTopics.COUNTER_DELTAS)
-                .partitions(6)
-                .replicas(1)
-                .build();
-    }
+  @Bean
+  NewTopic counterDeltasTopic() {
+    return TopicBuilder.name(CounterTopics.COUNTER_DELTAS).partitions(6).replicas(1).build();
+  }
 }

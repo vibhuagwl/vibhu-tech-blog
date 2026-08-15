@@ -7,13 +7,11 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Equals × hashCode combinations across HashMap, LinkedHashMap,
- * ConcurrentHashMap, and TreeMap.
+ * Equals × hashCode combinations across HashMap, LinkedHashMap, ConcurrentHashMap, and TreeMap.
  *
- * Experiment per map: put(a), put(b), put(a), get(new a).
+ * <p>Experiment per map: put(a), put(b), put(a), get(new a).
  *
- * Run:
- *   javac -d out src/EqHashMapLab.java && java -cp out EqHashMapLab
+ * <p>Run: javac -d out src/EqHashMapLab.java && java -cp out EqHashMapLab
  */
 public class EqHashMapLab {
 
@@ -73,7 +71,8 @@ public class EqHashMapLab {
   }
 
   public static void main(String[] args) {
-    System.out.println("Verified equals/hashCode combos (Java " + System.getProperty("java.version") + ")");
+    System.out.println(
+        "Verified equals/hashCode combos (Java " + System.getProperty("java.version") + ")");
     System.out.println("put(a), put(b), put(a), get(new a)\n");
 
     for (Mode mode : Mode.values()) {
@@ -81,16 +80,15 @@ public class EqHashMapLab {
       experiment("LinkedHashMap", new LinkedHashMap<>(), mode);
       experiment("ConcurrentHashMap", new ConcurrentHashMap<>(), mode);
       // TreeMap: order by name — demonstrates hashCode is irrelevant for placement
-      experiment(
-          "TreeMap",
-          new TreeMap<>(Comparator.comparing((Employee e) -> e.name)),
-          mode);
+      experiment("TreeMap", new TreeMap<>(Comparator.comparing((Employee e) -> e.name)), mode);
       System.out.println();
     }
 
     System.out.println("Notes:");
-    System.out.println("- HashMap / LinkedHashMap / ConcurrentHashMap share equals+hashCode rules.");
-    System.out.println("- TreeMap uses Comparator/Comparable; broken equals/hashCode still size=2 here.");
+    System.out.println(
+        "- HashMap / LinkedHashMap / ConcurrentHashMap share equals+hashCode rules.");
+    System.out.println(
+        "- TreeMap uses Comparator/Comparable; broken equals/hashCode still size=2 here.");
     System.out.println("- ConcurrentHashMap rejects null keys (NPE).");
   }
 }

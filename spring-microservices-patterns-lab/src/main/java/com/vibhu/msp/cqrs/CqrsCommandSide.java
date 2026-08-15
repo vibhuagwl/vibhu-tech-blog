@@ -11,9 +11,9 @@ public final class CqrsCommandSide {
   private final Map<String, OrderWriteModel> orders = new ConcurrentHashMap<>();
 
   public void handle(CreateOrderCommand command) {
-    orders.put(command.orderId(), new OrderWriteModel(
-        command.orderId(), command.customerId(), command.amount(), "CREATED"
-    ));
+    orders.put(
+        command.orderId(),
+        new OrderWriteModel(command.orderId(), command.customerId(), command.amount(), "CREATED"));
   }
 
   public OrderWriteModel get(String orderId) {

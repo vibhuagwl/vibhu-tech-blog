@@ -27,56 +27,65 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Bean
-    DataSource dataSource(SecretProvider secrets) {
-        return DataSourceBuilder.create()
-                .driverClassName("org.h2.Driver")
-                .url("jdbc:h2:mem:audit;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
-                .username("audit")
-                .password(secrets.require("DB_PASSWORD"))
-                .build();
-    }
+  @Bean
+  DataSource dataSource(SecretProvider secrets) {
+    return DataSourceBuilder.create()
+        .driverClassName("org.h2.Driver")
+        .url("jdbc:h2:mem:audit;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
+        .username("audit")
+        .password(secrets.require("DB_PASSWORD"))
+        .build();
+  }
 
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
-    }
+  @Bean
+  PasswordEncoder passwordEncoder() {
+    return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+  }
 
-    @Bean
-    UserDetailsService userDetailsService(SecretProvider secrets, PasswordEncoder encoder) {
-        UserDetails serviceClient = User.builder()
-                .username(secrets.optional("SERVICE_CLIENT_USER", "support-api"))
-                .password(encoder.encode(secrets.require("SERVICE_CLIENT_PASSWORD")))
-                .roles("SERVICE")
-                .build();
-        UserDetails compliance = User.builder()
-                .username(secrets.optional("COMPLIANCE_USER", "compliance"))
-                .password(encoder.encode(secrets.require("COMPLIANCE_PASSWORD")))
-                .roles("COMPLIANCE")
-                .build();
-        return new InMemoryUserDetailsManager(serviceClient, compliance);
-    }
+  @Bean
+  UserDetailsService userDetailsService(SecretProvider secrets, PasswordEncoder encoder) {
+    UserDetails serviceClient =
+        User.builder()
+            .username(secrets.optional("SERVICE_CLIENT_USER", "support-api"))
+            .password(encoder.encode(secrets.require("SERVICE_CLIENT_PASSWORD")))
+            .roles("SERVICE")
+            .build();
+    UserDetails compliance =
+        User.builder()
+            .username(secrets.optional("COMPLIANCE_USER", "compliance"))
+            .password(encoder.encode(secrets.require("COMPLIANCE_PASSWORD")))
+            .roles("COMPLIANCE")
+            .build();
+    return new InMemoryUserDetailsManager(serviceClient, compliance);
+  }
 
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/internal/audit/pii-access").hasRole("SERVICE")
-                        .requestMatchers("/internal/audit/**").hasRole("COMPLIANCE")
-                        .anyRequest().denyAll())
-                .httpBasic(Customizer.withDefaults())
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((req, res, e) -> {
-                            res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            res.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                            objectMapper.writeValue(res.getOutputStream(),
-                                    Map.of("error", "unauthorized", "message", "Credentials required"));
-                        }));
-        return http.build();
-    }
+  @Bean
+  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http.csrf(csrf -> csrf.disable())
+        .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers("/actuator/health", "/actuator/info")
+                    .permitAll()
+                    .requestMatchers("/internal/audit/pii-access")
+                    .hasRole("SERVICE")
+                    .requestMatchers("/internal/audit/**")
+                    .hasRole("COMPLIANCE")
+                    .anyRequest()
+                    .denyAll())
+        .httpBasic(Customizer.withDefaults())
+        .exceptionHandling(
+            ex ->
+                ex.authenticationEntryPoint(
+                    (req, res, e) -> {
+                      res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                      res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                      objectMapper.writeValue(
+                          res.getOutputStream(),
+                          Map.of("error", "unauthorized", "message", "Credentials required"));
+                    }));
+    return http.build();
+  }
 }

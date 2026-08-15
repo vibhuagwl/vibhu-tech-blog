@@ -13,7 +13,8 @@ public abstract class HadronException extends RuntimeException {
     this.retryable = retryable;
   }
 
-  protected HadronException(String message, Throwable cause, FailureCategory category, boolean retryable) {
+  protected HadronException(
+      String message, Throwable cause, FailureCategory category, boolean retryable) {
     super(message, cause);
     this.category = category;
     this.retryable = retryable;

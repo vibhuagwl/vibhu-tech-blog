@@ -26,7 +26,9 @@ public class PaymentService {
   public PaymentEntity pay(UUID orderId) {
     UUID tenantId = TenantContext.requireTenantId();
     OrderEntity order =
-        orders.findByIdAndTenantId(orderId, tenantId).orElseThrow(() -> TenantExceptions.notFound("order"));
+        orders
+            .findByIdAndTenantId(orderId, tenantId)
+            .orElseThrow(() -> TenantExceptions.notFound("order"));
     PaymentEntity payment = new PaymentEntity();
     payment.setId(UUID.randomUUID());
     payment.setTenantId(tenantId);

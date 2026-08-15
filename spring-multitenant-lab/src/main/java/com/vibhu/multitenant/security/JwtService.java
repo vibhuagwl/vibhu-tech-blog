@@ -23,7 +23,8 @@ public class JwtService {
     this.key = Keys.hmacShaKeyFor(properties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8));
   }
 
-  public String issue(UUID userId, String email, UUID tenantId, String tenantSlug, List<String> roles) {
+  public String issue(
+      UUID userId, String email, UUID tenantId, String tenantSlug, List<String> roles) {
     Instant now = Instant.now();
     Instant exp = now.plusSeconds(properties.getJwt().getTtlMinutes() * 60);
     return Jwts.builder()
@@ -41,7 +42,12 @@ public class JwtService {
 
   public JwtPrincipal parse(String token) {
     Claims claims =
-        Jwts.parser().verifyWith(key).requireIssuer(properties.getJwt().getIssuer()).build().parseSignedClaims(token).getPayload();
+        Jwts.parser()
+            .verifyWith(key)
+            .requireIssuer(properties.getJwt().getIssuer())
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
     @SuppressWarnings("unchecked")
     List<String> roles = claims.get("roles", List.class);
     return new JwtPrincipal(

@@ -10,55 +10,55 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 public class CustomUserDetails implements UserDetails {
 
-    private final User user;
+  private final User user;
 
-    public CustomUserDetails(User user) {
-        this.user = user;
-    }
+  public CustomUserDetails(User user) {
+    this.user = user;
+  }
 
-    public User getUser() {
-        return user;
-    }
+  public User getUser() {
+    return user;
+  }
 
-    public Long getUserId() {
-        return user.getId();
-    }
+  public Long getUserId() {
+    return user.getId();
+  }
 
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return user.getRoles().stream()
-                .map(Role::getName)
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toSet());
-    }
+  @Override
+  public Collection<? extends GrantedAuthority> getAuthorities() {
+    return user.getRoles().stream()
+        .map(Role::getName)
+        .map(SimpleGrantedAuthority::new)
+        .collect(Collectors.toSet());
+  }
 
-    @Override
-    public String getPassword() {
-        return user.getPasswordHash();
-    }
+  @Override
+  public String getPassword() {
+    return user.getPasswordHash();
+  }
 
-    @Override
-    public String getUsername() {
-        return user.getEmail();
-    }
+  @Override
+  public String getUsername() {
+    return user.getEmail();
+  }
 
-    @Override
-    public boolean isAccountNonExpired() {
-        return user.isAccountNonExpired();
-    }
+  @Override
+  public boolean isAccountNonExpired() {
+    return user.isAccountNonExpired();
+  }
 
-    @Override
-    public boolean isAccountNonLocked() {
-        return user.isAccountNonLocked();
-    }
+  @Override
+  public boolean isAccountNonLocked() {
+    return user.isAccountNonLocked();
+  }
 
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return user.isCredentialsNonExpired();
-    }
+  @Override
+  public boolean isCredentialsNonExpired() {
+    return user.isCredentialsNonExpired();
+  }
 
-    @Override
-    public boolean isEnabled() {
-        return user.isEnabled();
-    }
+  @Override
+  public boolean isEnabled() {
+    return user.isEnabled();
+  }
 }

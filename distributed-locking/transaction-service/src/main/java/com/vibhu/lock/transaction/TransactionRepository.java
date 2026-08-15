@@ -10,7 +10,5 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
   List<TransactionEntity> findByStateIn(Collection<TransactionState> states);
 
   List<TransactionEntity> findByStateInAndUpdatedAtBefore(
-      Collection<TransactionState> states,
-      Instant updatedBefore
-  );
+      Collection<TransactionState> states, Instant updatedBefore);
 }

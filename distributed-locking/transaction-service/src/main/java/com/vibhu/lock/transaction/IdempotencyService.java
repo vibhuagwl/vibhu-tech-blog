@@ -10,7 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class IdempotencyService {
-  private static final String IN_FLIGHT = "{\"transactionId\":\"IN_FLIGHT\",\"status\":\"IN_FLIGHT\"}";
+  private static final String IN_FLIGHT =
+      "{\"transactionId\":\"IN_FLIGHT\",\"status\":\"IN_FLIGHT\"}";
 
   private final IdempotencyKeyRepository repository;
   private final ObjectMapper objectMapper;
@@ -21,9 +22,9 @@ public class IdempotencyService {
   }
 
   /**
-   * Claims the idempotency key under a unique constraint.
-   * Returns an existing completed response when the key was already processed.
-   * Returns null when this caller won the claim and must execute the transfer.
+   * Claims the idempotency key under a unique constraint. Returns an existing completed response
+   * when the key was already processed. Returns null when this caller won the claim and must
+   * execute the transfer.
    */
   @Transactional
   public TransferResponse claimOrGet(String idempotencyKey) {
@@ -36,7 +37,8 @@ public class IdempotencyService {
       return existing;
     }
     if (existing != null && "IN_FLIGHT".equals(existing.status())) {
-      throw new IdempotencyConflictException("Transfer with idempotency key is already in flight: " + key);
+      throw new IdempotencyConflictException(
+          "Transfer with idempotency key is already in flight: " + key);
     }
     try {
       repository.saveAndFlush(new IdempotencyKeyEntity(key, "PENDING-" + key, IN_FLIGHT));
@@ -46,7 +48,8 @@ public class IdempotencyService {
       if (raced != null && !"IN_FLIGHT".equals(raced.status())) {
         return raced;
       }
-      throw new IdempotencyConflictException("Transfer with idempotency key is already in flight: " + key);
+      throw new IdempotencyConflictException(
+          "Transfer with idempotency key is already in flight: " + key);
     }
   }
 
@@ -55,7 +58,8 @@ public class IdempotencyService {
     if (idempotencyKey == null || idempotencyKey.isBlank()) {
       return null;
     }
-    return repository.findById(idempotencyKey.trim())
+    return repository
+        .findById(idempotencyKey.trim())
         .map(IdempotencyKeyEntity::getResponseJson)
         .map(this::read)
         .orElse(null);

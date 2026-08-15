@@ -54,7 +54,8 @@ class HadronDlqTest {
   void poisonMessageGoesToDlqWithoutInfiniteRetry() throws Exception {
     mvc.perform(post("/api/lab/scenario/poison")).andExpect(status().isOk());
     await().atMost(Duration.ofSeconds(3)).until(() -> dlq.count() >= 1);
-    assertThat(dlq.findAll().stream().anyMatch(row -> "CL-POISON".equals(row.getCashLineId()))).isTrue();
+    assertThat(dlq.findAll().stream().anyMatch(row -> "CL-POISON".equals(row.getCashLineId())))
+        .isTrue();
   }
 
   @Test
@@ -77,8 +78,11 @@ class HadronDlqTest {
     mvc.perform(post("/api/dlq/" + id + "/replay").header("X-Replay-Actor", "ops"))
         .andExpect(status().isOk());
     await().atMost(Duration.ofSeconds(8)).until(() -> cashLines.findById("CL-AMT").isPresent());
-    assertThat(cashLines.findById("CL-AMT").orElseThrow().getAmount()).isEqualByComparingTo(new BigDecimal("25.00"));
-    await().atMost(Duration.ofSeconds(3)).until(() -> dlq.findByEventId("e-amt-1").orElseThrow().getStatus() == DlqStatus.REPLAYED);
+    assertThat(cashLines.findById("CL-AMT").orElseThrow().getAmount())
+        .isEqualByComparingTo(new BigDecimal("25.00"));
+    await()
+        .atMost(Duration.ofSeconds(3))
+        .until(() -> dlq.findByEventId("e-amt-1").orElseThrow().getStatus() == DlqStatus.REPLAYED);
   }
 
   @Test
@@ -92,7 +96,9 @@ class HadronDlqTest {
   void outOfOrderEventIsParked() throws Exception {
     mvc.perform(post("/api/lab/scenario/out-of-order")).andExpect(status().isOk());
     await().atMost(Duration.ofSeconds(3)).until(() -> cashLines.findById("CL-ORD").isPresent());
-    await().atMost(Duration.ofSeconds(3)).until(() -> !waiting.findByCashLineIdOrderBySequenceNumberAsc("CL-ORD").isEmpty());
+    await()
+        .atMost(Duration.ofSeconds(3))
+        .until(() -> !waiting.findByCashLineIdOrderBySequenceNumberAsc("CL-ORD").isEmpty());
     assertThat(waiting.findByEventId("e-ord-3")).isPresent();
   }
 
@@ -107,7 +113,8 @@ class HadronDlqTest {
     Callable<Integer> task =
         () -> {
           MvcResult result =
-              mvc.perform(post("/api/dlq/" + id + "/replay").header("X-Replay-Actor", "ops")).andReturn();
+              mvc.perform(post("/api/dlq/" + id + "/replay").header("X-Replay-Actor", "ops"))
+                  .andReturn();
           if (result.getResponse().getStatus() == 409) {
             conflicts.incrementAndGet();
           } else if (result.getResponse().getStatus() == 200) {
@@ -165,7 +172,8 @@ class HadronDlqTest {
     mvc.perform(post("/api/lab/scenario/cancelled-then-settle")).andExpect(status().isOk());
     await().atMost(Duration.ofSeconds(3)).until(() -> cashLines.findById("CL-CAN").isPresent());
     await().atMost(Duration.ofSeconds(3)).until(() -> dlq.findByEventId("e-can-3").isPresent());
-    assertThat(cashLines.findById("CL-CAN").orElseThrow().getStatus().name()).isEqualTo("CANCELLED");
+    assertThat(cashLines.findById("CL-CAN").orElseThrow().getStatus().name())
+        .isEqualTo("CANCELLED");
   }
 
   @Test
@@ -202,7 +210,8 @@ class HadronDlqTest {
 
   private void seedNeptune(String cashLineId, int sequence, Instant updatedAt) throws Exception {
     String body =
-        mapper.createObjectNode()
+        mapper
+            .createObjectNode()
             .put("cashLineId", cashLineId)
             .put("participantId", "P-NEPTUNE")
             .put("accountId", "ACC-1001")

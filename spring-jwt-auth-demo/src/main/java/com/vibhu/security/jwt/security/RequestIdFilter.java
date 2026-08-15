@@ -16,24 +16,22 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestIdFilter extends OncePerRequestFilter {
 
-    public static final String HEADER = "X-Request-Id";
-    public static final String MDC_KEY = "requestId";
+  public static final String HEADER = "X-Request-Id";
+  public static final String MDC_KEY = "requestId";
 
-    @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
-        String incoming = request.getHeader(HEADER);
-        String requestId = (incoming == null || incoming.isBlank())
-                ? UUID.randomUUID().toString()
-                : incoming.trim();
-        MDC.put(MDC_KEY, requestId);
-        response.setHeader(HEADER, requestId);
-        try {
-            filterChain.doFilter(request, response);
-        } finally {
-            MDC.remove(MDC_KEY);
-        }
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+      throws ServletException, IOException {
+    String incoming = request.getHeader(HEADER);
+    String requestId =
+        (incoming == null || incoming.isBlank()) ? UUID.randomUUID().toString() : incoming.trim();
+    MDC.put(MDC_KEY, requestId);
+    response.setHeader(HEADER, requestId);
+    try {
+      filterChain.doFilter(request, response);
+    } finally {
+      MDC.remove(MDC_KEY);
     }
+  }
 }

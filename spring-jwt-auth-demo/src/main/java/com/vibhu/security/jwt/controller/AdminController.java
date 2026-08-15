@@ -13,15 +13,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin")
 public class AdminController {
 
-    private final UserRepository userRepository;
+  private final UserRepository userRepository;
 
-    public AdminController(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+  public AdminController(UserRepository userRepository) {
+    this.userRepository = userRepository;
+  }
 
-    @GetMapping("/users")
-    @PreAuthorize("hasRole('ADMIN')")
-    public List<UserResponse> listUsers() {
-        return userRepository.findAll().stream().map(AuthService::toResponse).toList();
-    }
+  @GetMapping("/users")
+  @PreAuthorize("hasRole('ADMIN')")
+  public List<UserResponse> listUsers() {
+    return userRepository.findAll().stream().map(AuthService::toResponse).toList();
+  }
 }

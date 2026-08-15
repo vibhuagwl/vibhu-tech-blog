@@ -26,7 +26,8 @@ public class BloomFilterService {
   private final UserRepository users;
   private final AtomicReference<Instant> lastRebuild = new AtomicReference<>();
 
-  public BloomFilterService(BloomFilter<String> filter, BloomFilterConfig config, UserRepository users) {
+  public BloomFilterService(
+      BloomFilter<String> filter, BloomFilterConfig config, UserRepository users) {
     this.filter = filter;
     this.config = config;
     this.users = users;
@@ -37,8 +38,11 @@ public class BloomFilterService {
     List<String> ids = users.findAllIds();
     filter.rebuildFrom(ids);
     lastRebuild.set(Instant.now());
-    log.info("Bloom filter rebuilt: inserted={}, config={}, estimatedFpp={}",
-        filter.insertedCount(), config, filter.estimatedFalsePositiveRate());
+    log.info(
+        "Bloom filter rebuilt: inserted={}, config={}, estimatedFpp={}",
+        filter.insertedCount(),
+        config,
+        filter.estimatedFalsePositiveRate());
   }
 
   /** Called when a new user is persisted — keep the filter warm without full rebuild. */
@@ -63,8 +67,7 @@ public class BloomFilterService {
         filter.definiteMissCount(),
         filter.cardinality(),
         filter.estimatedFalsePositiveRate(),
-        lastRebuild.get()
-    );
+        lastRebuild.get());
   }
 
   public record BloomFilterStats(
@@ -79,6 +82,5 @@ public class BloomFilterService {
       long definiteMisses,
       int bitCardinality,
       double estimatedFpp,
-      Instant lastRebuildAt
-  ) {}
+      Instant lastRebuildAt) {}
 }

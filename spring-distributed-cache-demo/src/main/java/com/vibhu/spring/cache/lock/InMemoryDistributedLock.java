@@ -8,7 +8,10 @@ import org.springframework.stereotype.Component;
 
 /** In-process lock for local/demo tests — mirrors Redis NX semantics. */
 @Component
-@ConditionalOnProperty(name = "app.cache.redis-enabled", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(
+    name = "app.cache.redis-enabled",
+    havingValue = "false",
+    matchIfMissing = true)
 public class InMemoryDistributedLock implements DistributedLock {
   private final Map<String, LockEntry> locks = new ConcurrentHashMap<>();
 

@@ -1,21 +1,9 @@
 package com.vibhu.msp.order.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.vibhu.msp.common.CorrelationIdContext;
-import com.vibhu.msp.common.EventEnvelope;
-import com.vibhu.msp.common.events.EventTypes;
-import com.vibhu.msp.common.events.OrderCreated;
-import com.vibhu.msp.order.entity.InboxEntity;
-import com.vibhu.msp.order.entity.OrderEntity;
-import com.vibhu.msp.order.entity.OrderEntity.OrderStatus;
-import com.vibhu.msp.order.entity.OrderLineEntity;
 import com.vibhu.msp.order.entity.OutboxEntity;
 import com.vibhu.msp.order.entity.OutboxEntity.OutboxStatus;
-import com.vibhu.msp.order.repository.InboxRepository;
-import com.vibhu.msp.order.repository.OrderLineRepository;
-import com.vibhu.msp.order.repository.OrderRepository;
 import com.vibhu.msp.order.repository.OutboxRepository;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -34,7 +22,8 @@ public class OutboxService {
   }
 
   @Transactional
-  public OutboxEntity enqueue(String aggregateType, String aggregateId, String eventType, Object payload) {
+  public OutboxEntity enqueue(
+      String aggregateType, String aggregateId, String eventType, Object payload) {
     try {
       OutboxEntity entity = new OutboxEntity();
       entity.setId(UUID.randomUUID().toString());
@@ -56,10 +45,13 @@ public class OutboxService {
 
   @Transactional
   public void markPublished(String id) {
-    outboxRepository.findById(id).ifPresent(entity -> {
-      entity.setStatus(OutboxStatus.PUBLISHED);
-      entity.setPublishedAt(Instant.now());
-      outboxRepository.save(entity);
-    });
+    outboxRepository
+        .findById(id)
+        .ifPresent(
+            entity -> {
+              entity.setStatus(OutboxStatus.PUBLISHED);
+              entity.setPublishedAt(Instant.now());
+              outboxRepository.save(entity);
+            });
   }
 }

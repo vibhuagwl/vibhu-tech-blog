@@ -24,35 +24,35 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/customers")
 public class SupportCustomerController {
 
-    private final SupportCustomerService supportCustomerService;
+  private final SupportCustomerService supportCustomerService;
 
-    public SupportCustomerController(SupportCustomerService supportCustomerService) {
-        this.supportCustomerService = supportCustomerService;
-    }
+  public SupportCustomerController(SupportCustomerService supportCustomerService) {
+    this.supportCustomerService = supportCustomerService;
+  }
 
-    @PostMapping
-    @PreAuthorize("hasAnyRole('SUPPORT','PII_ADMIN')")
-    public ResponseEntity<CustomerView> create(@Valid @RequestBody CreateCustomerRequest request) {
-        CustomerView created = supportCustomerService.create(request);
-        return ResponseEntity.created(URI.create("/api/customers/" + created.id())).body(created);
-    }
+  @PostMapping
+  @PreAuthorize("hasAnyRole('SUPPORT','PII_ADMIN')")
+  public ResponseEntity<CustomerView> create(@Valid @RequestBody CreateCustomerRequest request) {
+    CustomerView created = supportCustomerService.create(request);
+    return ResponseEntity.created(URI.create("/api/customers/" + created.id())).body(created);
+  }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPPORT','PII_ADMIN')")
-    public CustomerView get(
-            @PathVariable UUID id,
-            @RequestParam(defaultValue = "false") boolean fullPii,
-            HttpServletRequest request) {
-        return supportCustomerService.get(id, fullPii, request);
-    }
+  @GetMapping("/{id}")
+  @PreAuthorize("hasAnyRole('SUPPORT','PII_ADMIN')")
+  public CustomerView get(
+      @PathVariable UUID id,
+      @RequestParam(defaultValue = "false") boolean fullPii,
+      HttpServletRequest request) {
+    return supportCustomerService.get(id, fullPii, request);
+  }
 
-    @ExceptionHandler(CustomerNotFoundException.class)
-    ResponseEntity<Map<String, String>> notFound(CustomerNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
-    }
+  @ExceptionHandler(CustomerNotFoundException.class)
+  ResponseEntity<Map<String, String>> notFound(CustomerNotFoundException ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
+  }
 
-    @ExceptionHandler(PiiAccessDeniedException.class)
-    ResponseEntity<Map<String, String>> piiDenied(PiiAccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
-    }
+  @ExceptionHandler(PiiAccessDeniedException.class)
+  ResponseEntity<Map<String, String>> piiDenied(PiiAccessDeniedException ex) {
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
+  }
 }

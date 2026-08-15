@@ -21,7 +21,8 @@ public class OrderEventConsumer {
   private final PaymentService paymentService;
   private final ObjectMapper objectMapper;
 
-  public OrderEventConsumer(InboxService inboxService, PaymentService paymentService, ObjectMapper objectMapper) {
+  public OrderEventConsumer(
+      InboxService inboxService, PaymentService paymentService, ObjectMapper objectMapper) {
     this.inboxService = inboxService;
     this.paymentService = paymentService;
     this.objectMapper = objectMapper;
@@ -30,25 +31,23 @@ public class OrderEventConsumer {
   @KafkaListener(topics = MspTopics.ORDER_EVENTS, groupId = "payment-service")
   public void onOrderEvent(ConsumerRecord<String, Object> record) {
     String messageId = record.topic() + "-" + record.partition() + "-" + record.offset();
-    inboxService.processIfNew(messageId, ignored -> {
-      try {
-        var root = objectMapper.convertValue(record.value(), java.util.Map.class);
-        String eventType = (String) root.get("eventType");
-        if (!EventTypes.ORDER_CREATED.equals(eventType)) {
-          return;
-        }
-        OrderCreated order = objectMapper.convertValue(root.get("payload"), OrderCreated.class);
-        String correlationId = (String) root.get("correlationId");
-        paymentService.processOrderPayment(
-            order.orderId(),
-            order.customerId(),
-            order.totalAmount(),
-            correlationId
-        );
-      } catch (Exception ex) {
-        log.error("Failed to process order event: {}", ex.getMessage());
-        throw new IllegalStateException(ex);
-      }
-    });
+    inboxService.processIfNew(
+        messageId,
+        ignored -> {
+          try {
+            var root = objectMapper.convertValue(record.value(), java.util.Map.class);
+            String eventType = (String) root.get("eventType");
+            if (!EventTypes.ORDER_CREATED.equals(eventType)) {
+              return;
+            }
+            OrderCreated order = objectMapper.convertValue(root.get("payload"), OrderCreated.class);
+            String correlationId = (String) root.get("correlationId");
+            paymentService.processOrderPayment(
+                order.orderId(), order.customerId(), order.totalAmount(), correlationId);
+          } catch (Exception ex) {
+            log.error("Failed to process order event: {}", ex.getMessage());
+            throw new IllegalStateException(ex);
+          }
+        });
   }
 }
