@@ -769,6 +769,82 @@ Anti-pattern in Spring
   → @Bean KafkaProducer that you new up per request
   → new KafkaTemplate(new DefaultKafkaProducerFactory(...)) inside a controller method`;
 
+/** Microservice on AWS — how the Kafka producer is deployed. */
+export const AWS_PRODUCER_DEPLOY = `Microservice on AWS — how the Kafka producer is deployed
+
+Big idea
+  → You do NOT deploy a separate “Kafka producer service” for each topic.
+  → The producer is a LIBRARY inside your microservice JVM (Spring KafkaTemplate).
+  → Deploy the MICROSERVICE (ECS/EKS/EC2/Lambda-special). Kafka brokers are
+    usually Amazon MSK (or self-managed on EC2). App pods connect to MSK.
+
+Typical topology
+  [Clients] → ALB/API Gateway
+       → payment-api pods (EKS/ECS)   ← KafkaProducer lives HERE
+            → Amazon MSK brokers (VPC)
+                 → topics (payments, …)
+  Optional: Schema Registry on MSK / ECS; outbox relay as same or sibling service
+
+Where bootstrap.servers comes from
+  → MSK console / DescribeCluster → bootstrap broker string
+    (e.g. b-1.xxx.kafka.us-east-1.amazonaws.com:9098 for IAM)
+  → Put in SSM Parameter Store / Secrets Manager / env:
+    SPRING_KAFKA_BOOTSTRAP_SERVERS=...
+  → Same “discovery seed” rule (§11): after Metadata, Produce goes to partition leaders
+    (MSK advertised listeners — stay private in VPC).
+
+Compute choices (app with producer inside)
+  EKS (Kubernetes)
+    → Deployment/StatefulSet; 1 producer per pod (§03).
+    → preStop + terminationGracePeriodSeconds for close() (§28).
+    → transactional.id=payment-api-\${HOSTNAME} or pod name if using Kafka txn.
+  ECS Fargate / EC2
+    → Same: one task = one process = one producer; drain on SIGTERM.
+  EC2 bare Spring Boot
+    → systemd stop → Spring shutdown → producer.close().
+  Lambda
+    → Possible but awkward (cold start, connection reuse, 15m limit). Prefer
+      MSK + long-running service for steady produce; if Lambda, use managed
+      connection patterns carefully and expect different tuning.
+
+Networking (most common prod break)
+  → App and MSK in same VPC (or peered / TGW) + security groups:
+      app SG → MSK SG on 9092/9094/9096/9098 (plain/TLS/SASL/IAM ports).
+  → MSK multi-AZ: bootstrap list includes brokers across AZs.
+  → Do NOT expose MSK publicly for producers unless there is a hard requirement.
+
+Auth on MSK (pick one; wire Spring)
+  → IAM auth (port often 9098): aws-msk-iam-auth library +
+      sasl.mechanism=AWS_MSK_IAM, security.protocol=SASL_SSL
+    Task/pod role needs kafka-cluster:Connect, WriteData, etc.
+  → SASL/SCRAM: secrets in Secrets Manager → spring.kafka.properties.sasl.jaas.config
+  → mTLS: certs in ACM/Secrets → ssl.keystore / truststore
+  → Still need topic ACLs / IAM policies for WRITE (+ IDEMPOTENT_WRITE equivalent)
+
+Config in AWS (12-factor)
+  spring.kafka.bootstrap-servers=\${BOOTSTRAP}
+  spring.kafka.producer.acks=all
+  spring.kafka.producer.properties.enable.idempotence=true
+  # compression, linger, client.id=payment-api-\${AWS_REGION}-\${TASK_ID}
+  client.id helps MSK quotas / CloudWatch metrics attribution
+
+Deploy pipeline (what “deploy producer” means in practice)
+  1) Terraform/CDK: MSK cluster + SG + IAM
+  2) Create topics (partitions, RF=3 across AZs) — not auto-create in prod
+  3) Build microservice image (producer code inside)
+  4) Roll ECS/EKS service — new tasks get env bootstrap + creds
+  5) Old tasks SIGTERM → close producer → exit
+  6) Alarms: produce error-rate, throttle, MSK CPU/disk, UnderReplicatedPartitions
+
+DR / multi-region
+  → MSK multi-AZ is HA inside a region, not cross-region DR.
+  → Cross-region: MSK Replicator / MirrorMaker2; producer still targets local cluster;
+    failover needs business idempotency (PID state is per cluster).
+
+Checklist interview answer
+  → “Producer ships inside the Spring service on EKS/ECS; brokers are MSK in VPC;
+     bootstrap from SSM; IAM or SCRAM; one producer per task; graceful close on deploy.”`;
+
 export const ANTI_PATTERNS: {bad: string; good: string}[] = [
   {bad: 'new KafkaProducer per HTTP request', good: 'Reuse one producer (or factory singleton) per process'},
   {bad: 'send(r).get() on every record in a hot loop', good: 'Async send + periodic flush or batch futures'},

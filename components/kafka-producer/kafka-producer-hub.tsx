@@ -47,6 +47,7 @@ import {
   SOURCE_CLASSES,
   SPRING_COMPARE,
   SPRING_PRODUCER_CREATE,
+  AWS_PRODUCER_DEPLOY,
   THREADING_EXPLAIN,
   TX_FLOW,
   VERSION_NOTE,
@@ -746,6 +747,53 @@ KafkaTemplate.send → CompletableFuture / ListenableFuture
 Micrometer binds producer metrics
 Test with EmbeddedKafka / Testcontainers
 Still configure acks/idempotence/linger underneath`}
+              />
+            </div>
+          </Section>
+
+          <Section
+            id="aws-deploy"
+            title="20b. AWS deploy — microservice + Kafka producer"
+            lead="On AWS you deploy the microservice (EKS/ECS/EC2). The Kafka producer is a library inside that JVM. Brokers are usually Amazon MSK in the VPC — not a separate “producer deployable.”"
+          >
+            <CodePanel title="How producer deploy works on AWS" tone="ok" code={AWS_PRODUCER_DEPLOY} />
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid
+                chart={`flowchart TB
+  Users --> ALB
+  ALB --> Pods[EKS/ECS microservice pods]
+  Pods --> KP[KafkaProducer / KafkaTemplate inside JVM]
+  KP --> MSK[Amazon MSK brokers VPC]
+  MSK --> T[Topics]
+  SSM[SSM / Secrets: bootstrap + creds] --> Pods
+  IAM[Task role IAM or SCRAM] --> KP`}
+              />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel
+                title="MSK + Spring (IAM sketch)"
+                tone="ok"
+                code={`# env from SSM / task def
+SPRING_KAFKA_BOOTSTRAP_SERVERS=b-1....:9098,b-2....:9098
+
+spring.kafka.properties.security.protocol=SASL_SSL
+spring.kafka.properties.sasl.mechanism=AWS_MSK_IAM
+spring.kafka.properties.sasl.jaas.config=\\
+  software.amazon.msk.auth.iam.IAMLoginModule required;
+spring.kafka.properties.sasl.client.callback.handler.class=\\
+  software.amazon.msk.auth.iam.IAMClientCallbackHandler
+
+# producer still: acks=all, enable.idempotence=true, …`}
+              />
+              <CodePanel
+                title="Deploy anti-patterns on AWS"
+                tone="danger"
+                code={`Public MSK for app producers
+Wrong SG → bootstrap timeout (looks like “Kafka down”)
+One giant shared transactional.id across ECS tasks
+Skipping SIGTERM drain on ECS/EKS rollback
+Auto-create topics in prod
+Treating MSK multi-AZ as cross-region DR`}
               />
             </div>
           </Section>

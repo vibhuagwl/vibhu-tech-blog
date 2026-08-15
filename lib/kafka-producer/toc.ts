@@ -23,6 +23,7 @@ export const KAFKA_PRODUCER_TOC: TocItem[] = [
   {id: 'security', label: '18. Security'},
   {id: 'observability', label: '19. Metrics · tracing · logs'},
   {id: 'spring', label: '20. Spring Kafka'},
+  {id: 'aws-deploy', label: '20b. AWS · MSK deploy'},
   {id: 'failures', label: '21. Failure matrix'},
   {id: 'ops', label: '22. Troubleshoot · chaos · DR'},
   {id: 'finance', label: '23. Payments architecture'},
