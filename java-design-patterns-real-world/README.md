@@ -11,13 +11,28 @@ This repository teaches GoF design patterns through small backend engineering st
 - short pattern READMEs optimized for interview revision
 - tests that verify behavior, not empty object creation
 
-## How to run it
+## How to run it (step by step)
+
+Full guide: [`docs/HOW_TO_RUN.md`](docs/HOW_TO_RUN.md).
 
 ```bash
 cd java-design-patterns-real-world
+
+# 1) Verify everything compiles and tests pass
 mvn clean test
+
+# 2) Run ALL pattern demos (each prints STEP 1, STEP 2, …)
 mvn -q exec:java -Dexec.mainClass=com.example.designpatterns.DesignPatternDemo
+
+# 3) Or run a single pattern (example: Factory Method)
+mvn -q exec:java -Dexec.mainClass=com.example.designpatterns.creational.factory.PaymentGatewayFactoryDemo
 ```
+
+Every GoF `*Demo.java` includes:
+
+- **WHEN TO IMPLEMENT** / **JAVA IMPLEMENTATION RULES** (JavaDoc header)
+- **`run()`** — numbered STEPs + live output
+- **`main(String[] args)`** — calls `run()` so you can execute the file alone
 
 ## Pattern index
 
@@ -45,8 +60,8 @@ Open any pattern Demo in the source explorer (for example Strategy → `PaymentS
 
 ## Interview preparation path
 
-1. Read `docs/cheatsheet.md`
-2. Run `DesignPatternDemo`
+1. Read `docs/HOW_TO_RUN.md` and run `DesignPatternDemo`
+2. Read `docs/cheatsheet.md`
 3. Open the pattern README for weak areas
 4. Study `realworld/payment/PaymentProcessingSystem.java`
 5. Review `docs/interview-questions.md`
