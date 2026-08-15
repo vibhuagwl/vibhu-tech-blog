@@ -1,5 +1,6 @@
 import type {TocItem} from './types';
 
+/** Full page TOC — every id is always present in the DOM (no gated mounts). */
 export const MSC_TOC: TocItem[] = [
   {id: 'overview', label: '00. Start here'},
   {id: 'taxonomy', label: '01. Complete taxonomy'},
@@ -27,21 +28,19 @@ export const MSC_TOC: TocItem[] = [
   {id: 'checklist', label: '23. Coverage checklist'},
 ];
 
-/** Sections only mounted in "Full deep reference" view — hash/TOC must unlock that view first. */
-export const MSC_DEEP_SECTION_IDS = new Set([
-  'options',
-  'extras',
-  'rest-clients',
-  'discovery-lb',
-  'grpc',
-  'async',
-  'gateway-mesh',
-  'resilience',
-  'idempotency',
-  'security-obs',
-  'capacity',
-  'architectures',
-  'antipatterns',
+/** Shorter TOC when focusing on story / spoken interview path. */
+export const MSC_STORY_TOC_IDS = new Set([
+  'overview',
+  'taxonomy',
+  'stories',
+  'choose',
+  'incidents',
+  'failure-matrix',
+  'spoken',
+  'tricks',
+  'interview',
+  'cheatsheet',
+  'checklist',
 ]);
 
 export const MEMORY_SENTENCE =
