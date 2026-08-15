@@ -44,6 +44,13 @@ export default function JavaDesignPatternsRealWorldPage() {
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
           <Link
+            href="/java-design-patterns-real-world?path=docs%2Fcomposite-problem-solution.md"
+            className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
+          >
+            Composite: problem-first interview board →
+          </Link>
+          <span className="text-slate-300">·</span>
+          <Link
             href="/java-design-patterns-real-world?path=docs%2Fproblem-and-solution.md"
             className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
           >
@@ -90,14 +97,15 @@ export default function JavaDesignPatternsRealWorldPage() {
           <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-4 dark:border-rose-900/50 dark:bg-rose-950/20">
             <p className="text-xs font-semibold uppercase tracking-[.08em] text-rose-700 dark:text-rose-300">Problem</p>
             <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">
-              Example (Strategy): <code>PaymentService.pay()</code> grows a switch on UPI/CARD/PayPal — hard to extend and
-              test.
+              Example (Composite): order tree of products + nested bundles — how does the client total without{' '}
+              <code>instanceof</code> and nested loops?
             </p>
           </div>
           <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
             <p className="text-xs font-semibold uppercase tracking-[.08em] text-amber-800 dark:text-amber-300">Pattern</p>
             <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">
-              Strategy: each rail is a <code>PaymentStrategy</code>; a router picks the algorithm at runtime.
+              Composite: common <code>OrderComponent</code>; Bundle recursively asks children for{' '}
+              <code>total()</code>.
             </p>
           </div>
           <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
@@ -105,12 +113,19 @@ export default function JavaDesignPatternsRealWorldPage() {
               Resolved
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">
-              New rails add a class + registry entry — the service no longer branches on payment type (OCP).
+              Client only knows <code>OrderComponent</code> — Composite walks the tree, not the client.
             </p>
           </div>
         </div>
         <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
-          Full catalog:{' '}
+          Deep dive (problem → without → with → recursion → spoken answer):{' '}
+          <Link
+            href="/java-design-patterns-real-world?path=docs%2Fcomposite-problem-solution.md"
+            className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
+          >
+            docs/composite-problem-solution.md
+          </Link>
+          . Catalog of all 23:{' '}
           <Link
             href="/java-design-patterns-real-world?path=docs%2Fproblem-and-solution.md"
             className="font-semibold text-slate-800 hover:underline dark:text-blue-400"

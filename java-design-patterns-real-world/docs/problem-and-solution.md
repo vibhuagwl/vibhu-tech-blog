@@ -18,7 +18,7 @@ Use this sheet in interviews: state the **pain**, name the **pattern**, explain 
 |--------|----------------------|-----------------------------|
 | **Adapter** (`LegacyPaymentAdapterDemo`) | New payment code expects a modern API; legacy bank SDK has a different shape | Adapter implements the modern interface and translates calls to the legacy SDK |
 | **Bridge** (`NotificationBridgeDemo`) | Alert type × channel (email/SMS/push) explodes into N×M subclasses | Split abstraction (notification) from implementation (channel) and compose them |
-| **Composite** (`OrderCompositeDemo`) | Code treats single products and bundles differently for pricing | Same `Component` interface; bundles contain children; `total()` works uniformly |
+| **Composite** (`OrderCompositeDemo`) | Client uses `instanceof` + nested loops to total products vs bundles vs nested bundles | Common `OrderComponent`; Bundle recursively sums children — client only calls `total()`. Full board: [`composite-problem-solution.md`](composite-problem-solution.md) |
 | **Decorator** (`PaymentDecoratorDemo`) | Need logging, metrics, retry without editing core payment or subclass explosion | Wrap the same interface with single-purpose decorators; nest as needed |
 | **Facade** (`PaymentFacadeDemo`) | Callers must orchestrate fraud + ledger + gateway themselves | Facade exposes one simple `processPayment` that hides the subsystem |
 | **Flyweight** (`CurrencyFlyweightDemo`) | Millions of money objects each copy currency metadata | Share intrinsic currency state; keep only extrinsic amounts on each use |

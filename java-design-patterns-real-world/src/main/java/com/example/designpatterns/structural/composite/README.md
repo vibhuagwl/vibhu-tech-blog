@@ -1,58 +1,62 @@
-# Order Composite
+# Order Composite — problem first, then the pattern
 
-## Interview Story
+Exactly — for interviews, **don't start with the pattern**. Start with **the problem**, then show how Composite solves it.
 
-Orders contain single products and bundles.
+Full board: [`docs/composite-problem-solution.md`](../../../../docs/composite-problem-solution.md)
 
-## Problem
+## 1. What problem are we solving?
 
-A cart holds a book ($20), a bag ($80), and a gift bundle that itself contains two accessories. Pricing code has separate paths for line items vs bundles.
+An order can contain products, bundles, and nested bundles:
 
-## Naive Implementation
+```text
+Order
+├── Laptop             ₹1000
+├── Mouse              ₹50
+└── Gaming Bundle
+    ├── Keyboard       ₹200
+    └── Headset        ₹300
+```
 
-A central class owns every branch, every special case, and every integration detail.
+> **How can the client calculate the total without knowing whether it is dealing with an individual product or a group/bundle?**
 
-## Why It Breaks
+## 2. WITHOUT Composite
 
-Nested bundles double-count or skip items. Promotions applied at bundle level miss leaf products. Every new bundle type forks the total() method.
+```java
+if (item instanceof Product) { /* product total */ }
+if (item instanceof Bundle) {
+  // loop children — and if a child is a Bundle, nest again...
+}
+```
 
-## Pattern Solution
+**Pain:** client knows concrete types, `instanceof` everywhere, nested bundles explode client logic, leaf and group aren't uniform.
 
-OrderCompositeDemo treats Product and Bundle as OrderComponent. Bundle.total() delegates to children recursively, so checkout calls total() once whether the cart is flat or deeply nested.
+## 3. How Composite solves it
 
-## Code Flow
+Common interface → leaf + composite implement it → bundle recursively asks children:
 
-Business Problem -> Naive Implementation -> Problem with Naive Approach -> Design Pattern -> Java Implementation -> Execution Flow -> Production Improvement -> Interview Explanation
+```java
+OrderComponent item = order; // Product OR Bundle
+item.total();                // same call either way
+```
 
-## Important Classes
+**Composite understands the tree — not the client.**
 
-- `OrderCompositeDemo` main demo class
-- small nested collaborators that show the pattern without framework noise
+## Interview formula
+
+| | |
+|--|--|
+| **Problem** | Leaf + Group + nested groups → client logic becomes complex |
+| **Solution** | Common interface + Composite holds `List<Component>` → recursive delegation |
+| **Benefit** | Client treats single object and group the same way |
+
+## Spoken answer
+
+> When we have a hierarchical tree of individuals and groups, clients usually need different logic per type. Composite gives Leaf and Composite a **common interface** so the client treats both uniformly. The Composite **recursively delegates** to children and hides tree traversal.
 
 ## Run
 
-Run tests or call this pattern from `DesignPatternDemo`.
+```bash
+mvn -q exec:java -Dexec.mainClass=com.example.designpatterns.structural.composite.OrderCompositeDemo
+```
 
-## Interview Answer
-
-I use this when the business pressure matches the shape of the pattern, not because the pattern name sounds impressive.
-
-## Why This Pattern?
-
-Because it solves the specific coupling or extensibility problem in the example.
-
-## Why Not Another Pattern?
-
-Because the competing pattern either solves creation instead of behavior, behavior instead of structure, or adds more indirection than this use case needs.
-
-## Production Example
-
-Senior backend systems use patterns inside orchestration, integrations, validation pipelines, eventing, and domain workflows.
-
-## Common Mistake
-
-Using the pattern before the real pressure exists.
-
-## Senior-Level Follow-up
-
-Discuss concurrency, testing boundaries, extension cost, and when to keep the code simpler.
+Code: `OrderCompositeDemo.java` (`run()` prints PROBLEM → WITHOUT vs WITH → STEPs → recursion).
