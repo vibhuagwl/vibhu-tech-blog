@@ -1,0 +1,91 @@
+# Prod-like local stack: Docker DNS replaces Eureka (same idea as ECS Cloud Map).
+# Usage:
+#   docker compose -f docker-compose.aws.yml up --build
+# Smoke:
+#   curl http://localhost:8080/api/users/101
+
+services:
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: user-service
+        JAR_FILE: user-service-0.1.0-SNAPSHOT.jar
+    environment:
+      SPRING_PROFILES_ACTIVE: aws
+      SERVER_PORT: "8081"
+      INSTANCE_ID: user-aws-1
+    expose:
+      - "8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  user-service-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: user-service
+        JAR_FILE: user-service-0.1.0-SNAPSHOT.jar
+    environment:
+      SPRING_PROFILES_ACTIVE: aws
+      SERVER_PORT: "8081"
+      INSTANCE_ID: user-aws-2
+    expose:
+      - "8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: order-service
+        JAR_FILE: order-service-0.1.0-SNAPSHOT.jar
+    environment:
+      SPRING_PROFILES_ACTIVE: aws
+      SERVER_PORT: "8082"
+      INSTANCE_ID: order-aws-1
+    expose:
+      - "8082"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # In AWS, put an internal ALB/NLB in front of user tasks and point USER_SERVICE_URI at it.
+  # Compose cannot easily LB two containers under one hostname without an extra proxy —
+  # so gateway targets user-service (replica 1). Scale + LB is an ALB concern on AWS.
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: api-gateway
+        JAR_FILE: api-gateway-0.1.0-SNAPSHOT.jar
+    environment:
+      SPRING_PROFILES_ACTIVE: aws
+      SERVER_PORT: "8080"
+      USER_SERVICE_URI: http://user-service:8081
+      ORDER_SERVICE_URI: http://order-service:8082
+    ports:
+      - "8080:8080"
+    depends_on:
+      user-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 3s
+      retries: 20

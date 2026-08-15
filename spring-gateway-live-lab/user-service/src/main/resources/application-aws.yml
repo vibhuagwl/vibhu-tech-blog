@@ -1,0 +1,6 @@
+# AWS profile — platform discovery; do not register with Eureka
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false

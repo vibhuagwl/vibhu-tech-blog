@@ -1,0 +1,32 @@
+# AWS / ECS profile — NO Eureka.
+# Discovery = platform DNS (Cloud Map, ECS Service Connect, or internal ALB).
+# Activate: SPRING_PROFILES_ACTIVE=aws
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          # Prefer internal ALB or Cloud Map DNS in real AWS (see aws/README.md)
+          uri: ${USER_SERVICE_URI:http://user-service:8081}
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-Gateway, api-gateway-aws
+        - id: order-service
+          uri: ${ORDER_SERVICE_URI:http://order-service:8082}
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-Gateway, api-gateway-aws
+
+logging:
+  level:
+    org.springframework.cloud.loadbalancer: WARN
