@@ -2,9 +2,9 @@ import type {Metadata} from 'next';
 import KafkaInfraHub from '@/components/kafka-infra/kafka-infra-hub';
 
 export const metadata: Metadata = {
-  title: 'Kafka Production Infrastructure — System Design Interview Master',
+  title: 'Kafka Production Infrastructure — Staff System Design Interview Master',
   description:
-    'How many brokers, controllers, partitions, consumers? Multi-AZ/region, ISR, capacity, incidents, temp vs permanent fixes, Staff-level Kafka infra answers.',
+    '12+ YOE Kafka infra: networking, request path, ISR/HW/LEO, Connect/Streams, quotas, chaos/DR, 500K TPS calc, Interview War Room, end-to-end message trace.',
 };
 
 export default function KafkaInfraPage() {

@@ -55,7 +55,7 @@ const DEEP_LINKS = [
     href: '/kafka-infra',
     n: '04',
     title: 'Production Infrastructure',
-    blurb: 'How many brokers/partitions/consumers · multi-AZ/DR · capacity · incidents · Staff answers.',
+    blurb:     'Staff/12+ YOE production + SRE + system-design board. How many brokers/partitions/consumers · multi-AZ/DR · capacity · incidents · War Room.',
   },
   {
     href: '/kafka-cluster',

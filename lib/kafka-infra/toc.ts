@@ -1,6 +1,6 @@
 import type {TocItem} from './types';
 
-/** Kafka Production Infrastructure & Real-Time System Design Interview Master — Parts 1–33. */
+/** Kafka Production Infrastructure — Parts 1–56 (Staff gaps + War Room). */
 export const KAFKA_INFRA_TOC: TocItem[] = [
   {id: 'overview', label: '00. Overview · how to use'},
   {id: 'mental', label: '01. Mental model'},
@@ -36,10 +36,33 @@ export const KAFKA_INFRA_TOC: TocItem[] = [
   {id: 'cheatsheet', label: '31. Cheat sheets'},
   {id: 'recall', label: '32. 30-second recall'},
   {id: 'staff', label: '33. Senior / Staff answers'},
+  {id: 'networking', label: '34. Networking · listeners'},
+  {id: 'request-path', label: '35. Request / replication path'},
+  {id: 'leader-election', label: '36. Leader election'},
+  {id: 'offsets', label: '37. Offset internals'},
+  {id: 'producer-internals', label: '38. Producer internals'},
+  {id: 'transactions', label: '39. Transactions · EOS'},
+  {id: 'schema', label: '40. Schema Registry'},
+  {id: 'connect', label: '41. Kafka Connect'},
+  {id: 'streams', label: '42. Kafka Streams'},
+  {id: 'tiered-storage', label: '43. Tiered storage'},
+  {id: 'reassignment', label: '44. Partition reassignment'},
+  {id: 'expand-shrink', label: '45. Expand / shrink cluster'},
+  {id: 'quotas', label: '46. Quotas · multi-tenancy'},
+  {id: 'backpressure', label: '47. Backpressure'},
+  {id: 'dr-testing', label: '48. DR testing'},
+  {id: 'chaos', label: '49. Chaos / failure testing'},
+  {id: 'benchmark', label: '50. Performance benchmarking'},
+  {id: 'security-deep', label: '51. Security architecture'},
+  {id: 'upgrade-migrate', label: '52. Upgrade / migration'},
+  {id: 'ops-automation', label: '53. Ops automation'},
+  {id: 'prod-numbers', label: '54. Production numbers'},
+  {id: 'war-room', label: '55. Interview War Room'},
+  {id: 'e2e-trace', label: '56. Trace one message E2E'},
 ];
 
 export const MEMORY_SENTENCE =
-  'Traffic → partitions → RF/minISR → brokers (3 AZs) → controllers (KRaft 3/5) → consumers ≤ partitions → storage/retention → monitor lag+URP+ISR → DR is another cluster (MM2), not RF.';
+  'Traffic → partitions → RF/minISR → brokers (3 AZs) → controllers (KRaft 3/5) → consumers ≤ partitions → storage/retention → monitor lag+URP+ISR → DR is another cluster (MM2), not RF. Trace one message end-to-end; calculate, don’t recite “3 brokers.”';
 
 export const VERSION_NOTE =
-  'Interview-first production infra board. Deep internals: /kafka-cluster · clients: /kafka-producer · /kafka-consumer · failure recovery: /kafka-dlq · configs: /kafka-properties. Numbers are starting points unless marked hard requirement — always say workload-dependent.';
+  'Staff/12+ YOE production + SRE + system-design board. Deep internals also on /kafka-cluster · clients /kafka-producer · /kafka-consumer · DLQ /kafka-dlq · configs /kafka-properties. Numbers are starting points unless marked hard requirement — always say workload-dependent and validate with benchmarks.';
