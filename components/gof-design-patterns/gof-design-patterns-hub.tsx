@@ -2,27 +2,20 @@
 
 import {useMemo, useState} from 'react';
 import Link from 'next/link';
-import type {PatternCard} from '@/lib/microservices-patterns/types';
-import {MSP_TOC, MEMORY_SENTENCE, VERSION_NOTE} from '@/lib/microservices-patterns/toc';
-import {PATTERN_GROUPS, ALL_PATTERNS, DECOMPOSE_ASCII, GATEWAY_ASCII} from '@/lib/microservices-patterns/catalog';
+import type {PatternCard} from '@/lib/gof-design-patterns/types';
+import {GOF_TOC, MEMORY_SENTENCE, VERSION_NOTE} from '@/lib/gof-design-patterns/toc';
+import {ALL_PATTERNS, GOF_ASCII, LAB_RUNBOOK, MEMORY_STORY, PATTERN_GROUPS} from '@/lib/gof-design-patterns/catalog';
+import {CHEAT_SHEET, DECISION_TREES, PATTERN_MATRIX, TWINS} from '@/lib/gof-design-patterns/decisions';
 import {
-  PRODUCTION_PROJECT,
-  TESTING_STRATEGY,
-  PERFORMANCE_ROWS,
-  PERF_NOTES,
-} from '@/lib/microservices-patterns/parts-project-testing-perf';
-import {DECISION_TREES, CHEAT_SHEET, PATTERN_MATRIX} from '@/lib/microservices-patterns/decisions';
-import {E2E_COVERAGE_ROWS} from '@/lib/microservices-patterns/e2e-coverage';
-import {
-  ALL as INTERVIEW_ALL,
+  INTERVIEW_ALL,
   BASIC,
   INTERMEDIATE,
-  SENIOR,
   LEAD,
   SCENARIO,
-} from '@/lib/microservices-patterns/interview';
-import StickyToc from './sticky-toc';
-import CodePanel from './code-panel';
+  SENIOR,
+} from '@/lib/gof-design-patterns/interview';
+import StickyToc from '@/components/microservices-patterns/sticky-toc';
+import CodePanel from '@/components/microservices-patterns/code-panel';
 import type {DemoSourceFile, DemoTreeNode} from '@/lib/oauth-demo-source';
 import OAuthCodeExplorer from '@/components/oauth-code-explorer';
 
@@ -97,7 +90,8 @@ function PatternBrowser({patterns}: {patterns: PatternCard[]}) {
         p.name.toLowerCase().includes(q) ||
         p.id.includes(q) ||
         p.definition.toLowerCase().includes(q) ||
-        p.frequency.toLowerCase().includes(q),
+        p.frequency.toLowerCase().includes(q) ||
+        p.problem.toLowerCase().includes(q),
     );
   }, [patterns, qid]);
   const selected = filtered.find((p) => p.id === selectedId) ?? filtered[0] ?? patterns[0];
@@ -244,15 +238,7 @@ function PatternDetail({pattern: p}: {pattern: PatternCard}) {
           <>
             <CodePanel title="Java 21" code={p.javaCode} />
             {p.springCode && <CodePanel title="Spring Boot" code={p.springCode} />}
-            {p.config && <CodePanel title="Configuration" code={p.config} />}
-            {p.restApi && <CodePanel title="REST API" code={p.restApi} />}
-            {p.kafkaCode && <CodePanel title="Kafka" code={p.kafkaCode} />}
-            {p.dbCode && <CodePanel title="Database" code={p.dbCode} />}
-            {p.redisCode && <CodePanel title="Redis" code={p.redisCode} />}
             <CodePanel title="Unit test" code={p.unitTest} />
-            {p.integrationTest && <CodePanel title="Integration test" code={p.integrationTest} />}
-            {p.failureTest && <CodePanel title="Failure test" code={p.failureTest} />}
-            {p.concurrencyTest && <CodePanel title="Concurrency test" code={p.concurrencyTest} />}
           </>
         )}
         {tab === 'fail' && (
@@ -419,104 +405,76 @@ function InterviewBank() {
   );
 }
 
-export default function MicroservicesPatternsHub({
+export default function GofDesignPatternsHub({
   files = [],
   tree = [],
   defaultPath = '',
-  platformFiles = [],
-  platformTree = [],
-  platformDefaultPath = '',
 }: {
   files?: DemoSourceFile[];
   tree?: DemoTreeNode[];
   defaultPath?: string;
-  platformFiles?: DemoSourceFile[];
-  platformTree?: DemoTreeNode[];
-  platformDefaultPath?: string;
 }) {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Principal · Staff · Java 21 · Spring Boot 3 · Kafka · Redis · PostgreSQL · Docker Compose
+          Gang of Four · Java 21 · Meridian Bank · Staff interview
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          Microservices Design Patterns — End-to-End Master
+          GoF Design Patterns — End-to-End Master
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Every pattern has implementable Java 21 + Spring code, integration/failure tests, and domain Kafka/DB/Redis
-          artifacts where relevant — plus a full multi-service checkout platform (gateway → order → payment →
-          inventory → notification) on Kafka/Redis/Postgres.
+          All 23 classic patterns in the same format as Microservices Patterns: filterable cards with Why →
+          Architecture → Code → Failures → Ops → Interview, grounded in one Meridian Bank payment and the
+          runnable <code className="text-sm">java-design-patterns-real-world</code> lab.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{VERSION_NOTE}</p>
         <p className="mt-3 text-sm text-slate-500">
-          {ALL_PATTERNS.length} pattern cards · {INTERVIEW_ALL.length} interview prompts · e2e coverage gaps:{' '}
-          <span className="font-semibold text-emerald-700 dark:text-emerald-400">0</span> · deep labs:{' '}
-          <Link href="/resilience4j" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Resilience4j
+          {ALL_PATTERNS.length} pattern cards · {INTERVIEW_ALL.length} interview prompts ·{' '}
+          <Link href="/microservices-patterns" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Microservices Patterns
           </Link>
           {' · '}
-          <Link href="/api-gateway" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            API Gateway
+          <Link href="/design-patterns" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Design Patterns hub
           </Link>
           {' · '}
-          <Link href="/rate-limiter" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Rate limiter
-          </Link>
-          {' · '}
-          <Link href="/kafka-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Kafka DLQ
-          </Link>
-          {' · '}
-          <Link href="/distributed-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Locking
-          </Link>
-          {' · '}
-          <Link href="/distributed-caching" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Caching
-          </Link>
-          {' · '}
-          <Link href="/gof-design-patterns" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            GoF
+          <Link href="/java-design-patterns-real-world" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Source lab
           </Link>
         </p>
       </header>
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_1fr]">
-        <StickyToc items={MSP_TOC} />
+        <StickyToc items={GOF_TOC} title="GoF · 23 Patterns" ariaLabel="GoF design patterns sections" />
         <div className="min-w-0 space-y-16">
           <Section
             id="overview"
             title="00. Overview · how to use"
-            lead="Pattern browser (Why → Architecture → Code → Failures → Ops → Interview) + pattern lab + full Docker platform."
+            lead="Same browser UX as /microservices-patterns. Pick a category, filter, open tabs. Deep lab jumps to the matching *Demo.java."
           >
             <div className="grid gap-4 md:grid-cols-2">
-              <Pre>{DECOMPOSE_ASCII}</Pre>
-              <Pre>{GATEWAY_ASCII}</Pre>
+              <Pre>{GOF_ASCII}</Pre>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                <p className="font-semibold text-slate-900 dark:text-white">Master story (memory)</p>
+                <p className="mt-2 whitespace-pre-wrap">{MEMORY_STORY}</p>
+              </div>
             </div>
             <div className="mt-4">
               <MiniTable
                 headers={['Layer', 'Artifact', 'What you get']}
                 rows={[
+                  ['Catalog', '23 PatternCards', 'Creational 5 · Structural 7 · Behavioral 11'],
+                  ['Tabs', 'Why → Interview', 'Problem, ASCII, Java/Spring, failures, ops, prompts'],
+                  ['Lab', 'java-design-patterns-real-world', 'Runnable demos + DesignPatternDemo orchestrator'],
                   [
-                    'Catalog',
-                    '154 PatternCards',
-                    'Java + Spring + IT/failure tests; Kafka/DB/Redis when the pattern needs them',
+                    'Sibling hubs',
+                    '/design-patterns',
+                    'Revision stories, poster, memory formula, mock interview',
                   ],
-                  [
-                    'Pattern lab',
-                    'spring-microservices-patterns-lab',
-                    'Algorithms + saga/outbox/LB/CB; mvn test without Docker (WireMock + concurrency)',
-                  ],
-                  [
-                    'E2E platform',
-                    'spring-msp-platform',
-                    'Gateway + 5 services + Kafka + Redis + Postgres + outbox/inbox saga + DLQ',
-                  ],
-                  ['Deep labs', 'site hubs', 'Resilience4j, API Gateway, rate limiter, Kafka DLQ, locking, caching, GoF'],
                 ]}
               />
             </div>
@@ -528,127 +486,73 @@ export default function MicroservicesPatternsHub({
             </Section>
           ))}
 
-          <Section id="project" title="22. Production project · e2e platform" lead={PRODUCTION_PROJECT.title}>
-            <Pre>{PRODUCTION_PROJECT.ascii}</Pre>
-            <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-600 dark:text-slate-300">
-              {PRODUCTION_PROJECT.description}
-            </div>
-            <p className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
-              Runnable stack: <code className="text-xs">spring-msp-platform/</code> —{' '}
-              <code className="text-xs">docker compose up -d</code> then boot gateway + five services.
-            </p>
-            {platformFiles.length > 0 && (
-              <div className="mt-6">
-                <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">
-                  spring-msp-platform (multi-service)
-                </h3>
-                <OAuthCodeExplorer
-                  files={platformFiles}
-                  tree={platformTree}
-                  defaultPath={platformDefaultPath}
-                  routeBase="/microservices-patterns"
-                  ariaLabel="Microservices e2e platform source"
-                />
-              </div>
-            )}
-            {files.length > 0 && (
-              <div className="mt-8">
-                <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">
-                  spring-microservices-patterns-lab (pattern algorithms)
-                </h3>
-                <OAuthCodeExplorer
-                  files={files}
-                  tree={tree}
-                  defaultPath={defaultPath}
-                  routeBase="/microservices-patterns"
-                  ariaLabel="Microservices patterns lab source"
-                />
-              </div>
-            )}
-            <div className="mt-4">
-              <MiniTable
-                headers={['Service', 'Port', 'Patterns']}
-                rows={PRODUCTION_PROJECT.services.map((s) => [
-                  s.name,
-                  String(s.port ?? '—'),
-                  (s.patterns ?? []).join(', '),
-                ])}
-              />
-            </div>
-            <ul className="mt-4 list-disc pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              {PRODUCTION_PROJECT.runbook.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
-            <div className="mt-6">
-              <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">
-                E2E field coverage (all 154)
-              </h3>
-              <MiniTable
-                headers={['Pattern', 'Java', 'Spring', 'Kafka', 'DB', 'Redis', 'Unit', 'IT', 'Fail', 'Conc', 'Status']}
-                rows={E2E_COVERAGE_ROWS}
-              />
-            </div>
-          </Section>
-
-          <Section id="testing" title="23. Testing strategy" lead={TESTING_STRATEGY.overview}>
-            {TESTING_STRATEGY.layers.map((layer) => (
-              <div key={layer.name} className="mt-4">
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{layer.name}</h3>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{layer.scope}</p>
-                <div className="mt-2">
-                  <CodePanel title={layer.name} code={layer.example} />
-                </div>
-              </div>
-            ))}
-            <ul className="mt-4 list-disc pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              {TESTING_STRATEGY.ci.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
-          </Section>
-
-          <Section id="performance" title="24. Performance at scale" lead="What breaks at 100 → 100k RPS.">
-            <MiniTable
-              headers={['Pattern', '100 rps', '1k', '10k', '100k', 'Mitigation']}
-              rows={PERFORMANCE_ROWS}
-            />
-            <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-600 dark:text-slate-300">
-              {PERF_NOTES}
-            </div>
-          </Section>
-
-          <Section
-            id="interview"
-            title="25. Interview master bank"
-            lead="100 basic · 100 intermediate · 100 senior · 100 lead/architect · 100 scenario — with wrong answers."
-          >
-            <InterviewBank />
-          </Section>
-
-          <Section id="decisions" title="26. Decision trees" lead="Pick the pattern from the symptom, not the buzzword.">
-            <div className="grid gap-4 lg:grid-cols-2">
+          <Section id="matrix" title="04. Decision matrix · cheat sheet" lead="Pick the pattern from the symptom — then open the card for code and failure modes.">
+            <div className="grid gap-4 lg:grid-cols-3">
               {DECISION_TREES.map((t) => (
                 <div key={t.id}>
-                  <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">{t.title}</h3>
+                  <h3 className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-100">{t.title}</h3>
                   <Pre>{t.ascii}</Pre>
                 </div>
               ))}
             </div>
-          </Section>
-
-          <Section
-            id="cheatsheet"
-            title="27. Cheat sheet · matrix"
-            lead="One-page recall + Pattern → Problem → Solution → Trade-off → Interview Q."
-          >
-            <Pre>{CHEAT_SHEET}</Pre>
             <div className="mt-6">
               <MiniTable
-                headers={['Pattern', 'Problem', 'Solution', 'Trade-off', 'Interview Q']}
-                rows={PATTERN_MATRIX.map((r) => [r.pattern, r.problem, r.solution, r.tradeoff, r.interviewQ])}
+                headers={['Pattern', 'Purpose (memorize)', 'Interview cue']}
+                rows={PATTERN_MATRIX.map((r) => [r.pattern, r.problem, r.interviewQ])}
               />
             </div>
+            <div className="mt-4">
+              <Pre>{CHEAT_SHEET}</Pre>
+            </div>
+          </Section>
+
+          <Section id="twins" title="05. Confused twins" lead="The pairs interviewers use to see if you actually understand the difference.">
+            <div className="grid gap-4 md:grid-cols-2">
+              {TWINS.map((t) => (
+                <div
+                  key={t.title}
+                  className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+                >
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">{t.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{t.left}</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t.right}</p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-[.12em] text-slate-500">
+                    Remember: {t.remember}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          <Section id="interview" title="06. Interview bank" lead="Reveal short + deep answers. More drills on the mock-interview page.">
+            <InterviewBank />
+            <p className="mt-4 text-sm text-slate-500">
+              Full mock set:{' '}
+              <Link href="/design-patterns-mock-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                /design-patterns-mock-interview
+              </Link>
+            </p>
+          </Section>
+
+          <Section id="lab" title="07. Runnable lab · source explorer" lead="Every card’s Deep lab link opens the matching demo. Run the orchestrator locally:">
+            <ul className="list-disc pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              {LAB_RUNBOOK.map((c) => (
+                <li key={c}>
+                  <code className="text-xs">{c}</code>
+                </li>
+              ))}
+            </ul>
+            {files.length > 0 && (
+              <div className="mt-6">
+                <OAuthCodeExplorer
+                  files={files}
+                  tree={tree}
+                  defaultPath={defaultPath}
+                  routeBase="/gof-design-patterns"
+                  ariaLabel="GoF design patterns lab source"
+                />
+              </div>
+            )}
           </Section>
         </div>
       </div>

@@ -3,7 +3,15 @@
 import {useEffect, useState} from 'react';
 import type {TocItem} from '@/lib/microservices-patterns/types';
 
-export default function StickyToc({items}: {items: TocItem[]}) {
+export default function StickyToc({
+  items,
+  title = 'Microservices · Patterns Master',
+  ariaLabel = 'Microservices patterns sections',
+}: {
+  items: TocItem[];
+  title?: string;
+  ariaLabel?: string;
+}) {
   const [active, setActive] = useState(items[0]?.id ?? '');
   const [query, setQuery] = useState('');
 
@@ -28,10 +36,10 @@ export default function StickyToc({items}: {items: TocItem[]}) {
     : items;
 
   return (
-    <nav aria-label="Microservices patterns sections" className="hidden xl:block">
+    <nav aria-label={ariaLabel} className="hidden xl:block">
       <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
         <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-500">
-          Microservices · Patterns Master
+          {title}
         </div>
         <input
           value={query}

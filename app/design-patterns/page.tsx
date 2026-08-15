@@ -1,16 +1,17 @@
 import Link from 'next/link';
 
 const items=[
-  {href:'/java-design-patterns-real-world',title:'1. Full source repository',blurb:'Browse all 23 GoF patterns, docs, tests, and the real-world payment system code.'},
-  {href:'/design-patterns-revision',title:'2. Revision stories',blurb:'One Meridian Bank payment. 23 purposes, financial scenes, and the twins you keep mixing up.'},
-  {href:'/design-patterns-memory-formula',title:'3. Memory formula',blurb:'Best formula to remember implementation and interview explanation quickly.'},
-  {href:'/design-patterns-poster',title:'4. Visual poster',blurb:'One grouped visual memory map for all 23 patterns.'},
-  {href:'/design-patterns-mock-interview',title:'5. Mock interview',blurb:'Practice real senior-style pattern questions with model answers.'},
+  {href:'/gof-design-patterns',title:'1. GoF patterns master (23)',blurb:'Same UX as Microservices Patterns: filterable cards with Why → Architecture → Code → Failures → Ops → Interview for every GoF pattern.'},
+  {href:'/java-design-patterns-real-world',title:'2. Full source repository',blurb:'Browse all 23 GoF demos, docs, tests, and the real-world payment system code.'},
+  {href:'/design-patterns-revision',title:'3. Revision stories',blurb:'One Meridian Bank payment. 23 purposes, financial scenes, and the twins you keep mixing up.'},
+  {href:'/design-patterns-memory-formula',title:'4. Memory formula',blurb:'Best formula to remember implementation and interview explanation quickly.'},
+  {href:'/design-patterns-poster',title:'5. Visual poster',blurb:'One grouped visual memory map for all 23 patterns.'},
+  {href:'/design-patterns-mock-interview',title:'6. Mock interview',blurb:'Practice real senior-style pattern questions with model answers.'},
 ];
 
 export const metadata={
   title:'Design Patterns',
-  description:'One hub for all design-pattern learning resources: source, revision cards, memory formula, poster, and mock interview.',
+  description:'GoF master catalog (23 patterns), source lab, revision cards, memory formula, poster, and mock interview.',
 };
 
 export default function DesignPatternsHubPage(){
@@ -24,7 +25,7 @@ export default function DesignPatternsHubPage(){
           Design patterns hub
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-          All 5 design-pattern resources in one place: source code, revision cards, memory formula, poster, and mock interview.
+          Start with the GoF master catalog (Microservices Patterns format), then drill into source, revision stories, poster, and mock interview.
         </p>
       </header>
 
