@@ -5,6 +5,17 @@ spring:
   application:
     name: order-service
 
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    registry-fetch-interval-seconds: 3
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}:${INSTANCE_ID:order-1}
+    metadata-map:
+      instance: ${INSTANCE_ID:order-1}
+
 management:
   endpoints:
     web:

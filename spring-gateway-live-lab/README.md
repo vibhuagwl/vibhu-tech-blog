@@ -1,61 +1,76 @@
 # Spring Gateway Live Lab — Interview Simulation
 
-Java 21 · Spring Boot 3.3 · Spring Cloud Gateway · progressive phases.
+Java 21 · Spring Boot 3.3 · Spring Cloud Gateway · Eureka · progressive phases.
 
 ```text
-Client → API Gateway :8080 → User :8081
-                          ↘ Order :8082
+Client → API Gateway :8080  ──lb://──►  User (Eureka)
+                     │              ↘ Order (Eureka)
+                     └─ discovers via Eureka :8761
 ```
 
-## Phase 1 (implemented) — static routing
+## Phase 1 — static routing (kept as foundation)
 
 | Path | Downstream |
 |------|------------|
-| `GET /api/users/**` | `http://localhost:8081/users/**` (`StripPrefix=1`) |
-| `GET /api/orders/**` | `http://localhost:8082/orders/**` |
-| `GET /api/public/ping` | Gateway itself (no hop) |
+| `GET /api/users/**` | path rewrite `StripPrefix=1` |
+| `GET /api/orders/**` | same |
+| `GET /api/public/ping` | Gateway itself |
 
-Also included (interview-relevant, still Phase 1 sized):
+Also: `AddRequestHeader=X-Gateway`, `CorrelationLoggingGlobalFilter`.
 
-- `StripPrefix=1` path transform
-- `AddRequestHeader=X-Gateway`
-- `CorrelationLoggingGlobalFilter` (`X-Correlation-ID` + latency log, non-blocking)
+## Phase 2 (implemented) — Eureka + `lb://`
 
-**Not yet:** Eureka, `lb://`, JWT, Redis rate limit, Resilience4j CB — add only when the interviewer asks.
+| Component | Port | Role |
+|-----------|------|------|
+| `eureka-server` | 8761 | Service registry |
+| `user-service` | 8081 | Registers as `user-service` |
+| `order-service` | 8082 | Registers as `order-service` |
+| `api-gateway` | 8080 | Client of Eureka; routes `lb://user-service` / `lb://order-service` |
+
+**What changed vs Phase 1**
+
+| Layer | Change |
+|-------|--------|
+| Eureka | New module; services register + heartbeat |
+| Gateway URI | `http://localhost:8081` → `lb://user-service` |
+| Gateway deps | `eureka-client` + `loadbalancer` |
+| Failure mode still open | Stale registry / cold start before register — need retries/timeouts later |
+
+**Not yet:** multi-instance demo, JWT, Redis rate limit, Resilience4j CB.
 
 ---
 
-## Run (3 terminals)
+## Run (4 terminals)
 
 ```bash
 cd spring-gateway-live-lab
 
-# Terminal 1
-mvn -pl user-service spring-boot:run
+# Terminal 1 — registry first
+mvn -pl eureka-server spring-boot:run
 
-# Terminal 2
+# Terminal 2–3 — wait until Eureka UI http://localhost:8761 is up
+mvn -pl user-service spring-boot:run
 mvn -pl order-service spring-boot:run
 
-# Terminal 3
+# Terminal 4 — after USER-SERVICE / ORDER-SERVICE appear in Eureka
 mvn -pl api-gateway spring-boot:run
+```
+
+Optional second user instance (preview of Phase 3 load balancing):
+
+```bash
+SERVER_PORT=8083 INSTANCE_ID=user-2 mvn -pl user-service spring-boot:run
+# then curl /api/users/101 a few times — watch "instance" field flip
 ```
 
 Smoke:
 
 ```bash
-chmod +x scripts/smoke-phase1.sh
-./scripts/smoke-phase1.sh
+chmod +x scripts/smoke-phase2.sh
+./scripts/smoke-phase2.sh
 ```
 
-Or:
-
-```bash
-curl -i http://localhost:8080/api/users/101
-curl -i http://localhost:8080/api/orders/5001
-curl -i http://localhost:8080/api/public/ping
-```
-
-Tests:
+Tests (Eureka disabled via `@SpringBootTest` properties — do not add `src/test/resources/application.yml` or it shadows main config in Boot 2.4+):
 
 ```bash
 mvn -q test
@@ -63,45 +78,43 @@ mvn -q test
 
 ---
 
-## Request flow (say this in the interview)
+## Request flow (Phase 2 — say this in the interview)
 
 ```text
 Client HTTP
-  → Netty (WebFlux) receives on Gateway
-  → Route Predicate matches Path=/api/users/**
-  → Filter chain: GlobalFilter (correlation) → StripPrefix → AddRequestHeader
-  → Handler proxies to http://localhost:8081/users/101
-  → User Service MVC controller
-  → Response flows back through Gateway to Client
+  → Gateway Netty/WebFlux
+  → Path predicate /api/users/**
+  → GlobalFilter (correlation) → StripPrefix → AddRequestHeader
+  → LoadBalancerFilter resolves lb://user-service via Eureka registry
+  → Proxy to chosen instance host:port /users/101
+  → User MVC → response back through Gateway
 ```
 
 **What / Why / Internals**
 
 | Piece | What | Why | Internals |
 |-------|------|-----|-----------|
-| Route | id + uri + predicates + filters | Map external path to service | `RouteDefinitionRouteLocator` |
-| Predicate | `Path=/api/users/**` | Match when to use this route | `PathRoutePredicateFactory` |
-| `StripPrefix=1` | Drop `/api` | Service keeps `/users` contract | Rewrites request path before proxy |
-| GlobalFilter | All routes | Cross-cutting (correlation, logs) | Ordered in filter chain on `ServerWebExchange` |
-| WebFlux/Netty | Reactive runtime | Gateway is non-blocking | Do not block event loop |
+| Eureka Server | Registry | Dynamic host/port | Heartbeats + lease eviction |
+| Eureka Client | Register + fetch | No hardcoded peer URLs | `DiscoveryClient` cache |
+| `lb://user-service` | Logical service id | Survive redeploy / scale-out | `ReactiveLoadBalancerClientFilter` |
+| LoadBalancer | Pick instance | Round-robin by default | Spring Cloud LoadBalancer (not Ribbon) |
 
 ---
 
-## Interview phases (next commits)
+## Interview phases
 
-1. ~~Basic Gateway + routes~~  
-2. ~~StripPrefix + correlation~~  
-3. Eureka + `lb://USER-SERVICE`  
-4. Multi-instance load balancing demo  
-5. JWT at Gateway (+ discuss service re-validation)  
-6. Roles `USER` / `ADMIN`  
-7. Redis rate limit  
-8. Circuit breaker + timeouts + retry debate  
-9. Error JSON + CORS + versioning  
-10. K8s Deployment/Ingress vs Gateway  
+1. ~~Basic Gateway + routes + StripPrefix + correlation~~  
+2. ~~Eureka + `lb://user-service`~~  
+3. Multi-instance load balancing demo (optional `SERVER_PORT=8083` above)  
+4. JWT at Gateway (+ discuss service re-validation)  
+5. Roles `USER` / `ADMIN`  
+6. Redis rate limit  
+7. Circuit breaker + timeouts + retry debate  
+8. Error JSON + CORS + versioning  
+9. K8s Deployment/Ingress vs Gateway  
 
 ---
 
-## 30-second answer (after Phase 1)
+## 30-second answer (after Phase 2)
 
-> “Clients hit Spring Cloud Gateway. Predicates match `/api/users/**` and `/api/orders/**`, StripPrefix rewrites to the service path, and we proxy over HTTP. Cross-cutting concerns—correlation ID, logging—live as GlobalFilters on the Netty/WebFlux stack. Discovery, JWT, and rate limits come after this path works.”
+> “Services register with Eureka. The gateway no longer hardcodes host:port — routes use `lb://user-service`, and Spring Cloud LoadBalancer picks a healthy instance from the registry. StripPrefix and GlobalFilters stay the same. Next I’d prove multi-instance routing, then put JWT and rate limits at the edge.”

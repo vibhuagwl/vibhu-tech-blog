@@ -10,7 +10,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(
+    properties = {
+      "eureka.client.enabled=false",
+      "eureka.client.register-with-eureka=false",
+      "eureka.client.fetch-registry=false"
+    })
 @AutoConfigureMockMvc
 class OrderControllerTest {
 
