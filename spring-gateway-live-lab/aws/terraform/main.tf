@@ -2,7 +2,7 @@ data "aws_caller_identity" "current" {}
 
 locals {
   account_id = data.aws_caller_identity.current.account_id
-  region     = data.aws_region.current.name
+  region     = var.aws_region
 
   ecr_api_gateway   = "${aws_ecr_repository.api_gateway.repository_url}:${var.image_tag}"
   ecr_user_service  = "${aws_ecr_repository.user_service.repository_url}:${var.image_tag}"
