@@ -4672,30 +4672,36 @@ export const STAFF_QS: InterviewQ[] = [
 ];
 
 export const SPOKEN = {
+  sixtySec:
+    'Spring annotations are not magic. Startup scans and registers BeanDefinitions, injects dependencies, then wraps advised beans in proxies. At runtime, @Transactional @Async @Cacheable run only when the call enters that proxy. this.method skips the proxy — that is why transactions and cache “mysteriously” fail. Boot 3 loads auto-config from imports files filtered by @ConditionalOn*.',
+  twoMin:
+    'I open with SCAN → REGISTER → INJECT → PROXY → EXECUTE. @Component stereotypes become recipes; objects appear later. @Autowired is AutowiredAnnotationBeanPostProcessor after construct. @Transactional is TransactionInterceptor on a CGLIB or JDK proxy — external callers get TX; self-invocation does not. @Configuration with proxyBeanMethods true makes inter-@Bean calls return the singleton. @Async is a new thread — no TX propagation. Boot auto-config backs off with @ConditionalOnMissingBean. I debug with proxy class in the stack and --debug condition report — not by memorizing every annotation name.',
+  staff:
+    'Staff answer names the processor and the failure domain. Self-invocation, advisor order (security → TX → cache → async), rollback rules, and lite vs full @Configuration. Payment path: controller → service proxy → TX → repo → after-commit event → @Async listener on its own proxy. I refuse annotation bingo — I design boundaries so proxies are hit on purpose.',
   autowired: {
-    s15: '@Autowired marks injection points processed by AutowiredAnnotationBeanPostProcessor during populateBean. The container resolves types using @Qualifier and @Primary, preferring constructor injection in Boot 3.',
-    s60: '@Autowired is handled after the raw bean is constructed. AutowiredAnnotationBeanPostProcessor builds InjectionMetadata, wraps each field or parameter in a DependencyDescriptor, and calls DefaultListableBeanFactory.resolveDependency. Resolution order: explicit @Qualifier on the injection point beats @Primary; then @Priority. Single constructor needs no @Autowired since Spring 4.3. You inject the proxy if the target bean is advised. Failures: NoUniqueBeanDefinitionException, circular constructor cycles. Production: constructor injection with final fields, explicit qualifiers, ObjectProvider for optional deps.',
-    s3m: 'Walk the pipeline: createBean → instantiate → populateBean → AutowiredAnnotationBeanPostProcessor.postProcessProperties → InjectionMetadata.inject → resolveDependency → determineAutowireCandidate. Cover @Qualifier vs @Primary, @Value shortcut, Optional, ObjectProvider, Collection injection of all beans of type, @Lazy injection proxy, and circular dependency strategies (@Lazy, setter, or redesign). Compare @Resource name-first and @Inject always-required. Boot 3 uses jakarta.inject. Debug with DEBUG logging on AutowiredAnnotationBeanPostProcessor and read UnsatisfiedDependencyException metadata. Interview trap: @Autowired does not create proxies — it injects whatever the factory holds, usually the advised singleton proxy.',
+    s15: '@Autowired marks injection points processed by AutowiredAnnotationBeanPostProcessor during populateBean. Prefer constructor injection in Boot 3.',
+    s60: '@Autowired runs after the raw bean exists. Qualifier beats Primary. Single constructor needs no annotation. You usually inject the proxy of an advised bean.',
+    s3m: 'Walk createBean → populateBean → resolveDependency. Cover Qualifier, Primary, ObjectProvider, circular deps, and the trap that @Autowired does not create proxies.',
   },
   transactional: {
-    s15: '@Transactional is implemented by a TransactionInterceptor on a Spring AOP proxy. External calls get a transaction; self-invocation via this bypasses the proxy and breaks TX and rollback.',
-    s60: 'Enable via @EnableTransactionManagement or Boot auto-config. TransactionInterceptor uses PlatformTransactionManager (JpaTransactionManager for JPA). Attributes: propagation, isolation, readOnly, timeout, rollbackFor. Default rollback on unchecked exceptions only. REQUIRES_NEW needs a call through the proxy. Connection is bound to the thread via TransactionSynchronizationManager. @TransactionalEventListener(AFTER_COMMIT) pairs with domain events. Debug: log org.springframework.transaction, verify proxy in stack trace, never put TX on controllers.',
-    s3m: 'Deep dive: advisor ordering with @PreAuthorize and @Cacheable; readOnly flushes; NESTED savepoints; JTA vs local; chaining with Kafka via chained transaction manager (rare). Explain self-invocation fixes: separate bean, inject self interface, AopContext.currentProxy with exposeProxy=true, or AspectJ. Cover @Transactional on interface, private/final method limits, and test @DataJpaTest rollback vs production service layer boundaries. Payment example: service method opens TX, repo joins, publish event after commit, idempotency outside rollback rules. Staff: RuleBasedTransactionAttribute, TransactionAspectSupport.currentTransactionStatus(), and why REQUIRES_NEW on this.fail() never works.',
+    s15: '@Transactional = TransactionInterceptor on a proxy. External calls get TX; this. bypasses it.',
+    s60: 'Rollback defaults to unchecked exceptions. REQUIRES_NEW needs a proxy call. Pair after-commit listeners with domain events.',
+    s3m: 'Advisor order, self-invocation fixes, readOnly, and why TX on controllers is wrong.',
   },
   configuration: {
-    s15: '@Configuration classes are parsed by ConfigurationClassPostProcessor. Full @Configuration uses CGLIB so @Bean methods share singletons; @Bean registers factory methods with the container.',
-    s60: '@Configuration is meta-annotated with @Component. ConfigurationClassParser handles @Import, @ComponentScan, @PropertySource. @Bean methods on full configuration are invoked through enhanced subclass so paymentService() calling repository() returns the same bean. proxyBeanMethods=false is lite mode — inter-bean calls create new instances. @Conditional and @Profile gate definitions. @Import AutoConfigurationImportSelector for Boot. Debug: condition evaluation report, verify enhanced class name $$EnhancerBySpringCGLIB$$.',
-    s3m: 'Explain ConfigurationClassPostProcessor phases, DeferredImportSelector for Boot auto-config, @Bean override rules, @Primary @Qualifier on @Bean methods, init/destroy methods, factory beans, and @ConfigurationProperties @Bean. Contrast @Component with @Bean method — not enhanced unless @Configuration. Cover ImportBeanDefinitionRegistrar, ImportSelector, ordering @AutoConfigureBefore/After. Production: one canonical @Configuration per module, avoid bean name clashes, use @ConfigurationPropertiesScan. Staff: BeanDefinitionRegistryPostProcessor extension points and spring.factories vs imports migration in Boot 3.',
+    s15: '@Configuration is parsed by ConfigurationClassPostProcessor; full mode CGLIB-shares @Bean singletons.',
+    s60: 'proxyBeanMethods=false means inter-@Bean calls can create duplicates. Use for tests when you understand the cost.',
+    s3m: '@Import, conditions, Boot DeferredImportSelector — still say proxy first in interviews.',
   },
   bootAutoConfig: {
-    s15: '@SpringBootApplication triggers component scan and AutoConfigurationImportSelector, which loads Boot 3 auto-config classes from META-INF/spring/*.imports filtered by @ConditionalOn*.',
-    s60: 'SpringApplication.run prepares Environment, applies listeners, refreshes ApplicationContext. Auto-config uses @ConditionalOnClass, OnBeanCondition, OnPropertyCondition. User @Bean with @ConditionalOnMissingBean backs off defaults. Debug: --debug condition report, actuate beans endpoint. Exclude via @SpringBootApplication exclude or spring.autoconfigure.exclude. Starters bring dependencies that satisfy OnClass conditions.',
-    s3m: 'Trace SpringApplicationRunListeners, ApplicationContextInitializer, EnvironmentPostProcessor, context refresh, invokeBeanFactoryPostProcessors, registerBeanPostProcessors, instantiate singletons. Explain how DataSourceAutoConfiguration, HibernateJpaAutoConfiguration, TransactionAutoConfiguration chain. Custom starter: auto-config module + imports file + conditions. Traps: @ComponentScan missing auto-config packages is fine — imports are separate; multiple DataSource without @Primary; overriding beans silently with allow-bean-definition-overriding. Cloud: config data API, refresh scope, native AOT hints. Staff: ordering graph, custom Condition performance, and failure analyzers.',
+    s15: '@SpringBootApplication = scan + AutoConfiguration.imports filtered by @ConditionalOn*.',
+    s60: 'User @Bean + OnMissingBean backs off defaults. Debug with --debug condition report.',
+    s3m: 'Starters satisfy OnClass; exclude carefully; never fight auto-config blindly.',
   },
   proxy: {
-    s15: 'Spring creates JDK or CGLIB proxies for @Transactional, @Async, @Cacheable, @PreAuthorize, etc. Only external calls through the proxy run advisors; this.internal() skips all of them.',
-    s60: 'AnnotationAwareAspectJAutoProxyCreator wraps beans matching pointcuts. Boot defaults proxyTargetClass=true (CGLIB). Interface-only beans can use JDK proxies. @Configuration is enhanced separately for @Bean semantics. Scoped beans use scoped proxies. Debug: check stack for proxy class, enable spring.aop.proxy-target-class logging, use exposeProxy for controlled self-call. Final classes and private methods cannot be advised with standard Spring AOP.',
-    s3m: 'Advisor chain order: security → transaction → cache → async → observability. Explain MethodInvocation.proceed() stack. Compare Spring AOP vs AspectJ LTW/CTW for self-invocation. Hibernate lazy proxies vs Spring AOP proxies. Spring Data JDK repository proxy third kind. Feign HTTP proxy fourth. Payment trace: controller → service proxy → TX advisor → cache → target → repo → afterCommit event → @Async listener proxy. Staff: DefaultAdvisorChainFactory, Sort advisors by @Order, BeanFactoryAdvisorRetrievalHelper, and when to choose AspectJ weaving in large monoliths.',
+    s15: 'JDK or CGLIB proxies carry advisors. Only external calls run them.',
+    s60: 'Boot defaults CGLIB. Final/private methods are not advised. Stack trace should show $$ proxy.',
+    s3m: 'Order advisors; AspectJ only if self-invocation must work without redesign.',
   },
 } as const;
 
