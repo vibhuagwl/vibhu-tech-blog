@@ -1,8 +1,8 @@
 'use client';
 
-import {useCallback, useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import Link from 'next/link';
-import {MEMORY_SENTENCE, MSC_DEEP_SECTION_IDS, MSC_TOC, VERSION_NOTE} from '@/lib/microservice-communication/toc';
+import {MEMORY_SENTENCE, MSC_STORY_TOC_IDS, MSC_TOC, VERSION_NOTE} from '@/lib/microservice-communication/toc';
 import {OPTIONS} from '@/lib/microservice-communication/parts-options';
 import {CLIENTS} from '@/lib/microservice-communication/parts-clients';
 import {DISCOVERY} from '@/lib/microservice-communication/parts-discovery';
@@ -251,8 +251,9 @@ function IncidentBrowser() {
   );
 }
 
+
 export default function MicroserviceCommunicationHub() {
-  const [view, setView] = useState<'stories' | 'deep'>('stories');
+  const [tocFocus, setTocFocus] = useState<'story' | 'full'>('full');
   const sectionCount =
     OPTIONS.length +
     CLIENTS.length +
@@ -262,30 +263,26 @@ export default function MicroserviceCommunicationHub() {
     DESIGN.length +
     TAXONOMY_EXTRAS.length;
 
-  const ensureSectionMounted = useCallback((id: string) => {
-    if (MSC_DEEP_SECTION_IDS.has(id)) setView('deep');
-  }, []);
+  const tocItems = useMemo(
+    () => (tocFocus === 'story' ? MSC_TOC.filter((i) => MSC_STORY_TOC_IDS.has(i.id)) : MSC_TOC),
+    [tocFocus],
+  );
 
-  // Shared links like …/microservice-communication/#architectures must unlock deep view
-  // (those section nodes are not in the DOM in Story mode).
+  // Hash links (#grpc, #architectures, …) must land after paint — sections are always mounted.
   useEffect(() => {
-    const syncHash = () => {
+    const scrollToHash = () => {
       const id = window.location.hash.replace(/^#/, '');
-      if (id) ensureSectionMounted(id);
+      if (!id) return;
+      // Prefer full TOC when a deep-only hash is opened while story TOC is filtered.
+      if (!MSC_STORY_TOC_IDS.has(id)) setTocFocus('full');
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({behavior: 'smooth', block: 'start'});
+      });
     };
-    syncHash();
-    window.addEventListener('hashchange', syncHash);
-    return () => window.removeEventListener('hashchange', syncHash);
-  }, [ensureSectionMounted]);
-
-  useEffect(() => {
-    const id = window.location.hash.replace(/^#/, '');
-    if (!id) return;
-    const t = window.setTimeout(() => {
-      document.getElementById(id)?.scrollIntoView({behavior: 'smooth', block: 'start'});
-    }, 80);
-    return () => window.clearTimeout(t);
-  }, [view]);
+    scrollToHash();
+    window.addEventListener('hashchange', scrollToHash);
+    return () => window.removeEventListener('hashchange', scrollToHash);
+  }, []);
 
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
@@ -297,8 +294,9 @@ export default function MicroserviceCommunicationHub() {
           How Microservice A Calls Microservice B
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Start in <strong>Story mode</strong>: draw sync vs async, retry storms, webhooks, CDC vs outbox. Deep theory
-          (clients, mesh, matrices) stays behind one toggle — open it only when you need the detail.
+          Full reference is always on this page — every TOC and hash link (including{' '}
+          <code className="rounded bg-slate-100 px-1 dark:bg-slate-900">#grpc</code>) jumps to a real section.
+          Use the TOC filter below if you want a shorter interview path in the sidebar.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
@@ -306,16 +304,16 @@ export default function MicroserviceCommunicationHub() {
         <div className="mt-4 flex flex-wrap gap-2">
           {(
             [
-              ['stories', 'Story + TRICKS-OLD first'],
-              ['deep', 'Full deep reference'],
+              ['story', 'Sidebar: story path'],
+              ['full', 'Sidebar: full TOC'],
             ] as const
           ).map(([id, label]) => (
             <button
               key={id}
               type="button"
-              onClick={() => setView(id)}
+              onClick={() => setTocFocus(id)}
               className={`rounded-lg px-4 py-2 text-sm font-semibold ${
-                view === id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                tocFocus === id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200'
               }`}
             >
               {label}
@@ -355,7 +353,7 @@ export default function MicroserviceCommunicationHub() {
       </header>
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
-        <StickyToc items={MSC_TOC} onNavigate={ensureSectionMounted} />
+        <StickyToc items={tocItems} />
         <div className="min-w-0 space-y-16">
           <Section id="overview" title="00. Start here" lead="A → B is a reliability design, not a GET call.">
             <CodePanel
@@ -392,6 +390,110 @@ export default function MicroserviceCommunicationHub() {
             <StoryWalkthrough />
           </Section>
 
+          <Section id="options" title="03. All options compared">
+            <Group cards={OPTIONS} />
+          </Section>
+          <Section id="extras" title="04. RSocket · webhooks · SSE · CDC · SFTP · UDS">
+            <Group cards={TAXONOMY_EXTRAS.filter((c) => c.id !== 'taxonomy-overview')} />
+          </Section>
+          <Section id="rest-clients" title="05. RestClient · WebClient · Feign · RestTemplate">
+            <Group cards={CLIENTS} />
+          </Section>
+          <Section id="discovery-lb" title="06. Discovery · K8s · LB · Gateway · Mesh (infra)">
+            <Group cards={DISCOVERY} />
+          </Section>
+          <Section id="grpc" title="07. gRPC (see options + clients comparison)">
+            <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
+              Deep gRPC tradeoffs live in the options matrix; RSocket comparison sits under taxonomy extras.
+            </p>
+            <Group cards={OPTIONS.filter((o) => o.id.includes('grpc') || o.title.toLowerCase().includes('grpc'))} />
+          </Section>
+          <Section id="async" title="08. Kafka · brokers · events">
+            <Group cards={MESSAGING} />
+          </Section>
+          <Section id="gateway-mesh" title="09. Gateway · mesh — infrastructure, not the mechanism">
+            <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
+              These wrap REST/gRPC/Kafka. Say the mechanism first, then the infra.
+            </p>
+            <Group
+              cards={DISCOVERY.filter(
+                (d) =>
+                  d.title.toLowerCase().includes('gateway') ||
+                  d.title.toLowerCase().includes('mesh') ||
+                  d.title.toLowerCase().includes('east'),
+              )}
+            />
+          </Section>
+          <Section id="resilience" title="10. Timeout · retry · CB · bulkhead · pools">
+            <Group cards={RESILIENCE} />
+          </Section>
+          <Section id="idempotency" title="11. Idempotency · saga · chains">
+            <Group
+              cards={RESILIENCE.filter(
+                (r) =>
+                  r.title.toLowerCase().includes('idempot') ||
+                  r.title.toLowerCase().includes('saga') ||
+                  r.title.toLowerCase().includes('chain') ||
+                  r.title.toLowerCase().includes('outbox'),
+              )}
+            />
+          </Section>
+          <Section id="security-obs" title="12. Security · tracing · capacity">
+            <Group
+              cards={DESIGN.filter(
+                (d) =>
+                  d.title.toLowerCase().includes('security') ||
+                  d.title.toLowerCase().includes('observ') ||
+                  d.title.toLowerCase().includes('little') ||
+                  d.title.toLowerCase().includes('cascad') ||
+                  d.title.toLowerCase().includes('version') ||
+                  d.title.toLowerCase().includes('contract') ||
+                  d.title.toLowerCase().includes('api'),
+              )}
+            />
+          </Section>
+          <Section id="capacity" title="13. Capacity · architectures · anti-patterns">
+            <Group cards={DESIGN} />
+          </Section>
+          <Section id="architectures" title="14. Payment · ecommerce · banking">
+            <Group
+              cards={DESIGN.filter(
+                (d) =>
+                  d.title.toLowerCase().includes('payment') ||
+                  d.title.toLowerCase().includes('commerce') ||
+                  d.title.toLowerCase().includes('bank') ||
+                  d.title.toLowerCase().includes('trad'),
+              )}
+            />
+          </Section>
+          <Section id="antipatterns" title="15. Anti-patterns (incl. shared DB/cache as buses)">
+            <Group
+              cards={[
+                ...OPTIONS.filter((o) => o.id === 'shared-database' || o.id === 'shared-cache'),
+                ...DESIGN.filter((d) => d.title.toLowerCase().includes('anti') || d.id.includes('anti')),
+              ]}
+            />
+          </Section>
+
+          <Section id="choose" title="16. Which would you choose?">
+            <ChooseBrowser />
+          </Section>
+
+          <Section id="incidents" title="17. Production incidents">
+            <IncidentBrowser />
+          </Section>
+
+          <Section
+            id="failure-matrix"
+            title="18. Failure matrix"
+            lead="What breaks, what you do in the first five minutes, and what you change permanently."
+          >
+            <MiniTable
+              headers={['Failure', 'What happens', 'Temporary mitigation', 'Permanent solution']}
+              rows={FAILURE_MATRIX.map((r) => [r.failure, r.happens, r.temporary, r.permanent])}
+            />
+          </Section>
+
           <Section id="spoken" title="19. Spoken answers (30s / 2m / 5m Staff)">
             <div className="space-y-4">
               {(
@@ -418,23 +520,17 @@ export default function MicroserviceCommunicationHub() {
             </div>
           </Section>
 
-          <Section id="choose" title="16. Which would you choose?">
-            <ChooseBrowser />
-          </Section>
-
-          <Section id="incidents" title="17. Production incidents">
-            <IncidentBrowser />
-          </Section>
-
-          <Section
-            id="failure-matrix"
-            title="18. Failure matrix"
-            lead="What breaks, what you do in the first five minutes, and what you change permanently."
-          >
-            <MiniTable
-              headers={['Failure', 'What happens', 'Temporary mitigation', 'Permanent solution']}
-              rows={FAILURE_MATRIX.map((r) => [r.failure, r.happens, r.temporary, r.permanent])}
-            />
+          <Section id="tricks" title="20. Trick questions">
+            <div className="space-y-2">
+              {TRICK_QS.slice(0, 20).map((q) => (
+                <details key={q.id} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                  <summary className="cursor-pointer font-medium">{q.question}</summary>
+                  <p className="mt-2 text-slate-600 dark:text-slate-300">{q.answer30s}</p>
+                  <p className="mt-1 text-slate-600 dark:text-slate-300">{q.answer2m}</p>
+                </details>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">{TRICK_QS.length} tricks — full set in Interview mode</p>
           </Section>
 
           <Section id="interview" title="21. Interview mode">
@@ -460,127 +556,6 @@ export default function MicroserviceCommunicationHub() {
                 rows={SENIOR_VS_STAFF.map((r) => [r.topic, r.junior, r.senior, r.staff])}
               />
             </div>
-          </Section>
-
-          {view === 'deep' && (
-            <>
-              <Section id="options" title="03. All options compared">
-                <Group cards={OPTIONS} />
-              </Section>
-              <Section id="extras" title="04. RSocket · webhooks · SSE · CDC · SFTP · UDS">
-                <Group cards={TAXONOMY_EXTRAS.filter((c) => c.id !== 'taxonomy-overview')} />
-              </Section>
-              <Section id="rest-clients" title="05. RestClient · WebClient · Feign · RestTemplate">
-                <Group cards={CLIENTS} />
-              </Section>
-              <Section id="discovery-lb" title="06. Discovery · K8s · LB · Gateway · Mesh (infra)">
-                <Group cards={DISCOVERY} />
-              </Section>
-              <Section id="grpc" title="07. gRPC (see options + clients comparison)">
-                <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
-                  Deep gRPC tradeoffs live in the options matrix; RSocket comparison sits under taxonomy extras.
-                </p>
-                <Group cards={OPTIONS.filter((o) => o.id.includes('grpc') || o.title.toLowerCase().includes('grpc'))} />
-              </Section>
-              <Section id="async" title="08. Kafka · brokers · events">
-                <Group cards={MESSAGING} />
-              </Section>
-              <Section id="gateway-mesh" title="09. Gateway · mesh — infrastructure, not the mechanism">
-                <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
-                  These wrap REST/gRPC/Kafka. Say the mechanism first, then the infra.
-                </p>
-                <Group
-                  cards={DISCOVERY.filter(
-                    (d) =>
-                      d.title.toLowerCase().includes('gateway') ||
-                      d.title.toLowerCase().includes('mesh') ||
-                      d.title.toLowerCase().includes('east'),
-                  )}
-                />
-              </Section>
-              <Section id="resilience" title="10. Timeout · retry · CB · bulkhead · pools">
-                <Group cards={RESILIENCE} />
-              </Section>
-              <Section id="idempotency" title="11. Idempotency · saga · chains">
-                <Group
-                  cards={RESILIENCE.filter(
-                    (r) =>
-                      r.title.toLowerCase().includes('idempot') ||
-                      r.title.toLowerCase().includes('saga') ||
-                      r.title.toLowerCase().includes('chain') ||
-                      r.title.toLowerCase().includes('outbox'),
-                  )}
-                />
-              </Section>
-              <Section id="security-obs" title="12. Security · tracing · capacity">
-                <Group
-                  cards={DESIGN.filter(
-                    (d) =>
-                      d.title.toLowerCase().includes('security') ||
-                      d.title.toLowerCase().includes('observ') ||
-                      d.title.toLowerCase().includes('little') ||
-                      d.title.toLowerCase().includes('cascad') ||
-                      d.title.toLowerCase().includes('version') ||
-                      d.title.toLowerCase().includes('contract') ||
-                      d.title.toLowerCase().includes('api'),
-                  )}
-                />
-              </Section>
-              <Section id="capacity" title="13. Capacity · architectures · anti-patterns">
-                <Group cards={DESIGN} />
-              </Section>
-              <Section id="architectures" title="14. Payment · ecommerce · banking">
-                <Group
-                  cards={DESIGN.filter(
-                    (d) =>
-                      d.title.toLowerCase().includes('payment') ||
-                      d.title.toLowerCase().includes('commerce') ||
-                      d.title.toLowerCase().includes('bank') ||
-                      d.title.toLowerCase().includes('trad'),
-                  )}
-                />
-              </Section>
-              <Section id="antipatterns" title="15. Anti-patterns (incl. shared DB/cache as buses)">
-                <Group
-                  cards={[
-                    ...OPTIONS.filter((o) => o.id === 'shared-database' || o.id === 'shared-cache'),
-                    ...DESIGN.filter((d) => d.title.toLowerCase().includes('anti') || d.id.includes('anti')),
-                  ]}
-                />
-              </Section>
-            </>
-          )}
-
-          {view === 'stories' && (
-            <Section
-              id="deep-hint"
-              title="Open full deep reference"
-              lead="Stories + taxonomy + spoken + choose + incidents always on. Unlock clients, discovery, resilience, Kafka, RSocket/CDC extras, architectures."
-            >
-              <button
-                type="button"
-                onClick={() => setView('deep')}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-              >
-                Show RestClient/Feign · K8s/Mesh · Kafka · RSocket/CDC · Resilience · Architectures
-              </button>
-              <div className="mt-6">
-                <Group cards={OPTIONS.slice(0, 6)} />
-              </div>
-            </Section>
-          )}
-
-          <Section id="tricks" title="20. Trick questions">
-            <div className="space-y-2">
-              {TRICK_QS.slice(0, 20).map((q) => (
-                <details key={q.id} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
-                  <summary className="cursor-pointer font-medium">{q.question}</summary>
-                  <p className="mt-2 text-slate-600 dark:text-slate-300">{q.answer30s}</p>
-                  <p className="mt-1 text-slate-600 dark:text-slate-300">{q.answer2m}</p>
-                </details>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-slate-500">{TRICK_QS.length} tricks — full set in Interview mode</p>
           </Section>
 
           <Section id="checklist" title="23. Coverage checklist">

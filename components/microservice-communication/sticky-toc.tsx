@@ -3,14 +3,7 @@
 import {useEffect, useState} from 'react';
 import type {TocItem} from '@/lib/microservice-communication/types';
 
-export default function StickyToc({
-  items,
-  onNavigate,
-}: {
-  items: TocItem[];
-  /** Called before hash navigation so the parent can mount gated sections. */
-  onNavigate?: (id: string) => void;
-}) {
+export default function StickyToc({items}: {items: TocItem[]}) {
   const [active, setActive] = useState(items[0]?.id ?? '');
   const [query, setQuery] = useState('');
 
@@ -35,23 +28,41 @@ export default function StickyToc({
     : items;
 
   return (
-    <nav aria-label="Microservice communication sections" className="hidden xl:block">
-      <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+    <nav aria-label="Microservice communication sections">
+      <div className="mb-6 xl:mb-0 xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
         <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-500">
           A → B · Sync · Async · Resilience
         </div>
+        <label className="mt-3 block xl:hidden">
+          <span className="sr-only">Jump to section</span>
+          <select
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+            value={active}
+            onChange={(e) => {
+              const id = e.target.value;
+              setActive(id);
+              window.location.hash = id;
+              document.getElementById(id)?.scrollIntoView({behavior: 'smooth', block: 'start'});
+            }}
+          >
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter..."
-          className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2 dark:border-slate-700 dark:bg-slate-900"
+          className="mt-3 hidden w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none ring-blue-500 focus:ring-2 xl:block dark:border-slate-700 dark:bg-slate-900"
         />
-        <ul className="mt-3 space-y-0.5">
+        <ul className="mt-3 hidden space-y-0.5 xl:block">
           {filtered.map((item) => (
             <li key={item.id}>
               <a
                 href={`#${item.id}`}
-                onClick={() => onNavigate?.(item.id)}
                 className={[
                   'block border-l-2 py-1.5 pl-3 text-[13px] leading-snug transition',
                   active === item.id
