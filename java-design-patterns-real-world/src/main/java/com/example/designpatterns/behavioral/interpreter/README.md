@@ -1,5 +1,12 @@
 # TransactionRule Interpreter
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/interpreter-explanation.md`](../../../../../../docs/patterns/interpreter-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Evaluate simple AML transaction rules.

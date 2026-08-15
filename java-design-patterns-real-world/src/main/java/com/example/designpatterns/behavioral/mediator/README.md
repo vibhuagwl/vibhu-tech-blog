@@ -1,5 +1,12 @@
 # OrderProcessing Mediator
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/mediator-explanation.md`](../../../../../../docs/patterns/mediator-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Order, payment, inventory, and notification services coordinate centrally.

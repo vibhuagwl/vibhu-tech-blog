@@ -1,5 +1,12 @@
 # PaymentTransaction Builder
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/builder-explanation.md`](../../../../../../docs/patterns/builder-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Building a complex payment transaction request.

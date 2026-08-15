@@ -1,5 +1,12 @@
 # RegionalBanking Factory
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/abstract-factory-explanation.md`](../../../../../../docs/patterns/abstract-factory-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 India, Europe, and US banking packs create compatible account and payment services.

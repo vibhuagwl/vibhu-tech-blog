@@ -1,5 +1,12 @@
 # Payment Strategy
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/strategy-explanation.md`](../../../../../../docs/patterns/strategy-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 UPI, card, PayPal, and bank transfer settlement algorithms.

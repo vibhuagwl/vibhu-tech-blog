@@ -1,5 +1,12 @@
 # Account Visitor
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/visitor-explanation.md`](../../../../../../docs/patterns/visitor-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Savings, current, and loan accounts support new reporting operations.

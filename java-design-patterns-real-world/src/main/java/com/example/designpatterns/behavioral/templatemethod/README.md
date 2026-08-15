@@ -1,5 +1,12 @@
 # PaymentProcessingTemplate
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/template-method-explanation.md`](../../../../../../docs/patterns/template-method-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 All payments follow validate/auth/process/audit/notify steps.

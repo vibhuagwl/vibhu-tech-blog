@@ -12,6 +12,47 @@ export const metadata = {
     'Browse the Java design patterns interview repository: each pattern explains the problem it fixes, how it resolves it, and ships a runnable main with STEP output.',
 };
 
+const PATTERN_BOARDS: {group: string; items: {name: string; file: string; demo: string}[]}[] = [
+  {
+    group: 'Creational',
+    items: [
+      {name: 'Singleton', file: 'singleton-explanation.md', demo: 'ConfigManagerDemo'},
+      {name: 'Factory Method', file: 'factory-method-explanation.md', demo: 'PaymentGatewayFactoryDemo'},
+      {name: 'Abstract Factory', file: 'abstract-factory-explanation.md', demo: 'RegionalBankingFactoryDemo'},
+      {name: 'Builder', file: 'builder-explanation.md', demo: 'PaymentTransactionBuilderDemo'},
+      {name: 'Prototype', file: 'prototype-explanation.md', demo: 'ReportConfigurationPrototypeDemo'},
+    ],
+  },
+  {
+    group: 'Structural',
+    items: [
+      {name: 'Adapter', file: 'adapter-explanation.md', demo: 'LegacyPaymentAdapterDemo'},
+      {name: 'Bridge', file: 'bridge-explanation.md', demo: 'NotificationBridgeDemo'},
+      {name: 'Composite', file: 'composite-explanation.md', demo: 'OrderCompositeDemo'},
+      {name: 'Decorator', file: 'decorator-explanation.md', demo: 'PaymentDecoratorDemo'},
+      {name: 'Facade', file: 'facade-explanation.md', demo: 'PaymentFacadeDemo'},
+      {name: 'Flyweight', file: 'flyweight-explanation.md', demo: 'CurrencyFlyweightDemo'},
+      {name: 'Proxy', file: 'proxy-explanation.md', demo: 'PaymentServiceProxyDemo'},
+    ],
+  },
+  {
+    group: 'Behavioral',
+    items: [
+      {name: 'Chain of Responsibility', file: 'chain-of-responsibility-explanation.md', demo: 'PaymentValidationChainDemo'},
+      {name: 'Command', file: 'command-explanation.md', demo: 'PaymentCommandDemo'},
+      {name: 'Interpreter', file: 'interpreter-explanation.md', demo: 'TransactionRuleInterpreterDemo'},
+      {name: 'Iterator', file: 'iterator-explanation.md', demo: 'TransactionIteratorDemo'},
+      {name: 'Mediator', file: 'mediator-explanation.md', demo: 'OrderProcessingMediatorDemo'},
+      {name: 'Memento', file: 'memento-explanation.md', demo: 'PaymentConfigurationMementoDemo'},
+      {name: 'Observer', file: 'observer-explanation.md', demo: 'PaymentObserverDemo'},
+      {name: 'State', file: 'state-explanation.md', demo: 'PaymentStateDemo'},
+      {name: 'Strategy', file: 'strategy-explanation.md', demo: 'PaymentStrategyDemo'},
+      {name: 'Template Method', file: 'template-method-explanation.md', demo: 'PaymentProcessingTemplateDemo'},
+      {name: 'Visitor', file: 'visitor-explanation.md', demo: 'AccountVisitorDemo'},
+    ],
+  },
+];
+
 export default function JavaDesignPatternsRealWorldPage() {
   const files = listJavaDesignPatternsRealWorldFiles();
   const tree = buildJavaDesignPatternsRealWorldTree(files);
@@ -108,6 +149,36 @@ export default function JavaDesignPatternsRealWorldPage() {
           </Link>
           .
         </p>
+      </section>
+
+      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+          All 23 patterns — same explanation format
+        </h2>
+        <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+          Every board is problem-first (like Composite): without the pattern → how the pattern solves it → code
+          mapping → runtime flow → interview answer. Open any link in the explorer below.
+        </p>
+        <div className="mt-6 space-y-6">
+          {PATTERN_BOARDS.map((g) => (
+            <div key={g.group}>
+              <h3 className="text-sm font-semibold uppercase tracking-[.08em] text-slate-500">{g.group}</h3>
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {g.items.map((p) => (
+                  <li key={p.file}>
+                    <Link
+                      href={`/java-design-patterns-real-world?path=${encodeURIComponent(`docs/patterns/${p.file}`)}`}
+                      className="block rounded-xl border border-slate-200 px-3 py-2 text-sm hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
+                    >
+                      <span className="font-semibold text-slate-900 dark:text-white">{p.name}</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">{p.demo}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">

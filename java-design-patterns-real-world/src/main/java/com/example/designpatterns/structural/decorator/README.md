@@ -1,5 +1,12 @@
 # Payment Decorator
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/decorator-explanation.md`](../../../../../../docs/patterns/decorator-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Add fraud, logging, metrics, and retry around core payment processing.

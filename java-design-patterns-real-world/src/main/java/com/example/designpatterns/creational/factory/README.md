@@ -1,5 +1,12 @@
 # PaymentGateway Factory
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/factory-method-explanation.md`](../../../../../../docs/patterns/factory-method-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Payment provider selection for Stripe, PayPal, and Adyen.

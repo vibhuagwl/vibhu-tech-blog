@@ -1,5 +1,12 @@
 # Payment Facade
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/facade-explanation.md`](../../../../../../docs/patterns/facade-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 One entry point orchestrates fraud, balance, audit, and notification services.

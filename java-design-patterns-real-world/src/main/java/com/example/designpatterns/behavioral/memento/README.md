@@ -1,5 +1,12 @@
 # PaymentConfiguration Memento
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/memento-explanation.md`](../../../../../../docs/patterns/memento-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Rollback payment config after a bad release.

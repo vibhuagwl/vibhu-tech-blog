@@ -1,5 +1,12 @@
 # Notification Bridge
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/bridge-explanation.md`](../../../../../../docs/patterns/bridge-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Email, SMS, and push notifications can run on multiple providers.
