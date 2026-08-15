@@ -1,12 +1,19 @@
 # Payment State
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/state-explanation.md`](../../../../../../../../docs/patterns/state-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Payment lifecycle transitions from CREATED to COMPLETED.
 
 ## Problem
 
-One giant switch statement allows invalid transitions.
+Payments use a `status` string (`CREATED`, `AUTHORIZED`, …). A bug lets support call capture on a payment that was never authorized.
 
 ## Naive Implementation
 
@@ -14,11 +21,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+switch(status) blocks appear in five services and drift apart. FAILED payments sometimes reach COMPLETED via a missed case. Refunds on SETTLED items need duplicate guards everywhere.
 
 ## Pattern Solution
 
-State objects govern valid behavior per lifecycle stage.
+PaymentStateDemo models each phase as a class. CreatedState.authorize() returns AuthorizedState; capture() before authorize throws. Payment delegates all moves to the active state object.
 
 ## Code Flow
 

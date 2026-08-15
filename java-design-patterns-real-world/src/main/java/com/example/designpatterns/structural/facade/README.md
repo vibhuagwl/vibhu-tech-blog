@@ -1,12 +1,19 @@
 # Payment Facade
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/facade-explanation.md`](../../../../../../../../docs/patterns/facade-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 One entry point orchestrates fraud, balance, audit, and notification services.
 
 ## Problem
 
-Clients call five subsystems directly and get orchestration wrong.
+The mobile checkout endpoint must run fraud screening, balance check, charge, customer notification, and audit logging in sequence before returning success.
 
 ## Naive Implementation
 
@@ -14,11 +21,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+A new engineer ships a path that charges before fraud review. Web and mobile controllers diverge on rejection messages. Integration tests mock five services per endpoint.
 
 ## Pattern Solution
 
-Facade exposes one simple processPayment API.
+PaymentFacade exposes processDetailed(accountId, amount). Internally it coordinates FraudService, AccountService, PaymentService, NotificationService, and AuditService, returning one PaymentOutcome.
 
 ## Code Flow
 

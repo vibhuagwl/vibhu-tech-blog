@@ -4,6 +4,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+/**
+ * In-memory stand-in for Kafka payment events.
+ *
+ * <p>PROBLEM (without this pattern) - PaymentService calls email, audit, and search indexing inline
+ * after capture. - A slow subscriber blocks settlement; adding a listener edits the payment core.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - InMemoryEventPublisher publishes PaymentCreatedEvent once. -
+ * Consumers register independently and react in parallel (Observer-like decoupling). - Producer
+ * stays unaware of concrete downstream integrations.
+ */
 public class KafkaEventFlowDemo {
   public record PaymentCreatedEvent(String paymentId, int amount) {}
 
@@ -17,5 +27,31 @@ public class KafkaEventFlowDemo {
     public void publish(PaymentCreatedEvent event) {
       consumers.forEach(c -> c.accept(event));
     }
+  }
+
+  public static void run() {
+    System.out.println("=== Kafka Event Flow — KafkaEventFlowDemo ===");
+    System.out.println(
+        "PROBLEM: After capture, payment code directly calls email, audit, and search indexing,"
+            + " coupling settlement to every side effect.");
+    System.out.println(
+        "SOLUTION: Publish PaymentCreatedEvent once; registered consumers react independently"
+            + " without the producer knowing concrete listeners.");
+    System.out.println("STEP 1: Create InMemoryEventPublisher (stand-in for Kafka producer)");
+    var publisher = new InMemoryEventPublisher();
+    System.out.println("STEP 2: Register consumer that prints payment notifications");
+    publisher.register(
+        event ->
+            System.out.println(
+                "  Consumer received paymentId="
+                    + event.paymentId()
+                    + ", amount="
+                    + event.amount()));
+    System.out.println("STEP 3: publish PaymentCreatedEvent fans out to all consumers");
+    publisher.publish(new PaymentCreatedEvent("pay-kafka-1", 750));
+  }
+
+  public static void main(String[] args) {
+    run();
   }
 }

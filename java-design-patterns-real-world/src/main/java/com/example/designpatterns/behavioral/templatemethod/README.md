@@ -1,12 +1,19 @@
 # PaymentProcessingTemplate
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/template-method-explanation.md`](../../../../../../../../docs/patterns/template-method-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 All payments follow validate/auth/process/audit/notify steps.
 
 ## Problem
 
-Flow is mostly the same, but small steps vary by method.
+Card checkout and UPI checkout both run validate, authenticate, process, audit, and notify — but two teams maintain nearly identical methods.
 
 ## Naive Implementation
 
@@ -14,11 +21,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Card flow adds 3-D Secure in authenticate; UPI misses it for weeks. Someone reorders notify before audit in one path only. Code review cannot see skeleton violations easily.
 
 ## Pattern Solution
 
-Template method fixes the skeleton and lets subclasses override details.
+PaymentProcessingTemplateDemo's abstract PaymentProcessor.execute() locks step order. CardProcessor and UpiProcessor override only process(); validate, audit, and notify stay centralized.
 
 ## Code Flow
 

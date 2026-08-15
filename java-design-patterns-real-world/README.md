@@ -11,13 +11,28 @@ This repository teaches GoF design patterns through small backend engineering st
 - short pattern READMEs optimized for interview revision
 - tests that verify behavior, not empty object creation
 
-## How to run it
+## How to run it (step by step)
+
+Full guide: [`docs/HOW_TO_RUN.md`](docs/HOW_TO_RUN.md).
 
 ```bash
 cd java-design-patterns-real-world
+
+# 1) Verify everything compiles and tests pass
 mvn clean test
+
+# 2) Run ALL pattern demos (each prints STEP 1, STEP 2, …)
 mvn -q exec:java -Dexec.mainClass=com.example.designpatterns.DesignPatternDemo
+
+# 3) Or run a single pattern (example: Factory Method)
+mvn -q exec:java -Dexec.mainClass=com.example.designpatterns.creational.factory.PaymentGatewayFactoryDemo
 ```
+
+Every GoF `*Demo.java` includes:
+
+- **WHEN TO IMPLEMENT** / **JAVA IMPLEMENTATION RULES** (JavaDoc header)
+- **`run()`** — numbered STEPs + live output
+- **`main(String[] args)`** — calls `run()` so you can execute the file alone
 
 ## Pattern index
 
@@ -25,15 +40,29 @@ mvn -q exec:java -Dexec.mainClass=com.example.designpatterns.DesignPatternDemo
 - Structural: Adapter, Bridge, Composite, Decorator, Facade, Flyweight, Proxy
 - Behavioral: Chain, Command, Interpreter, Iterator, Mediator, Memento, Observer, State, Strategy, Template Method, Visitor
 
+## Pattern explanation boards (problem-first)
+
+Every GoF pattern has a **21-section** interview board:
+
+- Format: [`docs/PATTERN_EXPLANATION_FORMAT.md`](docs/PATTERN_EXPLANATION_FORMAT.md)
+- Index: [`docs/patterns/README.md`](docs/patterns/README.md)
+- Gold standard: [`docs/patterns/composite-explanation.md`](docs/patterns/composite-explanation.md)
+
+Structure: problem → without pattern → how pattern solves it → code mapping → runtime flow → client benefit → SOLID → trade-offs → interview answer.
+
 ## Implementation rules (in each Demo class)
 
 Every GoF `*Demo.java` starts with a JavaDoc block:
 
+- **PROBLEM (without this pattern)** — concrete pain in the payment/banking story
+- **HOW THIS PATTERN SOLVES IT** — how the classes/structure remove that pain
 - **WHEN TO IMPLEMENT** — pressure that justifies the pattern
 - **JAVA IMPLEMENTATION RULES** — concrete class/interface rules for Java
 - **DO NOT USE WHEN** — when to keep the code simpler
 
-Open any pattern Demo in the source explorer (for example Strategy → `PaymentStrategyDemo.java`) and read the header before the code.
+Running `main` prints `PROBLEM:` / `SOLUTION:` before the numbered STEPs.
+
+Catalog: [`docs/problem-and-solution.md`](docs/problem-and-solution.md).
 
 ## Real-world examples
 
@@ -45,13 +74,14 @@ Open any pattern Demo in the source explorer (for example Strategy → `PaymentS
 
 ## Interview preparation path
 
-1. Read `docs/cheatsheet.md`
-2. Run `DesignPatternDemo`
-3. Open the pattern README for weak areas
-4. Study `realworld/payment/PaymentProcessingSystem.java`
-5. Review `docs/interview-questions.md`
-6. Review `docs/pattern-comparisons.md`
-7. Review `docs/spring-pattern-mapping.md`
+1. Read `docs/PATTERN_EXPLANATION_FORMAT.md` and one board under `docs/patterns/` (start with Composite)
+2. Read `docs/HOW_TO_RUN.md` and run `DesignPatternDemo`
+3. Read `docs/cheatsheet.md`
+4. Open the pattern README for weak areas
+5. Study `realworld/payment/PaymentProcessingSystem.java`
+6. Review `docs/interview-questions.md`
+7. Review `docs/pattern-comparisons.md`
+8. Review `docs/spring-pattern-mapping.md`
 
 ## 5-minute cheat sheet
 

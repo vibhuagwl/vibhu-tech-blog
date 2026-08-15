@@ -1,58 +1,25 @@
-# Order Composite
+# Order Composite — problem first, then the pattern
 
-## Interview Story
+Exactly — for interviews, **don't start with the pattern**. Start with **the problem**, then show how Composite solves it.
 
-Orders contain single products and bundles.
+## Full 21-section explanation board
 
-## Problem
+**[`docs/patterns/composite-explanation.md`](../../../../../../../../docs/patterns/composite-explanation.md)**
 
-Client code treats bundles differently from items and duplicates traversal logic.
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
 
-## Naive Implementation
+## Formula (30 seconds)
 
-A central class owns every branch, every special case, and every integration detail.
-
-## Why It Breaks
-
-It becomes hard to extend, hard to test, and risky to change during production work.
-
-## Pattern Solution
-
-Composite lets one item and many items share the same interface.
-
-## Code Flow
-
-Business Problem -> Naive Implementation -> Problem with Naive Approach -> Design Pattern -> Java Implementation -> Execution Flow -> Production Improvement -> Interview Explanation
-
-## Important Classes
-
-- `OrderCompositeDemo` main demo class
-- small nested collaborators that show the pattern without framework noise
+| | |
+|--|--|
+| **Problem** | Leaf + Group + nested groups → client `instanceof` / nested loops |
+| **Solution** | Common `OrderComponent` + Bundle holds `List<OrderComponent>` → recursive `total()` |
+| **Benefit** | Client treats product and bundle the same — Composite owns the tree |
 
 ## Run
 
-Run tests or call this pattern from `DesignPatternDemo`.
+```bash
+mvn -q exec:java -Dexec.mainClass=com.example.designpatterns.structural.composite.OrderCompositeDemo
+```
 
-## Interview Answer
-
-I use this when the business pressure matches the shape of the pattern, not because the pattern name sounds impressive.
-
-## Why This Pattern?
-
-Because it solves the specific coupling or extensibility problem in the example.
-
-## Why Not Another Pattern?
-
-Because the competing pattern either solves creation instead of behavior, behavior instead of structure, or adds more indirection than this use case needs.
-
-## Production Example
-
-Senior backend systems use patterns inside orchestration, integrations, validation pipelines, eventing, and domain workflows.
-
-## Common Mistake
-
-Using the pattern before the real pressure exists.
-
-## Senior-Level Follow-up
-
-Discuss concurrency, testing boundaries, extension cost, and when to keep the code simpler.
+Code: `OrderCompositeDemo.java`

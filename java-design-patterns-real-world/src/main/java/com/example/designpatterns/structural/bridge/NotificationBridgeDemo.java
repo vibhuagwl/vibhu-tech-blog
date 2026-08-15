@@ -3,6 +3,14 @@ package com.example.designpatterns.structural.bridge;
 /**
  * PATTERN: Bridge
  *
+ * <p>PROBLEM (without this pattern) - Payment alerts need Email and SMS crossed with Twilio, SNS,
+ * and SendGrid providers. - Subclass explosion: EmailTwilio, SmsTwilio, EmailSns, SmsSns, … -
+ * Adding a push channel duplicates every provider combination again.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - Notification abstraction (EmailNotification, SmsNotification)
+ * composes a Provider. - TwilioProvider and SnsProvider vary independently from notification type.
+ * - New channel or provider means one class, not N×M subclasses.
+ *
  * <p>WHEN TO IMPLEMENT - Abstraction (notification type) and implementation (provider/channel) must
  * vary independently. - Avoid Cartesian explosion of subclasses (EmailTwilio, SmsTwilio,
  * EmailSendGrid, …).
@@ -60,5 +68,28 @@ public class NotificationBridgeDemo {
     public String send(String message) {
       return provider.send("SMS", message);
     }
+  }
+
+  public static void run() {
+    System.out.println("=== Bridge — NotificationBridgeDemo ===");
+    System.out.println(
+        "PROBLEM: Notification type times delivery channel explodes into EmailTwilio, SmsSns, and"
+            + " dozens of subclasses whenever product adds a channel or vendor.");
+    System.out.println(
+        "SOLUTION: Notification abstractions compose a Provider implementor so email vs SMS and"
+            + " Twilio vs SNS vary independently without subclass explosion.");
+    System.out.println("STEP 1: Choose SNS as the transport Provider (Implementor)");
+    Provider provider = new SnsProvider();
+    System.out.println("STEP 2: Compose EmailNotification without subclass explosion");
+    var email = new EmailNotification(provider);
+    System.out.println(
+        "STEP 3: Send message — abstraction picks channel, provider handles transport");
+    System.out.println("  Email via SNS: " + email.send("Payment receipt ready"));
+    var sms = new SmsNotification(new TwilioProvider());
+    System.out.println("  SMS via Twilio: " + sms.send("OTP 123456"));
+  }
+
+  public static void main(String[] args) {
+    run();
   }
 }

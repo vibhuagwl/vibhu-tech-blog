@@ -1,12 +1,19 @@
 # Payment Observer
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/observer-explanation.md`](../../../../../../../../docs/patterns/observer-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Payment completion notifies notification, audit, reporting, and fraud analytics.
 
 ## Problem
 
-One service manually calls every downstream listener.
+After capture, PaymentService directly invokes email receipt, audit log, and analytics pixel code inline.
 
 ## Naive Implementation
 
@@ -14,11 +21,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Marketing wants a loyalty hook next sprint — that means a core payment deploy. A failing analytics call can block receipt email. Tests must stub every downstream integration inside PaymentService.
 
 ## Pattern Solution
 
-Observer publishes one event to many interested listeners.
+PaymentObserverDemo registers CollectingObserver instances on PaymentEventBus. publish() notifies audit and analytics independently; new subscribers register without touching the publisher.
 
 ## Code Flow
 

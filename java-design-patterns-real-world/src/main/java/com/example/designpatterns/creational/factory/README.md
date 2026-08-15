@@ -1,12 +1,19 @@
 # PaymentGateway Factory
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/factory-method-explanation.md`](../../../../../../../../docs/patterns/factory-method-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Payment provider selection for Stripe, PayPal, and Adyen.
 
 ## Problem
 
-Growing if/else blocks decide which gateway to instantiate.
+CheckoutService, RefundService, and SubscriptionBilling each contain `if (provider.equals("STRIPE")) new StripeGateway()` branches. Product wants Adyen in Europe next sprint.
 
 ## Naive Implementation
 
@@ -14,11 +21,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Every new PSP requires touching three services and their tests. Credentials and sandbox URLs get copy-pasted. A missed branch ships PayPal code to a Stripe-only merchant.
 
 ## Pattern Solution
 
-Factory method chooses the correct gateway from provider input.
+PaymentGatewayFactory encapsulates provider selection behind `create(Provider)`. Business code charges through the PaymentGateway interface; only the factory knows which concrete gateway to construct.
 
 ## Code Flow
 

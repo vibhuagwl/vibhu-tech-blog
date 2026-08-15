@@ -4,6 +4,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Combined payment orchestration using multiple GoF patterns behind one facade.
+ *
+ * <p>PROBLEM (without this pattern) - Real checkout needs validation, strategy, gateway factory,
+ * decorators, state, and observers. - Stuffing all of that into one PaymentService creates an
+ * unmaintainable god class.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - PaymentFacade composes chain, strategy, factory, decorators,
+ * state machine, and observers. - Each pattern owns one concern; callers invoke a single process()
+ * entry point.
+ */
 public class PaymentProcessingSystem {
   public record PaymentRequest(
       String customerId, String accountId, String method, int amount, String provider) {}
@@ -273,6 +284,35 @@ public class PaymentProcessingSystem {
   }
 
   public static String interviewAnswer() {
-    return "I use a PaymentFacade as the entry point, run a validation chain, choose the payment strategy by method, create the gateway through a factory, adapt legacy gateways behind a common interface, layer logging/metrics/retry with decorators, move the payment through state transitions, and finally fan out audit, notification, and reporting through observers.";
+    return "I use a PaymentFacade as the entry point, run a validation chain, choose the payment"
+        + " strategy by method, create the gateway through a factory, adapt legacy gateways"
+        + " behind a common interface, layer logging/metrics/retry with decorators, move the"
+        + " payment through state transitions, and finally fan out audit, notification, and"
+        + " reporting through observers.";
+  }
+
+  public static void run() {
+    System.out.println("=== Combined Payment System — PaymentProcessingSystem ===");
+    System.out.println(
+        "PROBLEM: Production payments need validation chains, strategies, gateways, decorators,"
+            + " state transitions, and observers — but one god class cannot maintain all of that"
+            + " safely.");
+    System.out.println(
+        "SOLUTION: PaymentFacade composes focused pattern building blocks behind one process() call"
+            + " so each concern stays testable and callers see a simple API.");
+    System.out.println(
+        "STEP 1: PaymentFacade orchestrates validators, strategy, gateway, decorators");
+    var facade = new PaymentFacade();
+    var request = new PaymentRequest("cust-1", "acct-9", "CARD", 900, "STRIPE");
+    System.out.println("STEP 2: process() runs validation chain, state transitions, observers");
+    PaymentResult result = facade.process(request);
+    System.out.println("STEP 3: Inspect status, gateway reference, and audit trail");
+    System.out.println("  Status: " + result.status());
+    System.out.println("  Gateway reference: " + result.gatewayReference());
+    System.out.println("  Audit trail: " + result.auditTrail());
+  }
+
+  public static void main(String[] args) {
+    run();
   }
 }

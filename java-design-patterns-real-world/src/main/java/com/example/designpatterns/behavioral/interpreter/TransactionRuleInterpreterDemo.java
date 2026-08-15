@@ -5,6 +5,14 @@ import java.util.List;
 /**
  * PATTERN: Interpreter
  *
+ * <p>PROBLEM (without this pattern) - Fee waiver rules combine amount thresholds and country checks
+ * in hard-coded Java. - Product changes a rule string; engineering redeploys for every tweak. -
+ * Nested AND/OR conditions become unreadable boolean spaghetti.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - Rules parse into an Expression AST (AmountGreaterThan,
+ * CountryEquals, AndExpression). - interpret(transaction) evaluates the tree against live
+ * transaction data. - New rule shapes compose existing expressions without new if-else branches.
+ *
  * <p>WHEN TO IMPLEMENT - You have a small language/grammar (fee rules, filters) evaluated
  * in-process repeatedly. - AST of expressions beats hard-coded nested ifs for composable rules.
  *
@@ -47,5 +55,29 @@ public class TransactionRuleInterpreterDemo {
     return new AndExpression(
         new AmountGreaterThan(Integer.parseInt(tokens.get(2))),
         new CountryEquals(tokens.get(6).replace("\"", "")));
+  }
+
+  public static void run() {
+    System.out.println("=== Interpreter — TransactionRuleInterpreterDemo ===");
+    System.out.println(
+        "PROBLEM: Fee and compliance rules like amount > 1000 AND country = IN are hard-coded in"
+            + " Java branches, requiring redeploys for every rule tweak.");
+    System.out.println(
+        "SOLUTION: parse() builds an Expression AST; interpret() evaluates rules against"
+            + " transactions so logic composes without nested if-else.");
+    System.out.println("STEP 1: Parse rule string into expression AST");
+    String rule = "amount > 1000 AND country = \"IN\"";
+    Expression expression = parse(rule);
+    System.out.println("  Rule: " + rule);
+    System.out.println("STEP 2: Evaluate against transaction below threshold");
+    var small = new Transaction(500, "IN");
+    System.out.println("  amount=500, country=IN → " + expression.interpret(small));
+    System.out.println("STEP 3: Evaluate against transaction matching both conditions");
+    var large = new Transaction(1500, "IN");
+    System.out.println("  amount=1500, country=IN → " + expression.interpret(large));
+  }
+
+  public static void main(String[] args) {
+    run();
   }
 }

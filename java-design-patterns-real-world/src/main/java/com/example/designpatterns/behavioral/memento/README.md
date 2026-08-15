@@ -1,12 +1,19 @@
 # PaymentConfiguration Memento
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/memento-explanation.md`](../../../../../../../../docs/patterns/memento-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Rollback payment config after a bad release.
 
 ## Problem
 
-Teams tweak configuration and cannot easily restore the previous state.
+An on-call engineer switches payment gateway from STRIPE to ADYEN during an incident and needs to roll back quickly if error rates spike.
 
 ## Naive Implementation
 
@@ -14,11 +21,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Making fields public for rollback invites accidental edits elsewhere. Database restore is too slow for a 2 a.m. toggle. There is no lightweight undo stack.
 
 ## Pattern Solution
 
-Memento snapshots configuration state for rollback.
+PaymentConfigurationMementoDemo.save() records gateway and timeout in an opaque Snapshot. restore() reapplies the memento; support keeps a stack of snapshots without reading private state.
 
 ## Code Flow
 

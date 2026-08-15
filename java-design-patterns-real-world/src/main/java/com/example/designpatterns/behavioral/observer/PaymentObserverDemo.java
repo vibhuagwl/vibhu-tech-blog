@@ -6,6 +6,14 @@ import java.util.List;
 /**
  * PATTERN: Observer
  *
+ * <p>PROBLEM (without this pattern) - PaymentService hard-codes calls to email, audit, and
+ * analytics after every charge. - Adding a loyalty listener means editing and redeploying the
+ * publisher. - Listeners are tightly coupled; one slow subscriber blocks others.
+ *
+ * <p>HOW THIS PATTERN SOLVES IT - PaymentEventBus publish fans out PaymentCompletedEvent to
+ * registered observers. - Audit and analytics subscribe independently without publisher changes. -
+ * New listeners register at runtime; publisher only knows the Observer interface.
+ *
  * <p>WHEN TO IMPLEMENT - One event must notify many independent listeners (email, ledger,
  * analytics) without hard coupling. - Subject lifecycle should not know concrete subscriber
  * classes.
@@ -53,5 +61,30 @@ public class PaymentObserverDemo {
     public List<String> received() {
       return received;
     }
+  }
+
+  public static void run() {
+    System.out.println("=== Observer — PaymentObserverDemo ===");
+    System.out.println(
+        "PROBLEM: PaymentService hard-codes email, audit, and analytics calls after every charge,"
+            + " so adding a listener requires editing the publisher.");
+    System.out.println(
+        "SOLUTION: PaymentEventBus publishes PaymentCompletedEvent to registered Observer instances"
+            + " so new listeners attach without changing the payment core.");
+    System.out.println("STEP 1: Register CollectingObserver on PaymentEventBus");
+    var bus = new PaymentEventBus();
+    var auditObserver = new CollectingObserver("audit");
+    var analyticsObserver = new CollectingObserver("analytics");
+    bus.register(auditObserver);
+    bus.register(analyticsObserver);
+    System.out.println("STEP 2: publish PaymentCompletedEvent to all subscribers");
+    bus.publish(new PaymentCompletedEvent("pay-obs-1", 450));
+    System.out.println("STEP 3: Each observer records event independently");
+    System.out.println("  Audit received: " + auditObserver.received());
+    System.out.println("  Analytics received: " + analyticsObserver.received());
+  }
+
+  public static void main(String[] args) {
+    run();
   }
 }

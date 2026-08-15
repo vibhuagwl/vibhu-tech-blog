@@ -1,12 +1,19 @@
 # Payment Decorator
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/decorator-explanation.md`](../../../../../../../../docs/patterns/decorator-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Add fraud, logging, metrics, and retry around core payment processing.
 
 ## Problem
 
-A basic processor gets bloated with optional cross-cutting concerns.
+Every card charge needs audit logging, fraud screening, success metrics, and retry on transient gateway errors. Teams subclass BasicPayment for each mix.
 
 ## Naive Implementation
 
@@ -14,11 +21,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+LoggingFraudRetryPayment duplicates charge logic. Reordering retry before fraud requires a new subclass. Unit tests must cover 2^4 decorator combinations.
 
 ## Pattern Solution
 
-Decorators layer behavior at runtime without changing the core processor.
+PaymentDecoratorDemo wraps BasicPayment with LoggingDecorator, MetricsDecorator, and RetryDecorator. Nest decorators at runtime; core charge logic never changes.
 
 ## Code Flow
 

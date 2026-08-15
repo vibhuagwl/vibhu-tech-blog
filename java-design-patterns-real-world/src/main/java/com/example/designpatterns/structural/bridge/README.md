@@ -1,12 +1,19 @@
 # Notification Bridge
 
+
+## Full 21-section explanation board
+
+**[`docs/patterns/bridge-explanation.md`](../../../../../../../../docs/patterns/bridge-explanation.md)** — problem → without pattern → how it solves it → code mapping → runtime → interview answer (same format as Composite).
+
+House style: [`docs/PATTERN_EXPLANATION_FORMAT.md`](../../../../../../../../docs/PATTERN_EXPLANATION_FORMAT.md)
+
 ## Interview Story
 
 Email, SMS, and push notifications can run on multiple providers.
 
 ## Problem
 
-Inheritance explodes when message type and provider both vary.
+Payment receipt alerts must go out as email or SMS through Twilio, SNS, or SendGrid. Product asks for push notifications next quarter.
 
 ## Naive Implementation
 
@@ -14,11 +21,11 @@ A central class owns every branch, every special case, and every integration det
 
 ## Why It Breaks
 
-It becomes hard to extend, hard to test, and risky to change during production work.
+Six combinations today become twelve with push. Each subclass duplicates formatting logic. Switching SMS vendor means editing every SMS subclass.
 
 ## Pattern Solution
 
-Bridge separates notification abstraction from provider implementation.
+EmailNotification and SmsNotification (abstraction) hold a Provider (TwilioProvider, SnsProvider). Compose any notification type with any transport without multiplying subclasses.
 
 ## Code Flow
 
