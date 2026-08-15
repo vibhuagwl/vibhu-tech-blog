@@ -50,6 +50,7 @@ Every GoF pattern has a **21-section** interview board:
 
 Structure: problem → without pattern → how pattern solves it → code mapping → runtime flow → client benefit → SOLID → trade-offs → interview answer.
 
+## Implementation rules (in each Demo class)
 
 Every GoF `*Demo.java` starts with a JavaDoc block:
 
@@ -73,13 +74,14 @@ Catalog: [`docs/problem-and-solution.md`](docs/problem-and-solution.md).
 
 ## Interview preparation path
 
-1. Read `docs/HOW_TO_RUN.md` and run `DesignPatternDemo`
-2. Read `docs/cheatsheet.md`
-3. Open the pattern README for weak areas
-4. Study `realworld/payment/PaymentProcessingSystem.java`
-5. Review `docs/interview-questions.md`
-6. Review `docs/pattern-comparisons.md`
-7. Review `docs/spring-pattern-mapping.md`
+1. Read `docs/PATTERN_EXPLANATION_FORMAT.md` and one board under `docs/patterns/` (start with Composite)
+2. Read `docs/HOW_TO_RUN.md` and run `DesignPatternDemo`
+3. Read `docs/cheatsheet.md`
+4. Open the pattern README for weak areas
+5. Study `realworld/payment/PaymentProcessingSystem.java`
+6. Review `docs/interview-questions.md`
+7. Review `docs/pattern-comparisons.md`
+8. Review `docs/spring-pattern-mapping.md`
 
 ## 5-minute cheat sheet
 
