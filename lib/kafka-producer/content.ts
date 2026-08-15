@@ -642,6 +642,133 @@ export const SPRING_COMPARE: string[][] = [
   ['KafkaTransactionManager / @Transactional', 'Spring tx boundary', 'transactional.id uniqueness still your problem'],
 ];
 
+/** How many KafkaProducer instances do you need? */
+export const PRODUCER_COUNT_EXPLAIN = `How many producers do we need?
+
+Default answer (most services)
+  → ONE KafkaProducer (or ONE Spring ProducerFactory → one shared producer)
+    PER JVM / pod / process.
+  → Many app threads call send() on that same instance (thread-safe).
+  → Scale out = more PODS, each with its own producer — not “one producer per HTTP request.”
+
+When to use MORE than one producer in the same process
+  → Different clusters (primary vs audit cluster).
+  → Different security principals / ACL identities.
+  → Isolation of configs (e.g. low-latency vs high-throughput profiles).
+  → Different transactional.id owners (rare — usually one txn producer per instance).
+
+When NOT to create more
+  → Per request / per message / per thread “to go faster” → anti-pattern
+    (TCP churn, metadata churn, buffer.memory × N, PID churn).
+  → “One producer per topic” — usually unnecessary; one producer sends to many topics.
+
+Mental count in Kubernetes
+  → replicas=5 payment-api pods → 5 producers (one each) → fine.
+  → 5 pods × 200 producers each → cluster connection / memory disaster.
+
+transactional.id note
+  → If using Kafka transactions: unique transactional.id PER LIVE INSTANCE
+    (e.g. payment-api-\${HOSTNAME}), still typically ONE producer that uses that id.`;
+
+/** Start / stop producer in production. */
+export const PRODUCER_LIFECYCLE_PROD = `How to start / stop a producer in production
+
+START (app boot)
+  1) Build config (bootstrap, serializers, acks, idempotence, linger, security).
+  2) new KafkaProducer(props)  OR  Spring creates via ProducerFactory on context refresh.
+  3) Optional: initTransactions() if transactional.id is set (fences prior epoch).
+  4) Ready to send() — first send may block briefly on metadata (max.block.ms).
+  5) Warm path: avoid creating producers in the request thread.
+
+STOP (graceful — deploys, scale-in, SIGTERM)
+  1) Stop accepting new work (k8s readiness fail / drain HTTP).
+  2) Optional flush() — wait for buffered + in-flight acks (producer still open).
+  3) close(Duration) — flush then stop Sender + sockets.
+     Further send() → IllegalStateException.
+  4) Exit process only AFTER close completes (or timeout — then treat remainder as unknown;
+     outbox must be able to replay).
+
+Kubernetes checklist
+  → preStop sleep or lifecycle hook ≥ close timeout + linger + a little slack.
+  → terminationGracePeriodSeconds > preStop + close.
+  → Spring: DefaultKafkaProducerFactory / KafkaTemplate are DisposableBean —
+    context.close() closes the underlying producer — do not skip graceful shutdown.
+  → Never kill -9 as the normal stop path (loses unsent accumulator batches).
+
+Crash / OOM / kill -9
+  → No close(). Unsent batches gone. Broker-acked records stay.
+  → Rely on outbox / source-of-truth replay for anything not acked.
+
+Do NOT
+  → close() after every send.
+  → Leave producers open across rolling deploys without draining (esp. shared txn id).`;
+
+/** Create producer with Spring Kafka — practical recipe. */
+export const SPRING_PRODUCER_CREATE = `Create a producer with Spring Kafka (production shape)
+
+1) Dependency
+  spring-boot-starter-kafka  (pulls spring-kafka + kafka-clients)
+
+2) application.yml (Boot auto-config)
+  spring:
+    kafka:
+      bootstrap-servers: kafka-1:9092,kafka-2:9092
+      producer:
+        key-serializer: org.apache.kafka.common.serialization.StringSerializer
+        value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+        acks: all
+        properties:
+          enable.idempotence: true
+          max.in.flight.requests.per.connection: 5
+          linger.ms: 5
+          compression.type: zstd
+          # transactional.id: payment-api-\${HOSTNAME}   # only if you need Kafka txn
+      # security.protocol / sasl.* as needed
+
+3) Use KafkaTemplate (Boot creates ProducerFactory + KafkaTemplate beans)
+  @Service
+  class PaymentPublisher {
+    private final KafkaTemplate<String, PaymentEvent> kafka;
+    PaymentPublisher(KafkaTemplate<String, PaymentEvent> kafka) { this.kafka = kafka; }
+
+    public CompletableFuture<SendResult<String, PaymentEvent>> publish(PaymentEvent e) {
+      return kafka.send("payments", e.accountId(), e);  // key = ordering boundary
+    }
+  }
+
+4) Explicit factory (when you need custom serializers / two clusters)
+  @Bean
+  ProducerFactory<String, PaymentEvent> paymentProducerFactory() {
+    Map<String, Object> cfg = new HashMap<>();
+    cfg.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "...");
+    cfg.put(ProducerConfig.ACKS_CONFIG, "all");
+    cfg.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+    cfg.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+    cfg.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+    return new DefaultKafkaProducerFactory<>(cfg);
+    // factory creates/reuses ONE underlying KafkaProducer (non-tx default)
+  }
+
+  @Bean
+  KafkaTemplate<String, PaymentEvent> paymentKafkaTemplate(
+      ProducerFactory<String, PaymentEvent> pf) {
+    return new KafkaTemplate<>(pf);
+  }
+
+5) Lifecycle
+  → Start: Spring context refresh builds factory/template (producer often lazy on first send).
+  → Stop: context shutdown → factory.destroy() → producer.close().
+  → You rarely call new KafkaProducer() yourself in Boot apps.
+
+6) Transactions (only if needed)
+  spring.kafka.producer.transaction-id-prefix: payment-api-\${HOSTNAME}-
+  + KafkaTransactionManager + @Transactional("kafkaTransactionManager")
+  → Still unique per live instance; see fencing §29.
+
+Anti-pattern in Spring
+  → @Bean KafkaProducer that you new up per request
+  → new KafkaTemplate(new DefaultKafkaProducerFactory(...)) inside a controller method`;
+
 export const ANTI_PATTERNS: {bad: string; good: string}[] = [
   {bad: 'new KafkaProducer per HTTP request', good: 'Reuse one producer (or factory singleton) per process'},
   {bad: 'send(r).get() on every record in a hot loop', good: 'Async send + periodic flush or batch futures'},

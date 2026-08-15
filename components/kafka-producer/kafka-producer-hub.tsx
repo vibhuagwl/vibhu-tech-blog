@@ -33,6 +33,8 @@ import {
   PARTITION_ROWS,
   PERF_BREAKDOWN,
   PRODUCE_REQUEST_EXPLAIN,
+  PRODUCER_COUNT_EXPLAIN,
+  PRODUCER_LIFECYCLE_PROD,
   PROFILES,
   QUOTAS_ACLS_EXPLAIN,
   SCHEMA_REGISTRY_EXPLAIN,
@@ -44,6 +46,7 @@ import {
   SERDE_ROWS,
   SOURCE_CLASSES,
   SPRING_COMPARE,
+  SPRING_PRODUCER_CREATE,
   THREADING_EXPLAIN,
   TX_FLOW,
   VERSION_NOTE,
@@ -285,6 +288,9 @@ Reuse ONE producer (or Spring ProducerFactory singleton).`}
             </div>
             <div className="mt-4">
               <CodePanel title="What NetworkClient is" tone="ok" code={NETWORK_CLIENT_EXPLAIN} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="How many producers do we need?" tone="ok" code={PRODUCER_COUNT_EXPLAIN} />
             </div>
           </Section>
 
@@ -722,18 +728,26 @@ Callbacks: increment metrics, don't write essays`}
             </div>
           </Section>
 
-          <Section id="spring" title="20. Spring Kafka producer">
+          <Section
+            id="spring"
+            title="20. Spring Kafka producer"
+            lead="Boot gives you a ProducerFactory + KafkaTemplate singleton. Configure acks/idempotence underneath; reuse one producer per process; let Spring close it on shutdown."
+          >
             <MiniTable headers={['Piece', 'When', 'Note']} rows={SPRING_COMPARE} />
-            <CodePanel
-              title="Spring shape"
-              tone="ok"
-              code={`DefaultKafkaProducerFactory → singleton producer
+            <div className="mt-4">
+              <CodePanel title="Create producer with Spring Kafka" tone="ok" code={SPRING_PRODUCER_CREATE} />
+            </div>
+            <div className="mt-4">
+              <CodePanel
+                title="Spring shape (short)"
+                code={`DefaultKafkaProducerFactory → singleton producer
 KafkaTemplate.send → CompletableFuture / ListenableFuture
 @Transactional + KafkaTransactionManager needs transactional.id
 Micrometer binds producer metrics
 Test with EmbeddedKafka / Testcontainers
 Still configure acks/idempotence/linger underneath`}
-            />
+              />
+            </div>
           </Section>
 
           <Section
@@ -946,8 +960,11 @@ txn only if multi-partition atomic needed`}
           <Section
             id="shutdown"
             title="28. Producer lifecycle, flush, close, crash"
-            lead="Unsent records during shutdown are a correctness issue, not an inconvenience. Kubernetes preStop must outlive close()."
+            lead="Start once at boot. Stop with flush/close on SIGTERM — k8s preStop must outlive close. Unsent records on hard kill are a correctness issue unless outbox can replay."
           >
+            <div className="mb-4">
+              <CodePanel title="Start / stop in production" tone="ok" code={PRODUCER_LIFECYCLE_PROD} />
+            </div>
             <MiniTable headers={['Event', 'What happens']} rows={SHUTDOWN_ROWS} />
           </Section>
 
