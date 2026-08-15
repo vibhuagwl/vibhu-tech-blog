@@ -50,6 +50,7 @@ export default function Learn(){
           <Link href="/redis-interview" className="btn-secondary">Redis Interview</Link>
           <Link href="/design-patterns" className="btn-secondary">Design Patterns</Link>
           <Link href="/microservices-patterns" className="btn-secondary">Microservices Patterns</Link>
+          <Link href="/microservice-communication" className="btn-secondary">Microservice Communication</Link>
           <Link href="/java-compiler" className="btn-secondary">Java Compiler</Link>
           <Link href="/java-comparable-comparator" className="btn-secondary">Comparable & Comparator</Link>
           <Link href="/realtime-issues" className="btn-secondary">Real-Time Issues</Link>
