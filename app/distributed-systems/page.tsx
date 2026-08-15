@@ -42,6 +42,13 @@ export default function Distributed(){
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_10px_40px_rgba(15,23,42,.04)] md:p-10 dark:border-slate-800 dark:bg-slate-950">
         <div className="text-xs font-black uppercase tracking-[.16em] text-slate-600">Distributed Systems</div>
         <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Reason about scale, failure and consistency.</h1>
+        <p className="mt-4 max-w-2xl text-lg text-[var(--muted)]">
+          Start with{' '}
+          <Link href="/cap-theorem" className="font-semibold text-[var(--ink)] underline decoration-[var(--line)] underline-offset-4">
+            CAP Theorem
+          </Link>
+          {' '}for consistency trade-offs, then locking and messaging boards for implementation depth.
+        </p>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
           Core building blocks for senior backend interviews: caching, messaging, partitioning, replication,
           idempotency, resilience — plus a Principal-level <strong>Distributed Locking</strong> curriculum
