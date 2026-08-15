@@ -72,6 +72,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/leadership-principles',label:'Leadership Principles',blurb:'Amazon LPs with follow-ups'},
       {href:'/behavior',label:'Behavior Stories',blurb:'Conflict, ownership, production incidents'},
       {href:'/java-compiler',label:'Java Compiler',blurb:'Monaco IDE · local JDK compile & run'},
+      {href:'/java-equals-hashcode',label:'equals & hashCode',blurb:'HashMap · LinkedHashMap · CHM · TreeMap · Interview'},
       {href:'/java-versions',label:'Java Versions',blurb:'8→11→17→21→25 · migration · Architect interview'},
       {href:'/java-locking',label:'Java Locking',blurb:'Locks · atomics · races · interview lab'},
       {href:'/java-concurrency',label:'Java Concurrency',blurb:'JMM · pools · CF · VT · Java 25 · Principal'},
