@@ -8,164 +8,316 @@
 |-------|-------|
 | **Name** | Observer |
 | **Category** | Behavioral |
-| **One-line definition** | Define a one-to-many dependency so when one object changes state, all dependents are notified and updated automatically. |
-| **Problem class** | Publisher hard-codes calls to email, audit, analytics after every payment. |
+| **One-line definition** | Define a one-to-many dependency so when one object (subject) changes state, all dependents (observers) are notified automatically — without the subject knowing their concrete types. |
+| **Problem class** | `PaymentService` hard-codes calls to email, audit, and analytics after every charge; adding a loyalty listener requires editing and redeploying the publisher. |
 
 ## 2. Problem We Are Solving
 
-After `charge()` succeeds, platform must notify audit, analytics, email, loyalty. `PaymentService` directly calls each listener — adding loyalty means editing and redeploying the publisher. Slow subscriber blocks others if not isolated.
+When a payment completes, **multiple independent systems** must react:
+
+- **Audit** — compliance log of `paymentId`
+- **Analytics** — funnel and revenue metrics
+- **Email** — receipt to customer (not in demo, but typical)
+- **Loyalty** — points accrual (future requirement)
+
+Example event:
+
+```text
+PaymentCompletedEvent(paymentId="pay-obs-1", amount=450)
+```
+
+The painful questions:
+
+> How do we add a loyalty listener without opening `PaymentService` and risking a production regression?
+
+> How do we keep audit and analytics **decoupled** so one team's slow subscriber does not block payment core?
+
+Relationships that make this hard:
+
+- **Publisher** — payment domain completes a charge; should not import audit/analytics packages
+- **Subscribers** — many, grow over time, owned by different teams
+- **Event payload** — observers need `paymentId` and `amount`, not full `Payment` entity internals
+- **Registration** — listeners attach at runtime (feature flags, plugins)
 
 ## 3. What Happens Without the Pattern
 
+Naive payment completion couples every downstream system:
+
 ```java
-void charge() {
-  // core logic
-  audit.log();
-  analytics.track();
-  email.send();
-  // new loyalty here — edit publisher
+public class PaymentService {
+    private final EmailService email;
+    private final AuditService audit;
+    private final AnalyticsService analytics;
+
+    public void completePayment(String paymentId, int amount) {
+        // charge logic ...
+        email.sendReceipt(paymentId);
+        audit.log(paymentId, amount);
+        analytics.trackRevenue(paymentId, amount);
+        // loyalty? edit here again ...
+    }
 }
 ```
 
-Pains: tight coupling, publisher knows all subscribers, hard to add/remove listeners at runtime.
+Concrete pains:
+
+1. **Publisher knows all subscribers** — tight compile-time coupling to audit, analytics, email
+2. **Adding loyalty** — edit `PaymentService`, retest entire charge path
+3. **One slow listener blocks others** — synchronous call chain; analytics timeout fails receipt email
+4. **Testing payment** — must mock audit + analytics + email for every unit test
+5. **Circular dependency risk** — audit service imports payment types; payment imports audit
+
+SOLID hits: **OCP** (new listener edits publisher), **DIP** (publisher depends on concrete audit classes).
 
 ## 4. How the Pattern Solves It
 
-1. **Subject/Event bus** — `PaymentEventBus` with `register` and `publish`
-2. **Observer** — `Observer.onPaymentCompleted(event)`
-3. **Concrete observers** — `CollectingObserver` (audit, analytics stand-ins)
-4. **Event** — `PaymentCompletedEvent(paymentId, amount)`
-5. Publisher only knows `Observer` interface
+Conceptual chain:
+
+1. **Problem** — payment core directly calls audit, analytics, email after every charge
+2. **Naive pain** — every new listener edits publisher; synchronous fan-out blocks
+3. **Pattern introduces** — `Observer` interface with `onPaymentCompleted(PaymentCompletedEvent)`
+4. **Subject / event bus** — `PaymentEventBus` maintains `List<Observer>`; `register()` / `publish()`
+5. **Concrete observers** — `CollectingObserver("audit")`, `CollectingObserver("analytics")` (stand-ins for real services)
+6. **Event object** — `PaymentCompletedEvent` record pushes data; subject does not expose internals
+7. **Publisher publishes once** — `bus.publish(event)`; each observer reacts independently
+
+Fan-out moves **from hard-coded calls into registered observers**.
 
 ## 5. Pattern → Code Mapping
 
-| Role | Demo type | Why |
-|------|-----------|-----|
-| **Subject** | `PaymentEventBus` | Maintains observer list, publishes |
-| **Observer** | `Observer` interface | `onPaymentCompleted` |
-| **Concrete observer** | `CollectingObserver` | Records events per name |
-| **Event** | `PaymentCompletedEvent` | Payload pushed to observers |
-| **Client** | `PaymentObserverDemo.run()` | Register + publish |
+| Pattern role | Demo class / type | Why this role |
+|--------------|-------------------|---------------|
+| **Subject** | `PaymentEventBus` | Maintains observer list; `publish()` notifies all |
+| **Observer** | `Observer` (interface) | `onPaymentCompleted(PaymentCompletedEvent)` callback |
+| **Concrete Observer** | `CollectingObserver` | Named stand-in for audit/analytics; records received events |
+| **Event** | `PaymentCompletedEvent` (record) | Immutable push payload: `paymentId`, `amount` |
+| **Client** | `PaymentObserverDemo.run()` | Registers observers, publishes one event, prints results |
+
+Note: This demo uses an explicit **event bus** as subject — payment core would call `bus.publish()` after charge success.
 
 ## 6. Important Code Lines
 
-| Code | Significance |
-|------|--------------|
-| `List<Observer> observers` | Subscriber registry |
-| `register(Observer observer)` | Runtime subscription |
-| `publish(PaymentCompletedEvent event)` | Fan-out `forEach(onPaymentCompleted)` |
-| `CollectingObserver` — `received.add(name + ":" + paymentId)` | Independent handling |
+| Code | Design significance |
+|------|---------------------|
+| `record PaymentCompletedEvent(String paymentId, int amount)` | Push model — observers get data, not subject reference |
+| `interface Observer { void onPaymentCompleted(...); }` | Uniform subscription contract |
+| `List<Observer> observers = new ArrayList<>()` | Subject owns subscriber registry |
+| `register(Observer observer)` | Runtime attachment — no publisher code change |
+| `publish(PaymentCompletedEvent event)` | Single entry point for fan-out |
+| `observers.forEach(o -> o.onPaymentCompleted(event))` | Notify all; order = registration order |
+| `CollectingObserver("audit")` + `received.add(name + ":" + event.paymentId())` | Traceable stand-in for real audit sink |
+| `received()` exposes list for demo verification | Test asserts `"audit:p1"` independently |
 
 ## 7. Object/Class Diagram
 
 ```text
-PaymentEventBus (subject)
-    │
-    ├── register ──► Observer (audit)
-    ├── register ──► Observer (analytics)
-    │
-    publish(event) ──► notifies all observers
+                    ┌─────────────────────────┐
+                    │   PaymentEventBus       │
+                    │   (Subject)             │
+                    │ - observers: List     │
+                    │ + register(observer)    │
+                    │ + publish(event)        │
+                    └───────────┬─────────────┘
+                                │
+              publish           │  notify (for each)
+              PaymentCompletedEvent
+                                │
+              ┌─────────────────┼─────────────────┐
+              │                 │                 │
+    ┌─────────▼─────────┐ ┌─────▼──────┐  ┌──────▼──────────┐
+    │ CollectingObserver│ │ Collecting │  │ (future)        │
+    │ name: "audit"     │ │ Observer   │  │ LoyaltyObserver │
+    │ onPaymentCompleted│ │ "analytics"│  │                 │
+    └───────────────────┘ └────────────┘  └─────────────────┘
+              │                 │
+              └──── implements ─┘
+                        │
+              ┌─────────▼─────────┐
+              │  <<interface>>    │
+              │  Observer         │
+              │  + onPayment...() │
+              └───────────────────┘
+
+    PaymentCompletedEvent ──► passed to each onPaymentCompleted()
 ```
 
 ## 8. Runtime Execution Flow
 
+From `PaymentObserverDemo.run()`:
+
 ```text
-bus = new PaymentEventBus()
-auditObserver = new CollectingObserver("audit")
-analyticsObserver = new CollectingObserver("analytics")
-bus.register(auditObserver)
-bus.register(analyticsObserver)
+STEP 1 — Register observers:
+  bus = new PaymentEventBus()
+  auditObserver = new CollectingObserver("audit")
+  analyticsObserver = new CollectingObserver("analytics")
+  bus.register(auditObserver)
+  bus.register(analyticsObserver)
 
-bus.publish(PaymentCompletedEvent("pay-obs-1", 450))
+STEP 2 — Publish event:
+  bus.publish(PaymentCompletedEvent("pay-obs-1", 450))
 
-auditObserver.received → ["audit:pay-obs-1"]
-analyticsObserver.received → ["analytics:pay-obs-1"]
+STEP 3 — Fan-out (synchronous in demo):
+  auditObserver.onPaymentCompleted(event)
+    → received = ["audit:pay-obs-1"]
+  analyticsObserver.onPaymentCompleted(event)
+    → received = ["analytics:pay-obs-1"]
+
+STEP 4 — Output:
+  Audit received: [audit:pay-obs-1]
+  Analytics received: [analytics:pay-obs-1]
+
+Test path (PaymentObserverDemoTest):
+  publish(PaymentCompletedEvent("p1", 100))
+  audit.received() contains "audit:p1"
+  notify.received() contains "notify:p1"
 ```
 
-Publisher never names audit or analytics classes.
+Publisher never imports `CollectingObserver` — only `Observer` interface at registration boundary.
 
 ## 9. What the Client Doesn't Need to Know
 
-- Which observers registered
-- Observer count at publish time
-- Individual observer implementation
+- How many observers are registered on the bus
+- Concrete classes implementing audit vs analytics
+- Order observers run (unless ordering is a documented guarantee)
+- Whether observers are sync or async in production (demo is sync)
+- Internal list implementation in `PaymentEventBus`
+
+Client mental model: **register listeners once, publish event, done**.
 
 ## 10. Before vs After
 
-**Before:** Publisher → audit, analytics, email hard-coded.
+### Without Observer
 
-**After:** Publisher → bus.publish → registered observers.
+```text
+PaymentService.completePayment()
+  │
+  ├── email.sendReceipt()
+  ├── audit.log()
+  ├── analytics.track()
+  └── (edit file to add loyalty)
+```
+
+Publisher **knows every subscriber**.
+
+### With Observer
+
+```text
+PaymentService (or bus).publish(event)
+  │
+  └── PaymentEventBus
+         ├── Observer (audit)
+         ├── Observer (analytics)
+         └── Observer (loyalty) ← register without editing publisher
+```
+
+**Subscribers attach; publisher only knows `Observer` interface.**
 
 ## 11. SOLID / Design Principles
 
-| Principle | Application |
-|-----------|-------------|
-| **OCP** | New observer without editing publisher |
-| **DIP** | Publisher depends on `Observer` interface |
-| **Loose coupling** | One-way notification |
+| Principle | How Observer applies |
+|-----------|---------------------|
+| **Open/Closed** | New listener = new `Observer` class + `register()` — publisher unchanged |
+| **Single Responsibility** | Payment core charges; audit observer audits |
+| **Dependency Inversion** | Subject depends on `Observer` abstraction, not `AuditService` concrete |
+| **Interface Segregation** | Narrow callback: one event type, one method |
+| **Loose coupling** | Core pattern goal — publish/subscribe boundary |
 
 ## 12. Extensibility
 
-- Unsubscribe/remove observer
-- Async dispatch per observer
-- Kafka as distributed observer bus (cross-process)
+| Change | Approach | Trade-off |
+|--------|----------|-----------|
+| New listener (loyalty) | `bus.register(new LoyaltyObserver())` | Zero publisher edit |
+| Unsubscribe | Add `unregister(Observer)` | Weak references or explicit remove |
+| Async fan-out | `@Async` or message queue per listener | Eventual consistency; harder debugging |
+| Filtered subscribe | `register(Observer, Predicate<Event>)` | Bus complexity grows |
+| Cross-process | Kafka/RabbitMQ instead of in-process list | True distributed observer; not this pattern's scope |
+
+Demo is **in-process synchronous** — document prod upgrade path to messaging.
 
 ## 13. Advantages
 
-- Dynamic subscribe/unsubscribe
-- Add listeners without publisher changes
-- Multiple independent reactions to one event
+- Decouples payment completion from audit, analytics, email
+- New listeners without redeploying payment core (if wiring is external)
+- Multiple reactions to one business event — natural fit
+- Easy to test observers in isolation with synthetic events
+- Event object (`PaymentCompletedEvent`) stable contract for subscribers
 
 ## 14. Disadvantages
 
-- Order of notification undefined
-- One slow observer blocks sync `forEach` — isolate failures
-- Debugging fan-out harder
-- Not distributed by itself — use messaging for cross-service
+- Notification order may matter but is implicit (list iteration order)
+- Synchronous `forEach` — one throwing observer can break others (demo has no isolation)
+- Debugging fan-out harder than linear code ("who handled this event?")
+- Memory leak if observers not unregistered (long-lived bus, short-lived UI)
+- Not a distributed bus — `java.util.Observable` legacy; cross-service needs messaging
+- Can obscure control flow — "what runs after pay?" requires reading all observers
 
 ## 15. When to Use
 
-1. Payment completed → audit + analytics + email
-2. UI model-view notify
-3. In-process event fan-out
+1. Payment completed → audit + analytics + email (this demo)
+2. UI model changes → multiple widgets refresh
+3. Domain events in DDD — aggregate publishes, handlers subscribe
+4. Plugin architectures — listeners register at startup
 
 ## 16. When NOT to Use
 
-1. Single hard-wired collaborator — direct call simpler
-2. Cross-service — message broker instead
+1. **One** hard-wired collaborator — direct method call is simpler
+2. Request/response needed from subscriber — use command/query, not fire-and-forget
+3. Cross-service fan-out at scale — message broker, not in-memory list
+4. Guaranteed delivery / ordering — needs transactional outbox, not naive Observer
 
 ## 17. Edge Cases / Production Concerns
 
-| Concern | Note |
-|---------|------|
-| Observer failure | Catch per listener; don't abort others |
-| Reentrant publish | Observer triggers another publish |
-| Memory leaks | Unregister on destroy |
-| Threading | Sync vs async notification |
+| Concern | In this demo | Production note |
+|---------|--------------|-----------------|
+| **Observer failure** | No try/catch per listener | Wrap each call; log and continue |
+| **Reentrancy** | `publish` during `onPaymentCompleted` | Copy observer list before iterate |
+| **Thread safety** | `ArrayList` not concurrent | `CopyOnWriteArrayList` or synchronized register |
+| **Unregister** | No `unregister` | Prevent leaks on shutdown |
+| **Async** | Sync forEach | Queue to executor; monitor lag |
+| **Idempotency** | Observers may receive duplicate publish | Idempotent handlers keyed by `paymentId` |
+| **PII in event** | Only id + amount | Minimize payload; GDPR retention on audit observer |
 
 ## 18. Possible Code Improvements
 
-**Required:** Per-observer try/catch; async executor for slow listeners.
+### Required (correctness)
 
-**Optional:** Weak references for auto-unregister; reactive streams.
+- Per-observer try/catch in `publish()` so one failure does not abort fan-out
+- Snapshot copy: `new ArrayList<>(observers)` before iteration (safe against concurrent register)
+
+### Optional (clarity / prod)
+
+- `unregister(Observer)` and weak references for UI bindings
+- `@EventListener` Spring abstraction over manual bus
+- Structured logging: `log.info("publish", event)` with correlation ID
+- Replace demo bus with Kafka topic `payment.completed` for multi-service
 
 ## 19. Mental Model
 
-**"Newsletter subscribers."** Publisher sends one email; subscribers react independently.
+**Formula:**
+
+```text
+Problem:  Publisher calls audit, analytics, email directly → coupling
+Solution: Subject maintains Observer list → publish(event) fans out
+Benefit:  New listener registers without editing payment core
+```
+
+Memory trick: **"Radio broadcast."** Station transmits once; any tuned receiver listens — station does not know who owns each radio.
 
 ## 20. 30–60 Second Interview Answer
 
-> Observer defines one-to-many notification when state changes. PaymentService hard-coding audit and analytics after charge means every new listener edits the publisher. `PaymentEventBus` registers `Observer` instances and `publish(PaymentCompletedEvent)` fans out to `onPaymentCompleted`. Demo uses `CollectingObserver` for audit and analytics — both receive `pay-obs-1` independently. Publisher only knows Observer interface. For cross-service fan-out use Kafka — in-process Observer is not a distributed bus.
+> **Observer** decouples a one-to-many notification: when payment completes, many systems must react. Without it, `PaymentService` hard-codes audit and analytics calls — adding loyalty means editing the publisher. We introduce `PaymentEventBus` as subject, `Observer` interface with `onPaymentCompleted`, and immutable `PaymentCompletedEvent`. `CollectingObserver` stands in for audit and analytics. Client registers both, calls `publish(event)`, and each observer records independently — `audit:pay-obs-1` and `analytics:pay-obs-1`. Publisher never imports concrete listener classes. In production, wrap each notification in try/catch and consider async messaging for cross-service fan-out. Differs from **Mediator**: Observer is broadcast; Mediator centralizes complex colleague coordination.
 
 ## 21. Likely Interview Follow-ups
 
-| Question | Answer |
-|----------|--------|
-| Observer vs Pub/Sub? | Pub/Sub often message broker; Observer in-process |
-| vs Mediator? | Observer: subject notifies observers; Mediator: coordinates peers |
-| java.util.Observable? | Legacy — prefer explicit interface |
+| Question | Answer sketch |
+|----------|---------------|
+| Observer vs Mediator? | Observer: subject notifies many subscribers. Mediator: colleagues talk **through** hub with rich protocols |
+| Observer vs Pub/Sub (Kafka)? | Observer is in-process OO; Kafka is distributed, durable, consumer groups |
+| What if observer throws? | Catch per listener; dead-letter failed handlers; never abort entire fan-out |
+| `java.util.Observable`? | Legacy, deprecated — explicit interface + event object preferred |
+| Event sourcing? | Observer is notification; event sourcing stores events as source of truth |
 
-**Common mistake:** One slow observer blocking all — isolate with async/error handling.
+**Common mistake:** Using Observer for request/response ("observer, give me a result") — use callback or query bus instead.
 
 ---
 
