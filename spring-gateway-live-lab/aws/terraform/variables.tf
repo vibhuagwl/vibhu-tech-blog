@@ -17,12 +17,18 @@ variable "vpc_id" {
 
 variable "public_subnet_ids" {
   type        = list(string)
-  description = "At least two public subnets for the internet-facing ALB + Fargate tasks"
+  description = "Public subnets for the internet-facing ALB (≥2 AZs)"
+}
+
+variable "private_subnet_ids" {
+  type        = list(string)
+  description = "Private subnets for ECS tasks + internal ALB (production). Empty = use public subnets (lab)."
+  default     = []
 }
 
 variable "desired_count" {
   type        = number
-  description = "Desired tasks per ECS service"
+  description = "Initial desired tasks per ECS service"
   default     = 2
 }
 
@@ -42,14 +48,38 @@ variable "image_tag" {
   default     = "latest"
 }
 
-variable "cloud_map_namespace" {
-  type        = string
-  description = "Private DNS namespace for service discovery (no Eureka)"
-  default     = "gateway-lab.local"
-}
-
 variable "assign_public_ip" {
   type        = bool
-  description = "Lab default true (public subnets). Production: false + private subnets + NAT."
+  description = "Only used when private_subnet_ids is empty. Production: set private subnets (forces false)."
   default     = true
+}
+
+variable "alb_ingress_cidrs" {
+  type        = list(string)
+  description = "CIDRs allowed to hit the public ALB (restrict in production)"
+  default     = ["0.0.0.0/0"]
+}
+
+variable "acm_certificate_arn" {
+  type        = string
+  description = "Optional ACM cert ARN — when set, public ALB listens on 443 and redirects 80→443"
+  default     = ""
+}
+
+variable "enable_waf" {
+  type        = bool
+  description = "Attach WAFv2 rate-based rule to the public ALB"
+  default     = true
+}
+
+variable "waf_rate_limit" {
+  type        = number
+  description = "Max requests per 5-minute window per IP (WAFv2 rate rule)"
+  default     = 2000
+}
+
+variable "alarm_email" {
+  type        = string
+  description = "Optional SNS email for CloudWatch alarms (empty = no subscription)"
+  default     = ""
 }

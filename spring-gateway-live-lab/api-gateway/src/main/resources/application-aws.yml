@@ -1,24 +1,51 @@
-# AWS / ECS profile — NO Eureka.
-# Discovery = platform DNS (Cloud Map, ECS Service Connect, or internal ALB).
-# Activate: SPRING_PROFILES_ACTIVE=aws
+# AWS / production profile — NO Eureka.
+# Downstream = internal ALB (prod) or Compose service DNS (local stand-in).
+# Fault tolerance: timeouts + Retry(GET) + Resilience4j CircuitBreaker + fallback.
 eureka:
   client:
     enabled: false
     register-with-eureka: false
     fetch-registry: false
 
+server:
+  shutdown: graceful
+
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   cloud:
     gateway:
+      httpclient:
+        connect-timeout: 2000
+        response-timeout: 5s
+        pool:
+          max-connections: 500
+          max-idle-time: 30s
+      default-filters:
+        # Safe for idempotent reads only
+        - name: Retry
+          args:
+            retries: 2
+            methods: GET
+            statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,SERVICE_UNAVAILABLE
+            series: SERVER_ERROR
+            backoff:
+              firstBackoff: 50ms
+              maxBackoff: 500ms
+              factor: 2
+              basedOnPreviousValue: false
       routes:
         - id: user-service
-          # Prefer internal ALB or Cloud Map DNS in real AWS (see aws/README.md)
           uri: ${USER_SERVICE_URI:http://user-service:8081}
           predicates:
             - Path=/api/users/**
           filters:
             - StripPrefix=1
             - AddRequestHeader=X-Gateway, api-gateway-aws
+            - name: CircuitBreaker
+              args:
+                name: userServiceCB
+                fallbackUri: forward:/fallback/users
         - id: order-service
           uri: ${ORDER_SERVICE_URI:http://order-service:8082}
           predicates:
@@ -26,7 +53,54 @@ spring:
           filters:
             - StripPrefix=1
             - AddRequestHeader=X-Gateway, api-gateway-aws
+            - name: CircuitBreaker
+              args:
+                name: orderServiceCB
+                fallbackUri: forward:/fallback/orders
+
+# Resilience4j — open circuit when failures spike; fail fast instead of cascading
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      userServiceCB:
+        baseConfig: default
+      orderServiceCB:
+        baseConfig: default
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 4s
+    instances:
+      userServiceCB:
+        baseConfig: default
+      orderServiceCB:
+        baseConfig: default
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,circuitbreakers,circuitbreakerevents
+  health:
+    circuitbreakers:
+      enabled: true
 
 logging:
   level:
-    org.springframework.cloud.loadbalancer: WARN
+    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.circuitbreaker: INFO
+    io.github.resilience4j: INFO

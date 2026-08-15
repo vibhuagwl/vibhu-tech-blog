@@ -8,23 +8,20 @@ Client → Gateway → lb:// → User/Order      Internet → ALB → Gateway �
               ↘ Eureka                              (ECS Fargate)
 ```
 
-## AWS deployment (real — no Eureka)
-
-On AWS you **do not need Eureka**. Use profile `aws`:
+## AWS deployment (production-ready path — no Eureka)
 
 | Piece | Implementation |
 |-------|----------------|
-| Edge LB | Public ALB → `api-gateway` |
-| Discovery | Cloud Map `*.gateway-lab.local` (or internal ALB) |
-| Config | `application-aws.yml` + `USER_SERVICE_URI` / `ORDER_SERVICE_URI` |
-| Images | `Dockerfile` + `scripts/build-push-ecr.sh` |
-| Infra | `aws/terraform` (ECS Fargate, ALB, Cloud Map, ECR) |
-
-**Local stand-in for AWS DNS** (Compose service names ≈ Cloud Map):
+| Edge | Public ALB + optional HTTPS + **WAF rate limit** |
+| App FT | Timeouts, GET retry, **Resilience4j CircuitBreaker**, fallbacks |
+| East-west | **Internal ALB** path-routes `/users*` / `/orders*` |
+| Scale | ECS autoscaling (CPU + ALB RPS), min 2 / max 6 |
+| Ops | CloudWatch alarms, deployment circuit breaker |
+| IaC | `aws/terraform/` |
 
 ```bash
-docker compose -f docker-compose.aws.yml up --build
-./scripts/smoke-aws.sh
+docker compose -f docker-compose.aws.yml up --build   # local stand-in
+# real account: see aws/README.md
 ```
 
 **Account deploy:** [`aws/README.md`](aws/README.md).

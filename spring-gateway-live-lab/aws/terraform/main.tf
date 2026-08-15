@@ -8,11 +8,19 @@ locals {
   ecr_user_service  = "${aws_ecr_repository.user_service.repository_url}:${var.image_tag}"
   ecr_order_service = "${aws_ecr_repository.order_service.repository_url}:${var.image_tag}"
 
-  user_service_uri  = "http://user-service.${var.cloud_map_namespace}:8081"
-  order_service_uri = "http://order-service.${var.cloud_map_namespace}:8082"
+  # Production discovery: one internal ALB path-routes /users* and /orders*
+  user_service_uri  = "http://${aws_lb.internal.dns_name}"
+  order_service_uri = "http://${aws_lb.internal.dns_name}"
+
+  use_private_subnets   = length(var.private_subnet_ids) > 0
+  task_subnet_ids       = local.use_private_subnets ? var.private_subnet_ids : var.public_subnet_ids
+  task_assign_public_ip = local.use_private_subnets ? false : var.assign_public_ip
+  internal_alb_subnets  = local.use_private_subnets ? var.private_subnet_ids : var.public_subnet_ids
+
+  enable_https = var.acm_certificate_arn != ""
 }
 
-# --- ECR (Terraform owns registries; build-push-ecr.sh pushes into them) ---
+# --- ECR ---
 
 resource "aws_ecr_repository" "api_gateway" {
   name                 = "gateway-lab/api-gateway"
@@ -100,56 +108,42 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# --- Cloud Map (replaces Eureka) ---
-
-resource "aws_service_discovery_private_dns_namespace" "this" {
-  name = var.cloud_map_namespace
-  vpc  = var.vpc_id
-}
-
-resource "aws_service_discovery_service" "user" {
-  name = "user-service"
-
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.this.id
-    dns_records {
-      ttl  = 5
-      type = "A"
-    }
-    routing_policy = "MULTIVALUE"
-  }
-
-  health_check_custom_config {}
-}
-
-resource "aws_service_discovery_service" "order" {
-  name = "order-service"
-
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.this.id
-    dns_records {
-      ttl  = 5
-      type = "A"
-    }
-    routing_policy = "MULTIVALUE"
-  }
-
-  health_check_custom_config {}
-}
-
 # --- Security groups ---
 
-resource "aws_security_group" "alb" {
-  name        = "${var.name_prefix}-alb"
-  description = "Public ALB for api-gateway"
+resource "aws_security_group" "public_alb" {
+  name        = "${var.name_prefix}-public-alb"
+  description = "Internet-facing ALB to api-gateway"
   vpc_id      = var.vpc_id
 
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
+    cidr_blocks = var.alb_ingress_cidrs
+  }
+
+  dynamic "ingress" {
+    for_each = local.enable_https ? [443] : []
+    content {
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = var.alb_ingress_cidrs
+    }
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
+
+resource "aws_security_group" "internal_alb" {
+  name        = "${var.name_prefix}-internal-alb"
+  description = "Internal ALB to user/order (east-west)"
+  vpc_id      = var.vpc_id
 
   egress {
     from_port   = 0
@@ -164,22 +158,6 @@ resource "aws_security_group" "services" {
   description = "ECS tasks (gateway + user + order)"
   vpc_id      = var.vpc_id
 
-  ingress {
-    description     = "ALB to gateway"
-    from_port       = 8080
-    to_port         = 8080
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-
-  ingress {
-    description = "East-west user/order"
-    from_port   = 8081
-    to_port     = 8082
-    protocol    = "tcp"
-    self        = true
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -188,14 +166,60 @@ resource "aws_security_group" "services" {
   }
 }
 
+# Cross-SG rules (avoid cyclic inline ingress references)
+resource "aws_security_group_rule" "internal_alb_from_services" {
+  type                     = "ingress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.internal_alb.id
+  source_security_group_id = aws_security_group.services.id
+  description              = "Gateway tasks to internal ALB"
+}
+
+resource "aws_security_group_rule" "gateway_from_public_alb" {
+  type                     = "ingress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.services.id
+  source_security_group_id = aws_security_group.public_alb.id
+  description              = "Public ALB to gateway"
+}
+
+resource "aws_security_group_rule" "user_from_internal_alb" {
+  type                     = "ingress"
+  from_port                = 8081
+  to_port                  = 8081
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.services.id
+  source_security_group_id = aws_security_group.internal_alb.id
+  description              = "Internal ALB to user"
+}
+
+resource "aws_security_group_rule" "order_from_internal_alb" {
+  type                     = "ingress"
+  from_port                = 8082
+  to_port                  = 8082
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.services.id
+  source_security_group_id = aws_security_group.internal_alb.id
+  description              = "Internal ALB to order"
+}
+
 # --- Public ALB → api-gateway ---
 
 resource "aws_lb" "public" {
-  name               = "${var.name_prefix}-alb"
+  name               = "${var.name_prefix}-pub"
   load_balancer_type = "application"
   internal           = false
-  security_groups    = [aws_security_group.alb.id]
+  security_groups    = [aws_security_group.public_alb.id]
   subnets            = var.public_subnet_ids
+
+  enable_http2               = true
+  enable_deletion_protection = false
+  drop_invalid_header_fields = true
+  idle_timeout               = 60
 }
 
 resource "aws_lb_target_group" "gateway" {
@@ -205,10 +229,13 @@ resource "aws_lb_target_group" "gateway" {
   target_type = "ip"
   vpc_id      = var.vpc_id
 
+  deregistration_delay = 30
+
   health_check {
     path                = "/actuator/health"
     matcher             = "200"
     interval            = 15
+    timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 3
   }
@@ -219,13 +246,141 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
 
+  dynamic "default_action" {
+    for_each = local.enable_https ? [1] : []
+    content {
+      type = "redirect"
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = local.enable_https ? [] : [1]
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.gateway.arn
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  count = local.enable_https ? 1 : 0
+
+  load_balancer_arn = aws_lb.public.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+  certificate_arn   = var.acm_certificate_arn
+
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.gateway.arn
   }
 }
 
-# --- Task definitions ---
+# --- Internal ALB → user (/users*) + order (/orders*) ---
+
+resource "aws_lb" "internal" {
+  name               = "${var.name_prefix}-int"
+  load_balancer_type = "application"
+  internal           = true
+  security_groups    = [aws_security_group.internal_alb.id]
+  subnets            = local.internal_alb_subnets
+
+  drop_invalid_header_fields = true
+  idle_timeout               = 60
+}
+
+resource "aws_lb_target_group" "user" {
+  name        = "${var.name_prefix}-user"
+  port        = 8081
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = var.vpc_id
+
+  deregistration_delay = 30
+
+  health_check {
+    path                = "/actuator/health"
+    matcher             = "200"
+    interval            = 15
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+}
+
+resource "aws_lb_target_group" "order" {
+  name        = "${var.name_prefix}-order"
+  port        = 8082
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = var.vpc_id
+
+  deregistration_delay = 30
+
+  health_check {
+    path                = "/actuator/health"
+    matcher             = "200"
+    interval            = 15
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+  }
+}
+
+resource "aws_lb_listener" "internal_http" {
+  load_balancer_arn = aws_lb.internal.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "application/json"
+      message_body = "{\"error\":\"not found\"}"
+      status_code  = "404"
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "users" {
+  listener_arn = aws_lb_listener.internal_http.arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.user.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/users", "/users/*"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "orders" {
+  listener_arn = aws_lb_listener.internal_http.arn
+  priority     = 20
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.order.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/orders", "/orders/*"]
+    }
+  }
+}
+
+# --- Task definitions (container health checks) ---
 
 resource "aws_ecs_task_definition" "user" {
   family                   = "gateway-lab-user"
@@ -248,6 +403,13 @@ resource "aws_ecs_task_definition" "user" {
       { name = "SERVER_PORT", value = "8081" },
       { name = "INSTANCE_ID", value = "user-ecs" }
     ]
+    healthCheck = {
+      command     = ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health || exit 1"]
+      interval    = 15
+      timeout     = 5
+      retries     = 3
+      startPeriod = 40
+    }
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -280,6 +442,13 @@ resource "aws_ecs_task_definition" "order" {
       { name = "SERVER_PORT", value = "8082" },
       { name = "INSTANCE_ID", value = "order-ecs" }
     ]
+    healthCheck = {
+      command     = ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health || exit 1"]
+      interval    = 15
+      timeout     = 5
+      retries     = 3
+      startPeriod = 40
+    }
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -313,6 +482,13 @@ resource "aws_ecs_task_definition" "gateway" {
       { name = "USER_SERVICE_URI", value = local.user_service_uri },
       { name = "ORDER_SERVICE_URI", value = local.order_service_uri }
     ]
+    healthCheck = {
+      command     = ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      interval    = 15
+      timeout     = 5
+      retries     = 3
+      startPeriod = 40
+    }
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -327,61 +503,92 @@ resource "aws_ecs_task_definition" "gateway" {
 # --- ECS services ---
 
 resource "aws_ecs_service" "user" {
-  name            = "user-service"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.user.arn
-  desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+  name                              = "user-service"
+  cluster                           = aws_ecs_cluster.this.id
+  task_definition                   = aws_ecs_task_definition.user.arn
+  desired_count                     = var.desired_count
+  launch_type                       = "FARGATE"
+  health_check_grace_period_seconds = 60
+
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
 
   network_configuration {
-    subnets          = var.public_subnet_ids
+    subnets          = local.task_subnet_ids
     security_groups  = [aws_security_group.services.id]
-    assign_public_ip = var.assign_public_ip
+    assign_public_ip = local.task_assign_public_ip
   }
 
-  service_registries {
-    registry_arn = aws_service_discovery_service.user.arn
+  load_balancer {
+    target_group_arn = aws_lb_target_group.user.arn
+    container_name   = "user-service"
+    container_port   = 8081
   }
 
-  # Autoscaling owns DesiredCount after first apply — don't fight it on every terraform apply
   lifecycle {
     ignore_changes = [desired_count]
   }
+
+  depends_on = [aws_lb_listener_rule.users]
 }
 
 resource "aws_ecs_service" "order" {
-  name            = "order-service"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.order.arn
-  desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+  name                              = "order-service"
+  cluster                           = aws_ecs_cluster.this.id
+  task_definition                   = aws_ecs_task_definition.order.arn
+  desired_count                     = var.desired_count
+  launch_type                       = "FARGATE"
+  health_check_grace_period_seconds = 60
 
-  network_configuration {
-    subnets          = var.public_subnet_ids
-    security_groups  = [aws_security_group.services.id]
-    assign_public_ip = var.assign_public_ip
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
 
-  service_registries {
-    registry_arn = aws_service_discovery_service.order.arn
+  network_configuration {
+    subnets          = local.task_subnet_ids
+    security_groups  = [aws_security_group.services.id]
+    assign_public_ip = local.task_assign_public_ip
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.order.arn
+    container_name   = "order-service"
+    container_port   = 8082
   }
 
   lifecycle {
     ignore_changes = [desired_count]
   }
+
+  depends_on = [aws_lb_listener_rule.orders]
 }
 
 resource "aws_ecs_service" "gateway" {
-  name            = "api-gateway"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.gateway.arn
-  desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+  name                              = "api-gateway"
+  cluster                           = aws_ecs_cluster.this.id
+  task_definition                   = aws_ecs_task_definition.gateway.arn
+  desired_count                     = var.desired_count
+  launch_type                       = "FARGATE"
+  health_check_grace_period_seconds = 60
+
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
 
   network_configuration {
-    subnets          = var.public_subnet_ids
+    subnets          = local.task_subnet_ids
     security_groups  = [aws_security_group.services.id]
-    assign_public_ip = var.assign_public_ip
+    assign_public_ip = local.task_assign_public_ip
   }
 
   load_balancer {
