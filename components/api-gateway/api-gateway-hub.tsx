@@ -82,8 +82,15 @@ export default function ApiGatewayHub() {
           payment idempotency. ~90% diagrams and code.
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
-          Lab:{' '}
-          <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-api-gateway-lab/</code>
+          Live lab (full code):{' '}
+          <Link
+            href="/distributed-systems/gateway-live-interview-lab"
+            className="font-semibold text-slate-700 hover:underline dark:text-slate-300"
+          >
+            Gateway Live Interview Lab
+          </Link>
+          {' · '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-gateway-live-lab/</code>
           {' · '}
           <Link href="/load-balancing" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Load Balancing
@@ -214,13 +221,33 @@ export default function ApiGatewayHub() {
             </div>
           </Section>
 
-          <Section id="lab" title="Runnable Lab" lead="Token bucket + correlation ID filter utilities with JUnit — Spring Cloud Gateway route YAML included.">
+          <Section
+            id="lab"
+            title="Runnable Lab"
+            lead="Full live interview stack: Eureka, lb://, multi-instance LB, AWS Terraform, fail-closed payments. Search the blog for fail-closed or gateway-live."
+          >
+            <p className="mb-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Blog walkthrough with embedded source:{' '}
+              <Link
+                href="/distributed-systems/gateway-live-interview-lab"
+                className="font-semibold text-slate-800 underline-offset-2 hover:underline dark:text-slate-200"
+              >
+                API Gateway Live Lab — Full Code
+              </Link>
+              . Repo folder:{' '}
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-gateway-live-lab/</code>
+            </p>
             <CodePanel
-              title="Quick start"
-              code={`cd spring-api-gateway-lab
-mvn test
-# TokenBucket · CorrelationIdFilter · route application.yml`}
+              title="Quick start (live lab)"
+              code={`cd spring-gateway-live-lab
+mvn -pl eureka-server,user-service,order-service,payment-service,api-gateway spring-boot:run
+./scripts/smoke-payments.sh
+# Fail-closed CB · Idempotency-Key ledger · AWS terraform under aws/`}
             />
+            <p className="mt-3 text-xs text-slate-500">
+              Older utilities (token bucket / JWT samples):{' '}
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-api-gateway-lab/</code>
+            </p>
           </Section>
 
           <Section id="cheat" title="Cheat Sheet">
