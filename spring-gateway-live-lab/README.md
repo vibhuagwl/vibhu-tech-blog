@@ -18,7 +18,7 @@ On AWS you **do not need Eureka**. Use profile `aws`:
 | Discovery | Cloud Map `*.gateway-lab.local` (or internal ALB) |
 | Config | `application-aws.yml` + `USER_SERVICE_URI` / `ORDER_SERVICE_URI` |
 | Images | `Dockerfile` + `scripts/build-push-ecr.sh` |
-| Infra | `aws/cloudformation.yml` |
+| Infra | `aws/terraform` (ECS Fargate, ALB, Cloud Map, ECR) |
 
 **Local stand-in for AWS DNS** (Compose service names ≈ Cloud Map):
 
@@ -78,7 +78,7 @@ mvn -q clean test
 1. ~~Basic Gateway + StripPrefix + correlation~~  
 2. ~~Eureka + `lb://`~~ (local learning)  
 3. ~~Multi-instance LB~~ (local)  
-4. ~~AWS ECS + ALB + Cloud Map (no Eureka)~~  
+4. ~~AWS ECS + ALB + Cloud Map via **Terraform** (no Eureka)~~  
 5. JWT at Gateway  
 6. Roles / Redis rate limit / CB / K8s  
 

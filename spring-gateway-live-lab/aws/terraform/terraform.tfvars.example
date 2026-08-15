@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars (do not commit secrets / account-specific ids if private).
+aws_region         = "us-east-1"
+vpc_id             = "vpc-xxxxxxxx"
+public_subnet_ids  = ["subnet-aaaaaaaa", "subnet-bbbbbbbb"]
+desired_count      = 2
+image_tag          = "latest"
+cloud_map_namespace = "gateway-lab.local"
