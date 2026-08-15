@@ -16,7 +16,6 @@ export default function Home() {
         'java-migration-master-index',
         'lead-experience-master-index',
         'distributed-locking-master-index',
-        'distributed-locking',
         'performance-master-index',
       ].includes(p.slug),
     ),

@@ -1,114 +1,159 @@
+import type {Metadata} from 'next';
 import Link from 'next/link';
-import {getPostsByCategories,SECTION_CATEGORIES} from '@/lib/posts';
 
-export const metadata={title:'Distributed Systems'};
+export const metadata: Metadata = {
+  title: 'Distributed Systems — Interview Curricula',
+  description:
+    'Staff/Principal distributed-systems curricula: CAP, locking (2PL/3PL), consistent hashing, gateway lab, CDC/outbox. One card per curriculum — no duplicate chapter dump.',
+};
 
-const LOCKING_ORDER=[
-  '2pl-3pl-money-transfer-interview',
-  'distributed-locking-master-index',
-  'locking-fundamentals-and-layers',
-  'jvm-and-spring-locking',
-  'distributed-locking',
-  'redis-distributed-lock-deep-dive',
-  'redisson-watchdog-and-fencing',
-  'zookeeper-etcd-locking',
-  'postgresql-locking-deep-dive',
-  'pessimistic-locking-guide',
-  'optimistic-locking-guide',
-  'transactions-2pc-3pc-saga',
-  'kafka-locking-and-idempotency',
-  'concurrency-deadlocks-and-timeouts',
-  'lock-observability-and-debugging',
-  'locking-failures-k8s-and-security',
-  'lock-performance-and-architecture',
-  'nosql-locking-and-comparisons',
-  'spring-boot-locking-implementations',
-  'payment-inventory-locking-case-studies',
-  'distributed-locking-interview-qa',
-];
+/** One card per curriculum destination. Deep locking chapters live under the master index. */
+const CURRICULA = [
+  {
+    href: '/cap-theorem',
+    number: '00',
+    title: 'CAP Theorem',
+    blurb: 'Consistency vs availability under partition — draw it before locking or replication debates.',
+  },
+  {
+    href: '/distributed-systems/distributed-locking-master-index',
+    number: '01',
+    title: 'Distributed locking curriculum',
+    blurb:
+      'JVM → Redis/Redisson → ZooKeeper/etcd → PostgreSQL → Saga → Kafka → fencing → K8s failures → 50+ Q&As. Open the index, then deep chapters.',
+  },
+  {
+    href: '/distributed-systems/2pl-3pl-money-transfer-interview',
+    number: '02',
+    title: '2PL / 3PL money-transfer interview',
+    blurb: 'Diagrams + spoken answer + full distributed-locking/ Spring source on one page for the room.',
+  },
+  {
+    href: '/distributed-systems/consistent-hashing',
+    number: '03',
+    title: 'Consistent hashing',
+    blurb: 'Partitioning, virtual nodes, remapping — interview whiteboard staple.',
+  },
+  {
+    href: '/distributed-systems/gateway-live-interview-lab',
+    number: '04',
+    title: 'API gateway live interview lab',
+    blurb: 'Eureka → lb:// → fail-closed payments companion for the /api-gateway hub.',
+  },
+  {
+    href: '/distributed-systems/cdc-and-outbox',
+    number: '05',
+    title: 'CDC and outbox',
+    blurb: 'Dual-write avoidance, change data capture, and reliable cross-service events.',
+  },
+  {
+    href: '/distributed-systems/oauth2-jwt-spring-boot-demo',
+    number: '06',
+    title: 'OAuth2 / JWT lab companion',
+    blurb: 'Walkthrough paired with the OAuth/JWT demo UI — not a second security encyclopedia.',
+  },
+  {
+    href: '/distributed-systems/spring-security-authn-authz-demo',
+    number: '07',
+    title: 'Spring Security authn/authz lab',
+    blurb: 'Companion for the auth demo — deep filters/method security live under /spring-security.',
+  },
+] as const;
 
-export default function Distributed(){
-  const posts=getPostsByCategories([...SECTION_CATEGORIES['distributed-systems']]);
-  const bySlug=new Map(posts.map((p)=>[p.slug,p]));
-  const locking=LOCKING_ORDER.map((s)=>bySlug.get(s)).filter(Boolean) as typeof posts;
-  const rest=posts.filter((p)=>!LOCKING_ORDER.includes(p.slug));
-  const interview=bySlug.get('2pl-3pl-money-transfer-interview');
-  const pessimistic=bySlug.get('pessimistic-locking-guide');
-  const optimistic=bySlug.get('optimistic-locking-guide');
-  const index=bySlug.get('distributed-locking-master-index');
+const RELATED = [
+  {href: '/distributed-locking', label: 'Distributed Locking hub', blurb: 'Visual/code React board'},
+  {href: '/java-locking', label: 'Java Locking', blurb: 'JVM locks taxonomy'},
+  {href: '/load-balancing', label: 'Load balancing', blurb: 'LB interview hub'},
+  {href: '/distributed-caching', label: 'Distributed caching', blurb: 'Redis cache patterns'},
+  {href: '/resilience4j', label: 'Resilience4j', blurb: 'Timeout · CB · bulkhead'},
+  {href: '/kafka-interview', label: 'Kafka interview', blurb: 'Producer · consumer · DLQ'},
+  {href: '/api-gateway', label: 'API Gateway', blurb: 'Theory + live lab'},
+  {href: '/microservice-communication', label: 'How services talk', blurb: 'Sync · async · discovery'},
+] as const;
 
+export default function Distributed() {
   return (
-    <main>
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_10px_40px_rgba(15,23,42,.04)] md:p-10 dark:border-slate-800 dark:bg-slate-950">
-        <div className="text-xs font-black uppercase tracking-[.16em] text-slate-600">Distributed Systems</div>
-        <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Reason about scale, failure and consistency.</h1>
-        <p className="mt-4 max-w-2xl text-lg text-[var(--muted)]">
+    <main className="mx-auto max-w-[1400px] px-5 py-10">
+      <header className="max-w-3xl">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
+          Staff · Principal · Architect · Scale · Failure · Consistency
+        </p>
+        <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
+          Distributed systems
+        </h1>
+        <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
+          Reason about scale, failure, and consistency.{' '}
+          <strong>One card per curriculum</strong> — locking depth lives under the master index, not as a wall of
+          20 duplicate chapter cards. Thin surveys that twin React hubs are stubs (Kafka, LB, cache, short Saga).
+        </p>
+        <p className="mt-3 text-sm leading-7 text-slate-500">
           Start with{' '}
-          <Link href="/cap-theorem" className="font-semibold text-[var(--ink)] underline decoration-[var(--line)] underline-offset-4">
+          <Link href="/cap-theorem" className="font-semibold text-slate-700 underline underline-offset-4 dark:text-slate-300">
             CAP Theorem
           </Link>
-          {' '}for consistency trade-offs, then locking and messaging boards for implementation depth.
+          , then locking or messaging boards for implementation depth.
         </p>
-        <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Core building blocks for senior backend interviews: caching, messaging, partitioning, replication,
-          idempotency, resilience — plus a Principal-level <strong>Distributed Locking</strong> curriculum
-          (JVM → Redis/Redisson → PostgreSQL → Kafka → fencing → production failure playbooks).
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
-          <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} topics</span>
-          {interview && (
-            <Link href={`/distributed-systems/${interview.slug}`} className="rounded-full bg-emerald-600 px-3 py-1 font-semibold text-white">
-              2PL/3PL interview diagrams →
+      </header>
+
+      <section className="mt-10">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Interview curricula</h2>
+        <p className="mt-2 text-sm text-slate-500">Each destination appears once. Open an index, then deep chapters.</p>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {CURRICULA.map((page) => (
+            <Link
+              key={page.href}
+              href={page.href}
+              className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-950"
+            >
+              <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-400">{page.number}</div>
+              <h3 className="mt-2 text-xl font-bold text-slate-900 dark:text-white">{page.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{page.blurb}</p>
+              <div className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Open →</div>
             </Link>
-          )}
-          {pessimistic && (
-            <Link href={`/distributed-systems/${pessimistic.slug}`} className="rounded-full bg-amber-600 px-3 py-1 font-semibold text-white">
-              Pessimistic locking →
-            </Link>
-          )}
-          {optimistic && (
-            <Link href={`/distributed-systems/${optimistic.slug}`} className="rounded-full bg-violet-600 px-3 py-1 font-semibold text-white">
-              Optimistic locking →
-            </Link>
-          )}
-          {index && (
-            <Link href={`/distributed-systems/${index.slug}`} className="rounded-full bg-slate-900 px-3 py-1 font-semibold text-white">
-              Full locking curriculum →
-            </Link>
-          )}
+          ))}
         </div>
-      </div>
+      </section>
 
-      {locking.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-2xl font-black">Distributed Locking curriculum</h2>
-          <p className="mt-2 text-sm text-slate-500">Staff/Principal depth — leases, fencing, Postgres, Redis, Saga, K8s, and 50+ interview Q&amp;As.</p>
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            {locking.map((p)=>(
-              <Link key={p.slug} href={`/distributed-systems/${p.slug}`} className="card p-6 transition hover:-translate-y-0.5">
-                <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{p.difficulty} · {p.readingTime}</div>
-                <h3 className="mt-3 text-xl font-bold">{p.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">{p.description}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+      <section className="mt-10 rounded-2xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">45-minute revision path</h2>
+        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
+          <li>
+            <strong>§00 CAP</strong> — pick C or A under partition for a payment vs feed example.
+          </li>
+          <li>
+            <strong>§02 2PL/3PL</strong> — draw concurrent transfers and say where fencing belongs.
+          </li>
+          <li>
+            <strong>§01 Locking index</strong> — skim Redis lease + Postgres FOR UPDATE chapters only.
+          </li>
+          <li>
+            <strong>§05 CDC/outbox</strong> — dual-write problem in 90 seconds.
+          </li>
+          <li>
+            <strong>§03 Consistent hashing</strong> — virtual nodes + remapping cost.
+          </li>
+        </ol>
+      </section>
 
-      {rest.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-2xl font-black">Other topics</h2>
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            {rest.map((p)=>(
-              <Link key={p.slug} href={`/distributed-systems/${p.slug}`} className="card p-6 transition hover:-translate-y-0.5">
-                <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{p.category} · {p.difficulty}</div>
-                <h3 className="mt-3 text-xl font-bold">{p.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">{p.description}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Related hubs</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Load balancing, caching, resilience, and Kafka live on dedicated hubs — stubs under this section redirect
+          there (not listed twice).
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {RELATED.map((r) => (
+            <Link
+              key={r.href}
+              href={r.href}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm dark:border-slate-800"
+            >
+              <div className="font-semibold text-slate-900 dark:text-white">{r.label}</div>
+              <div className="mt-1 text-slate-500">{r.blurb}</div>
+            </Link>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }

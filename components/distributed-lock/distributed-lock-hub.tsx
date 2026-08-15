@@ -36,8 +36,10 @@ export default function DistributedLockHub(){
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           ~90% visual/code. JVM locks:{' '}
           <Link href="/java-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Java Locking</Link>
-          {' '}· deep 2PL/3PL lab:{' '}
-          <Link href="/distributed-systems/distributed-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Distributed Systems</Link>
+          {' '}· curriculum:{' '}
+          <Link href="/distributed-systems/distributed-locking-master-index" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Locking master index</Link>
+          {' '}· 2PL lab:{' '}
+          <Link href="/distributed-systems/2pl-3pl-money-transfer-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Money transfer</Link>
           {' '}· demo:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-distributed-lock-demo/</code>
         </p>
