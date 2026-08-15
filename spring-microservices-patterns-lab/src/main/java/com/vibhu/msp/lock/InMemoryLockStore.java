@@ -18,23 +18,26 @@ public final class InMemoryLockStore {
     }
   }
 
-  public Optional<String> tryAcquire(String lockKey, Duration ttl) {
-    String token = FencingToken.next();
-    Instant expiresAt = Instant.now().plus(ttl);
-    LockEntry newEntry = new LockEntry(token, expiresAt);
+  private final ConcurrentHashMap<String, Object> keyMutexes = new ConcurrentHashMap<>();
 
-    LockEntry existing = locks.get(lockKey);
-    if (existing != null && !existing.expired()) {
-      return Optional.empty();
-    }
-    LockEntry previous = locks.putIfAbsent(lockKey, newEntry);
-    if (previous == null || previous.expired()) {
+  private Object mutex(String lockKey) {
+    return keyMutexes.computeIfAbsent(lockKey, k -> new Object());
+  }
+
+  public Optional<String> tryAcquire(String lockKey, Duration ttl) {
+    synchronized (mutex(lockKey)) {
+      LockEntry existing = locks.get(lockKey);
+      if (existing != null && !existing.expired()) {
+        return Optional.empty();
+      }
+      String token = FencingToken.next();
+      Instant expiresAt = Instant.now().plus(ttl);
+      LockEntry newEntry = new LockEntry(token, expiresAt);
       locks.put(lockKey, newEntry);
       long fencing = FencingToken.parse(token);
       maxFencingToken.merge(lockKey, fencing, Math::max);
       return Optional.of(token);
     }
-    return Optional.empty();
   }
 
   public boolean validateWrite(String lockKey, long writeToken) {
@@ -42,12 +45,14 @@ public final class InMemoryLockStore {
   }
 
   public boolean release(String lockKey, String token) {
-    LockEntry entry = locks.get(lockKey);
-    if (entry != null && entry.token().equals(token)) {
-      locks.remove(lockKey, entry);
-      return true;
+    synchronized (mutex(lockKey)) {
+      LockEntry entry = locks.get(lockKey);
+      if (entry != null && entry.token().equals(token)) {
+        locks.remove(lockKey, entry);
+        return true;
+      }
+      return false;
     }
-    return false;
   }
 
   public boolean isHeld(String lockKey) {

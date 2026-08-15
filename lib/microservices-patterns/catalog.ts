@@ -1,4 +1,5 @@
 import type {PatternCard} from './types';
+import {enrichPatterns} from './enrich';
 import {DECOMPOSE_PATTERNS, GATEWAY_PATTERNS, DECOMPOSE_ASCII, GATEWAY_ASCII} from './parts-decompose-gateway';
 import {DISCOVERY_PATTERNS, LOAD_BALANCE_PATTERNS, RESILIENCE_PATTERNS} from './parts-discovery-lb-resilience';
 import {
@@ -57,7 +58,7 @@ export type PatternGroup = {
   patterns: PatternCard[];
 };
 
-export const PATTERN_GROUPS: PatternGroup[] = [
+const RAW_PATTERN_GROUPS: PatternGroup[] = [
   {
     id: 'decompose',
     part: 1,
@@ -206,5 +207,10 @@ export const PATTERN_GROUPS: PatternGroup[] = [
     patterns: ANTI_PATTERN_CARDS,
   },
 ];
+
+export const PATTERN_GROUPS: PatternGroup[] = RAW_PATTERN_GROUPS.map((group) => ({
+  ...group,
+  patterns: enrichPatterns(group.patterns),
+}));
 
 export const ALL_PATTERNS: PatternCard[] = PATTERN_GROUPS.flatMap((g) => g.patterns);

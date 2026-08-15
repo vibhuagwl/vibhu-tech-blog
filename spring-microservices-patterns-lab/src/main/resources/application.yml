@@ -37,6 +37,9 @@ msp:
   snowflake:
     worker-id: 1
     datacenter-id: 1
+  kafka:
+    enabled: false
+    order-topic: order-created
 
 management:
   endpoints:

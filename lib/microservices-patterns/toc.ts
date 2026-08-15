@@ -36,4 +36,4 @@ export const MEMORY_SENTENCE =
   'Decompose by capability → own your data → communicate async with outbox/inbox → isolate failures with timeout/retry/CB/bulkhead → prove correctness with idempotency + tests.';
 
 export const VERSION_NOTE =
-  'Baseline: Java 21 · Spring Boot 3.x · Spring Cloud Gateway · Spring Kafka · Resilience4j · Redis · PostgreSQL · Testcontainers · OpenTelemetry. Deep labs linked where the site already has full modules.';
+  'Baseline: Java 21 · Spring Boot 3.x · Spring Cloud Gateway · Spring Kafka · Resilience4j · Redis · PostgreSQL · Testcontainers · WireMock · OpenTelemetry. Pattern lab (no Docker) + spring-msp-platform (Docker Compose e2e). Deep labs linked where the site already has full modules.';

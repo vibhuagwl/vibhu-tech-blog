@@ -12,6 +12,7 @@ import {
   PERF_NOTES,
 } from '@/lib/microservices-patterns/parts-project-testing-perf';
 import {DECISION_TREES, CHEAT_SHEET, PATTERN_MATRIX} from '@/lib/microservices-patterns/decisions';
+import {E2E_COVERAGE_ROWS} from '@/lib/microservices-patterns/e2e-coverage';
 import {
   ALL as INTERVIEW_ALL,
   BASIC,
@@ -422,30 +423,38 @@ export default function MicroservicesPatternsHub({
   files = [],
   tree = [],
   defaultPath = '',
+  platformFiles = [],
+  platformTree = [],
+  platformDefaultPath = '',
 }: {
   files?: DemoSourceFile[];
   tree?: DemoTreeNode[];
   defaultPath?: string;
+  platformFiles?: DemoSourceFile[];
+  platformTree?: DemoTreeNode[];
+  platformDefaultPath?: string;
 }) {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Principal · Staff · Java 21 · Spring Boot 3 · Kafka · Redis · PostgreSQL
+          Principal · Staff · Java 21 · Spring Boot 3 · Kafka · Redis · PostgreSQL · Docker Compose
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          Microservices Design Patterns — Implementation Master
+          Microservices Design Patterns — End-to-End Master
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Not definitions — runnable Java 21 + Spring code for every pattern: when to use it, when not to, how it
-          fails, how you test it, and how you defend it in a Senior/Lead/Staff interview.
+          Every pattern has implementable Java 21 + Spring code, integration/failure tests, and domain Kafka/DB/Redis
+          artifacts where relevant — plus a full multi-service checkout platform (gateway → order → payment →
+          inventory → notification) on Kafka/Redis/Postgres.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{VERSION_NOTE}</p>
         <p className="mt-3 text-sm text-slate-500">
-          {ALL_PATTERNS.length} pattern cards · {INTERVIEW_ALL.length} interview prompts · deep labs:{' '}
+          {ALL_PATTERNS.length} pattern cards · {INTERVIEW_ALL.length} interview prompts · e2e coverage gaps:{' '}
+          <span className="font-semibold text-emerald-700 dark:text-emerald-400">0</span> · deep labs:{' '}
           <Link href="/resilience4j" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Resilience4j
           </Link>
@@ -479,15 +488,38 @@ export default function MicroservicesPatternsHub({
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_1fr]">
         <StickyToc items={MSP_TOC} />
         <div className="min-w-0 space-y-16">
-          <Section id="overview" title="00. Overview · how to use" lead="For every pattern: implement → fail it → measure → defend.">
+          <Section
+            id="overview"
+            title="00. Overview · how to use"
+            lead="Pattern browser (Why → Architecture → Code → Failures → Ops → Interview) + pattern lab + full Docker platform."
+          >
             <div className="grid gap-4 md:grid-cols-2">
               <Pre>{DECOMPOSE_ASCII}</Pre>
               <Pre>{GATEWAY_ASCII}</Pre>
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Use the pattern browser in each part: Why → Architecture → Code → Failures → Ops → Interview. The lab
-              below compiles and tests the core algorithms without Docker.
-            </p>
+            <div className="mt-4">
+              <MiniTable
+                headers={['Layer', 'Artifact', 'What you get']}
+                rows={[
+                  [
+                    'Catalog',
+                    '154 PatternCards',
+                    'Java + Spring + IT/failure tests; Kafka/DB/Redis when the pattern needs them',
+                  ],
+                  [
+                    'Pattern lab',
+                    'spring-microservices-patterns-lab',
+                    'Algorithms + saga/outbox/LB/CB; mvn test without Docker (WireMock + concurrency)',
+                  ],
+                  [
+                    'E2E platform',
+                    'spring-msp-platform',
+                    'Gateway + 5 services + Kafka + Redis + Postgres + outbox/inbox saga + DLQ',
+                  ],
+                  ['Deep labs', 'site hubs', 'Resilience4j, API Gateway, rate limiter, Kafka DLQ, locking, caching, GoF'],
+                ]}
+              />
+            </div>
           </Section>
 
           {PATTERN_GROUPS.map((g) => (
@@ -496,13 +528,34 @@ export default function MicroservicesPatternsHub({
             </Section>
           ))}
 
-          <Section id="project" title="22. Production project · lab" lead={PRODUCTION_PROJECT.title}>
+          <Section id="project" title="22. Production project · e2e platform" lead={PRODUCTION_PROJECT.title}>
             <Pre>{PRODUCTION_PROJECT.ascii}</Pre>
             <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-600 dark:text-slate-300">
               {PRODUCTION_PROJECT.description}
             </div>
-            {files.length > 0 && (
+            <p className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+              Runnable stack: <code className="text-xs">spring-msp-platform/</code> —{' '}
+              <code className="text-xs">docker compose up -d</code> then boot gateway + five services.
+            </p>
+            {platformFiles.length > 0 && (
               <div className="mt-6">
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">
+                  spring-msp-platform (multi-service)
+                </h3>
+                <OAuthCodeExplorer
+                  files={platformFiles}
+                  tree={platformTree}
+                  defaultPath={platformDefaultPath}
+                  routeBase="/microservices-patterns"
+                  ariaLabel="Microservices e2e platform source"
+                />
+              </div>
+            )}
+            {files.length > 0 && (
+              <div className="mt-8">
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">
+                  spring-microservices-patterns-lab (pattern algorithms)
+                </h3>
                 <OAuthCodeExplorer
                   files={files}
                   tree={tree}
@@ -527,6 +580,15 @@ export default function MicroservicesPatternsHub({
                 <li key={c}>{c}</li>
               ))}
             </ul>
+            <div className="mt-6">
+              <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">
+                E2E field coverage (all 154)
+              </h3>
+              <MiniTable
+                headers={['Pattern', 'Java', 'Spring', 'Kafka', 'DB', 'Redis', 'Unit', 'IT', 'Fail', 'Conc', 'Status']}
+                rows={E2E_COVERAGE_ROWS}
+              />
+            </div>
           </Section>
 
           <Section id="testing" title="23. Testing strategy" lead={TESTING_STRATEGY.overview}>
@@ -575,7 +637,11 @@ export default function MicroservicesPatternsHub({
             </div>
           </Section>
 
-          <Section id="cheatsheet" title="27. Cheat sheet · matrix" lead="One-page recall + Pattern → Problem → Solution → Trade-off → Interview Q.">
+          <Section
+            id="cheatsheet"
+            title="27. Cheat sheet · matrix"
+            lead="One-page recall + Pattern → Problem → Solution → Trade-off → Interview Q."
+          >
             <Pre>{CHEAT_SHEET}</Pre>
             <div className="mt-6">
               <MiniTable
