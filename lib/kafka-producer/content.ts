@@ -158,6 +158,151 @@ export const IDEMPOTENCE_LINK_EXPLAIN = `How retries, max.in.flight, and idempot
    → This is transport-level exactly-once produce into the Kafka log for one producer session.
    → It does NOT replace a business idempotency key (paymentId) for DB/PSP side effects.`;
 
+/** What NetworkClient is in the producer. */
+export const NETWORK_CLIENT_EXPLAIN = `What NetworkClient is
+  → The Kafka client's TCP / protocol engine used by the Sender thread.
+  → Not something you call from app code — KafkaProducer → Sender → NetworkClient.
+
+Responsibilities
+  → Maintain one (or few) TCP connections per broker Node (host:port from metadata).
+  → Send Kafka protocol requests: Metadata, Produce, InitProducerId, FindCoordinator, AddPartitionsToTxn, EndTxn, ApiVersions…
+  → Track InFlightRequests (requests waiting for a response) — this is where max.in.flight applies.
+  → Read responses, complete futures / wake retries, apply reconnect + backoff.
+  → Optionally TLS-wrap sockets (security.protocol = SSL / SASL_SSL).
+
+Where it sits
+  App threads → KafkaProducer.send → RecordAccumulator
+  Sender thread → NetworkClient ↔ brokers
+
+Interview one-liner
+  → NetworkClient = the I/O layer that turns ProduceBatches into bytes on the wire and maps responses back.`;
+
+/** Fire-and-forget vs async vs sync send. */
+export const SEND_MODES_EXPLAIN = `Send modes — what they actually mean
+
+1) Fire-and-forget: producer.send(record)  and ignore the Future
+   → send() still enqueues into the accumulator (may block on metadata/buffer).
+   → You never look at success/failure → silent loss / silent errors possible.
+   → Highest “I don't care” throughput; almost never OK for money events.
+
+2) Async (preferred): producer.send(record, callback)  or Future handled later
+   → Caller returns quickly after enqueue.
+   → When the broker acks (or final error), callback / Future completes on I/O path.
+   → Handle errors in callback (metrics, DLQ/outbox replay) — do NOT do heavy DB work there.
+   → This is the default production mode.
+
+3) Sync: producer.send(record).get(timeout)
+   → Caller THREAD blocks until that record is fully sent+acked (or fails).
+   → OK for tests, rare critical writes, or tiny admin tools.
+   → BAD in a hot loop: destroys throughput (no useful pipelining / batching across waits).
+
+Common confusion
+  → “Async” does NOT mean “acks=0”. You can be async AND use acks=all + idempotence.
+  → Sync vs async is about the CALLER waiting — not about broker durability.`;
+
+/** Schema Registry plain English. */
+export const SCHEMA_REGISTRY_EXPLAIN = `What Schema Registry is (producer view)
+  → A separate HTTP service (Confluent / Apicurio / etc.) that stores schemas
+    (Avro / Protobuf / JSON Schema) under a subject name + version number.
+  → The Kafka broker does NOT validate your Avro schema by itself — the serializer + registry do.
+
+Produce path with Avro (typical)
+  1) Serializer asks registry: “register or lookup schema for subject payments-value”.
+  2) Registry returns a numeric schema id (e.g. 42).
+  3) Wire payload = magic byte + schema id + Avro binary (not raw JSON).
+  4) Consumer deserializer reads id → fetches schema → decodes.
+
+Why it exists
+  → Contracts between producers and consumers without sharing JAR classes forever.
+  → Compatibility modes (BACKWARD / FORWARD / FULL) block breaking schema changes at register time.
+  → Breaking change → new subject/topic strategy (or careful FULL_TRANSITIVE evolution).
+
+What it is NOT
+  → Not a replacement for Kafka ACLs.
+  → Not required for String/ByteArray serializers.
+  → Not “find the partition leader” — that is Metadata (§11).`;
+
+/** bootstrap.servers discovery seed — where it applies. */
+export const BOOTSTRAP_SEED_EXPLAIN = `“bootstrap.servers is a discovery seed” — what that means and where it applies
+
+Config location
+  → Producer (and consumer) client config: bootstrap.servers=broker1:9092,broker2:9092
+  → Spring: spring.kafka.bootstrap-servers=...
+
+What “seed” means
+  → These hosts are ONLY the first contact list to fetch Metadata.
+  → After that, the client talks to the ACTUAL leaders/coordinators returned in Metadata
+    (advertised.listeners host:ports) — which may be different machines than the seed list.
+  → You do NOT need every broker in bootstrap.servers — usually 2–3 reachable brokers is enough.
+  → You also should NOT assume produce forever sticks to the bootstrap host.
+
+Where it applies in the send path
+  1) First send / first metadata need → connect to a bootstrap host.
+  2) MetadataResponse → cache all brokers + partition leaders.
+  3) ProduceRequest → leader of THAT partition (often not the bootstrap broker).
+  4) InitProducerId / txn coordinator → may be yet another broker (FindCoordinator).
+
+K8s / cloud gotcha
+  → If advertised.listeners is wrong (internal DNS clients cannot resolve),
+    bootstrap works but Produce to “leader” fails — fix listeners, not linger.ms.`;
+
+/** Fencing plain English. */
+export const FENCING_EXPLAIN = `What fencing means (zombie producer kill-switch)
+
+Problem
+  → Two processes think they are the “same” transactional producer (same transactional.id).
+  → Example: old pod still alive during deploy, or network-partitioned “zombie” that keeps sending.
+
+Mechanism
+  → transactional.id is a stable identity registered with the transaction coordinator.
+  → initTransactions() / InitProducerId allocates or bumps a producer EPOCH for that id.
+  → Newer epoch WINS. Older epoch is FENCED — further Produce / EndTxn → ProducerFencedException.
+
+What “fenced” means in practice
+  → Broker/coordinator rejects the old instance so it cannot commit more transactions
+    or leave split-brain writes for that transactional identity.
+  → App must STOP that instance (crash / exit) — do not swallow ProducerFencedException.
+
+Idempotent-only (no transactional.id)
+  → You still have PID+epoch+seq for retry dedupe inside one process lifetime.
+  → That is NOT the same as transactional fencing across pods/restarts.
+  → Restarts get a new PID; old process is not “fenced” by identity unless you use transactional.id.
+
+Rule
+  → Unique transactional.id per live instance (e.g. payment-api-\${HOSTNAME}).
+  → Sharing one txn id across replicas on purpose = the new one fences the old one.`;
+
+/** TLS / SASL / ACLs security layers. */
+export const SECURITY_LAYERS_EXPLAIN = `18. Security — TLS, SASL, ACLs (three different jobs)
+
+① TLS (encryption in transit) — security.protocol = SSL or SASL_SSL
+  → Encrypts bytes between client NetworkClient and broker.
+  → Truststore = which broker certs you trust; keystore = client cert if mTLS.
+  → Failure → SslAuthenticationException / handshake errors (often before any Produce).
+
+② SASL (authentication — who are you?)
+  → Mechanisms: PLAIN, SCRAM-SHA-256/512, GSSAPI (Kerberos), OAUTHBEARER.
+  → Client proves identity → broker maps to a principal (User:alice).
+  → Failure → AuthenticationException (bad password / token / kerberos ticket).
+
+③ ACLs (authorization — what may you do?)
+  → After auth, broker checks: may principal WRITE topic X? IDEMPOTENT_WRITE? transactional id?
+  → Failure → TopicAuthorizationException / ClusterAuthorizationException (usually non-retriable).
+
+Order of the handshake (mental model)
+  TCP connect → (TLS) → (SASL auth) → Kafka ApiVersions/Metadata/Produce → ACL check on Produce
+
+Also related (not the same)
+  → Quotas = rate limits after you are allowed (§00/§31) — throttle, not “forbidden”.
+  → Schema Registry often has its own auth — separate from Kafka ACLs.
+
+Producer config sketch
+  security.protocol=SASL_SSL
+  sasl.mechanism=SCRAM-SHA-512
+  sasl.jaas.config=...
+  ssl.truststore.location=...
+  # plus topic WRITE + IDEMPOTENT_WRITE ACLs for that principal`;
+
 export const API_ROWS: string[][] = [
   ['send(record)', 'Future<RecordMetadata>', 'Async enqueue; may block on metadata/buffer'],
   ['send(record, callback)', 'Future + Callback', 'Preferred async path'],

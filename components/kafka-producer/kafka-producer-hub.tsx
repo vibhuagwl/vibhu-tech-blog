@@ -8,6 +8,7 @@ import {
   ANTI_PATTERNS,
   API_ROWS,
   BACKPRESSURE_EXPLAIN,
+  BOOTSTRAP_SEED_EXPLAIN,
   CAPACITY_EXAMPLE,
   CHEATS,
   COMPONENT_THREADS,
@@ -15,6 +16,7 @@ import {
   CONFIG_INTERACTIONS,
   CONFIG_INTERACTIONS_EXPLAIN,
   DECISIONS,
+  FENCING_EXPLAIN,
   IDEMP_ROWS,
   IDEMPOTENCE_LINK_EXPLAIN,
   KEY_ROWS,
@@ -23,6 +25,7 @@ import {
   MEMORY_SENTENCE,
   METADATA_LEADER_EXPLAIN,
   METRIC_ROWS,
+  NETWORK_CLIENT_EXPLAIN,
   NULL_KEY_PARTITION_EXPLAIN,
   ORDER_ROWS,
   OUTBOX_COMPARE,
@@ -31,8 +34,11 @@ import {
   PRODUCE_REQUEST_EXPLAIN,
   PROFILES,
   QUOTAS_ACLS_EXPLAIN,
+  SCHEMA_REGISTRY_EXPLAIN,
+  SECURITY_LAYERS_EXPLAIN,
   SECURITY_ROWS,
   SEND_MODES,
+  SEND_MODES_EXPLAIN,
   SEND_PIPELINE,
   SERDE_ROWS,
   SOURCE_CLASSES,
@@ -276,12 +282,22 @@ Reuse ONE producer (or Spring ProducerFactory singleton).`}
               />
               <CodePanel title='What "single-threaded" means' tone="ok" code={THREADING_EXPLAIN} />
             </div>
+            <div className="mt-4">
+              <CodePanel title="What NetworkClient is" tone="ok" code={NETWORK_CLIENT_EXPLAIN} />
+            </div>
           </Section>
 
-          <Section id="api" title="04. Producer API and sync vs async">
+          <Section
+            id="api"
+            title="04. Producer API and sync vs async"
+            lead="Send mode = whether YOUR thread waits for the ack — not whether the broker uses acks=all. Prefer async + callback for production."
+          >
             <MiniTable headers={['API', 'Returns', 'Notes']} rows={API_ROWS} />
             <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">Send modes</h3>
             <MiniTable headers={['Mode', 'Strength', 'Risk']} rows={SEND_MODES} />
+            <div className="mt-4">
+              <CodePanel title="Send modes explained" tone="ok" code={SEND_MODES_EXPLAIN} />
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel
                 title="Preferred async"
@@ -306,13 +322,15 @@ for (r : million) producer.send(r).get();`}
           <Section
             id="serialization"
             title="05. Serialization and Schema Registry"
-            lead="Serialization runs on the application thread inside send(). Failures are usually non-retriable."
+            lead="Serialization runs on the application thread inside send(). Schema Registry is a separate schema store used by Avro/Protobuf/JSON Schema serializers — not the Kafka metadata/leader path."
           >
             <MiniTable headers={['Serializer', 'Use', 'Watch']} rows={SERDE_ROWS} />
+            <div className="mt-4">
+              <CodePanel title="Schema Registry explained" tone="ok" code={SCHEMA_REGISTRY_EXPLAIN} />
+            </div>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Schema Registry: subject → versions → schema ID embedded in payload. Compatibility modes
-              (BACKWARD / FORWARD / FULL) protect consumers. Breaking changes need a new subject/topic strategy.
-              Null keys and null values are allowed depending on serializer — know your contract.
+              Null keys and null values are allowed depending on serializer — know your contract. Breaking schema
+              changes need a new subject/topic strategy or careful compatibility evolution.
             </p>
           </Section>
 
@@ -431,22 +449,26 @@ CPU vs network is the trade`}
           <Section
             id="memory"
             title="10. Memory management and backpressure"
-            lead="Backpressure here means the producer slows your app (blocks send) when buffers are full — it is the safety valve, not a separate feature flag."
+            lead="buffer.memory is a shared heap BufferPool for ProducerBatches. When it is full, send() blocks — that block is producer backpressure. Quotas (broker throttle) are a different slowdown."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <CodePanel title="What backpressure means" tone="ok" code={BACKPRESSURE_EXPLAIN} />
               <CodePanel
                 title="Memory pressure path"
                 tone="danger"
-                code={`Produce > broker accept
+                code={`Produce > broker accept  (or batches too big for pool)
   → batches pile in RecordAccumulator
-  → buffer.memory exhausted
+  → buffer.memory exhausted  (default ~32MB shared)
   → send() blocks  ← this wait IS backpressure
   → waits up to max.block.ms (default 60s)
   → TimeoutException
 
 Also: buffer.memory ≪ (batch.size × active partitions)
   → you run out of BufferPool even before brokers are slow
+
+NOT the same as:
+  broker produce quota throttle (latency ↑, throttle-time ↑)
+  TLS/SASL/ACL failures (authz errors, not buffer waits)
 
 Metrics: buffer-available-bytes, bufferpool-wait-time
 Fix: bound app rate, scale brokers, tune memory/batch, shed load`}
@@ -457,14 +479,14 @@ Fix: bound app rate, scale brokers, tune memory/batch, shed load`}
           <Section
             id="network-meta"
             title="11. Networking, bootstrap, metadata"
-            lead="bootstrap.servers is a discovery seed. Metadata maps each partition to its current leader host:port — produce always goes to that leader."
+            lead="bootstrap.servers is a discovery seed (first contact only). After Metadata, Produce goes to each partition’s leader — often not the bootstrap host."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <CodePanel
                 title="Network path"
                 code={`KafkaProducer
-  → NetworkClient
-  → TCP (reuse connections per broker Node)
+  → Sender
+  → NetworkClient   ← TCP + Kafka protocol (§03)
   → Produce / Metadata / InitProducerId ...
 
 Reconnect with backoff on failure
@@ -481,8 +503,9 @@ stale leader → NotLeader* → retry
 partitionsFor(topic) forces fetch`}
               />
             </div>
-            <div className="mt-4">
-              <CodePanel title="Find leader via metadata — step by step" tone="ok" code={METADATA_LEADER_EXPLAIN} />
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <CodePanel title="bootstrap.servers = discovery seed" tone="ok" code={BOOTSTRAP_SEED_EXPLAIN} />
+              <CodePanel title="Find leader via metadata — step by step" code={METADATA_LEADER_EXPLAIN} />
             </div>
           </Section>
 
@@ -634,9 +657,12 @@ With idempotence:
           <Section
             id="security"
             title="18. Security — TLS, SASL, ACLs"
-            lead="ACLs answer “may this principal WRITE?” Quotas answer “how fast may it produce?” — both enforced on the broker when the ProduceRequest arrives."
+            lead="Three layers, three jobs: TLS encrypts the wire, SASL proves identity, ACLs authorize WRITE / IDEMPOTENT_WRITE. Quotas are rate limits after you are allowed."
           >
             <MiniTable headers={['Layer', 'Producer need']} rows={SECURITY_ROWS} />
+            <div className="mt-4">
+              <CodePanel title="TLS vs SASL vs ACLs" tone="ok" code={SECURITY_LAYERS_EXPLAIN} />
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel
                 title="Security failures"
@@ -648,7 +674,7 @@ Missing IDEMPOTENT_WRITE → idempotent produce fails
 Symptom: immediate fail on new connections / first produce
 Prevention: alert cert expiry; least-privilege ACL CI checks`}
               />
-              <CodePanel title="Quotas vs ACLs (again)" code={QUOTAS_ACLS_EXPLAIN} />
+              <CodePanel title="Quotas vs ACLs" code={QUOTAS_ACLS_EXPLAIN} />
             </div>
           </Section>
 
@@ -875,8 +901,11 @@ txn only if multi-partition atomic needed`}
           <Section
             id="fencing"
             title="29. Fencing and zombie producers"
-            lead="transactional.id is a lock on a logical producer identity. Two live owners is a bug unless you intended the new one to murder the old one."
+            lead="Fencing = kill-switch for an older producer that still thinks it owns a transactional.id. Newer InitProducerId bumps epoch; old epoch gets ProducerFencedException."
           >
+            <div className="mb-4">
+              <CodePanel title="What fencing means" tone="ok" code={FENCING_EXPLAIN} />
+            </div>
             <MiniTable headers={['Scenario', 'Outcome']} rows={FENCING_ROWS} />
             <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid
