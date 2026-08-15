@@ -7,32 +7,52 @@ import {
   ACK_ROWS,
   ANTI_PATTERNS,
   API_ROWS,
+  BACKPRESSURE_EXPLAIN,
+  BOOTSTRAP_SEED_EXPLAIN,
   CAPACITY_EXAMPLE,
   CHEATS,
   COMPONENT_THREADS,
   CONFIG_CORE,
   CONFIG_INTERACTIONS,
+  CONFIG_INTERACTIONS_EXPLAIN,
   DECISIONS,
+  FENCING_EXPLAIN,
   IDEMP_ROWS,
+  IDEMPOTENCE_LINK_EXPLAIN,
   KEY_ROWS,
+  LATENCY_VS_THROUGHPUT,
   LAYER_STACK,
   MEMORY_SENTENCE,
+  METADATA_LEADER_EXPLAIN,
   METRIC_ROWS,
+  NETWORK_CLIENT_EXPLAIN,
+  NULL_KEY_PARTITION_EXPLAIN,
   ORDER_ROWS,
   OUTBOX_COMPARE,
+  OUTBOX_VS_KAFKA_TXN,
   PARTITION_ROWS,
   PERF_BREAKDOWN,
+  PRODUCE_REQUEST_EXPLAIN,
+  PRODUCER_COUNT_EXPLAIN,
+  PRODUCER_LIFECYCLE_PROD,
   PROFILES,
+  QUOTAS_ACLS_EXPLAIN,
+  SCHEMA_REGISTRY_EXPLAIN,
+  SECURITY_LAYERS_EXPLAIN,
   SECURITY_ROWS,
   SEND_MODES,
+  SEND_MODES_EXPLAIN,
   SEND_PIPELINE,
   SERDE_ROWS,
   SOURCE_CLASSES,
   SPRING_COMPARE,
+  SPRING_PRODUCER_CREATE,
+  AWS_PRODUCER_DEPLOY,
+  THREADING_EXPLAIN,
   TX_FLOW,
   VERSION_NOTE,
 } from '@/lib/kafka-producer/content';
-import {CHAOS, FAILURE_MATRIX, TROUBLESHOOT} from '@/lib/kafka-producer/failures';
+import {CHAOS, CHAOS_EXPLAIN, FAILURE_MATRIX, FAILURE_MATRIX_EXPLAIN, TROUBLESHOOT} from '@/lib/kafka-producer/failures';
 import {
   AFTER_FATAL,
   AUTH_LIFECYCLE,
@@ -172,30 +192,39 @@ export default function KafkaProducerHub() {
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel title="Producer responsibilities" tone="ok" code={`Serialize key/value/headers
-Choose partition
-Batch + compress
-Find leader via metadata
-Send ProduceRequest
+Choose partition (key / sticky / explicit)
+Batch + compress (per partition)
+Find leader via metadata cache
+Send ProduceRequest (batches sharing a broker)
 Honor acks / retries / timeouts
 Optional: idempotence + transactions
 Surface metrics + errors`} />
-              <CodePanel title="Broker responsibilities" code={`Accept Produce on leader
+              <CodePanel
+                title="Broker responsibilities"
+                code={`Accept Produce on leader only
 Assign offset
 Append to partition log
 Replicate to followers
 Maintain ISR
 Respond per acks
-Enforce quotas / ACLs
-Txn markers when used`} />
+Enforce quotas / ACLs  ← who may write + rate caps
+Txn markers when used`}
+              />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Quotas & ACLs (broker enforce)" code={QUOTAS_ACLS_EXPLAIN} />
             </div>
           </Section>
 
           <Section
             id="fundamentals"
             title="01. Fundamentals — record layers"
-            lead="Do not confuse the application payload with the network request."
+            lead="Do not confuse one send() (one record → one partition) with a ProduceRequest (may carry several ready batches that share the same leader broker)."
           >
             <CodePanel title="Layer stack" tone="ok" code={LAYER_STACK} />
+            <div className="mt-4">
+              <CodePanel title="One send() vs ProduceRequest" tone="ok" code={PRODUCE_REQUEST_EXPLAIN} />
+            </div>
             <div className="mt-4">
               <CodePanel
                 title="ProducerRecord fields"
@@ -241,10 +270,10 @@ topic, partition, offset, timestamp, serialized sizes`}
           <Section
             id="architecture"
             title="03. Internal architecture and threading"
-            lead="KafkaProducer is thread-safe. Creating a producer per request is an anti-pattern (TCP, metadata, buffers, PID)."
+            lead='KafkaProducer is thread-safe for many app threads calling send(). "Single-threaded" refers to the one Sender I/O loop — not "one thread may call the API." Creating a producer per request is the anti-pattern (TCP, metadata, buffers, PID).'
           >
             <MiniTable headers={['Component', 'Thread', 'Role']} rows={COMPONENT_THREADS} />
-            <div className="mt-4">
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel
                 title="Threading model"
                 code={`App T1 ─┐
@@ -252,17 +281,31 @@ App T2 ─┼─→ KafkaProducer.send (thread-safe)
 App T3 ─┘         ↓
             RecordAccumulator
                   ↓
-             Sender thread → NetworkClient → brokers
+             Sender thread (ONE) → NetworkClient → brokers
 
 Reuse ONE producer (or Spring ProducerFactory singleton).`}
               />
+              <CodePanel title='What "single-threaded" means' tone="ok" code={THREADING_EXPLAIN} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="What NetworkClient is" tone="ok" code={NETWORK_CLIENT_EXPLAIN} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="How many producers do we need?" tone="ok" code={PRODUCER_COUNT_EXPLAIN} />
             </div>
           </Section>
 
-          <Section id="api" title="04. Producer API and sync vs async">
+          <Section
+            id="api"
+            title="04. Producer API and sync vs async"
+            lead="Send mode = whether YOUR thread waits for the ack — not whether the broker uses acks=all. Prefer async + callback for production."
+          >
             <MiniTable headers={['API', 'Returns', 'Notes']} rows={API_ROWS} />
             <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">Send modes</h3>
             <MiniTable headers={['Mode', 'Strength', 'Risk']} rows={SEND_MODES} />
+            <div className="mt-4">
+              <CodePanel title="Send modes explained" tone="ok" code={SEND_MODES_EXPLAIN} />
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel
                 title="Preferred async"
@@ -287,22 +330,27 @@ for (r : million) producer.send(r).get();`}
           <Section
             id="serialization"
             title="05. Serialization and Schema Registry"
-            lead="Serialization runs on the application thread inside send(). Failures are usually non-retriable."
+            lead="Serialization runs on the application thread inside send(). Schema Registry is a separate schema store used by Avro/Protobuf/JSON Schema serializers — not the Kafka metadata/leader path."
           >
             <MiniTable headers={['Serializer', 'Use', 'Watch']} rows={SERDE_ROWS} />
+            <div className="mt-4">
+              <CodePanel title="Schema Registry explained" tone="ok" code={SCHEMA_REGISTRY_EXPLAIN} />
+            </div>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Schema Registry: subject → versions → schema ID embedded in payload. Compatibility modes
-              (BACKWARD / FORWARD / FULL) protect consumers. Breaking changes need a new subject/topic strategy.
-              Null keys and null values are allowed depending on serializer — know your contract.
+              Null keys and null values are allowed depending on serializer — know your contract. Breaking schema
+              changes need a new subject/topic strategy or careful compatibility evolution.
             </p>
           </Section>
 
           <Section
             id="partitioning"
             title="06. Partitioning and key design"
-            lead="Key chooses the ordering boundary. Partition count changes remapping for newly hashed keys."
+            lead="Key chooses the ordering boundary. With no key, modern clients use sticky partitioning (batch-friendly), not classic per-record round-robin. Partition count changes remapping for newly hashed keys."
           >
             <MiniTable headers={['Mode', 'Behavior', 'Notes']} rows={PARTITION_ROWS} />
+            <div className="mt-4">
+              <CodePanel title="No key — how partition is chosen" tone="ok" code={NULL_KEY_PARTITION_EXPLAIN} />
+            </div>
             <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">Key choices</h3>
             <MiniTable headers={['Key', 'Ordering', 'Risk']} rows={KEY_ROWS} />
             <div className="mt-4">
@@ -358,16 +406,17 @@ Topic config message.timestamp.type`}
           <Section
             id="batching"
             title="09. RecordAccumulator, batching, compression"
-            lead="Records queue per partition. A batch ships when full (batch.size) or linger.ms elapses — whichever first (broker backpressure can stretch effective linger)."
+            lead="Records queue per partition. A batch ships when full (batch.size) or linger.ms elapses — whichever first. Sender may pack several ready batches into one ProduceRequest only when those partitions share the same leader broker."
           >
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid
                 chart={`flowchart TD
-  R[Record] --> Acc[RecordAccumulator per partition]
-  Acc --> Batch[ProducerBatch]
+  R[Record one send] --> Acc[RecordAccumulator per partition]
+  Acc --> Batch[ProducerBatch ONE partition]
   Batch -->|full OR linger| S[Sender]
-  S --> Comp[Compression]
-  Comp --> Req[ProduceRequest]`}
+  S --> Comp[Compression per batch]
+  Comp --> Req[ProduceRequest to one broker]
+  Req --> Note[May include other ready batches whose leaders are on that same broker]`}
               />
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -380,6 +429,12 @@ Topic config message.timestamp.type`}
 
 Kafka 4.x linger.ms default = 5
 batch.size default = 16384
+
+This trade-off is the "high throughput" profile
+(§16) — not an anti-pattern by itself.
+
+Anti-pattern: raise linger/batch forever
+with no p99 / memory / GC budget.
 
 Blindly raising batch.size with many
 partitions can exhaust buffer.memory.`}
@@ -394,39 +449,52 @@ Broker stores compressed batches
 CPU vs network is the trade`}
               />
             </div>
+            <div className="mt-4">
+              <CodePanel title="Reminder: send vs ProduceRequest" code={PRODUCE_REQUEST_EXPLAIN} />
+            </div>
           </Section>
 
           <Section
             id="memory"
             title="10. Memory management and backpressure"
-            lead="When produce rate exceeds what Kafka accepts, the BufferPool fills."
+            lead="buffer.memory is a shared heap BufferPool for ProducerBatches. When it is full, send() blocks — that block is producer backpressure. Quotas (broker throttle) are a different slowdown."
           >
-            <CodePanel
-              title="Memory pressure path"
-              tone="danger"
-              code={`Produce > broker accept
+            <div className="grid gap-3 md:grid-cols-2">
+              <CodePanel title="What backpressure means" tone="ok" code={BACKPRESSURE_EXPLAIN} />
+              <CodePanel
+                title="Memory pressure path"
+                tone="danger"
+                code={`Produce > broker accept  (or batches too big for pool)
   → batches pile in RecordAccumulator
-  → buffer.memory exhausted
-  → send() blocks
+  → buffer.memory exhausted  (default ~32MB shared)
+  → send() blocks  ← this wait IS backpressure
   → waits up to max.block.ms (default 60s)
   → TimeoutException
 
+Also: buffer.memory ≪ (batch.size × active partitions)
+  → you run out of BufferPool even before brokers are slow
+
+NOT the same as:
+  broker produce quota throttle (latency ↑, throttle-time ↑)
+  TLS/SASL/ACL failures (authz errors, not buffer waits)
+
 Metrics: buffer-available-bytes, bufferpool-wait-time
-Fix: app backpressure, scale brokers, tune memory, shed load`}
-            />
+Fix: bound app rate, scale brokers, tune memory/batch, shed load`}
+              />
+            </div>
           </Section>
 
           <Section
             id="network-meta"
             title="11. Networking, bootstrap, metadata"
-            lead="bootstrap.servers is a discovery seed — not a permanent single-broker dependency."
+            lead="bootstrap.servers is a discovery seed (first contact only). After Metadata, Produce goes to each partition’s leader — often not the bootstrap host."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <CodePanel
                 title="Network path"
                 code={`KafkaProducer
-  → NetworkClient
-  → TCP (reuse connections per broker Node)
+  → Sender
+  → NetworkClient   ← TCP + Kafka protocol (§03)
   → Produce / Metadata / InitProducerId ...
 
 Reconnect with backoff on failure
@@ -434,7 +502,7 @@ TLS handshake failures block new conns
 Leader change → metadata refresh → new node`}
               />
               <CodePanel
-                title="Metadata"
+                title="Metadata cache (short)"
                 tone="ok"
                 code={`bootstrap.servers → initial Metadata
 cache: topics, partitions, leaders
@@ -442,6 +510,10 @@ refresh on: errors, metadata.max.age.ms
 stale leader → NotLeader* → retry
 partitionsFor(topic) forces fetch`}
               />
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <CodePanel title="bootstrap.servers = discovery seed" tone="ok" code={BOOTSTRAP_SEED_EXPLAIN} />
+              <CodePanel title="Find leader via metadata — step by step" code={METADATA_LEADER_EXPLAIN} />
             </div>
           </Section>
 
@@ -465,7 +537,7 @@ Followers PULL from leader — producer never writes followers`}
           <Section
             id="retries"
             title="13. Retries and delivery semantics"
-            lead="retries are bounded in practice by delivery.timeout.ms. request.timeout.ms is one attempt."
+            lead="retries are bounded in practice by delivery.timeout.ms. request.timeout.ms is one attempt. Rule: delivery.timeout.ms must be ≥ linger.ms + request.timeout.ms or the client rejects / fails early."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <CodePanel
@@ -480,7 +552,9 @@ request.timeout.ms   (default 30s)
 retry.backoff.ms → retry.backoff.max.ms
   = space between attempts
 
-delivery ≥ linger + request  (config rule)`}
+MUST: delivery ≥ linger + request
+  else config rejected / sends fail early
+  (you budgeted less than the minimum path)`}
               />
               <CodePanel
                 title="Semantics (precise)"
@@ -495,8 +569,15 @@ Exactly-once (business DB/PSP):
             </div>
           </Section>
 
-          <Section id="idempotence" title="14. Idempotence, PID/epoch/seq, max.in.flight">
+          <Section
+            id="idempotence"
+            title="14. Idempotence, PID/epoch/seq, max.in.flight"
+            lead="Idempotence links retries to a unique produce-attempt id (PID+epoch+seq). max.in.flight is how many requests may pipeline on one connection; with idempotence that window stays ≤5 so order and dedupe both hold."
+          >
             <MiniTable headers={['Concept', 'Meaning']} rows={IDEMP_ROWS} />
+            <div className="mt-4">
+              <CodePanel title="Retries × in-flight × unique try id" tone="ok" code={IDEMPOTENCE_LINK_EXPLAIN} />
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel
                 title="Idempotent requirements"
@@ -516,9 +597,10 @@ ProducerFencedException (txn)`}
                 tone="danger"
                 code={`Without idempotence:
   in-flight=5, batch1 fails, batch2 succeeds,
-  batch1 retries → order swap possible
+  batch1 retries → order swap + possible duplicate
 
 With idempotence:
+  same PID+epoch+seq is not appended twice
   broker sequences keep per-partition order
   for in-flight ≤ 5`}
               />
@@ -528,11 +610,34 @@ With idempotence:
           <Section
             id="transactions"
             title="15. Transactions, EOS visibility, outbox"
-            lead="Transactional.id must be unique per live instance. Kafka transactions do not enlist your JDBC transaction."
+            lead="Kafka transactions atomicize Kafka writes (and optional EOS consume-produce). They do not enlist JDBC. When the database is the source of truth, use a transactional outbox (or CDC) — often together with an idempotent producer on the relay."
           >
             <CodePanel title="Transaction lifecycle" tone="ok" code={TX_FLOW} />
-            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">DB dual-write</h3>
+            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">
+              Outbox vs Kafka transactions
+            </h3>
+            <div className="mt-4">
+              <CodePanel title="Outbox vs Kafka txn (choose by boundary)" tone="ok" code={OUTBOX_VS_KAFKA_TXN} />
+            </div>
+            <h3 className="mt-6 text-lg font-semibold text-slate-900 dark:text-white">DB dual-write patterns</h3>
             <MiniTable headers={['Pattern', 'Pros', 'Cons']} rows={OUTBOX_COMPARE} />
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid
+                chart={`flowchart LR
+  subgraph bad [Dual-write hole]
+    D1[DB commit] --> Gap[Crash] --> K1[Kafka send?]
+  end
+  subgraph kotxn [Kafka txn only]
+    KT[beginTransaction] --> KS[send topics]
+    KS --> KC[commitTransaction]
+    DB2[JDBC] -.->|NOT enlisted| KT
+  end
+  subgraph outbox [Outbox]
+    OB[DB: business + outbox row] --> Rel[Relay]
+    Rel --> KP[Idempotent KafkaProducer]
+  end`}
+              />
+            </div>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">
               <code>read_committed</code> consumers skip aborted transactional data. Mention consumers only to
               explain that producer commit markers control visibility — then return focus to the producer.
@@ -542,11 +647,15 @@ With idempotence:
           <Section
             id="config"
             title="16. Configuration reference, interactions, profiles"
-            lead="Defaults verified against Apache Kafka 4.x producer docs. Re-check for your client version."
+            lead="Defaults verified against Apache Kafka 4.x producer docs. The short matrix below is the cheat sheet; the plain-English block explains each arrow — including why batch/linger/zstd is a throughput trade-off, not an anti-pattern by itself."
           >
             <MiniTable headers={['Config', 'Type', 'Default (4.x)', 'Notes']} rows={CONFIG_CORE} />
-            <div className="mt-4">
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
               <CodePanel title="Interaction matrix (memorize)" tone="ok" code={CONFIG_INTERACTIONS} />
+              <CodePanel title="Plain English — what each arrow means" code={CONFIG_INTERACTIONS_EXPLAIN} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Low latency vs high throughput" tone="ok" code={LATENCY_VS_THROUGHPUT} />
             </div>
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               {PROFILES.map((p) => (
@@ -576,18 +685,28 @@ With idempotence:
             </p>
           </Section>
 
-          <Section id="security" title="18. Security — TLS, SASL, ACLs">
+          <Section
+            id="security"
+            title="18. Security — TLS, SASL, ACLs"
+            lead="Three layers, three jobs: TLS encrypts the wire, SASL proves identity, ACLs authorize WRITE / IDEMPOTENT_WRITE. Quotas are rate limits after you are allowed."
+          >
             <MiniTable headers={['Layer', 'Producer need']} rows={SECURITY_ROWS} />
-            <CodePanel
-              title="Security failures"
-              tone="danger"
-              code={`Expired cert → SslAuthenticationException → fix rotation
+            <div className="mt-4">
+              <CodePanel title="TLS vs SASL vs ACLs" tone="ok" code={SECURITY_LAYERS_EXPLAIN} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel
+                title="Security failures"
+                tone="danger"
+                code={`Expired cert → SslAuthenticationException → fix rotation
 Bad SCRAM secret → AuthenticationException
 Missing WRITE ACL → TopicAuthorizationException
 Missing IDEMPOTENT_WRITE → idempotent produce fails
 Symptom: immediate fail on new connections / first produce
 Prevention: alert cert expiry; least-privilege ACL CI checks`}
-            />
+              />
+              <CodePanel title="Quotas vs ACLs" code={QUOTAS_ACLS_EXPLAIN} />
+            </div>
           </Section>
 
           <Section id="observability" title="19. Metrics, tracing, logging">
@@ -610,21 +729,83 @@ Callbacks: increment metrics, don't write essays`}
             </div>
           </Section>
 
-          <Section id="spring" title="20. Spring Kafka producer">
+          <Section
+            id="spring"
+            title="20. Spring Kafka producer"
+            lead="Boot gives you a ProducerFactory + KafkaTemplate singleton. Configure acks/idempotence underneath; reuse one producer per process; let Spring close it on shutdown."
+          >
             <MiniTable headers={['Piece', 'When', 'Note']} rows={SPRING_COMPARE} />
-            <CodePanel
-              title="Spring shape"
-              tone="ok"
-              code={`DefaultKafkaProducerFactory → singleton producer
+            <div className="mt-4">
+              <CodePanel title="Create producer with Spring Kafka" tone="ok" code={SPRING_PRODUCER_CREATE} />
+            </div>
+            <div className="mt-4">
+              <CodePanel
+                title="Spring shape (short)"
+                code={`DefaultKafkaProducerFactory → singleton producer
 KafkaTemplate.send → CompletableFuture / ListenableFuture
 @Transactional + KafkaTransactionManager needs transactional.id
 Micrometer binds producer metrics
 Test with EmbeddedKafka / Testcontainers
 Still configure acks/idempotence/linger underneath`}
-            />
+              />
+            </div>
           </Section>
 
-          <Section id="failures" title="21. Failure matrix">
+          <Section
+            id="aws-deploy"
+            title="20b. AWS deploy — microservice + Kafka producer"
+            lead="On AWS you deploy the microservice (EKS/ECS/EC2). The Kafka producer is a library inside that JVM. Brokers are usually Amazon MSK in the VPC — not a separate “producer deployable.”"
+          >
+            <CodePanel title="How producer deploy works on AWS" tone="ok" code={AWS_PRODUCER_DEPLOY} />
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid
+                chart={`flowchart TB
+  Users --> ALB
+  ALB --> Pods[EKS/ECS microservice pods]
+  Pods --> KP[KafkaProducer / KafkaTemplate inside JVM]
+  KP --> MSK[Amazon MSK brokers VPC]
+  MSK --> T[Topics]
+  SSM[SSM / Secrets: bootstrap + creds] --> Pods
+  IAM[Task role IAM or SCRAM] --> KP`}
+              />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <CodePanel
+                title="MSK + Spring (IAM sketch)"
+                tone="ok"
+                code={`# env from SSM / task def
+SPRING_KAFKA_BOOTSTRAP_SERVERS=b-1....:9098,b-2....:9098
+
+spring.kafka.properties.security.protocol=SASL_SSL
+spring.kafka.properties.sasl.mechanism=AWS_MSK_IAM
+spring.kafka.properties.sasl.jaas.config=\\
+  software.amazon.msk.auth.iam.IAMLoginModule required;
+spring.kafka.properties.sasl.client.callback.handler.class=\\
+  software.amazon.msk.auth.iam.IAMClientCallbackHandler
+
+# producer still: acks=all, enable.idempotence=true, …`}
+              />
+              <CodePanel
+                title="Deploy anti-patterns on AWS"
+                tone="danger"
+                code={`Public MSK for app producers
+Wrong SG → bootstrap timeout (looks like “Kafka down”)
+One giant shared transactional.id across ECS tasks
+Skipping SIGTERM drain on ECS/EKS rollback
+Auto-create topics in prod
+Treating MSK multi-AZ as cross-region DR`}
+              />
+            </div>
+          </Section>
+
+          <Section
+            id="failures"
+            title="21. Failure matrix"
+            lead="When something breaks mid-produce, this matrix answers: did we ACK, will we retry, can we duplicate, can we lose data, what exception shows up. Use it in interviews and incident reviews."
+          >
+            <div className="mb-4">
+              <CodePanel title="When do these failures occur?" tone="ok" code={FAILURE_MATRIX_EXPLAIN} />
+            </div>
             <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
               <table className="min-w-full text-[11px]">
                 <thead className="bg-slate-50 uppercase tracking-[.08em] text-slate-500 dark:bg-slate-900">
@@ -653,7 +834,11 @@ Still configure acks/idempotence/linger underneath`}
             </div>
           </Section>
 
-          <Section id="ops" title="22. Troubleshooting, chaos, multi-cluster DR">
+          <Section
+            id="ops"
+            title="22. Troubleshooting, chaos, multi-cluster DR"
+            lead="Troubleshooting = diagnose live symptoms. Chaos = deliberately inject the failure-matrix scenarios in a controlled game day to prove retries, fencing, and alerts behave."
+          >
             <div className="space-y-3">
               {TROUBLESHOOT.map((t) => (
                 <div key={t.title} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
@@ -671,6 +856,9 @@ Still configure acks/idempotence/linger underneath`}
               ))}
             </div>
             <h3 className="mt-8 text-lg font-semibold text-slate-900 dark:text-white">Chaos expectations</h3>
+            <div className="mt-4 mb-4">
+              <CodePanel title="What chaos means" tone="ok" code={CHAOS_EXPLAIN} />
+            </div>
             <MiniTable headers={['Inject', 'Expected']} rows={CHAOS} />
             <div className="mt-4">
               <CodePanel
@@ -713,6 +901,21 @@ Duplicate HTTP submit → UNIQUE payment_id rejects
 Region fail → secondary cluster + idempotent settle`}
               />
               <CodePanel
+                title="Outbox vs Kafka txn (payments)"
+                tone="ok"
+                code={`Payments default: transactional OUTBOX (§15)
+  DB payment + outbox row in one JDBC txn
+  Relay → idempotent KafkaProducer
+
+Kafka transactions alone:
+  atomic multi-partition Kafka writes / EOS pipe
+  do NOT cover the ledger JDBC commit
+
+Often both:
+  outbox closes DB↔Kafka hole
+  idempotent (or txn) producer on the relay`}
+              />
+              <CodePanel
                 title="Producer profile"
                 tone="ok"
                 code={`acks=all, idempotence=true, in-flight=5
@@ -725,7 +928,13 @@ txn only if multi-partition atomic needed`}
             </div>
           </Section>
 
-          <Section id="antipatterns" title="24. Anti-patterns">
+          <Section
+            id="antipatterns"
+            title="24. Anti-patterns"
+            lead={
+              'Do not confuse §16’s “batch.size ↑ + linger ↑ + zstd → throughput ↑, latency ↑” with an anti-pattern. That line is a deliberate high-throughput trade-off. Anti-patterns are the wrong habits below — e.g. unlimited linger, blind memory raises, or turning off idempotence “to go faster.”'
+            }
+          >
             <div className="grid gap-3 md:grid-cols-2">
               {ANTI_PATTERNS.map((a) => (
                 <div key={a.bad} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
@@ -799,16 +1008,22 @@ txn only if multi-partition atomic needed`}
           <Section
             id="shutdown"
             title="28. Producer lifecycle, flush, close, crash"
-            lead="Unsent records during shutdown are a correctness issue, not an inconvenience. Kubernetes preStop must outlive close()."
+            lead="Start once at boot. Stop with flush/close on SIGTERM — k8s preStop must outlive close. Unsent records on hard kill are a correctness issue unless outbox can replay."
           >
+            <div className="mb-4">
+              <CodePanel title="Start / stop in production" tone="ok" code={PRODUCER_LIFECYCLE_PROD} />
+            </div>
             <MiniTable headers={['Event', 'What happens']} rows={SHUTDOWN_ROWS} />
           </Section>
 
           <Section
             id="fencing"
             title="29. Fencing and zombie producers"
-            lead="transactional.id is a lock on a logical producer identity. Two live owners is a bug unless you intended the new one to murder the old one."
+            lead="Fencing = kill-switch for an older producer that still thinks it owns a transactional.id. Newer InitProducerId bumps epoch; old epoch gets ProducerFencedException."
           >
+            <div className="mb-4">
+              <CodePanel title="What fencing means" tone="ok" code={FENCING_EXPLAIN} />
+            </div>
             <MiniTable headers={['Scenario', 'Outcome']} rows={FENCING_ROWS} />
             <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid
