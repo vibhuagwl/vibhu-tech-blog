@@ -48,6 +48,10 @@ output "autoscaling" {
     max_capacity            = var.autoscaling_max_capacity
     cpu_target_percent      = var.autoscaling_cpu_target
     alb_requests_per_target = var.autoscaling_requests_per_target
-    services                = ["api-gateway", "user-service", "order-service"]
+    services                = ["api-gateway", "user-service", "order-service", "payment-service"]
   } : null
+}
+
+output "ecr_payment_service" {
+  value = aws_ecr_repository.payment_service.repository_url
 }

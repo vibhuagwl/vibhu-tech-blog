@@ -8,12 +8,30 @@ Internet (+ WAF rate limit)
    ▼
 Public ALB :80/:443  ──health /actuator/health──► api-gateway (×N, autoscaled)
    │                                              │
-   │                                              │ timeouts + Retry(GET) + CircuitBreaker
+   │                                              │ timeouts + Retry(GET only) + CircuitBreaker
    │                                              ▼
    │                                         Internal ALB :80
-   │                                              ├─ /users*  → user-service (×N)
-   │                                              └─ /orders* → order-service (×N)
+   │                                              ├─ /users*    → user-service
+   │                                              ├─ /orders*   → order-service
+   │                                              └─ /payments* → payment-service (fail-closed)
 ```
+
+## Payments + strong consistency (banking)
+
+| Path | CB fallback | Meaning |
+|------|-------------|---------|
+| `GET /api/users/**` | `status: DEGRADED` | Stale/unavailable read OK |
+| `POST /api/payments` | `status: FAILED_CLOSED`, `settled: false` | **Never invent SETTLED** |
+| Ledger commit | `status: SETTLED` | Only after in-process lock = demo ACID debit/credit |
+
+Rules encoded in code:
+
+1. `Idempotency-Key` required on POST — safe client retry  
+2. Gateway default Retry filter is **GET-only** — no blind POST retry  
+3. Fallback `/fallback/payments` returns **503 FAILED_CLOSED**, never SETTLED  
+4. Client retries same key when healthy; ledger returns prior SETTLED/REJECTED  
+
+Try: `./scripts/smoke-payments.sh`
 
 ## Reliability / fault tolerance (what we built)
 
@@ -21,14 +39,10 @@ Public ALB :80/:443  ──health /actuator/health──► api-gateway (×N, au
 |-------|------------|
 | App gateway | Connect 2s / response 5s timeouts |
 | App gateway | Retry **GET** only (idempotent) |
-| App gateway | Resilience4j **CircuitBreaker** + `/fallback/*` → 503 DEGRADED |
-| App services | Graceful shutdown, Tomcat timeouts |
-| Edge ALB | Health checks, deregistration delay, drop invalid headers |
-| Internal ALB | Path routing + health checks (no JVM DNS cache issues) |
-| ECS | Deployment circuit breaker + rollback, container health checks |
-| Autoscaling | CPU + ALB RequestCountPerTarget (min 2 / max 6) |
-| WAF | Per-IP rate limit on public ALB |
-| Ops | CloudWatch alarms (5xx, unhealthy hosts, CPU) |
+| App gateway | CB: reads → DEGRADED; **payments → FAILED_CLOSED** |
+| Payment service | Synchronized ledger + idempotency map |
+| Edge / internal ALB | Health checks + path routing |
+| ECS | Deployment circuit breaker, autoscaling, WAF, alarms |
 
 ## Scalability
 

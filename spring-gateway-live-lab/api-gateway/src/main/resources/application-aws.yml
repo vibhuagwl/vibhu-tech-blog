@@ -57,6 +57,18 @@ spring:
               args:
                 name: orderServiceCB
                 fallbackUri: forward:/fallback/orders
+        # Strong consistency path: never invent SETTLED in fallback
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URI:http://payment-service:8084}
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-Gateway, api-gateway-aws
+            - name: CircuitBreaker
+              args:
+                name: paymentServiceCB
+                fallbackUri: forward:/fallback/payments
 
 # Resilience4j — open circuit when failures spike; fail fast instead of cascading
 resilience4j:
@@ -70,20 +82,35 @@ resilience4j:
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 5
         automaticTransitionFromOpenToHalfOpenEnabled: true
+      # Payments: trip faster — prefer fail-closed over slow uncertainty
+      payment:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 40
+        waitDurationInOpenState: 15s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
     instances:
       userServiceCB:
         baseConfig: default
       orderServiceCB:
         baseConfig: default
+      paymentServiceCB:
+        baseConfig: payment
   timelimiter:
     configs:
       default:
         timeoutDuration: 4s
+      payment:
+        timeoutDuration: 3s
     instances:
       userServiceCB:
         baseConfig: default
       orderServiceCB:
         baseConfig: default
+      paymentServiceCB:
+        baseConfig: payment
 
 management:
   endpoint:

@@ -26,6 +26,15 @@ docker compose -f docker-compose.aws.yml up --build   # local stand-in
 
 **Account deploy:** [`aws/README.md`](aws/README.md).
 
+### Payments (fail-closed / strong consistency)
+
+```bash
+# after stack is up
+./scripts/smoke-payments.sh
+# POST /api/payments + Idempotency-Key → SETTLED only if ledger commits
+# CB open → status FAILED_CLOSED (never fake SETTLED)
+```
+
 ---
 
 ## Local learning path (Eureka)

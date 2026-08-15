@@ -62,9 +62,26 @@ services:
       timeout: 3s
       retries: 20
 
-  # In AWS, put an internal ALB/NLB in front of user tasks and point USER_SERVICE_URI at it.
-  # Compose cannot easily LB two containers under one hostname without an extra proxy —
-  # so gateway targets user-service (replica 1). Scale + LB is an ALB concern on AWS.
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MODULE: payment-service
+        JAR_FILE: payment-service-0.1.0-SNAPSHOT.jar
+    environment:
+      SPRING_PROFILES_ACTIVE: aws
+      SERVER_PORT: "8084"
+      INSTANCE_ID: payment-aws-1
+    expose:
+      - "8084"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health | grep -q UP"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # In AWS, put an internal ALB in front of user/order/payment and point *_SERVICE_URI at it.
   api-gateway:
     build:
       context: .
@@ -77,12 +94,15 @@ services:
       SERVER_PORT: "8080"
       USER_SERVICE_URI: http://user-service:8081
       ORDER_SERVICE_URI: http://order-service:8082
+      PAYMENT_SERVICE_URI: http://payment-service:8084
     ports:
       - "8080:8080"
     depends_on:
       user-service:
         condition: service_healthy
       order-service:
+        condition: service_healthy
+      payment-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health | grep -q UP"]

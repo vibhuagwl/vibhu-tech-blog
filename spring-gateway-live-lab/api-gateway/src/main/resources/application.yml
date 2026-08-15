@@ -23,6 +23,18 @@ spring:
           filters:
             - StripPrefix=1
             - AddRequestHeader=X-Gateway, api-gateway-phase3
+        # Banking: money path — CB fail-closed (see FallbackRoutesConfig); no Retry on POST
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-Gateway, api-gateway-phase3
+            - name: CircuitBreaker
+              args:
+                name: paymentServiceCB
+                fallbackUri: forward:/fallback/payments
     loadbalancer:
       # Phase 3 demo: short cache so a newly registered replica appears quickly.
       # Default RoundRobinLoadBalancer rotates across instances in the cache.
@@ -37,6 +49,19 @@ eureka:
     registry-fetch-interval-seconds: 3
   instance:
     prefer-ip-address: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      paymentServiceCB:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 40
+        waitDurationInOpenState: 15s
+  timelimiter:
+    instances:
+      paymentServiceCB:
+        timeoutDuration: 3s
 
 management:
   endpoints:

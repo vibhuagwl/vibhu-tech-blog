@@ -45,6 +45,10 @@ locals {
       service_name = aws_ecs_service.order.name
       resource_id  = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.order.name}"
     }
+    payment = {
+      service_name = aws_ecs_service.payment.name
+      resource_id  = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.payment.name}"
+    }
   } : {}
 }
 

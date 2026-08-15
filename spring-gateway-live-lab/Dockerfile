@@ -5,12 +5,14 @@ COPY pom.xml .
 COPY eureka-server/pom.xml eureka-server/pom.xml
 COPY user-service/pom.xml user-service/pom.xml
 COPY order-service/pom.xml order-service/pom.xml
+COPY payment-service/pom.xml payment-service/pom.xml
 COPY api-gateway/pom.xml api-gateway/pom.xml
 RUN apt-get update && apt-get install -y --no-install-recommends maven \
-  && mvn -q -pl user-service,order-service,api-gateway -am dependency:go-offline \
+  && mvn -q -pl user-service,order-service,payment-service,api-gateway -am dependency:go-offline \
   && rm -rf /var/lib/apt/lists/*
 COPY user-service user-service
 COPY order-service order-service
+COPY payment-service payment-service
 COPY api-gateway api-gateway
 COPY eureka-server eureka-server
 ARG MODULE

@@ -8,11 +8,11 @@ REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 TAG="${IMAGE_TAG:-latest}"
 
 if [[ -d "${TF_DIR}/.terraform" ]] || [[ -f "${TF_DIR}/terraform.tfstate" ]]; then
-  # Use Terraform outputs when available
   if command -v terraform >/dev/null 2>&1; then
     API_URI="$(terraform -chdir="$TF_DIR" output -raw ecr_api_gateway 2>/dev/null || true)"
     USER_URI="$(terraform -chdir="$TF_DIR" output -raw ecr_user_service 2>/dev/null || true)"
     ORDER_URI="$(terraform -chdir="$TF_DIR" output -raw ecr_order_service 2>/dev/null || true)"
+    PAY_URI="$(terraform -chdir="$TF_DIR" output -raw ecr_payment_service 2>/dev/null || true)"
     REGION="$(terraform -chdir="$TF_DIR" output -raw aws_region 2>/dev/null || echo "$REGION")"
   fi
 fi
@@ -23,6 +23,7 @@ PREFIX="${ECR_PREFIX:-gateway-lab}"
 API_URI="${API_URI:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${PREFIX}/api-gateway}"
 USER_URI="${USER_URI:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${PREFIX}/user-service}"
 ORDER_URI="${ORDER_URI:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${PREFIX}/order-service}"
+PAY_URI="${PAY_URI:-${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${PREFIX}/payment-service}"
 
 login() {
   aws ecr get-login-password --region "$REGION" \
@@ -53,8 +54,9 @@ login
 build_push api-gateway api-gateway-0.1.0-SNAPSHOT.jar "$API_URI"
 build_push user-service user-service-0.1.0-SNAPSHOT.jar "$USER_URI"
 build_push order-service order-service-0.1.0-SNAPSHOT.jar "$ORDER_URI"
+build_push payment-service payment-service-0.1.0-SNAPSHOT.jar "$PAY_URI"
 
 echo
 echo "Next:"
 echo "  cd aws/terraform && terraform apply"
-echo "  GATEWAY_URL=\$(terraform output -raw alb_url) ../../scripts/smoke-aws.sh"
+echo "  GATEWAY_URL=\$(terraform output -raw alb_url) ../../scripts/smoke-payments.sh"

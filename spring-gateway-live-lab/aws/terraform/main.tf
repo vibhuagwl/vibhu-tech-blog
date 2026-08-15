@@ -480,7 +480,8 @@ resource "aws_ecs_task_definition" "gateway" {
       { name = "SPRING_PROFILES_ACTIVE", value = "aws" },
       { name = "SERVER_PORT", value = "8080" },
       { name = "USER_SERVICE_URI", value = local.user_service_uri },
-      { name = "ORDER_SERVICE_URI", value = local.order_service_uri }
+      { name = "ORDER_SERVICE_URI", value = local.order_service_uri },
+      { name = "PAYMENT_SERVICE_URI", value = local.payment_service_uri }
     ]
     healthCheck = {
       command     = ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
@@ -600,7 +601,8 @@ resource "aws_ecs_service" "gateway" {
   depends_on = [
     aws_lb_listener.http,
     aws_ecs_service.user,
-    aws_ecs_service.order
+    aws_ecs_service.order,
+    aws_ecs_service.payment
   ]
 
   lifecycle {
