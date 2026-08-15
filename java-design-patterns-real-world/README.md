@@ -44,11 +44,15 @@ Every GoF `*Demo.java` includes:
 
 Every GoF `*Demo.java` starts with a JavaDoc block:
 
+- **PROBLEM (without this pattern)** — concrete pain in the payment/banking story
+- **HOW THIS PATTERN SOLVES IT** — how the classes/structure remove that pain
 - **WHEN TO IMPLEMENT** — pressure that justifies the pattern
 - **JAVA IMPLEMENTATION RULES** — concrete class/interface rules for Java
 - **DO NOT USE WHEN** — when to keep the code simpler
 
-Open any pattern Demo in the source explorer (for example Strategy → `PaymentStrategyDemo.java`) and read the header before the code.
+Running `main` prints `PROBLEM:` / `SOLUTION:` before the numbered STEPs.
+
+Catalog: [`docs/problem-and-solution.md`](docs/problem-and-solution.md).
 
 ## Real-world examples
 

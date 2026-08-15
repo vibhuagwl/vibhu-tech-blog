@@ -9,13 +9,14 @@ import {
 export const metadata = {
   title: 'Java design patterns real world — full source',
   description:
-    'Browse the Java design patterns interview repository: all 23 GoF patterns with runnable main methods, docs, tests, Kafka flow, and combined payment system.',
+    'Browse the Java design patterns interview repository: each pattern explains the problem it fixes, how it resolves it, and ships a runnable main with STEP output.',
 };
 
 export default function JavaDesignPatternsRealWorldPage() {
   const files = listJavaDesignPatternsRealWorldFiles();
   const tree = buildJavaDesignPatternsRealWorldTree(files);
   const defaultPath =
+    files.find((f) => f.path === 'docs/problem-and-solution.md')?.path ??
     files.find((f) => f.path === 'docs/HOW_TO_RUN.md')?.path ??
     files.find((f) => f.path === 'README.md')?.path ??
     files.find((f) => f.path.includes('DesignPatternDemo.java'))?.path ??
@@ -36,17 +37,31 @@ export default function JavaDesignPatternsRealWorldPage() {
           <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm dark:bg-slate-900">
             java-design-patterns-real-world/
           </code>
-          : all 23 GoF patterns with <strong>full working</strong>{' '}
-          <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm dark:bg-slate-900">main</code> methods,
-          numbered STEP output, behavior-focused tests, interview docs, Spring mapping, Kafka event flow, and one
-          combined payment processing system.
+          : all 23 GoF patterns document the <strong>problem</strong> and{' '}
+          <strong>how the pattern resolves it</strong>, plus <strong>full working</strong>{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm dark:bg-slate-900">main</code> methods with
+          numbered STEP output, tests, Spring mapping, Kafka flow, and a combined payment system.
         </p>
         <div className="mt-5 flex flex-wrap gap-3 text-sm">
+          <Link
+            href="/java-design-patterns-real-world?path=docs%2Fproblem-and-solution.md"
+            className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
+          >
+            Problem → pattern → solution →
+          </Link>
+          <span className="text-slate-300">·</span>
           <Link
             href="/java-design-patterns-real-world?path=docs%2FHOW_TO_RUN.md"
             className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
           >
             Step-by-step how to run →
+          </Link>
+          <span className="text-slate-300">·</span>
+          <Link
+            href="/java-design-patterns-real-world?path=src%2Fmain%2Fjava%2Fcom%2Fexample%2Fdesignpatterns%2Fbehavioral%2Fstrategy%2FPaymentStrategyDemo.java"
+            className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
+          >
+            Example: Strategy problem/solution →
           </Link>
           <span className="text-slate-300">·</span>
           <Link
@@ -56,25 +71,55 @@ export default function JavaDesignPatternsRealWorldPage() {
             All-demos main →
           </Link>
           <span className="text-slate-300">·</span>
-          <Link
-            href="/java-design-patterns-real-world?path=src%2Fmain%2Fjava%2Fcom%2Fexample%2Fdesignpatterns%2Fcreational%2Ffactory%2FPaymentGatewayFactoryDemo.java"
-            className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
-          >
-            Example: Factory main →
-          </Link>
-          <span className="text-slate-300">·</span>
-          <Link
-            href="/java-design-patterns-real-world?path=docs%2Fcheatsheet.md"
-            className="font-semibold text-slate-700 hover:underline dark:text-blue-400"
-          >
-            5-minute cheat sheet →
-          </Link>
-          <span className="text-slate-300">·</span>
           <Link href="/design-patterns-revision" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Revision stories →
           </Link>
         </div>
       </header>
+
+      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+          What was the problem? How does the pattern fix it?
+        </h2>
+        <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+          Interview answer shape: <em>pain without the pattern</em> → <em>structure the pattern introduces</em> →{' '}
+          <em>what gets easier</em>. Every Demo JavaDoc has <strong>PROBLEM</strong> and{' '}
+          <strong>HOW THIS PATTERN SOLVES IT</strong>; running <code>main</code> prints the same lines before the STEPs.
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-4 dark:border-rose-900/50 dark:bg-rose-950/20">
+            <p className="text-xs font-semibold uppercase tracking-[.08em] text-rose-700 dark:text-rose-300">Problem</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">
+              Example (Strategy): <code>PaymentService.pay()</code> grows a switch on UPI/CARD/PayPal — hard to extend and
+              test.
+            </p>
+          </div>
+          <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+            <p className="text-xs font-semibold uppercase tracking-[.08em] text-amber-800 dark:text-amber-300">Pattern</p>
+            <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">
+              Strategy: each rail is a <code>PaymentStrategy</code>; a router picks the algorithm at runtime.
+            </p>
+          </div>
+          <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+            <p className="text-xs font-semibold uppercase tracking-[.08em] text-emerald-800 dark:text-emerald-300">
+              Resolved
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">
+              New rails add a class + registry entry — the service no longer branches on payment type (OCP).
+            </p>
+          </div>
+        </div>
+        <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
+          Full catalog:{' '}
+          <Link
+            href="/java-design-patterns-real-world?path=docs%2Fproblem-and-solution.md"
+            className="font-semibold text-slate-800 hover:underline dark:text-blue-400"
+          >
+            docs/problem-and-solution.md
+          </Link>
+          .
+        </p>
+      </section>
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Run the demos — step by step</h2>
@@ -119,6 +164,13 @@ export default function JavaDesignPatternsRealWorldPage() {
 
       <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+          <h2 className="text-lg font-semibold">Problem → solution</h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            Each Demo states the pain without the pattern and how the structure fixes it — also in{' '}
+            <code>docs/problem-and-solution.md</code>.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
           <h2 className="text-lg font-semibold">Runnable mains</h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             Every GoF Demo has <code>run()</code> + <code>main</code>. <code>DesignPatternDemo</code> runs the full
@@ -128,19 +180,13 @@ export default function JavaDesignPatternsRealWorldPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
           <h2 className="text-lg font-semibold">Implementation rules</h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Each Demo JavaDoc covers WHEN TO IMPLEMENT and JAVA IMPLEMENTATION RULES — read the header first.
+            JavaDoc covers WHEN TO IMPLEMENT and JAVA IMPLEMENTATION RULES — read the header first.
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
           <h2 className="text-lg font-semibold">Interview core</h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             Strategy, State, Decorator, Facade, Proxy, Chain, Observer, and the combined payment flow.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
-          <h2 className="text-lg font-semibold">Spring mapping</h2>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Open <code>docs/spring-pattern-mapping.md</code> for Spring Boot-specific usage and caveats.
           </p>
         </div>
       </section>
