@@ -113,6 +113,14 @@ Little's Law
   in_flight ≈ RPS × latency_seconds
   eg. 1000 rps × 0.1s = 100 concurrency
 
+Amdahl's Law (intuition)
+  Speedup limited by serial fraction
+  If 10% serial → theoretical max ~10× even with infinite cores
+
+Universal Scalability Law (interview)
+  Throughput rises then flattens/falls as contention + coherency grow
+  Explains why "more threads" eventually hurts
+
 Concurrency / pool sizing
   pool ≈ peak_RPS × p99_latency × safety_factor
   fleet_DB_conns = pods × hikari_max  ≤  db_max_connections
@@ -130,6 +138,10 @@ Cache hit ratio
   hit_ratio = hits / (hits + misses)
   effective_DB_QPS ≈ client_RPS × (1 − hit_ratio) × queries_per_request
   stampede ≈ miss_concurrency on same key
+
+AWS cost × performance
+  Performance = latency + throughput + reliability + cost
+  Cross-AZ chatty calls: +RTT and +$ data transfer
 `.trim();
 
 export const ARCHITECTURE_ASCII = `

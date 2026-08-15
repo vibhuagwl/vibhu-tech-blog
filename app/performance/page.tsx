@@ -4,17 +4,21 @@ import PerformanceHub from '@/components/performance/performance-hub';
 export const metadata: Metadata = {
   title: 'Performance Engineering — Java · Spring · AWS Interview Handbook',
   description:
-    'Staff/Principal performance guide: measure → bottleneck → optimize → validate. Java 21, JVM/GC, Spring Boot, JPA, HikariCP, SQL/indexing, Redis, Kafka, AWS (ALB/ECS/RDS/Aurora/DynamoDB), profiling, load testing, and interview drills.',
+    'Staff/Principal performance handbook: investigation master framework, JVM/JIT/GC internals, networking, MVCC/WAL, distributed systems, Kafka deep, AWS cost×performance, JMH methodology, Little/Amdahl/USL, Spring/JPA/Hikari/Redis, and interview drills.',
   keywords: [
     'Java performance optimization',
     'Spring Boot performance',
     'JVM tuning',
+    'JIT compilation',
     'garbage collection',
+    'G1 ZGC',
     'Hibernate performance',
     'HikariCP',
-    'PostgreSQL performance',
+    'PostgreSQL MVCC',
     'Kafka performance',
-    'AWS performance',
+    'AWS cost performance',
+    'JMH benchmark',
+    'Little\'s Law',
     'performance engineering interview',
   ],
 };

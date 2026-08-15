@@ -992,6 +992,42 @@ export const STAFF: InterviewQ[] = [
     answer30s: 'Measure→bottleneck→fix→prove; Little\'s Law; tradeoffs; failure modes—not tool name-drops.',
     answer2m: 'They cite percentiles, pools, timeouts, and evidence. Staff candidates add org/platform levers and cost. Reject buzzword-only answers.',
   },
+  {
+    id: 'st31',
+    level: 'staff',
+    topic: 'Investigation framework',
+    question: 'Walk me through your master framework when a user says the API is slow.',
+    answer30s: 'P50/P95/P99 + errors + saturation → distributed trace → CPU/mem/I-O tool for that layer → optimize one thing → load-test vs baseline → gradual rollout → monitor.',
+    answer2m: 'I refuse multi-knob changes. Trace picks the hop; JFR/heap/EXPLAIN prove the mechanism. I report before/after percentiles and saturation, not vibes.',
+    deepDive: 'If p99 moves but p50 does not, I hunt queues, GC, locks, and outliers. If all percentiles move, I hunt shared bottlenecks: pools, DB CPU, network.',
+    mistake: 'Jumping to bigger instances or more threads before a trace.',
+  },
+  {
+    id: 'st32',
+    level: 'staff',
+    topic: 'JIT',
+    question: 'Why can a fresh JVM look slower than a warmed one?',
+    answer30s: 'Interpreter → C1 → C2 tiered compilation; inlining and escape analysis appear after warm-up.',
+    answer2m: 'Short benchmarks lie. JMH warm-up iterations and production steady-state metrics matter. Deopts after class loading can create blips.',
+    mistake: 'Tuning GC because a 10-second test was cold.',
+  },
+  {
+    id: 'st33',
+    level: 'staff',
+    topic: 'AWS cost',
+    question: 'How do you discuss performance with cost in an architect interview?',
+    answer30s: 'Performance = latency + throughput + reliability + cost. Cross-AZ chatter and NAT GB/$ are first-class.',
+    answer2m: 'I use Perf Insights / CloudWatch / Compute Optimizer as evidence, prefer scale-out for stateless tiers, and buy IOPS when disk-bound instead of CPU.',
+    mistake: 'Optimizing latency with a design that 10×s the bill unnoticed.',
+  },
+  {
+    id: 'st34',
+    level: 'staff',
+    topic: 'Amdahl / USL',
+    question: 'When does adding threads stop helping?',
+    answer30s: 'Amdahl: serial fraction caps speedup. USL: contention + coherency make throughput flatten or fall.',
+    answer2m: 'I show pool saturation and lock profiles. More threads on a contended lock or saturated DB makes p99 worse.',
+  },
 ];
 
 export const RAPID: InterviewQ[] = [
