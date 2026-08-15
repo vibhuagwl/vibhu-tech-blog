@@ -78,7 +78,7 @@ export default function SiteFooter() {
                   {group.title}
                 </div>
                 <ul className="mt-3 space-y-2.5">
-                  {group.topics.map((t) => (
+                  {group.topics.slice(0, 6).map((t) => (
                     <li key={t.href}>
                       <Link
                         href={t.href}

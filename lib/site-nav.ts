@@ -31,12 +31,12 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
     id:'talk',
     step:'01',
     title:'How services talk',
-    memory:'TRICKS-OLD',
+    memory:'Timeout · retry · CB',
     href:'/microservice-communication',
     story:'Service A calls B — sync vs async, Feign/gRPC/Kafka, timeouts, retry storms, webhooks.',
     diagram:'A → REST/gRPC → B   ·   A → Kafka → B   ·   PSP → webhook → A',
     related:[
-      {href:'/resilience4j',label:'Resilience4j'},
+      {href:'/resilience4j',label:'Resilience patterns'},
       {href:'/api-gateway',label:'API Gateway'},
       {href:'/microservices-patterns',label:'Patterns catalog'},
     ],
@@ -45,7 +45,7 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
     id:'cap',
     step:'02',
     title:'Consistency trade-offs',
-    memory:'CAP + PACELC',
+    memory:'CAP · PACELC',
     href:'/cap-theorem',
     story:'Partition happens — pick availability or consistency; then latency vs consistency when healthy.',
     diagram:'Partition? → AP or CP   ·   Else → latency vs consistency (PACELC)',
@@ -72,12 +72,12 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
     id:'incidents',
     step:'04',
     title:'Production incidents',
-    memory:'Symptoms → metrics → fix',
+    memory:'Alert → triage → fix',
     href:'/realtime-issues',
     story:'Stuck threads, slow DB, Kafka lag — speak like an on-call lead with a playbook.',
     diagram:'Alert → triage → mitigate → root cause → permanent fix',
     related:[
-      {href:'/production-troubleshooting',label:'Prod playbook'},
+      {href:'/production-troubleshooting',label:'Troubleshooting'},
       {href:'/performance',label:'Performance'},
     ],
   },
@@ -85,7 +85,7 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
     id:'design',
     step:'05',
     title:'System design whiteboard',
-    memory:'Req → capacity → design → fail',
+    memory:'Req → capacity → design',
     href:'/system-design',
     story:'Clarify requirements, estimate, draw boxes, then failure and scale — Staff follow-ups.',
     diagram:'Client → GW → services → data stores → async bus',
@@ -99,7 +99,7 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
     id:'behavioral',
     step:'06',
     title:'Behavioral / leadership',
-    memory:'STAR + ownership',
+    memory:'STAR · ownership',
     href:'/behavioral-interview',
     story:'Conflict, delivery, incidents — owned outcomes, not buzzwords.',
     diagram:'Situation → Task → Action → Result → learning',
@@ -111,64 +111,68 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
   },
 ];
 
-/** Slim Topics mega-menu — hubs only; satellites live under path “related”. */
+/**
+ * Topics mega-menu — four topic pillars (presentation / IA only).
+ * Hub destinations unchanged; labels and grouping improved for navigation.
+ */
 export const TOPIC_GROUPS:NavGroup[]=[
   {
-    id:'start',
-    title:'Start here',
-    description:'Story + diagram interview paths',
+    id:'distributed',
+    title:'Distributed Systems',
+    description:'Consistency, coordination, and scale',
     topics:[
-      {href:'/microservice-communication',label:'Microservice Communication',blurb:'A→B stories · TRICKS-OLD · Staff'},
-      {href:'/cap-theorem',label:'CAP Theorem',blurb:'Story theater · PACELC · whiteboard'},
-      {href:'/kafka-interview',label:'Kafka',blurb:'Producer · consumer · DLQ · lag'},
-      {href:'/realtime-issues',label:'Real-Time Issues',blurb:'On-call curricula · stuck threads · DB'},
-      {href:'/system-design',label:'System Design',blurb:'HLD · estimation · Staff follow-ups'},
-      {href:'/behavioral-interview',label:'Behavioral Interview',blurb:'STAR bank · ownership'},
+      {href:'/cap-theorem',label:'CAP & Consistency',blurb:'CAP · PACELC · trade-offs'},
+      {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking · hashing · CDC curricula'},
+      {href:'/distributed-locking',label:'Distributed Locking',blurb:'Leases · fencing · Redis/Postgres'},
+      {href:'/distributed-caching',label:'Distributed Caching',blurb:'Stampede · TTL · Spring Cache'},
+      {href:'/microservice-communication',label:'Service Communication',blurb:'Sync · async · discovery'},
+      {href:'/microservices-patterns',label:'Microservices Patterns',blurb:'Saga · outbox · choreography'},
+      {href:'/db-sharding',label:'Database Sharding',blurb:'Partition · router · DR'},
+      {href:'/multi-tenant',label:'Multi-Tenant SaaS',blurb:'Isolation · RLS · tenancy'},
     ],
   },
   {
-    id:'architecture',
-    title:'Architecture',
-    description:'Design building blocks',
+    id:'messaging',
+    title:'Messaging & Traffic',
+    description:'Events, edge routing, and resilience',
     topics:[
-      {href:'/microservices-patterns',label:'Microservices Patterns',blurb:'Saga · outbox · patterns map'},
-      {href:'/resilience4j',label:'Resilience4j',blurb:'CB · retry · bulkhead'},
-      {href:'/distributed-locking',label:'Distributed Locking',blurb:'Redis · fencing · Spring'},
-      {href:'/api-gateway',label:'API Gateway',blurb:'SCG · auth · rate limit'},
-      {href:'/load-balancing',label:'Load Balancing',blurb:'L4/L7 · algorithms'},
-      {href:'/design-patterns',label:'Design Patterns',blurb:'GoF · revision · mock'},
-      {href:'/distributed-systems',label:'Distributed Systems',blurb:'Curriculum guides'},
-      {href:'/db-sharding',label:'DB Sharding',blurb:'Partition · router · DR'},
+      {href:'/kafka-interview',label:'Apache Kafka',blurb:'Producer · consumer · DLQ · lag'},
+      {href:'/api-gateway',label:'API Gateway',blurb:'Routing · auth · rate limits'},
+      {href:'/load-balancing',label:'Load Balancing',blurb:'L4/L7 · algorithms · health'},
+      {href:'/rate-limiter',label:'Rate Limiting',blurb:'Token bucket · Redis'},
+      {href:'/resilience4j',label:'Resilience Patterns',blurb:'Circuit breaker · retry · bulkhead'},
+      {href:'/fintech',label:'Payments & FinTech',blurb:'Idempotency · settlement flows'},
     ],
   },
   {
-    id:'platform',
-    title:'Platform & Java',
-    description:'Runtime, security, Spring',
+    id:'java-spring',
+    title:'Java & Spring',
+    description:'Runtime, framework, security, and data',
     topics:[
-      {href:'/production-troubleshooting',label:'Prod Troubleshooting',blurb:'15+ YOE IC handbook · 90+ scenarios'},
-      {href:'/spring-security',label:'Spring Security',blurb:'JWT · OAuth · CSRF · CORS'},
-      {href:'/spring-annotations',label:'Spring Annotations',blurb:'Proxies · @Transactional'},
+      {href:'/spring-annotations',label:'Spring Annotations',blurb:'Proxies · transactions · DI'},
+      {href:'/spring-security',label:'Spring Security',blurb:'JWT · OAuth2 · CSRF · CORS'},
       {href:'/java-concurrency',label:'Java Concurrency',blurb:'JMM · pools · virtual threads'},
-      {href:'/encryption',label:'Encryption',blurb:'TLS · AES-GCM · mTLS'},
-      {href:'/performance',label:'Performance',blurb:'Measure · bottleneck · Java/AWS'},
-      {href:'/redis-interview',label:'Redis',blurb:'Cache · locks · HA'},
-      {href:'/java-compiler',label:'Java Compiler',blurb:'Live IDE practice'},
+      {href:'/java-locking',label:'JVM Locking',blurb:'synchronized · locks · JUC'},
+      {href:'/redis-interview',label:'Redis',blurb:'Cache · locks · high availability'},
+      {href:'/encryption',label:'Encryption & TLS',blurb:'AES-GCM · mTLS · key management'},
+      {href:'/performance',label:'Performance Engineering',blurb:'Measure · bottleneck · JVM/AWS'},
+      {href:'/java-compiler',label:'Java Live Compiler',blurb:'In-browser IDE practice'},
     ],
   },
   {
-    id:'more',
-    title:'More labs',
-    description:'Deeper drills when you need them',
+    id:'ops-prep',
+    title:'Operations & Prep',
+    description:'Incidents, whiteboard design, and soft skills',
     topics:[
-      {href:'/fintech',label:'FinTech',blurb:'Payments · idempotency'},
-      {href:'/distributed-caching',label:'Distributed Caching',blurb:'Stampede · Spring cache'},
-      {href:'/rate-limiter',label:'Rate Limiter',blurb:'Token bucket · Redis'},
-      {href:'/multi-tenant',label:'Multi-Tenant SaaS',blurb:'JWT · RLS · isolation'},
-      {href:'/dsa',label:'DSA Islands & Window',blurb:'Patterns · Java'},
-      {href:'/complexity',label:'Complexity',blurb:'Big-O from code'},
-      {href:'/leadership-principles',label:'Leadership Principles',blurb:'Amazon LPs'},
-      {href:'/git-guide',label:'Git Master Guide',blurb:'Rebase · hotfix · reflog'},
+      {href:'/realtime-issues',label:'Production Incidents',blurb:'Stuck threads · DB · on-call'},
+      {href:'/production-troubleshooting',label:'Production Troubleshooting',blurb:'IC handbook · RCA playbooks'},
+      {href:'/system-design',label:'System Design',blurb:'HLD · estimation · failure modes'},
+      {href:'/design-patterns',label:'Design Patterns',blurb:'GoF · revision · mock interview'},
+      {href:'/behavioral-interview',label:'Behavioral Interview',blurb:'STAR stories · ownership'},
+      {href:'/leadership-principles',label:'Leadership Principles',blurb:'Amazon leadership principles'},
+      {href:'/dsa',label:'DSA Patterns',blurb:'Islands · sliding window · Java'},
+      {href:'/complexity',label:'Time & Space Complexity',blurb:'Big-O from production code'},
+      {href:'/git-guide',label:'Git Mastery',blurb:'Rebase · hotfix · reflog'},
     ],
   },
 ];
@@ -208,8 +212,10 @@ export function isNavActive(pathname:string|null,href:string){
   if(!pathname) return false;
   if(href==='/') return pathname==='/';
   if(href==='/kafka-interview' && isKafkaFamilyPath(pathname)) return true;
-  if(href==='/behavioral-interview' && (pathname.startsWith('/behavior') || pathname.startsWith('/leadership-principles'))) return true;
+  if(href==='/behavioral-interview' && (pathname.startsWith('/behavior') || pathname.startsWith('/leadership-principles') || pathname.startsWith('/jpmc-experience'))) return true;
   if(href==='/microservice-communication' && pathname.startsWith('/microservices-patterns')) return false;
+  if(href==='/java-concurrency' && pathname.startsWith('/java-locking')) return false;
+  if(href==='/realtime-issues' && pathname.startsWith('/production-troubleshooting')) return false;
   return pathname===href || pathname.startsWith(`${href}/`);
 }
 

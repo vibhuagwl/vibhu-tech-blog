@@ -75,7 +75,8 @@ export default function Learn(){
       <section className="mt-16">
         <h2 className="text-2xl font-black tracking-[-.03em]">Topic directory</h2>
         <p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">
-          Slim Topics menu — same groups as the header. Prefer a path above before browsing everything.
+          Topic directory by pillar — Distributed Systems, Messaging & Traffic, Java & Spring, Operations & Prep.
+          Prefer an interview path above before browsing every hub.
         </p>
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           {TOPIC_GROUPS.map((group)=>(
