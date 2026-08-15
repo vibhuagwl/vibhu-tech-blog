@@ -70,13 +70,16 @@ export default function CodeBlock({
       </div>
       <div className="code-block__body flex min-w-0">
         {showLines && (
-          <div className="code-block__gutter select-none border-r border-slate-800 bg-slate-950/80 px-2 py-4 text-right font-mono text-[.75rem] leading-relaxed text-slate-600" aria-hidden="true">
+          <div
+            className="code-block__gutter select-none border-r border-slate-800 bg-slate-950/80 px-2 py-4 text-right font-mono text-[.85rem] leading-[1.65] text-slate-600"
+            aria-hidden="true"
+          >
             {lines.map((_, i) => (
               <div key={i}>{i + 1}</div>
             ))}
           </div>
         )}
-        <pre className="syntax-pre m-0 min-w-0 flex-1 overflow-x-auto rounded-none border-0 bg-transparent p-4 text-[.85rem] leading-relaxed">
+        <pre className="syntax-pre m-0 min-w-0 flex-1 overflow-x-auto rounded-none border-0 bg-transparent p-4 text-[.85rem] leading-[1.65]">
           <code
             className={`hljs language-${language} font-mono syntax-code`}
             dangerouslySetInnerHTML={{__html: html}}

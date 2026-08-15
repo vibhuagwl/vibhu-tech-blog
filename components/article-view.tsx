@@ -125,7 +125,7 @@ export default async function ArticleView({
   return (
     <main className="reading-article">
       <ReadingProgress />
-      <div className="reading-article__grid">
+      <div className={`reading-article__grid${headings.length>=2?' has-toc':''}`}>
         <div className="reading-article__main min-w-0">
           <nav aria-label="Breadcrumb" className="mb-5 text-sm text-slate-500">
             <ol className="flex flex-wrap items-center gap-1.5">

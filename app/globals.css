@@ -762,7 +762,7 @@ a{text-decoration:none}
   align-items:start;
 }
 @media (min-width:1280px){
-  .reading-article__grid{
+  .reading-article__grid.has-toc{
     grid-template-columns:minmax(0,1fr) 15.5rem;
   }
 }
