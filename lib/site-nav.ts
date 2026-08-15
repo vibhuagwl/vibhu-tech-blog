@@ -46,6 +46,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/performance',label:'Performance',blurb:'Latency, scale, cache, JVM, backpressure'},
       {href:'/jpmc-experience',label:'JPMC Experience',blurb:'Hadron, tax, RSU, Kafka, platform delivery'},
       {href:'/spring-security',label:'Spring Security',blurb:'JWT, OAuth, CSRF, CORS, OIDC, XSS, SQLi, DDoS, JPA N+1'},
+      {href:'/spring-annotations',label:'Spring Annotations',blurb:'Processors · proxies · @Transactional · Boot 3 · Staff'},
       {href:'/encryption',label:'Encryption & Decryption',blurb:'PKI · 5 rooms · AES-GCM · CA · mTLS · Architect'},
       {href:'/camunda',label:'Camunda 8 BPMN',blurb:'Zeebe · Workers · Saga · Operate · Payment · Architect'},
     ],
