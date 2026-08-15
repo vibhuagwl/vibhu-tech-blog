@@ -38,6 +38,51 @@ export const COMPONENT_THREADS: string[][] = [
   ['TransactionManager', 'Sender + app tx APIs', 'PID, epochs, EndTxn, fencing'],
 ];
 
+/** Plain-English: "single-threaded producer" vs thread-safe KafkaProducer. */
+export const THREADING_EXPLAIN = `What people mean by "the Kafka producer is single-threaded"
+  → ONE Sender background thread owns the network I/O loop:
+    drain batches → build ProduceRequests → talk to brokers → complete Futures/callbacks.
+  → Your app CAN call send() from many threads — KafkaProducer is thread-safe.
+  → Serialization / partitioning run on the calling app thread inside send().
+  → Do NOT create a new KafkaProducer per request (that is the anti-pattern).
+  → Reuse ONE producer (or Spring ProducerFactory singleton) so TCP, metadata,
+    BufferPool, and PID stay shared and healthy.`;
+
+/** Plain-English: producer backpressure. */
+export const BACKPRESSURE_EXPLAIN = `What backpressure means for a Kafka producer
+  → Your app wants to produce faster than Kafka (or the network) can accept.
+  → Batches pile up in RecordAccumulator until buffer.memory is full.
+  → send() then BLOCKS (waits) instead of accepting more records — that wait IS backpressure.
+  → It waits at most max.block.ms; then throws TimeoutException.
+  → Healthy response: slow the app (bounded queue, rate limit, 429/shed),
+    raise capacity (brokers, partitions, quotas), or tune memory/batching —
+    do not ignore TimeoutException and keep hammering.`;
+
+/** How max.in.flight + retries + idempotence (PID/seq) connect. */
+export const IDEMPOTENCE_LINK_EXPLAIN = `How retries, max.in.flight, and idempotence (unique try id) connect
+
+1) Unique try identity (not your business paymentId)
+   → Broker allocates a Producer ID (PID) + epoch.
+   → For each partition, the client stamps a monotonic sequence number on every record/batch try.
+   → PID + epoch + seq is the unique produce-attempt id the broker uses to dedupe.
+
+2) retries > 0
+   → If the ProduceResponse is lost or the leader flaps, the Sender resends the SAME seq.
+   → Without idempotence the broker would append again → log duplicate.
+   → With idempotence the broker sees the same PID+epoch+seq → keeps one append.
+
+3) max.in.flight.requests.per.connection
+   → How many ProduceRequests may be outstanding on one TCP connection before waiting.
+   → Higher = more pipeline / throughput; also more chance that a failed earlier batch
+     retries AFTER a later batch already succeeded → reorder (if not idempotent).
+   → With enable.idempotence=true the broker enforces order via seq, and the client
+     requires max.in.flight ≤ 5 (the supported safe window).
+
+4) Required set for safe retries in the log
+   → acks=all + enable.idempotence=true + retries>0 + max.in.flight≤5
+   → This is transport-level exactly-once produce into the Kafka log for one producer session.
+   → It does NOT replace a business idempotency key (paymentId) for DB/PSP side effects.`;
+
 export const API_ROWS: string[][] = [
   ['send(record)', 'Future<RecordMetadata>', 'Async enqueue; may block on metadata/buffer'],
   ['send(record, callback)', 'Future + Callback', 'Preferred async path'],
@@ -155,29 +200,88 @@ delivery.timeout.ms ≥ linger.ms + request.timeout.ms
 
 batch.size ↑ + linger.ms ↑ + compression=zstd
   → throughput ↑, latency ↑, CPU ↑, better ratio on similar records
+  → this is a THROUGHPUT PROFILE trade-off — not an "anti-pattern" by itself
+  → anti-pattern = raising these blindly past your p99 SLO / GC / buffer budget
 
 buffer.memory too small vs (batch.size × active partitions)
   → max.block.ms waits → TimeoutException under load`;
 
+/** Expanded plain-English for the interaction matrix (section 16). */
+export const CONFIG_INTERACTIONS_EXPLAIN = `① Idempotent safe-retry set (correctness first — used by BOTH latency and throughput profiles)
+  acks=all
+    → leader waits for ISR (≥ min.insync.replicas) before success — durable produce.
+  enable.idempotence=true
+    → broker dedupes by PID+epoch+seq so a retry does not create a second log append.
+  max.in.flight.requests.per.connection ≤ 5
+    → pipelining window the idempotent client supports while keeping per-partition order.
+  retries > 0
+    → actually retry retriable failures; without retries idempotence never gets to save you.
+  Together: "safe retries without log duplicates." This set is required for idempotence.
+  It is NOT a latency vs throughput choice — keep it on for money / correctness workloads.
+
+② delivery.timeout.ms ≥ linger.ms + request.timeout.ms
+  delivery.timeout.ms = total budget for one record to succeed (linger wait + attempts + backoffs).
+  request.timeout.ms  = how long ONE ProduceRequest may wait for a response.
+  linger.ms           = how long a batch may sit waiting to fill before the first attempt.
+  If delivery is smaller than linger + one request, the client rejects the config or
+  fails sends early — you gave a budget smaller than the minimum path time.
+
+③ batch.size ↑ + linger.ms ↑ + compression=zstd  (HIGH THROUGHPUT knob — not an anti-pattern)
+  What you mean by HIGH THROUGHPUT: more records/bytes successfully produced per second.
+  What you mean by LOW LATENCY: each record reaches an ack sooner (less waiting in the batch).
+  Raising batch.size / linger.ms → Sender waits for fuller batches → fewer, fatter ProduceRequests
+    → throughput ↑, but each record may wait longer → end-to-end latency ↑.
+  compression=zstd → CPU ↑ to compress, wire bytes ↓, often better records/sec on similar payloads.
+  Anti-pattern (see §24): unlimited linger "for throughput", or blind batch/buffer raises
+    without measuring record-queue-time, p99, GC, and buffer-available-bytes.
+
+④ buffer.memory too small vs (batch.size × active partitions)
+  Each in-flight partition batch can reserve up to ~batch.size from the shared BufferPool.
+  Many active partitions × large batch.size can exhaust buffer.memory even before brokers are slow.
+  Then send() blocks up to max.block.ms → TimeoutException under load (producer backpressure).`;
+
+export const LATENCY_VS_THROUGHPUT = `Low latency vs high throughput (same producer, different knobs)
+
+LOW LATENCY profile (send acks sooner)
+  → linger.ms low/0: do not wait to fill the batch — ship ASAP.
+  → smaller batches / lighter compression: less queue + less CPU before the wire.
+  → Cost: more ProduceRequests, worse compression ratio, lower max records/sec.
+  → Still keep: acks=all + enable.idempotence=true (+ in-flight≤5, retries).
+
+HIGH THROUGHPUT profile (maximize records/sec)
+  → linger.ms higher (e.g. 20–50): wait a bit so batches fill.
+  → batch.size higher (e.g. 64–128KB): fewer, larger network requests.
+  → compression=zstd: burn CPU to move more logical records per wire byte.
+  → buffer.memory larger if many partitions need concurrent batches.
+  → Cost: higher per-record latency (queue/linger) and more CPU; watch p99 vs SLO.
+  → Still keep: acks=all + enable.idempotence=true (+ in-flight≤5, retries).
+
+Rule of thumb: correctness knobs (acks/idempotence/in-flight/retries) stay on;
+latency vs throughput is mostly linger + batch.size + compression + buffer.memory.`;
+
 export const PROFILES: {name: string; goal: string; code: string}[] = [
   {
     name: 'Low latency',
-    goal: 'Minimize queueing; accept lower batching efficiency',
+    goal: 'Minimize queueing so each record is acked sooner; accept lower batching efficiency (fewer records/sec ceiling)',
     code: `linger.ms=0
 batch.size=16384
 compression.type=lz4
 acks=all
-enable.idempotence=true`,
+enable.idempotence=true
+max.in.flight.requests.per.connection=5
+# Still durable + idempotent — "low latency" does NOT mean acks=0`,
   },
   {
     name: 'High throughput',
-    goal: 'Fill batches, compress, keep connections busy',
+    goal: 'Fill batches, compress, keep connections busy — maximize records/sec; accept higher per-record latency',
     code: `linger.ms=20-50
 batch.size=65536-131072
 compression.type=zstd
 buffer.memory=67108864
 acks=all
-enable.idempotence=true`,
+enable.idempotence=true
+max.in.flight.requests.per.connection=5
+# Cap linger against your p99 SLO — unlimited linger is the anti-pattern`,
   },
   {
     name: 'Financial / payments',
@@ -258,11 +362,21 @@ export const ANTI_PATTERNS: {bad: string; good: string}[] = [
   {bad: 'Transactions for every single event', good: 'Idempotent produce; txn when multi-partition atomicity needed'},
   {bad: 'Shared transactional.id across pods', good: 'Unique stable id per instance — fencing otherwise'},
   {bad: 'Ignore callback errors', good: 'Metric + alarm + retry/compensate path'},
-  {bad: 'Blindly raise buffer.memory / batch.size', good: 'Measure queue-time, latency, GC, broker quotas'},
+  {
+    bad: 'Blindly raise buffer.memory / batch.size / linger / zstd and call it “tuning”',
+    good: 'Use the high-throughput profile on purpose; measure queue-time, p99, GC, buffer-available-bytes, quotas',
+  },
   {bad: 'Log full payloads + secrets', good: 'Log topic, partition, key hash, correlation id'},
   {bad: 'Assume Kafka txn fixes DB dual-write', good: 'Outbox or CDC'},
   {bad: 'Custom partitioner that ignores key order needs', good: 'Document the new order boundary'},
-  {bad: 'Unlimited linger for “throughput”', good: 'Cap linger vs SLO latency'},
+  {
+    bad: 'Unlimited linger for “throughput” (or treat §16 batch↑+linger↑+zstd as an anti-pattern)',
+    good: 'Cap linger vs SLO; batch/linger/zstd is a throughput trade-off when measured — anti-pattern is raising them blindly',
+  },
+  {
+    bad: 'Treat “single-threaded Sender” as “only one thread may call send()”',
+    good: 'Many app threads may call the thread-safe KafkaProducer; reuse one instance; one Sender owns I/O',
+  },
 ];
 
 export const SOURCE_CLASSES: string[][] = [

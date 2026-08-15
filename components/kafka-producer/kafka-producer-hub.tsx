@@ -7,14 +7,18 @@ import {
   ACK_ROWS,
   ANTI_PATTERNS,
   API_ROWS,
+  BACKPRESSURE_EXPLAIN,
   CAPACITY_EXAMPLE,
   CHEATS,
   COMPONENT_THREADS,
   CONFIG_CORE,
   CONFIG_INTERACTIONS,
+  CONFIG_INTERACTIONS_EXPLAIN,
   DECISIONS,
   IDEMP_ROWS,
+  IDEMPOTENCE_LINK_EXPLAIN,
   KEY_ROWS,
+  LATENCY_VS_THROUGHPUT,
   LAYER_STACK,
   MEMORY_SENTENCE,
   METRIC_ROWS,
@@ -29,6 +33,7 @@ import {
   SERDE_ROWS,
   SOURCE_CLASSES,
   SPRING_COMPARE,
+  THREADING_EXPLAIN,
   TX_FLOW,
   VERSION_NOTE,
 } from '@/lib/kafka-producer/content';
@@ -241,10 +246,10 @@ topic, partition, offset, timestamp, serialized sizes`}
           <Section
             id="architecture"
             title="03. Internal architecture and threading"
-            lead="KafkaProducer is thread-safe. Creating a producer per request is an anti-pattern (TCP, metadata, buffers, PID)."
+            lead='KafkaProducer is thread-safe for many app threads calling send(). "Single-threaded" refers to the one Sender I/O loop — not "one thread may call the API." Creating a producer per request is the anti-pattern (TCP, metadata, buffers, PID).'
           >
             <MiniTable headers={['Component', 'Thread', 'Role']} rows={COMPONENT_THREADS} />
-            <div className="mt-4">
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel
                 title="Threading model"
                 code={`App T1 ─┐
@@ -252,10 +257,11 @@ App T2 ─┼─→ KafkaProducer.send (thread-safe)
 App T3 ─┘         ↓
             RecordAccumulator
                   ↓
-             Sender thread → NetworkClient → brokers
+             Sender thread (ONE) → NetworkClient → brokers
 
 Reuse ONE producer (or Spring ProducerFactory singleton).`}
               />
+              <CodePanel title='What "single-threaded" means' tone="ok" code={THREADING_EXPLAIN} />
             </div>
           </Section>
 
@@ -381,6 +387,12 @@ Topic config message.timestamp.type`}
 Kafka 4.x linger.ms default = 5
 batch.size default = 16384
 
+This trade-off is the "high throughput" profile
+(§16) — not an anti-pattern by itself.
+
+Anti-pattern: raise linger/batch forever
+with no p99 / memory / GC budget.
+
 Blindly raising batch.size with many
 partitions can exhaust buffer.memory.`}
               />
@@ -399,21 +411,27 @@ CPU vs network is the trade`}
           <Section
             id="memory"
             title="10. Memory management and backpressure"
-            lead="When produce rate exceeds what Kafka accepts, the BufferPool fills."
+            lead="Backpressure here means the producer slows your app (blocks send) when buffers are full — it is the safety valve, not a separate feature flag."
           >
-            <CodePanel
-              title="Memory pressure path"
-              tone="danger"
-              code={`Produce > broker accept
+            <div className="grid gap-3 md:grid-cols-2">
+              <CodePanel title="What backpressure means" tone="ok" code={BACKPRESSURE_EXPLAIN} />
+              <CodePanel
+                title="Memory pressure path"
+                tone="danger"
+                code={`Produce > broker accept
   → batches pile in RecordAccumulator
   → buffer.memory exhausted
-  → send() blocks
+  → send() blocks  ← this wait IS backpressure
   → waits up to max.block.ms (default 60s)
   → TimeoutException
 
+Also: buffer.memory ≪ (batch.size × active partitions)
+  → you run out of BufferPool even before brokers are slow
+
 Metrics: buffer-available-bytes, bufferpool-wait-time
-Fix: app backpressure, scale brokers, tune memory, shed load`}
-            />
+Fix: bound app rate, scale brokers, tune memory/batch, shed load`}
+              />
+            </div>
           </Section>
 
           <Section
@@ -465,7 +483,7 @@ Followers PULL from leader — producer never writes followers`}
           <Section
             id="retries"
             title="13. Retries and delivery semantics"
-            lead="retries are bounded in practice by delivery.timeout.ms. request.timeout.ms is one attempt."
+            lead="retries are bounded in practice by delivery.timeout.ms. request.timeout.ms is one attempt. Rule: delivery.timeout.ms must be ≥ linger.ms + request.timeout.ms or the client rejects / fails early."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <CodePanel
@@ -480,7 +498,9 @@ request.timeout.ms   (default 30s)
 retry.backoff.ms → retry.backoff.max.ms
   = space between attempts
 
-delivery ≥ linger + request  (config rule)`}
+MUST: delivery ≥ linger + request
+  else config rejected / sends fail early
+  (you budgeted less than the minimum path)`}
               />
               <CodePanel
                 title="Semantics (precise)"
@@ -495,8 +515,15 @@ Exactly-once (business DB/PSP):
             </div>
           </Section>
 
-          <Section id="idempotence" title="14. Idempotence, PID/epoch/seq, max.in.flight">
+          <Section
+            id="idempotence"
+            title="14. Idempotence, PID/epoch/seq, max.in.flight"
+            lead="Idempotence links retries to a unique produce-attempt id (PID+epoch+seq). max.in.flight is how many requests may pipeline on one connection; with idempotence that window stays ≤5 so order and dedupe both hold."
+          >
             <MiniTable headers={['Concept', 'Meaning']} rows={IDEMP_ROWS} />
+            <div className="mt-4">
+              <CodePanel title="Retries × in-flight × unique try id" tone="ok" code={IDEMPOTENCE_LINK_EXPLAIN} />
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <CodePanel
                 title="Idempotent requirements"
@@ -516,9 +543,10 @@ ProducerFencedException (txn)`}
                 tone="danger"
                 code={`Without idempotence:
   in-flight=5, batch1 fails, batch2 succeeds,
-  batch1 retries → order swap possible
+  batch1 retries → order swap + possible duplicate
 
 With idempotence:
+  same PID+epoch+seq is not appended twice
   broker sequences keep per-partition order
   for in-flight ≤ 5`}
               />
@@ -542,11 +570,15 @@ With idempotence:
           <Section
             id="config"
             title="16. Configuration reference, interactions, profiles"
-            lead="Defaults verified against Apache Kafka 4.x producer docs. Re-check for your client version."
+            lead="Defaults verified against Apache Kafka 4.x producer docs. The short matrix below is the cheat sheet; the plain-English block explains each arrow — including why batch/linger/zstd is a throughput trade-off, not an anti-pattern by itself."
           >
             <MiniTable headers={['Config', 'Type', 'Default (4.x)', 'Notes']} rows={CONFIG_CORE} />
-            <div className="mt-4">
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
               <CodePanel title="Interaction matrix (memorize)" tone="ok" code={CONFIG_INTERACTIONS} />
+              <CodePanel title="Plain English — what each arrow means" code={CONFIG_INTERACTIONS_EXPLAIN} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Low latency vs high throughput" tone="ok" code={LATENCY_VS_THROUGHPUT} />
             </div>
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               {PROFILES.map((p) => (
@@ -725,7 +757,13 @@ txn only if multi-partition atomic needed`}
             </div>
           </Section>
 
-          <Section id="antipatterns" title="24. Anti-patterns">
+          <Section
+            id="antipatterns"
+            title="24. Anti-patterns"
+            lead={
+              'Do not confuse §16’s “batch.size ↑ + linger ↑ + zstd → throughput ↑, latency ↑” with an anti-pattern. That line is a deliberate high-throughput trade-off. Anti-patterns are the wrong habits below — e.g. unlimited linger, blind memory raises, or turning off idempotence “to go faster.”'
+            }
+          >
             <div className="grid gap-3 md:grid-cols-2">
               {ANTI_PATTERNS.map((a) => (
                 <div key={a.bad} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
