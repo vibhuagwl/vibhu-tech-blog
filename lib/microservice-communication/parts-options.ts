@@ -355,17 +355,18 @@ export const OPTIONS: CommSection[] = [
     trap:
       'Using WebSocket between microservices instead of Kafka or gRPC streaming — almost always wrong. WebSocket is primarily client-facing.',
     interviewAnswer:
-      'WebSocket for real-time client push like live order status. Between services I use Kafka or gRPC streaming. WebSocket scaling needs pub/sub backplane and sticky sessions or shared broker.',
+      'WebSocket for real-time client push like live order status. Compare explicitly: REST for request/response, long polling for legacy hold-and-loop, SSE for one-way HTTP push, WebSocket for bi-directional. Between services I use Kafka or gRPC streaming — not WebSocket meshes.',
     remember: ['Client-facing real-time', 'Not inter-service default', 'Stateful — scaling hard', 'WSS + auth at handshake'],
-    oneLiner: 'WebSocket — real-time client push; services use Kafka/gRPC stream.',
+    oneLiner: 'WebSocket — bi-di client push; compare REST/SSE/long-poll; services use Kafka/gRPC.',
     tables: [
       {
-        headers: ['Pattern', 'Latency', 'Direction', 'Best for'],
+        headers: ['Pattern', 'Latency', 'Direction', 'Connection', 'Best for', 'Avoid for'],
         rows: [
-          ['REST polling', 'High', 'Client pull', 'Simple, low frequency'],
-          ['SSE', 'Low', 'Server push', 'One-way feeds'],
-          ['WebSocket', 'Lowest', 'Bidirectional', 'Chat, gaming, trading'],
-          ['Kafka', 'Seconds OK', 'Async', 'Service events'],
+          ['REST', 'Req budget', 'Req/resp', 'Short', 'CRUD/commands', 'High-freq server push'],
+          ['Long polling', 'Hold timeout', 'Mostly pull', 'Held HTTP', 'Legacy realtime', 'Service↔service'],
+          ['SSE', 'Low', 'Server→client', 'Long HTTP', 'Notifications/progress', 'Bi-di chat'],
+          ['WebSocket', 'Lowest', 'Bidirectional', 'Long TCP', 'Chat, trading UI', 'Inter-service bus'],
+          ['Kafka', 'Async OK', 'Pub/sub log', 'Broker', 'Service events', 'Browser without gateway'],
         ],
       },
     ],
@@ -674,16 +675,16 @@ export const OPTIONS: CommSection[] = [
       },
     ],
   },
-  // ── Shared state (anti-patterns & cautions) ─────────────────────────────
+  // ── Data-based integration (anti-patterns as communication mechanisms) ──
   {
     id: 'shared-database',
-    title: 'Shared database (anti-pattern)',
+    title: '⚠ Shared database — communication ANTI-PATTERN',
     what:
-      'Multiple microservices read/write the same relational database schema — shared tables, direct SQL across bounded contexts. Sometimes called distributed monolith data layer.',
+      'Service A → Shared DB ← Service B. Treating a common schema as the “way services communicate” (reads/writes across bounded contexts). This is data coupling, not a microservice communication mechanism.',
     why:
-      'Teams avoid it because it creates the tightest coupling: schema changes break multiple deployables, no independent scaling, unclear ownership, and transactions that silently span “services” via JOINs.',
+      'Creates the tightest coupling: schema changes break multiple deployables, no independent scaling, unclear ownership, and transactions that silently span “services” via JOINs. Taxonomy branch 7 — call it out as anti-pattern.',
     when:
-      'Never as intentional architecture. Acceptable only as temporary migration stepping stone with strict views and deprecation plan. Interview answer: “We inherited it; here is how I would extract.”',
+      'Never as intentional inter-service communication. Acceptable only as temporary migration stepping stone with strict views and deprecation plan. Interview answer: “We inherited it; here is how I would extract.”',
     how:
       'If stuck: enforce DB views per service, no cross-schema writes, read-only replicas for queries, strangler fig to split schemas. Long-term: database-per-service with APIs or events.',
     flow: `flowchart TD
@@ -720,13 +721,13 @@ export const OPTIONS: CommSection[] = [
   },
   {
     id: 'shared-cache',
-    title: 'Shared cache (use carefully)',
+    title: '⚠ Shared cache — not a service-to-service bus',
     what:
-      'Multiple services read/write the same Redis/Memcached cluster as a communication mechanism — caching another service’s data or using Redis pub/sub as a message bus substitute.',
+      'Service A → Redis ← Service B used as a hidden RPC/event channel (cross-service keys or Redis pub/sub as the integration). Cache is a performance layer owned by one service — not taxonomy-legitimate communication.',
     why:
-      'Caches are for performance, not source of truth. Shared cache as integration creates implicit contract on key format, TTL semantics, and invalidation — fragile and untyped.',
+      'Caches are for performance, not source of truth. Shared cache as integration creates an implicit untyped contract on key format, TTL, and invalidation — fragile and unaudited.',
     when:
-      'OK: each service owns its cache namespace; CDN/Redis in front of own DB. Careful: read-through cache of own data. Risky: Service B writes keys Service A reads. Avoid: Redis as primary event bus instead of Kafka.',
+      'OK: each service owns its cache namespace; CDN/Redis in front of own DB. Careful: read-through of own data. Risky: Service B writes keys Service A reads. Avoid: Redis as primary event bus instead of Kafka.',
     how:
       'Namespace keys: order-svc:{id}. Cache-aside in owning service only. Invalidation via domain events (Kafka) not direct key deletion from other services. Redis pub/sub only for ephemeral notifications with loss acceptable.',
     flow: `flowchart TD

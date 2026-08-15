@@ -228,6 +228,83 @@ export const MSC_STORIES: StoryBeat[] = [
       'TRICKS-OLD is the production checklist for every outbound sync call: Timeout (client < server), Retry (idempotent + backoff), Idempotency (keys on writes), Circuit breaker (fail fast), Kafka (prefer async when you can), Security (mTLS, OAuth2 bearer), Observability (W3C traceparent, structured logs, RED metrics), Failure handling (fallback, graceful degrade), Load balancing (round-robin, least-conn, zone-aware), Discovery (K8s DNS, Eureka, Consul). Say it aloud in interviews — interviewers remember mnemonics.',
     memory: 'TRICKS-OLD: Timeout Retry Idempotency Circuit Kafka Security Observability Failure LB Discovery.',
   },
+  {
+    id: 'taxonomy-mechanism-infra',
+    title: 'Mechanism vs infrastructure',
+    badge: 'Taxonomy',
+    hook: 'Gateway is not how you call B — REST/gRPC/Kafka is.',
+    mermaid: `flowchart TB
+  subgraph infra [Infrastructure — wraps the call]
+    GW[API Gateway]
+    DNS[K8s DNS / Discovery]
+    LB[Load Balancer / Mesh]
+  end
+  subgraph mech [Mechanism — actual communication]
+    REST[REST / gRPC / RSocket]
+    K[Kafka / Rabbit / SQS]
+    WH[Webhook]
+  end
+  Client --> GW --> DNS --> LB --> REST --> B[Service B]
+  A[Service A] --> K --> B2[Service B]
+  P[Provider] --> WH --> A
+  style infra fill:#e8f4fd
+  style mech fill:#d4edda`,
+    say:
+      'Staff distinction: API Gateway, service discovery, load balancers, and service mesh are communication infrastructure. The application mechanism is still REST, gRPC, Kafka, webhook, CDC, or object-store plus event. Wrong: “we use Kubernetes to communicate.” Right: “we call payment with RestClient over HTTPS; Kubernetes DNS and ClusterIP provide discovery and server-side load balancing.”',
+    memory: 'Mechanism = protocol/contract. Infra = find, balance, secure, observe.',
+  },
+  {
+    id: 'realtime-compare',
+    title: 'REST vs long poll vs SSE vs WebSocket',
+    badge: 'Real-time',
+    hook: 'Client push interviews expect this four-way compare.',
+    mermaid: `flowchart LR
+  REST[REST short req/resp] --> LP[Long polling hold]
+  LP --> SSE[SSE one-way stream]
+  SSE --> WS[WebSocket bi-di]
+  WS --> Note[Services still use Kafka/gRPC]`,
+    say:
+      'REST for commands and queries. Long polling when WebSocket/SSE are blocked — hold HTTP until event or timeout, then loop. SSE for one-way server push over HTTP. WebSocket for bidirectional chat/trading UI. Between microservices: Kafka or gRPC streaming — do not build a WebSocket mesh.',
+    memory: 'Clients: REST / long-poll / SSE / WS. Services: Kafka or gRPC stream.',
+  },
+  {
+    id: 'webhook-callback',
+    title: 'Webhook callback path',
+    badge: 'Callback',
+    hook: 'Payment providers finish later — they call you.',
+    mermaid: `sequenceDiagram
+  participant O as Order
+  participant P as PSP
+  O->>P: charge
+  P-->>O: 202 accepted
+  P->>O: webhook signed POST
+  O->>O: verify HMAC + idempotent
+  O-->>P: 202
+  O->>K: Kafka PaymentSettled`,
+    say:
+      'Webhooks reverse the call: the provider invokes your HTTPS endpoint. Verify signature, ack fast, apply idempotently by event id, then fan out internally on Kafka. Never treat provider delivery as exactly-once.',
+    memory: 'Webhook: verify → ack fast → idempotent → internal Kafka.',
+  },
+  {
+    id: 'cdc-vs-outbox',
+    title: 'CDC vs domain outbox',
+    badge: 'Event-driven',
+    hook: 'Both reach Kafka — different who emits and what it means.',
+    mermaid: `flowchart TD
+  subgraph outbox [Owned write path]
+    App1[Service A] -->|same TX| DB1[(DB + outbox)]
+    DB1 --> Relay[Relay]
+    Relay --> K1[Kafka domain event]
+  end
+  subgraph cdc [Brownfield / projections]
+    App2[Service A] --> DB2[(DB)]
+    DB2 -->|WAL| CDC[Debezium CDC]
+    CDC --> K2[Kafka row-change topics]
+  end`,
+    say:
+      'Outbox: application writes business row + outbox in one transaction; relay publishes domain events with intent. CDC: connector reads WAL and emits table changes even if the app never published. Prefer outbox when you own the service; CDC for legacy completeness and projections — map schema events to business language carefully.',
+    memory: 'Outbox = intent. CDC = row changed. Both need idempotent consumers.',
+  },
 ];
 
 /** Pocket memory cards — flash before the whiteboard. */

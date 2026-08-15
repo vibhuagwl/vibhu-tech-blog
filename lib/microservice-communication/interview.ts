@@ -1340,6 +1340,127 @@ export const TRICK_QS: InterviewQ[] = [
     "trick": "Listing Spring annotations is enough for staff.",
     "wrongAnswer": "Discovery alone makes calls reliable."
   },
+  {
+    "id": "trick-102",
+    "topic": "Mechanism vs infrastructure",
+    "level": "staff",
+    "question": "Is API Gateway / service mesh a way one microservice calls another?",
+    "answer30s": "No — they are infrastructure wrapping a mechanism. The call is still REST, gRPC, Kafka, etc.",
+    "answer2m": "Gateway handles north-south concerns (auth, rate limit, routing). Mesh adds east-west mTLS, traffic shifting, telemetry. Neither replaces naming the application protocol. Interview kill-phrase: “our communication pattern is Kubernetes/Istio.” Correct: “RestClient to payment; K8s DNS + ClusterIP for discovery/LB; optional Istio mTLS.”",
+    "followUps": ["East-west vs north-south?", "Can mesh replace app timeouts?"],
+    "trick": "Service mesh is the communication protocol.",
+    "wrongAnswer": "We communicate via Kubernetes."
+  },
+  {
+    "id": "trick-103",
+    "topic": "RSocket vs Kafka",
+    "level": "senior",
+    "question": "When would you choose RSocket over Kafka?",
+    "answer30s": "RSocket for reactive RPC/streaming with backpressure between known peers; Kafka when you need durable fan-out, replay, and independent consumers.",
+    "answer2m": "RSocket models: request-response, request-stream, fire-and-forget, channel. No broker durability. Fire-and-forget is not a message queue. Enterprise default remains REST/gRPC/Kafka; RSocket shines in Reactor-native streaming meshes.",
+    "followUps": ["Four RSocket interaction models?", "Does RSocket replace a broker?"],
+    "trick": "RSocket fire-and-forget equals Kafka durability.",
+    "wrongAnswer": "Always prefer RSocket in Boot 3."
+  },
+  {
+    "id": "trick-104",
+    "topic": "Webhook exactly-once",
+    "level": "senior",
+    "question": "Do payment webhooks guarantee exactly-once delivery?",
+    "answer30s": "No — providers retry; design HMAC verify + idempotent eventId + fast ack.",
+    "answer2m": "At-least-once is the norm. Slow handlers cause retry storms. After verify, enqueue to Kafka for internal fan-out. Store event ids with UNIQUE constraint. Clock skew and replay windows matter for signatures.",
+    "followUps": ["Why ack before heavy work?", "HMAC vs mTLS webhooks?"],
+    "trick": "HTTP 200 from provider means exactly-once forever.",
+    "wrongAnswer": "Ignore duplicate webhooks; DB unique will always save you without design."
+  },
+  {
+    "id": "trick-105",
+    "topic": "SSE vs WebSocket",
+    "level": "junior",
+    "question": "SSE vs WebSocket — which for one-way order status to the browser?",
+    "answer30s": "SSE — one-way server push over HTTP. WebSocket when you need bidirectional frames.",
+    "answer2m": "Compare REST (short), long polling (legacy hold), SSE (one-way stream), WebSocket (bi-di). Services still use Kafka/gRPC for inter-service events; SSE/WS are usually client-facing.",
+    "followUps": ["Proxy idle timeout impact?", "When is long polling justified?"],
+    "trick": "WebSocket between every microservice pair.",
+    "wrongAnswer": "Long polling is always better than SSE."
+  },
+  {
+    "id": "trick-106",
+    "topic": "CDC vs outbox",
+    "level": "staff",
+    "question": "How is CDC/Debezium different from Service A publishing a domain event?",
+    "answer30s": "CDC emits row changes from the DB log without the app publishing; outbox emits intentional domain events in the same TX as the write.",
+    "answer2m": "CDC: completeness for brownfield, schema-shaped topics, infra heavy. Outbox: business language, explicit, when you own the write path. Both need idempotent consumers. Do not equate “column updated” with OrderPlaced.",
+    "followUps": ["When prefer CDC?", "How do you avoid dual-write without CDC?"],
+    "trick": "CDC events are automatically rich domain events.",
+    "wrongAnswer": "CDC means Service A called Service B."
+  },
+  {
+    "id": "trick-107",
+    "topic": "SFTP batch",
+    "level": "senior",
+    "question": "Why do banking systems still use SFTP file drops?",
+    "answer30s": "Partner clearing contracts, huge nightly volumes, and established SLA windows — not because teams forgot REST.",
+    "answer2m": "Design: PGP encrypt, checksum/control file, idempotent load by file id, monitor cutoff SLA, optionally emit Kafka after successful land. Do not claim online REST replaces mandated clearing files overnight.",
+    "followUps": ["Idempotent file reload?", "Object storage vs SFTP?"],
+    "trick": "SFTP is always an anti-pattern in microservices.",
+    "wrongAnswer": "Replace NACHA with Feign this sprint unilaterally."
+  },
+  {
+    "id": "trick-108",
+    "topic": "Unix domain sockets",
+    "level": "junior",
+    "question": "Can microservices on different Kubernetes nodes communicate via Unix domain sockets?",
+    "answer30s": "No — UDS is same-host only. Distributed services need network protocols (REST/gRPC/Kafka).",
+    "answer2m": "UDS fits local sidecars or local DB. After pod reschedule to another node the socket path peer is gone. Interview use: contrast local IPC vs distributed communication.",
+    "followUps": ["Sidecar communication options?", "Why not UDS as the fleet standard?"],
+    "trick": "Mount a shared UDS across the cluster for speed.",
+    "wrongAnswer": "UDS replaces ClusterIP for all east-west traffic."
+  },
+  {
+    "id": "trick-109",
+    "topic": "Shared DB as communication",
+    "level": "senior",
+    "question": "Why is Service A → DB ← Service B not a valid microservice communication mechanism?",
+    "answer30s": "It couples schema, deployability, and failure domains — a distributed monolith, not independent services.",
+    "answer2m": "Taxonomy: data-based integration anti-pattern. Prefer API/events. CDC may read one service’s DB for projections, but two services must not share write ownership of the same schema.",
+    "followUps": ["Strangler extraction steps?", "Shared read replica OK?"],
+    "trick": "Shared DB is fine if both services are microservices in name.",
+    "wrongAnswer": "JOINs across service tables are a best practice."
+  },
+  {
+    "id": "trick-110",
+    "topic": "Complete taxonomy",
+    "level": "staff",
+    "question": "List the eight taxonomy branches for microservice communication.",
+    "answer30s": "Sync RPC; async messaging; real-time; event-driven; callback/webhook; file/object; data-based (often anti-pattern); infrastructure (gateway/mesh/DNS/LB).",
+    "answer2m": "Open Staff answers with the branch, pick a mechanism, then name infrastructure around it. Emphasize mechanism ≠ infra. Shared DB/cache are not legitimate buses.",
+    "followUps": ["Where does RSocket sit?", "Where does CDC sit?"],
+    "trick": "Infrastructure branch equals the protocol.",
+    "wrongAnswer": "Only REST and Kafka exist."
+  },
+  {
+    "id": "trick-111",
+    "topic": "Long polling pools",
+    "level": "senior",
+    "question": "What fails first when you long-poll 10k clients on platform-thread Tomcat?",
+    "answer30s": "Thread/connection pool exhaustion — each held request occupies a worker until timeout.",
+    "answer2m": "Hold timeout must be < proxy idle. Cap concurrent held requests per user. Prefer async/NIO, virtual threads carefully, or migrate to SSE/WebSocket. Long poll is a legacy compromise, not a service bus.",
+    "followUps": ["Hold vs proxy timeout?", "Virtual threads help how?"],
+    "trick": "Long poll between Order and Payment services.",
+    "wrongAnswer": "Unlimited held requests are fine with keep-alive."
+  },
+  {
+    "id": "trick-112",
+    "topic": "Object storage as RPC",
+    "level": "senior",
+    "question": "Is polling a shared S3 prefix a good microservice RPC?",
+    "answer30s": "No — use object write + Kafka/SNS pointer event; polling folders races and hides contracts.",
+    "answer2m": "Valid pattern: large blob in S3/GCS + event with key/checksum; consumer downloads async. SFTP for partner batch. Never treat the bucket as a hidden API.",
+    "followUps": ["Orphan object reconciliation?", "Why not 50MB on Kafka?"],
+    "trick": "Shared S3 folder replaces Kafka.",
+    "wrongAnswer": "Poll every second for new keys — simple and reliable."
+  }
 ];
 
 export const RAPID_QS: InterviewQ[] = [
@@ -2467,6 +2588,96 @@ export const CHOOSE_QS: ScenarioQ[] = [
     "alternative": "Sync lock both DBs",
     "tradeoffs": "Sync lock cross-service impossible",
     "interviewAnswer": "Kafka trigger; idempotent diff report"
+  },
+  {
+    "id": "choose-51",
+    "title": "Reactive streaming with backpressure between two Spring services",
+    "recommended": "RSocket request-stream (or gRPC server streaming)",
+    "why": "Native backpressure; bi-di models available",
+    "alternative": "Kafka if durability/fan-out required",
+    "tradeoffs": "RSocket niche ops; Kafka if many consumers need replay",
+    "interviewAnswer": "RSocket when both Reactor-native and need flow control; Kafka for durable fan-out"
+  },
+  {
+    "id": "choose-52",
+    "title": "Payment provider confirms capture minutes later",
+    "recommended": "Webhook callback + HMAC + idempotent eventId",
+    "why": "Provider owns async completion; cannot hold HTTP",
+    "alternative": "Client polling provider status API",
+    "tradeoffs": "Polling wastes load; webhook needs public endpoint + verify",
+    "interviewAnswer": "Signed webhook, ack fast, enqueue Kafka internally"
+  },
+  {
+    "id": "choose-53",
+    "title": "Browser needs live order status (one-way)",
+    "recommended": "SSE from BFF subscribed to Kafka",
+    "why": "One-way push over HTTP; simpler than WebSocket",
+    "alternative": "WebSocket if client must send often",
+    "tradeoffs": "SSE uni-directional; proxy idle timeouts",
+    "interviewAnswer": "SSE for notify; Kafka feeds the BFF stream"
+  },
+  {
+    "id": "choose-54",
+    "title": "Legacy partner blocks WebSocket and SSE",
+    "recommended": "Long polling with hold < proxy timeout",
+    "why": "Plain HTTP held request still works",
+    "alternative": "Scheduled short REST poll",
+    "tradeoffs": "Connection/thread pressure; higher overhead",
+    "interviewAnswer": "Long poll as legacy compromise; plan SSE/WS migration"
+  },
+  {
+    "id": "choose-55",
+    "title": "Legacy monolith cannot emit domain events",
+    "recommended": "CDC/Debezium → Kafka projections",
+    "why": "Capture every commit from WAL without app change",
+    "alternative": "Batch ETL nightly",
+    "tradeoffs": "Schema-coupled events; prefer outbox when you own writes",
+    "interviewAnswer": "CDC for brownfield completeness; map to domain carefully"
+  },
+  {
+    "id": "choose-56",
+    "title": "Bank clearing house requires nightly NACHA file",
+    "recommended": "SFTP/PGP batch file + checksum + idempotent load",
+    "why": "Partner contract is file-based SLA",
+    "alternative": "Online REST if partner someday offers it",
+    "tradeoffs": "Hours of latency; operational toil",
+    "interviewAnswer": "Encrypt file drop; SLA monitor; optional Kafka after land"
+  },
+  {
+    "id": "choose-57",
+    "title": "Pass 200MB statement PDF between services",
+    "recommended": "S3/GCS object + Kafka pointer event",
+    "why": "Too large for Kafka/REST body",
+    "alternative": "SFTP for partner banks",
+    "tradeoffs": "Eventual; need checksum and orphan reconciler",
+    "interviewAnswer": "Blob store + event pointer; IAM per prefix"
+  },
+  {
+    "id": "choose-58",
+    "title": "Two pods on same node need ultra-local IPC",
+    "recommended": "Localhost TCP or UDS to sidecar — not cross-service contract",
+    "why": "UDS is host-local only",
+    "alternative": "gRPC over ClusterIP for real microservices",
+    "tradeoffs": "UDS fails across nodes after reschedule",
+    "interviewAnswer": "UDS for sidecar/local helper; distributed → network protocols"
+  },
+  {
+    "id": "choose-59",
+    "title": "Team proposes Redis keys as Order↔Inventory API",
+    "recommended": "Reject — REST/events; cache only in owner service",
+    "why": "Shared cache is hidden untyped contract",
+    "alternative": "Kafka InventoryReserved + cache-aside in each owner",
+    "tradeoffs": "Redis pub/sub loses messages",
+    "interviewAnswer": "Cache ≠ communication mechanism"
+  },
+  {
+    "id": "choose-60",
+    "title": "Candidate says communication pattern is Istio",
+    "recommended": "Correct: mesh is infra; name REST/gRPC underneath",
+    "why": "Mechanism vs infrastructure distinction",
+    "alternative": "App Resilience4j without mesh",
+    "tradeoffs": "Mesh adds mTLS/telemetry; not a protocol",
+    "interviewAnswer": "We speak gRPC; Istio wraps mTLS/retries/telemetry"
   }
 ];
 
@@ -3196,9 +3407,9 @@ export const INCIDENTS: Incident[] = [
 ];
 
 export const SPOKEN = {
-  "thirtySec": "Microservice communication: sync REST/gRPC when the caller needs an answer now — checkout auth, inventory hold, balance read. Async Kafka/outbox for fan-out, settlement, notifications. Every sync call in Java 21 Spring Boot 3 uses RestClient or gRPC with connect+read timeout, Resilience4j circuit breaker and bulkhead, and idempotency on mutations. Propagate W3C trace context and OAuth2 carefully — mTLS for service identity. Size pools with Little's Law: concurrency ≈ RPS × p99 latency.",
-  "twoMin": "I split flows by user deadline. Payment checkout: sync orchestration — BFF or orchestrator calls Inventory hold, Pricing quote, Payment auth via RestClient with 2s timeout, Idempotency-Key, CB fail-fast on PSP. After DB commit, transactional outbox publishes PaymentAuthorized to Kafka for settlement, ledger, email — idempotent consumers, DLQ for poison. I reject chatty serial chains — parallel WebClient or CQRS projections for reads. Anti-patterns: no timeout, Feign retry on POST, Kafka request-reply for UX, shared database. Observability: RED metrics per service, OpenTelemetry across RestClient and Kafka headers. Errors: RFC 9457 Problem Details with traceId. Independent deploy: Pact or Spring Cloud Contract plus Schema Registry compatibility. Capacity: Little's Law sizes Tomcat and WebClient pools; retry storms cause metastable failure — one retry layer, jitter, shed load to recover.",
-  "fiveMinStaff": "Staff depth: walk payment/ecommerce/banking/trading architectures naming which steps are sync vs async and why — auth sync, settlement async, market data Kafka, ledger CP sync. TRICKS-OLD mnemonic: Timeout, Retry careful, Idempotency, Circuit breaker, Kafka/async fit, Security TLS+mTLS+JWT exchange, Observability RED+OTel, Failure cascade math, Load balancing+pool sizing, Discovery+DNS staleness. Explain cascading failure: effective λ = RPS × (1+retries); recovery needs load < 0.7 capacity — CB and 429 shed. Compare RestClient vs WebClient vs Feign vs gRPC — Feign convenience vs explicit RestClient timeouts; gRPC deadlines for trading. Mesh mTLS STRICT with token exchange not blind JWT forward. Virtual threads Tomcat Boot 3 with pinning audit. Contract testing gates: Pact consumer-driven, SCC producer stubs, Avro BACKWARD. Incident triage: thread dump pool blocked → timeout missing; duplicate charge → Feign POST retry; lag skew → hot partition key. Decision tree: user waiting? sync. Fan-out/reconcile? async outbox. Strong invariant now? sync CP. Stale OK? cache/AP. Principal: hybrid within one product; prove with traces, SLO burn, game days."
+  "thirtySec": "Open with taxonomy: mechanism versus infrastructure. Sync REST/gRPC/RSocket when the caller needs an answer now; async Kafka for fan-out; webhooks for provider callbacks; S3/SFTP for large/batch; CDC for brownfield WAL capture. Gateway/mesh/DNS only wrap the call — they are not the protocol. Every sync hop in Boot 3 uses RestClient or gRPC with timeouts, Resilience4j CB/bulkhead, idempotency, mTLS/JWT, and RED+OTel — TRICKS-OLD.",
+  "twoMin": "I classify A→B before naming libraries. Sync request/response: REST (RestClient/Feign/WebClient), gRPC, GraphQL BFF, RSocket if Reactor streaming with backpressure. Async messaging: Kafka/Rabbit/SQS. Real-time to clients: compare REST, long polling, SSE, WebSocket — services still use Kafka/gRPC streams. Callbacks: signed webhooks, ack fast, idempotent event ids, internal Kafka fan-out. File/object: blob + pointer event or SFTP batch for banking rails. Event-driven: domain outbox when we own writes; CDC/Debezium when legacy must emit from WAL. Data-based shared DB/cache are anti-patterns as buses. Infrastructure — gateway north-south, mesh east-west, K8s DNS/LB — wraps the mechanism. Then apply TRICKS-OLD on every sync dependency and size pools with Little's Law.",
+  "fiveMinStaff": "Staff depth: draw the eight-branch taxonomy, then a payment journey mixing sync auth, webhook settlement, Kafka fan-out, and nightly SFTP clearing. Contrast CDC vs outbox. Call out mechanism≠infra with a concrete RestClient + ClusterIP + optional Istio example. Real-time four-way compare for UI. RSocket only when backpressure streaming justifies niche ops. Reject shared Redis/DB as contracts. Quantify cascade with Little's Law and retry amplification. Close with TRICKS-OLD, contract tests, multi-AZ, and game-day failure drills — not Feign syntax."
 };
 
 export const SENIOR_VS_STAFF = [
@@ -3345,6 +3556,36 @@ export const SENIOR_VS_STAFF = [
     "junior": "Share an S3 folder and poll",
     "senior": "Write object + Kafka pointer event; IAM per prefix",
     "staff": "Checksum, orphan reconciler, KMS, pre-signed URL threat model"
+  },
+  {
+    "topic": "Mechanism vs infrastructure",
+    "junior": "We use Kubernetes / Istio to communicate",
+    "senior": "REST/gRPC/Kafka is the mechanism; DNS/LB/mesh wrap it",
+    "staff": "North-south gateway vs east-west mesh; app still owns idempotency"
+  },
+  {
+    "topic": "RSocket",
+    "junior": "Newer so better than REST",
+    "senior": "Four models + backpressure for Reactor peers",
+    "staff": "Niche ops cost; not a durable broker; vs gRPC/Kafka choice"
+  },
+  {
+    "topic": "Webhooks",
+    "junior": "Provider POSTs when done",
+    "senior": "HMAC verify, ack fast, idempotent eventId",
+    "staff": "At-least-once retry storm; internal Kafka after edge callback"
+  },
+  {
+    "topic": "CDC vs outbox",
+    "junior": "Both put events on Kafka",
+    "senior": "Outbox = domain intent; CDC = WAL row change",
+    "staff": "Brownfield completeness vs schema coupling; map to business language"
+  },
+  {
+    "topic": "Real-time client push",
+    "junior": "Just use WebSocket",
+    "senior": "REST / long-poll / SSE / WS four-way compare",
+    "staff": "Proxy idle, connection caps; services still on Kafka/gRPC streams"
   }
 ];
 
@@ -3508,6 +3749,46 @@ export const CHEAT_ROWS = [
     "term": "TRICKS-OLD",
     "rule": "Timeout Retry Idempotency CB Kafka Security Obs Failure LB Discovery",
     "trap": "Only naming Feign syntax"
+  },
+  {
+    "term": "Taxonomy",
+    "rule": "Mechanism ≠ gateway/mesh/DNS",
+    "trap": "“We communicate via Istio”"
+  },
+  {
+    "term": "RSocket",
+    "rule": "Reactive RPC + backpressure models",
+    "trap": "Treating fire-and-forget as Kafka"
+  },
+  {
+    "term": "Webhook",
+    "rule": "HMAC + ack fast + idempotent eventId",
+    "trap": "Assume exactly-once from PSP"
+  },
+  {
+    "term": "SSE",
+    "rule": "One-way HTTP push to clients",
+    "trap": "SSE mesh between services"
+  },
+  {
+    "term": "Long poll",
+    "rule": "Legacy hold < proxy idle",
+    "trap": "Hold forever on platform threads"
+  },
+  {
+    "term": "CDC",
+    "rule": "WAL→Kafka; schema≠domain",
+    "trap": "CDC replaces outbox always"
+  },
+  {
+    "term": "SFTP batch",
+    "rule": "PGP + checksum + file idempotency",
+    "trap": "Unilateral REST replacement"
+  },
+  {
+    "term": "UDS",
+    "rule": "Same-host IPC only",
+    "trap": "UDS across K8s nodes"
   }
 ];
 
@@ -3605,7 +3886,16 @@ export const COVERAGE_CHECKLIST: string[] = [
   "File/object-storage integration with event pointer",
   "FAILURE_MATRIX 25 production failures",
   "100+ trick questions including TRICKS-OLD",
-  "50+ production incident playbooks"
+  "50+ production incident playbooks",
+  "Complete 8-branch communication taxonomy",
+  "Mechanism vs infrastructure (gateway/mesh/DNS)",
+  "RSocket four interaction models + backpressure",
+  "Webhooks HMAC idempotent callbacks",
+  "REST vs long poll vs SSE vs WebSocket matrix",
+  "CDC/Debezium vs domain outbox distinction",
+  "SFTP/batch FinTech file integration",
+  "Unix domain sockets local-IPC boundary",
+  "Shared DB/cache classified as anti-pattern buses"
 ];
 
 export const MEMORY_RULES = [
@@ -3668,6 +3958,18 @@ export const MEMORY_RULES = [
   {
     "title": "TRICKS-OLD",
     "rule": "Timeout Retry Idempotency CB Kafka Security Observability Failure Load Discovery"
+  },
+  {
+    "title": "Mechanism ≠ infra",
+    "rule": "REST/gRPC/Kafka/webhook is the call; gateway/mesh/DNS wrap it"
+  },
+  {
+    "title": "CDC vs outbox",
+    "rule": "Outbox = intent; CDC = WAL row change for brownfield"
+  },
+  {
+    "title": "Webhooks",
+    "rule": "Verify HMAC, ack fast, idempotent eventId, then Kafka"
   }
 ];
 
