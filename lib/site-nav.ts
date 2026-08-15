@@ -121,7 +121,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/microservice-communication',label:'Microservice Communication',blurb:'A→B stories · TRICKS-OLD · Staff'},
       {href:'/cap-theorem',label:'CAP Theorem',blurb:'Story theater · PACELC · whiteboard'},
       {href:'/kafka-interview',label:'Kafka',blurb:'Producer · consumer · DLQ · lag'},
-      {href:'/realtime-issues',label:'Real-Time Issues',blurb:'Incident stories · stuck threads'},
+      {href:'/realtime-issues',label:'Real-Time Issues',blurb:'On-call curricula · stuck threads · DB'},
       {href:'/system-design',label:'System Design',blurb:'HLD · estimation · Staff follow-ups'},
       {href:'/behavioral-interview',label:'Behavioral Interview',blurb:'STAR bank · ownership'},
     ],

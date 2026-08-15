@@ -1,110 +1,163 @@
+import type {Metadata} from 'next';
 import Link from 'next/link';
-import {getPostsByCategories,SECTION_CATEGORIES} from '@/lib/posts';
 
-export const metadata={title:'Real-Time Issues — Production Incidents'};
+export const metadata: Metadata = {
+  title: 'Real-Time Issues — Production Incident Interview Hub',
+  description:
+    'Staff/Principal on-call curricula: stuck threads, 10GB file processing, Aurora/Oracle DB incidents, API integration, Java migration, lead ownership, and a 30-YOE interview bank. One card per curriculum — no duplicate chapter dump.',
+};
 
-const ORDER=[
-  'realtime-issues-master-index',
-  'stuck-thread-incident-response',
-  'stuck-thread-jvm-thread-dumps',
-  'stuck-thread-db-api-pools',
-  'stuck-thread-spring-kafka-locks',
-  'stuck-thread-cpu-gc-kill-restart',
-  'stuck-thread-rca-prevention-observability',
-  'stuck-thread-payment-incident-case-study',
-  'stuck-thread-interview-answer-and-followups',
-  'stuck-thread-cheat-sheet',
-  'process-10gb-file-master-index',
-  'process-10gb-streaming-nio-mmap',
-  'process-10gb-parallel-chunks',
-  'process-10gb-database-spring-batch',
-  'process-10gb-checkpoint-idempotency',
-  'process-10gb-formats-cloud-distributed',
-  'process-10gb-backpressure-observability',
-  'process-10gb-interview-answer-and-followups',
-  'java-30yoe-interview-master-index',
-  'java-30yoe-production-incidents-qa',
-  'java-30yoe-concurrency-qa',
-  'java-30yoe-jvm-gc-performance-qa',
-  'java-30yoe-spring-microservices-qa',
-  'java-30yoe-kafka-database-qa',
-  'java-30yoe-distributed-caching-migration-qa',
-  'java-30yoe-architecture-code-qa',
-  'api-integration-frameworks-master-index',
-  'api-design-contracts-rest',
-  'api-integration-patterns',
-  'api-versioning-compatibility',
-  'api-authn-authz-security',
-  'api-error-handling-resilience',
-  'api-service-to-service-communication',
-  'api-integration-interview-answer-and-followups',
-  'aurora-postgresql-master-index',
-  'aurora-postgresql-sql-and-architecture',
-  'aurora-postgresql-query-tuning-indexes',
-  'aurora-postgresql-vacuum-locks-pools',
-  'aurora-postgresql-cloudwatch-writer-reader',
-  'aurora-postgresql-transactions-migrations',
-  'aurora-postgresql-incident-case-study',
-  'aurora-postgresql-interview-answer-and-followups',
-  'lead-experience-master-index',
-  'lead-experience-delivery-ownership',
-  'lead-experience-engineering-standards',
-  'lead-experience-unblocking-mentoring',
-  'lead-experience-release-hands-on',
-  'lead-experience-payment-case-study',
-  'lead-experience-interview-answer-and-followups',
-  'java-migration-master-index',
-  'java-migration-lifecycle-and-baseline',
-  'java-migration-compatibility-and-spring',
-  'java-migration-dependencies-and-build',
-  'java-migration-testing-and-regression',
-  'java-migration-rollout-and-rollback',
-  'java-migration-interview-answer-and-followups',
-  'java-migration-production-runbook',
-  'java-migration-before-prod-checklist',
-  'oracle-database-realtime-troubleshooting',
-  'oracle-database-incident-case-study',
-  'query-used-to-be-fast-now-timeouts',
-  'production-database-change-risk-checklist',
-  'spring-secrets-pii-handling',
-];
+/** One card per curriculum destination. Deep chapters live under each master index. */
+const CURRICULA = [
+  {
+    href: '/realtime-issues/realtime-issues-master-index',
+    number: '00',
+    title: 'Section map',
+    blurb: 'How to use this hub: study path, incident narrative style, and where each curriculum fits.',
+  },
+  {
+    href: '/realtime-issues/stuck-thread-incident-response',
+    number: '01',
+    title: 'Stuck threads',
+    blurb: 'First response → dumps → pools/DB/API → Kafka/locks → CPU/GC → RCA → payment case → interview answers.',
+    index: '/realtime-issues/stuck-thread-cheat-sheet',
+  },
+  {
+    href: '/realtime-issues/process-10gb-file-master-index',
+    number: '02',
+    title: 'Process a 10 GB file',
+    blurb: 'Stream, don’t heap-load. Chunks, Spring Batch, checkpoints, S3/distributed, backpressure, spoken answers.',
+  },
+  {
+    href: '/realtime-issues/java-30yoe-interview-master-index',
+    number: '03',
+    title: '30-YOE interview bank',
+    blurb: 'Q1–Q100 Principal production readiness: incidents, concurrency, JVM, Spring, Kafka/DB, architecture.',
+  },
+  {
+    href: '/realtime-issues/api-integration-frameworks-master-index',
+    number: '04',
+    title: 'API integration',
+    blurb: 'Contracts, sync/async patterns, versioning, auth, errors/resilience, service-to-service, interview answers.',
+  },
+  {
+    href: '/realtime-issues/aurora-postgresql-master-index',
+    number: '05',
+    title: 'Aurora PostgreSQL',
+    blurb: 'SQL/architecture, indexes, vacuum/locks/pools, CloudWatch, migrations, incident case, interview answers.',
+  },
+  {
+    href: '/realtime-issues/oracle-database-realtime-troubleshooting',
+    number: '06',
+    title: 'Oracle DB incidents',
+    blurb: 'v$session / locks / plans + payment API case study when the query used to be fast.',
+  },
+  {
+    href: '/realtime-issues/java-migration-master-index',
+    number: '07',
+    title: 'Java migration',
+    blurb: 'Honest 11→17 framing: baseline, Spring, deps, tests, canary/rollback, runbook, before-prod checklist.',
+  },
+  {
+    href: '/realtime-issues/lead-experience-master-index',
+    number: '08',
+    title: 'Lead experience',
+    blurb: 'Hands-on delivery ownership: standards, mentoring, releases, payment STAR case, interview answers.',
+  },
+  {
+    href: '/realtime-issues/query-used-to-be-fast-now-timeouts',
+    number: '09',
+    title: 'DB change playbooks',
+    blurb: 'Query timeouts investigation script + production migration risk checklist + Spring PII/secrets pattern.',
+  },
+] as const;
 
-export default function RealtimeIssues(){
-  const posts=getPostsByCategories([...SECTION_CATEGORIES['realtime-issues']]);
-  const bySlug=new Map(posts.map((p)=>[p.slug,p]));
-  const ordered=ORDER.map((s)=>bySlug.get(s)).filter(Boolean) as typeof posts;
-  const rest=posts.filter((p)=>!ORDER.includes(p.slug));
-  const list=[...ordered,...rest];
-  const index=bySlug.get('realtime-issues-master-index');
+const RELATED = [
+  {href: '/performance', label: 'Performance handbook', blurb: 'Measure → bottleneck → optimize'},
+  {href: '/production-troubleshooting', label: 'Production troubleshooting', blurb: 'On-call frameworks'},
+  {href: '/kafka-interview', label: 'Kafka interview', blurb: 'Producer · consumer · DLQ'},
+  {href: '/resilience4j', label: 'Resilience4j', blurb: 'Timeout · CB · bulkhead'},
+] as const;
 
+export default function RealtimeIssuesPage() {
   return (
-    <main>
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_10px_40px_rgba(15,23,42,.04)] md:p-10 dark:border-slate-800 dark:bg-slate-950">
-        <div className="text-xs font-black uppercase tracking-[.16em] text-slate-600">Staff+ · Principal · Architect</div>
-        <h1 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Real-time production issues — diagnose like you were on-call.</h1>
-        <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Incident playbooks for Java/Spring Boot: stuck threads, multi‑GB files, 30 YOE interview bank,
-          <strong>API Integration &amp; Frameworks</strong>, <strong>Aurora PostgreSQL</strong>,{' '}
-          <strong>Lead Experience</strong>, and <strong>Java migration</strong> (honest Java 11→17 upgrade framing).
+    <main className="mx-auto max-w-[1400px] px-5 py-10">
+      <header className="max-w-3xl">
+        <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
+          Staff · Principal · Architect · On-call
         </p>
-        <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
-          <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} guides</span>
-          {index && (
-            <Link href={`/realtime-issues/${index.slug}`} className="rounded-full bg-slate-900 px-3 py-1 font-semibold text-white">
-              Start with the index →
-            </Link>
-          )}
-        </div>
-      </div>
+        <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
+          Real-time production issues
+        </h1>
+        <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
+          Diagnose like you are on-call. <strong>One card per curriculum</strong> — deep chapters live under each
+          index, not as a duplicated wall of 60+ cards.
+        </p>
+        <p className="mt-3 text-sm leading-7 text-slate-500">
+          Tone: what you check first, what you refuse to guess, mitigate vs RCA, when to restart, how you protect
+          downstreams.
+        </p>
+      </header>
 
       <section className="mt-10">
-        <h2 className="text-2xl font-black">All topics</h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          {list.map((p)=>(
-            <Link key={p.slug} href={`/realtime-issues/${p.slug}`} className="card p-6 transition hover:-translate-y-0.5">
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{p.difficulty} · {p.readingTime}</div>
-              <h3 className="mt-3 text-xl font-bold">{p.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-500">{p.description}</p>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Interview curricula</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Jump to the topic you get grilled on. Each destination appears once.
+        </p>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {CURRICULA.map((page) => (
+            <Link
+              key={page.href}
+              href={page.href}
+              className="rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-950"
+            >
+              <div className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-400">{page.number}</div>
+              <h3 className="mt-2 text-xl font-bold text-slate-900 dark:text-white">{page.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{page.blurb}</p>
+              <div className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Open →</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-10 rounded-2xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900/40">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">45-minute revision path</h2>
+        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
+          <li>
+            <strong>§01 Stuck threads</strong> — say first-5-minute checks and when you will not restart.
+          </li>
+          <li>
+            <strong>§05 Aurora</strong> or <strong>§06 Oracle</strong> — walk one slow-query / pool story with evidence.
+          </li>
+          <li>
+            <strong>§02 10 GB file</strong> — streaming + checkpoint + idempotency in 2 minutes.
+          </li>
+          <li>
+            <strong>§04 API integration</strong> — timeouts, retries, when not to retry.
+          </li>
+          <li>
+            <strong>§03 30-YOE bank</strong> — drill 5 spoken answers from the Top 15 list.
+          </li>
+          <li>
+            Skim <strong>§07 Migration</strong> or <strong>§08 Lead</strong> if the panel is behavioral / upgrade-focused.
+          </li>
+        </ol>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Related hubs</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Kafka payment/DLQ content lives under Kafka (stubs under this section redirect there — not listed twice).
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {RELATED.map((r) => (
+            <Link
+              key={r.href}
+              href={r.href}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm dark:border-slate-800"
+            >
+              <div className="font-semibold text-slate-900 dark:text-white">{r.label}</div>
+              <div className="mt-1 text-slate-500">{r.blurb}</div>
             </Link>
           ))}
         </div>

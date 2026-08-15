@@ -1,17 +1,18 @@
 ---
 slug: realtime-issues-master-index
 title: "Real-Time Issues Master Index: Production Incident Interview Prep"
-description: "A Staff and Principal on-call curriculum for explaining real production incidents in Java, Spring Boot, PostgreSQL, and Kafka systems."
+description: "Staff/Principal on-call curricula map: stuck threads, 10GB files, Aurora/Oracle, API integration, Java migration, lead ownership, and the 30-YOE interview bank — one entry point per series."
 category: "Real-Time Issues"
 difficulty: Principal
 tags: [Real-Time Issues, Incident Response, Java, Spring Boot, PostgreSQL, Kafka, Principal Interview]
 readingTime: 18 min
 publishedAt: "2026-08-11"
+updatedAt: "2026-08-15"
 ---
 
 ## What this section is for
 
-Real-Time Issues is the production incident, large-data processing, Principal interview bank, **API Integration & Frameworks**, **Aurora PostgreSQL**, **Oracle database**, **Lead Experience**, and **Java migration** (honest Java 11→17 upgrade framing) section of this interview hub.
+Real-Time Issues is the **on-call incident curricula** section of this interview hub: stuck threads, large-file processing, database incidents, API integration failure modes, Java upgrades, and lead ownership — plus a Principal Q&A bank.
 
 It is built for Staff, Principal, and architect interviews where the interviewer does not want a library answer.
 
@@ -33,76 +34,26 @@ You should be able to say:
 
 The goal is not to memorize incident trivia.
 
-The goal is to build an incident narrative that sounds like someone who has carried production ownership for decades.
+The goal is to build an incident narrative that sounds like someone who has carried p## Curricula (one entry point each)
 
-## Current guides
+Deep chapters live **under** these indexes — they are not duplicated as peers on [/realtime-issues/](/realtime-issues/).
 
-| # | Guide | Difficulty | Use it for |
-|---:|---|---|---|
-| 01 | [Stuck thread incident response](/realtime-issues/stuck-thread-incident-response) | Principal | First-response framing, blast radius, restart judgment, mitigation vs RCA |
-| 02 | [Stuck thread JVM thread dumps](/realtime-issues/stuck-thread-jvm-thread-dumps) | Principal | `jstack`, `jcmd`, `kill -3`, JFR, dump reading, deadlock evidence |
-| 03 | [Stuck thread DB, API, and pool failures](/realtime-issues/stuck-thread-db-api-pools) | Staff | HikariCP, PostgreSQL locks, external API hangs, Tomcat and executor exhaustion |
-| 04 | [Spring, Kafka, and lock contention](/realtime-issues/stuck-thread-spring-kafka-locks) | Principal | MVC/WebFlux, Kafka consumers, JVM locks, distributed locks |
-| 05 | [CPU, GC, kill, and restart](/realtime-issues/stuck-thread-cpu-gc-kill-restart) | Principal | `top -H` → nid mapping, GC vs thread, interrupt, K8s restart |
-| 06 | [RCA, prevention, observability](/realtime-issues/stuck-thread-rca-prevention-observability) | Principal | Decision tree, RCA template, timeouts/CB/bulkhead, OTel |
-| 07 | [Payment incident case study](/realtime-issues/stuck-thread-payment-incident-case-study) | Principal | 20-pod payment outage walkthrough |
-| 08 | [Interview answer + follow-ups](/realtime-issues/stuck-thread-interview-answer-and-followups) | Principal | 3–5 min spoken answer + 20 hard follow-ups |
-| 09 | [Stuck thread cheat sheet](/realtime-issues/stuck-thread-cheat-sheet) | Staff | Symptom → cause → check → action → fix |
-| 10 | [Process 10 GB file — topic index](/realtime-issues/process-10gb-file-master-index) | Principal | Requirements, heap principle, architecture decision map |
-| 11 | [Streaming, NIO, memory-map](/realtime-issues/process-10gb-streaming-nio-mmap) | Principal | BufferedReader vs FileChannel vs MappedByteBuffer |
-| 12 | [Parallel chunks + backpressure](/realtime-issues/process-10gb-parallel-chunks) | Principal | Byte-range workers, CSV boundaries, bounded queues |
-| 13 | [DB load + Spring Batch](/realtime-issues/process-10gb-database-spring-batch) | Principal | JDBC batching, transactions, Spring Batch restart |
-| 14 | [Checkpoint + idempotency](/realtime-issues/process-10gb-checkpoint-idempotency) | Principal | Crash at 70%, at-least-once, UPSERT/unique keys, DLQ |
-| 15 | [Formats, cloud, distributed](/realtime-issues/process-10gb-formats-cloud-distributed) | Principal | External sort, JSON/XML streaming, S3, Spark/Flink |
-| 16 | [Observability + production architecture](/realtime-issues/process-10gb-backpressure-observability) | Principal | Little’s Law, metrics, security, financial architecture |
-| 17 | [10 GB file interview answers](/realtime-issues/process-10gb-interview-answer-and-followups) | Principal | 30s/2m/5m answers + 25 follow-ups |
-| 18 | [30 YOE Java interview — index](/realtime-issues/java-30yoe-interview-master-index) | Principal | Q1–Q100 map + Top 15 priority |
-| 19 | [Production incidents Q&A](/realtime-issues/java-30yoe-production-incidents-qa) | Principal | CPU, stuck thread, OOM, GC, Kafka, pools |
-| 20 | [Concurrency Q&A](/realtime-issues/java-30yoe-concurrency-qa) | Principal | Pools, locks, CF, backpressure |
-| 21 | [JVM / GC / performance Q&A](/realtime-issues/java-30yoe-jvm-gc-performance-qa) | Principal | Heap, dumps, profilers, latency |
-| 22 | [Spring + microservices Q&A](/realtime-issues/java-30yoe-spring-microservices-qa) | Principal | Transactions, Saga, resilience |
-| 23 | [Kafka + database Q&A](/realtime-issues/java-30yoe-kafka-database-qa) | Principal | Lag, EOS, JDBC/JPA, 10GB/100M |
-| 24 | [Distributed + cache + migration Q&A](/realtime-issues/java-30yoe-distributed-caching-migration-qa) | Principal | Locks, CAP, stampede, Java 8→17 |
-| 25 | [Architecture + code traps Q&A](/realtime-issues/java-30yoe-architecture-code-qa) | Principal | Payments design + code smells |
-| 26 | [API Integration & Frameworks — index](/realtime-issues/api-integration-frameworks-master-index) | Principal | Contracts, patterns, versioning, auth, errors, S2S |
-| 27 | [API design & REST contracts](/realtime-issues/api-design-contracts-rest) | Principal | OpenAPI, DTOs, pagination, idempotency |
-| 28 | [API integration patterns](/realtime-issues/api-integration-patterns) | Principal | Sync/async, Saga, Outbox, CB, DLQ |
-| 29 | [API versioning & compatibility](/realtime-issues/api-versioning-compatibility) | Principal | v1/v2, deprecation, contract tests |
-| 30 | [Authn / Authz & security](/realtime-issues/api-authn-authz-security) | Principal | OAuth2/JWT, mTLS, secrets, least privilege |
-| 31 | [API errors & resilience](/realtime-issues/api-error-handling-resilience) | Principal | Error contract, retries, when not to retry |
-| 32 | [Service-to-service communication](/realtime-issues/api-service-to-service-communication) | Principal | Timeouts, bulkheads, cascading failure |
-| 33 | [API interview answers](/realtime-issues/api-integration-interview-answer-and-followups) | Principal | Spoken answers + follow-ups |
-| 34 | [Aurora PostgreSQL — index](/realtime-issues/aurora-postgresql-master-index) | Principal | App → Hikari → Aurora writer/reader |
-| 35 | [Aurora SQL & architecture](/realtime-issues/aurora-postgresql-sql-and-architecture) | Principal | Schema, isolation, R/W routing |
-| 36 | [Query tuning & indexes](/realtime-issues/aurora-postgresql-query-tuning-indexes) | Principal | EXPLAIN ANALYZE, B-tree/GIN/BRIN |
-| 37 | [Vacuum, locks & pools](/realtime-issues/aurora-postgresql-vacuum-locks-pools) | Principal | Autovacuum, pg_locks, HikariCP |
-| 38 | [CloudWatch & writer/reader](/realtime-issues/aurora-postgresql-cloudwatch-writer-reader) | Principal | PI, lag, read-after-write |
-| 39 | [Transactions & migrations](/realtime-issues/aurora-postgresql-transactions-migrations) | Principal | Short txns, expand-contract, CONCURRENTLY |
-| 40 | [Aurora incident case study](/realtime-issues/aurora-postgresql-incident-case-study) | Principal | 200ms → 5–8s payment API |
-| 41 | [Aurora interview answers](/realtime-issues/aurora-postgresql-interview-answer-and-followups) | Principal | 30s/2m/5m + follow-ups |
-| 42 | [Lead Experience — index](/realtime-issues/lead-experience-master-index) | Principal | Hands-on delivery leadership hub |
-| 43 | [Delivery ownership](/realtime-issues/lead-experience-delivery-ownership) | Principal | Split ownership, not ticket farming |
-| 44 | [Engineering standards](/realtime-issues/lead-experience-engineering-standards) | Principal | Java/Spring/microservices quality + reviews |
-| 45 | [Unblocking & mentoring](/realtime-issues/lead-experience-unblocking-mentoring) | Staff | Mocks, contracts, grow independence |
-| 46 | [Release & hands-on leadership](/realtime-issues/lead-experience-release-hands-on) | Principal | Release plans, monitoring, still coding |
-| 47 | [Lead payment case study](/realtime-issues/lead-experience-payment-case-study) | Principal | STAR narrative leading 3 Java developers |
-| 48 | [Lead interview answers](/realtime-issues/lead-experience-interview-answer-and-followups) | Principal | 30s/2m/5m + follow-ups |
-| 49 | [Java migration — index](/realtime-issues/java-migration-master-index) | Principal | Honest 11→17 framing + lifecycle hub |
-| 50 | [Lifecycle and baseline](/realtime-issues/java-migration-lifecycle-and-baseline) | Principal | Inventory before compiler bump |
-| 51 | [Compatibility and Spring](/realtime-issues/java-migration-compatibility-and-spring) | Principal | Runtime risks + phased Boot upgrades |
-| 52 | [Dependencies and build](/realtime-issues/java-migration-dependencies-and-build) | Staff | Trees, conflicts, CI/Docker alignment |
-| 53 | [Testing and regression](/realtime-issues/java-migration-testing-and-regression) | Principal | Compile ≠ behave; before/after parity |
-| 54 | [Rollout and rollback](/realtime-issues/java-migration-rollout-and-rollback) | Principal | Canary metrics + coexistable schema |
-| 55 | [Java migration interview answers](/realtime-issues/java-migration-interview-answer-and-followups) | Principal | 30s/2m/5m + follow-ups |
-| 56 | [Oracle realtime SQL troubleshooting](/realtime-issues/oracle-database-realtime-troubleshooting) | Principal | v$session, locks, plans, ASH — copy-paste SQL |
-| 57 | [Oracle payment API incident](/realtime-issues/oracle-database-incident-case-study) | Principal | 200ms→6s full scan + Hikari timeouts walkthrough |
-| 58 | [Query was fast, now timeouts](/realtime-issues/query-used-to-be-fast-now-timeouts) | Principal | Exact investigation script + SQL for this interview Q |
-| 59 | [Prod DB change risk checklist](/realtime-issues/production-database-change-risk-checklist) | Principal | Migrations, rollback, validation, release plan — worked example |
-| 60 | [Java 8/11→17→21 production runbook](/realtime-issues/java-migration-production-runbook) | Principal | Spring Boot 3, Jakarta, Kafka, K8s canary, Mermaid, interview answer |
-| 61 | [Java migration before-prod checklist](/realtime-issues/java-migration-before-prod-checklist) | Principal | GO/NO-GO + corner cases + CVE — no theory |
-| 62 | [Spring PII microservices](/realtime-issues/spring-secrets-pii-handling) | Principal | 3 services — vault, BFF masking, audit trail — runnable code |
-| 63 | [Kafka payments + DLQ](/kafka-interview/kafka-payments-dlq) | Principal | Producer, consumer, manual offset, retry, DLQ, batching — under Kafka hub |
-| — | [Kafka properties (complete)](/kafka-interview/kafka-properties) | Principal | Full producer + consumer + broker/controller configs |
+| # | Curriculum | Open first |
+|---:|---|---|
+| 00 | [Section map (this page)](/realtime-issues/realtime-issues-master-index) | Study path + answer shape |
+| 01 | [Stuck threads](/realtime-issues/stuck-thread-incident-response) | First response → dumps → pools → RCA → [cheat sheet](/realtime-issues/stuck-thread-cheat-sheet) |
+| 02 | [Process 10 GB file](/realtime-issues/process-10gb-file-master-index) | Stream / chunk / Batch / checkpoint / S3 |
+| 03 | [30-YOE interview bank](/realtime-issues/java-30yoe-interview-master-index) | Q1–Q100 + Top 15 priority |
+| 04 | [API integration](/realtime-issues/api-integration-frameworks-master-index) | Contracts → resilience → S2S |
+| 05 | [Aurora PostgreSQL](/realtime-issues/aurora-postgresql-master-index) | SQL → indexes → vacuum/locks → incident |
+| 06 | [Oracle DB incidents](/realtime-issues/oracle-database-realtime-troubleshooting) | + [payment case](/realtime-issues/oracle-database-incident-case-study) |
+| 07 | [Java migration](/realtime-issues/java-migration-master-index) | Honest 11→17 + runbook/checklist |
+| 08 | [Lead experience](/realtime-issues/lead-experience-master-index) | Ownership · standards · STAR case |
+| 09 | [DB change playbooks](/realtime-issues/query-used-to-be-fast-now-timeouts) | + [migration risk checklist](/realtime-issues/production-database-change-risk-checklist) · [PII/secrets](/realtime-issues/spring-secrets-pii-handling) |
+
+Kafka payment/DLQ guides live under [/kafka-interview/](/kafka-interview/) (not duplicated here).
+
+er + broker/controller configs |
 
 ## Recommended study path
 
