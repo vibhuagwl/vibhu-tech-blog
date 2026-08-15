@@ -15,7 +15,7 @@ export default function Home() {
         'stuck-thread-incident-response',
         'java-migration-master-index',
         'lead-experience-master-index',
-        'distributed-locking',
+        'distributed-locking-master-index',
         'performance-master-index',
       ].includes(p.slug),
     ),
