@@ -61,4 +61,21 @@ public class RegionalBankingFactoryDemo {
       return () -> "US routing account rules";
     }
   }
+
+  public static void run() {
+    System.out.println("=== Abstract Factory — RegionalBankingFactoryDemo ===");
+    System.out.println("STEP 1: Select IndiaBankingFactory (compatible product family)");
+    BankingFactory factory = new IndiaBankingFactory();
+    System.out.println("STEP 2: Create payment service from the same regional factory");
+    var payment = factory.paymentService();
+    System.out.println("  Payment rail: " + payment.pay());
+    System.out.println(
+        "STEP 3: Create account service from the same factory (KYC rules match region)");
+    var account = factory.accountService();
+    System.out.println("  Account rules: " + account.account());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

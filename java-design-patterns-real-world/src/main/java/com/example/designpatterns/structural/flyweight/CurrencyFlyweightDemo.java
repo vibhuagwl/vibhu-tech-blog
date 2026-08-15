@@ -41,4 +41,22 @@ public class CurrencyFlyweightDemo {
       return cache.size();
     }
   }
+
+  public static void run() {
+    System.out.println("=== Flyweight — CurrencyFlyweightDemo ===");
+    System.out.println("STEP 1: Create CurrencyFactory with shared intrinsic metadata cache");
+    var factory = new CurrencyFactory();
+    System.out.println("STEP 2: Request USD and INR metadata multiple times");
+    var usd1 = factory.get("USD");
+    var usd2 = factory.get("USD");
+    var inr = factory.get("INR");
+    System.out.println("STEP 3: Same code returns shared flyweight instance; cache stays small");
+    System.out.println("  USD symbol: " + usd1.symbol() + ", same instance? " + (usd1 == usd2));
+    System.out.println("  INR symbol: " + inr.symbol());
+    System.out.println("  Cache size: " + factory.size());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

@@ -41,4 +41,22 @@ public class ReportConfigurationPrototypeDemo {
       return filters.get(key);
     }
   }
+
+  public static void run() {
+    System.out.println("=== Prototype — ReportConfigurationPrototypeDemo ===");
+    System.out.println("STEP 1: Create base report configuration template");
+    var base =
+        new ReportConfiguration("daily-settlement", Map.of("country", "IN", "format", "CSV"));
+    System.out.println("  Base country filter: " + base.filter("country"));
+    System.out.println("STEP 2: deepCopy() clones the template without sharing mutable state");
+    var copy = base.deepCopy();
+    System.out.println("STEP 3: Mutate clone only — prototype stays unchanged");
+    copy.putFilter("country", "US");
+    System.out.println("  Prototype country: " + base.filter("country"));
+    System.out.println("  Clone country: " + copy.filter("country"));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

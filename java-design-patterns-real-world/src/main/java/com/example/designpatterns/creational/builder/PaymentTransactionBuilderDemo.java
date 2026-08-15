@@ -94,4 +94,27 @@ public class PaymentTransactionBuilderDemo {
           callbackUrl);
     }
   }
+
+  public static void run() {
+    System.out.println("=== Builder — PaymentTransactionBuilderDemo ===");
+    System.out.println("STEP 1: Start fluent Builder for a payment transaction");
+    System.out.println("STEP 2: Set required fields and optional metadata step-by-step");
+    var tx =
+        new Builder()
+            .transactionId("tx-demo-1")
+            .customerId("cust-42")
+            .amount(new BigDecimal("250.00"))
+            .currency("USD")
+            .metadata("flow", "api")
+            .retryPolicy("EXPONENTIAL")
+            .build();
+    System.out.println("STEP 3: build() returns immutable PaymentTransaction");
+    System.out.println(
+        "  id=" + tx.transactionId() + ", amount=" + tx.amount() + " " + tx.currency());
+    System.out.println("  metadata=" + tx.metadata() + ", retryPolicy=" + tx.retryPolicy());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

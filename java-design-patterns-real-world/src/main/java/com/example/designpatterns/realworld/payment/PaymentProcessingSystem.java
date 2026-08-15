@@ -273,6 +273,28 @@ public class PaymentProcessingSystem {
   }
 
   public static String interviewAnswer() {
-    return "I use a PaymentFacade as the entry point, run a validation chain, choose the payment strategy by method, create the gateway through a factory, adapt legacy gateways behind a common interface, layer logging/metrics/retry with decorators, move the payment through state transitions, and finally fan out audit, notification, and reporting through observers.";
+    return "I use a PaymentFacade as the entry point, run a validation chain, choose the payment"
+               + " strategy by method, create the gateway through a factory, adapt legacy gateways"
+               + " behind a common interface, layer logging/metrics/retry with decorators, move the"
+               + " payment through state transitions, and finally fan out audit, notification, and"
+               + " reporting through observers.";
+  }
+
+  public static void run() {
+    System.out.println("=== Combined Payment System — PaymentProcessingSystem ===");
+    System.out.println(
+        "STEP 1: PaymentFacade orchestrates validators, strategy, gateway, decorators");
+    var facade = new PaymentFacade();
+    var request = new PaymentRequest("cust-1", "acct-9", "CARD", 900, "STRIPE");
+    System.out.println("STEP 2: process() runs validation chain, state transitions, observers");
+    PaymentResult result = facade.process(request);
+    System.out.println("STEP 3: Inspect status, gateway reference, and audit trail");
+    System.out.println("  Status: " + result.status());
+    System.out.println("  Gateway reference: " + result.gatewayReference());
+    System.out.println("  Audit trail: " + result.auditTrail());
+  }
+
+  public static void main(String[] args) {
+    run();
   }
 }

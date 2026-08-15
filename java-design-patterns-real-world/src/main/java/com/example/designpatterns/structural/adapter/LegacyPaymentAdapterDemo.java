@@ -38,4 +38,17 @@ public class LegacyPaymentAdapterDemo {
       return legacy.submitLegacy(customerId, amount * 100);
     }
   }
+
+  public static void run() {
+    System.out.println("=== Adapter — LegacyPaymentAdapterDemo ===");
+    System.out.println("STEP 1: Wrap legacy API with PaymentAdapter (object adapter)");
+    var adapter = new PaymentAdapter(new LegacyPaymentApi());
+    System.out.println("STEP 2: Client calls modern pay(customerId, amountInDollars)");
+    System.out.println("STEP 3: Adapter translates dollars to cents for legacy submitLegacy()");
+    System.out.println("  Result: " + adapter.pay("acct-1001", 10));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

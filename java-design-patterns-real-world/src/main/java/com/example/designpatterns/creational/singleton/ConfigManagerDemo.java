@@ -50,4 +50,20 @@ public class ConfigManagerDemo {
       return config.get(key);
     }
   }
+
+  public static void run() {
+    System.out.println("=== Singleton — ConfigManagerDemo ===");
+    System.out.println("STEP 1: Obtain ConfigManager via holder-based singleton getInstance()");
+    var first = ConfigManager.getInstance();
+    var second = ConfigManager.getInstance();
+    System.out.println("  Same instance? " + (first == second));
+    System.out.println("STEP 2: Read shared config through static accessor paymentTimeout()");
+    System.out.println("  payment.timeout = " + paymentTimeout());
+    System.out.println("STEP 3: Read enum singleton config (region)");
+    System.out.println("  region = " + EnumConfigManager.INSTANCE.get("region"));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

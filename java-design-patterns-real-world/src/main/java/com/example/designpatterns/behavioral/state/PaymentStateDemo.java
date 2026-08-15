@@ -234,4 +234,23 @@ public class PaymentStateDemo {
       return timeline;
     }
   }
+
+  public static void run() {
+    System.out.println("=== State — PaymentStateDemo ===");
+    System.out.println("STEP 1: Payment starts in CREATED state");
+    var payment = new Payment();
+    System.out.println("  Timeline: " + payment.timeline());
+    System.out.println("STEP 2: Drive lifecycle: authorize → capture → settle → complete");
+    payment.authorize();
+    payment.capture();
+    payment.settle();
+    payment.complete();
+    System.out.println("STEP 3: Final state and full transition timeline");
+    System.out.println("  Current state: " + payment.state());
+    System.out.println("  Timeline: " + payment.timeline());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

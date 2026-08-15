@@ -41,4 +41,19 @@ public class OrderCompositeDemo {
       return children.stream().mapToInt(OrderComponent::total).sum();
     }
   }
+
+  public static void run() {
+    System.out.println("=== Composite — OrderCompositeDemo ===");
+    System.out.println("STEP 1: Create leaf Product line items");
+    var book = new Product("book-101", 20);
+    var bag = new Product("bag-202", 80);
+    System.out.println("STEP 2: Add products to a Bundle composite");
+    var bundle = new Bundle().add(book).add(bag);
+    System.out.println("STEP 3: Call total() uniformly on the bundle (delegates to children)");
+    System.out.println("  Bundle total: " + bundle.total());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

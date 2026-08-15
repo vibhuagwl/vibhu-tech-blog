@@ -2,80 +2,95 @@ package com.example.designpatterns;
 
 import com.example.designpatterns.behavioral.chainofresponsibility.PaymentValidationChainDemo;
 import com.example.designpatterns.behavioral.command.PaymentCommandDemo;
+import com.example.designpatterns.behavioral.interpreter.TransactionRuleInterpreterDemo;
+import com.example.designpatterns.behavioral.iterator.TransactionIteratorDemo;
+import com.example.designpatterns.behavioral.mediator.OrderProcessingMediatorDemo;
+import com.example.designpatterns.behavioral.memento.PaymentConfigurationMementoDemo;
 import com.example.designpatterns.behavioral.observer.PaymentObserverDemo;
 import com.example.designpatterns.behavioral.state.PaymentStateDemo;
 import com.example.designpatterns.behavioral.strategy.PaymentStrategyDemo;
+import com.example.designpatterns.behavioral.templatemethod.PaymentProcessingTemplateDemo;
+import com.example.designpatterns.behavioral.visitor.AccountVisitorDemo;
+import com.example.designpatterns.creational.abstractfactory.RegionalBankingFactoryDemo;
+import com.example.designpatterns.creational.builder.PaymentTransactionBuilderDemo;
 import com.example.designpatterns.creational.factory.PaymentGatewayFactoryDemo;
+import com.example.designpatterns.creational.prototype.ReportConfigurationPrototypeDemo;
+import com.example.designpatterns.creational.singleton.ConfigManagerDemo;
 import com.example.designpatterns.realworld.kafka.KafkaEventFlowDemo;
 import com.example.designpatterns.realworld.payment.PaymentProcessingSystem;
+import com.example.designpatterns.structural.adapter.LegacyPaymentAdapterDemo;
+import com.example.designpatterns.structural.bridge.NotificationBridgeDemo;
 import com.example.designpatterns.structural.composite.OrderCompositeDemo;
 import com.example.designpatterns.structural.decorator.PaymentDecoratorDemo;
 import com.example.designpatterns.structural.facade.PaymentFacadeDemo;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import com.example.designpatterns.structural.flyweight.CurrencyFlyweightDemo;
+import com.example.designpatterns.structural.proxy.PaymentServiceProxyDemo;
 
 public class DesignPatternDemo {
   public static void main(String[] args) {
-    System.out.println("=== JAVA DESIGN PATTERNS ===");
+    System.out.println("=== JAVA DESIGN PATTERNS — ALL DEMOS ===");
     System.out.println(
-        "1. Payment Factory -> "
-            + new PaymentGatewayFactoryDemo.PaymentGatewayFactory()
-                .create(PaymentGatewayFactoryDemo.Provider.STRIPE)
-                .charge(100));
-    System.out.println(
-        "2. Payment Strategy -> " + new PaymentStrategyDemo.PaymentService().pay("UPI", 500));
-    List<String> audit = new ArrayList<>();
-    var decorated =
-        new PaymentDecoratorDemo.LoggingDecorator(
-            new PaymentDecoratorDemo.MetricsDecorator(
-                new PaymentDecoratorDemo.BasicPayment(), new AtomicInteger()),
-            audit);
-    System.out.println("3. Payment Decorator -> " + decorated.process(120));
-    var auth = new PaymentValidationChainDemo.AuthenticationValidator();
-    auth.linkWith(new PaymentValidationChainDemo.AmountValidator())
-        .linkWith(new PaymentValidationChainDemo.FraudValidator());
-    System.out.println(
-        "4. Payment Chain -> "
-            + auth.validate(new PaymentValidationChainDemo.PaymentRequest("u1", 100, false, true)));
-    var payment = new PaymentStateDemo.Payment();
-    payment.authorize();
-    payment.capture();
-    payment.settle();
-    payment.complete();
-    System.out.println("5. Payment State -> " + payment.state());
-    var bus = new PaymentObserverDemo.PaymentEventBus();
-    var observer = new PaymentObserverDemo.CollectingObserver("audit");
-    bus.register(observer);
-    bus.publish(new PaymentObserverDemo.PaymentCompletedEvent("pay-1", 100));
-    System.out.println("6. Payment Observer -> " + observer.received());
-    System.out.println(
-        "7. Payment Facade -> "
-            + new PaymentFacadeDemo.PaymentFacade().processPayment("acct-1", 300));
-    var publisher = new KafkaEventFlowDemo.InMemoryEventPublisher();
-    publisher.register(
-        event -> System.out.println("8. Kafka Notification Consumer -> " + event.paymentId()));
-    publisher.publish(new KafkaEventFlowDemo.PaymentCreatedEvent("pay-2", 200));
-    System.out.println(
-        "9. Banking Adapter -> "
-            + com.example.designpatterns.realworld.banking.BankingPatternShowcase
-                .legacySettlement());
-    System.out.println(
-        "10. Order Composite -> "
-            + new OrderCompositeDemo.Bundle()
-                .add(new OrderCompositeDemo.Product("book", 20))
-                .add(new OrderCompositeDemo.Product("bag", 80))
-                .total());
-    var receiver = new PaymentCommandDemo.PaymentReceiver();
-    var invoker = new PaymentCommandDemo.CommandInvoker();
-    invoker.submit(new PaymentCommandDemo.RefundPaymentCommand(receiver, "pay-3"));
-    System.out.println("11. Command -> " + invoker.runNext());
-    System.out.println(
-        "12. Combined Payment System -> "
-            + new PaymentProcessingSystem.PaymentFacade()
-                .process(
-                    new PaymentProcessingSystem.PaymentRequest(
-                        "cust-1", "acct-9", "CARD", 900, "STRIPE"))
-                .status());
+        "Running 23 GoF demos plus Kafka and combined payment system in catalog order.");
+    System.out.println();
+
+    // Creational
+    ConfigManagerDemo.run();
+    System.out.println();
+    PaymentGatewayFactoryDemo.run();
+    System.out.println();
+    RegionalBankingFactoryDemo.run();
+    System.out.println();
+    PaymentTransactionBuilderDemo.run();
+    System.out.println();
+    ReportConfigurationPrototypeDemo.run();
+    System.out.println();
+
+    // Structural
+    LegacyPaymentAdapterDemo.run();
+    System.out.println();
+    NotificationBridgeDemo.run();
+    System.out.println();
+    OrderCompositeDemo.run();
+    System.out.println();
+    PaymentDecoratorDemo.run();
+    System.out.println();
+    PaymentFacadeDemo.run();
+    System.out.println();
+    CurrencyFlyweightDemo.run();
+    System.out.println();
+    PaymentServiceProxyDemo.run();
+    System.out.println();
+
+    // Behavioral
+    PaymentValidationChainDemo.run();
+    System.out.println();
+    PaymentCommandDemo.run();
+    System.out.println();
+    TransactionRuleInterpreterDemo.run();
+    System.out.println();
+    TransactionIteratorDemo.run();
+    System.out.println();
+    OrderProcessingMediatorDemo.run();
+    System.out.println();
+    PaymentConfigurationMementoDemo.run();
+    System.out.println();
+    PaymentObserverDemo.run();
+    System.out.println();
+    PaymentStateDemo.run();
+    System.out.println();
+    PaymentStrategyDemo.run();
+    System.out.println();
+    PaymentProcessingTemplateDemo.run();
+    System.out.println();
+    AccountVisitorDemo.run();
+    System.out.println();
+
+    // Real-world
+    KafkaEventFlowDemo.run();
+    System.out.println();
+    PaymentProcessingSystem.run();
+
+    System.out.println();
+    System.out.println("ALL DEMOS COMPLETE");
   }
 }

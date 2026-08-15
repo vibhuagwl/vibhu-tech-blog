@@ -60,4 +60,19 @@ public class PaymentProcessingTemplateDemo {
       steps.add("process-upi");
     }
   }
+
+  public static void run() {
+    System.out.println("=== Template Method — PaymentProcessingTemplateDemo ===");
+    System.out.println("STEP 1: CardProcessor defines fixed skeleton with card-specific process()");
+    var cardSteps = new CardProcessor().execute();
+    System.out.println("  Card steps: " + cardSteps);
+    System.out.println("STEP 2: UpiProcessor overrides only the process hook");
+    var upiSteps = new UpiProcessor().execute();
+    System.out.println("  UPI steps: " + upiSteps);
+    System.out.println("STEP 3: Skeleton order stays identical; only middle step varies");
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

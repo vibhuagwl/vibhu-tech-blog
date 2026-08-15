@@ -49,4 +49,17 @@ public class OrderProcessingMediatorDemo {
       return "order-complete:" + orderId;
     }
   }
+
+  public static void run() {
+    System.out.println("=== Mediator — OrderProcessingMediatorDemo ===");
+    System.out.println("STEP 1: Client talks only to OrderProcessingMediator");
+    Mediator mediator = new OrderProcessingMediator();
+    System.out.println("STEP 2: placeOrder coordinates payment, inventory, and notification");
+    System.out.println("STEP 3: Mediator returns single outcome after orchestrating colleagues");
+    System.out.println("  Result: " + mediator.placeOrder("order-777"));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

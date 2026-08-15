@@ -60,4 +60,22 @@ public class AccountVisitorDemo {
       return account.principal() * 0.11;
     }
   }
+
+  public static void run() {
+    System.out.println("=== Visitor — AccountVisitorDemo ===");
+    System.out.println("STEP 1: Create accounts of different types (stable structure)");
+    Account savings = new SavingsAccount(10000);
+    Account current = new CurrentAccount(5000);
+    Account loan = new LoanAccount(20000);
+    System.out.println("STEP 2: InterestCalculationVisitor applies type-specific logic");
+    var visitor = new InterestCalculationVisitor();
+    System.out.println("STEP 3: accept(visitor) double-dispatches to correct visit method");
+    System.out.println("  Savings interest: " + savings.accept(visitor));
+    System.out.println("  Current interest: " + current.accept(visitor));
+    System.out.println("  Loan interest: " + loan.accept(visitor));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

@@ -41,4 +41,22 @@ public class PaymentConfigurationMementoDemo {
       return gateway;
     }
   }
+
+  public static void run() {
+    System.out.println("=== Memento — PaymentConfigurationMementoDemo ===");
+    System.out.println("STEP 1: Start with gateway=STRIPE, timeout=30");
+    var config = new PaymentConfiguration("STRIPE", 30);
+    System.out.println("  Initial gateway: " + config.gateway());
+    System.out.println("STEP 2: save() captures opaque Snapshot (memento)");
+    Snapshot snapshot = config.save();
+    System.out.println("STEP 3: Change config, then restore(snapshot) for undo");
+    config = new PaymentConfiguration("ADYEN", 60);
+    System.out.println("  After edit: " + config.gateway());
+    config.restore(snapshot);
+    System.out.println("  After restore: " + config.gateway());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

@@ -43,4 +43,20 @@ public class PaymentServiceProxyDemo {
       return cache.computeIfAbsent(paymentId, id -> delegate.fetchStatus(id, token));
     }
   }
+
+  public static void run() {
+    System.out.println("=== Proxy — PaymentServiceProxyDemo ===");
+    System.out.println("STEP 1: Wrap RealPaymentService with PaymentServiceProxy (access + cache)");
+    PaymentService proxy = new PaymentServiceProxy(new RealPaymentService());
+    System.out.println("STEP 2: Authorized call fetches status from delegate");
+    var first = proxy.fetchStatus("pay-9001", "ALLOW");
+    System.out.println("  First call: " + first);
+    System.out.println("STEP 3: Second call hits proxy cache (same result, no re-fetch)");
+    var second = proxy.fetchStatus("pay-9001", "ALLOW");
+    System.out.println("  Cached call: " + second);
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

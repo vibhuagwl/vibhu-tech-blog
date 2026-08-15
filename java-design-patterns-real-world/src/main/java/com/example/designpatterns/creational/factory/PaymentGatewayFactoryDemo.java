@@ -55,4 +55,18 @@ public class PaymentGatewayFactoryDemo {
       };
     }
   }
+
+  public static void run() {
+    System.out.println("=== Factory Method — PaymentGatewayFactoryDemo ===");
+    System.out.println("STEP 1: Create PaymentGatewayFactory (centralizes provider branching)");
+    var factory = new PaymentGatewayFactory();
+    System.out.println("STEP 2: Request STRIPE gateway without hard-coding new StripeGateway()");
+    var gateway = factory.create(Provider.STRIPE);
+    System.out.println("STEP 3: Charge amount through the product interface");
+    System.out.println("  Result: " + gateway.charge(100));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

@@ -60,4 +60,24 @@ public class PaymentValidationChainDemo {
       return request.accountActive() ? "OK" : "ACCOUNT_BLOCKED";
     }
   }
+
+  public static void run() {
+    System.out.println("=== Chain of Responsibility — PaymentValidationChainDemo ===");
+    System.out.println("STEP 1: Link validators: Authentication → Amount → Fraud → Account");
+    var chain = new AuthenticationValidator();
+    chain
+        .linkWith(new AmountValidator())
+        .linkWith(new FraudValidator())
+        .linkWith(new AccountValidator());
+    System.out.println("STEP 2: Build valid payment request");
+    var valid = new PaymentRequest("user-1", 500, false, true);
+    System.out.println("STEP 3: validate() walks chain until a handler rejects or all pass");
+    System.out.println("  Valid request: " + chain.validate(valid));
+    var fraud = new PaymentRequest("user-1", 500, true, true);
+    System.out.println("  Fraud flagged: " + chain.validate(fraud));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

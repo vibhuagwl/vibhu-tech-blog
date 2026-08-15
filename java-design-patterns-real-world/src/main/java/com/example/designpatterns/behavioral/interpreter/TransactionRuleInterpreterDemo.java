@@ -48,4 +48,22 @@ public class TransactionRuleInterpreterDemo {
         new AmountGreaterThan(Integer.parseInt(tokens.get(2))),
         new CountryEquals(tokens.get(6).replace("\"", "")));
   }
+
+  public static void run() {
+    System.out.println("=== Interpreter — TransactionRuleInterpreterDemo ===");
+    System.out.println("STEP 1: Parse rule string into expression AST");
+    String rule = "amount > 1000 AND country = \"IN\"";
+    Expression expression = parse(rule);
+    System.out.println("  Rule: " + rule);
+    System.out.println("STEP 2: Evaluate against transaction below threshold");
+    var small = new Transaction(500, "IN");
+    System.out.println("  amount=500, country=IN → " + expression.interpret(small));
+    System.out.println("STEP 3: Evaluate against transaction matching both conditions");
+    var large = new Transaction(1500, "IN");
+    System.out.println("  amount=1500, country=IN → " + expression.interpret(large));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

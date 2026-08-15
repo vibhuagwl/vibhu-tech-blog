@@ -76,4 +76,21 @@ public class PaymentCommandDemo {
       return queue.removeFirst().execute();
     }
   }
+
+  public static void run() {
+    System.out.println("=== Command — PaymentCommandDemo ===");
+    System.out.println("STEP 1: Create PaymentReceiver and CommandInvoker queue");
+    var receiver = new PaymentReceiver();
+    var invoker = new CommandInvoker();
+    System.out.println("STEP 2: Submit CreatePaymentCommand and RefundPaymentCommand");
+    invoker.submit(new CreatePaymentCommand(receiver, "pay-cmd-1"));
+    invoker.submit(new RefundPaymentCommand(receiver, "pay-cmd-1"));
+    System.out.println("STEP 3: Invoker executes commands without knowing receiver details");
+    System.out.println("  Execute #1: " + invoker.runNext());
+    System.out.println("  Execute #2: " + invoker.runNext());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

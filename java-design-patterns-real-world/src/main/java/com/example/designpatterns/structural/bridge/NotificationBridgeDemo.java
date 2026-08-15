@@ -61,4 +61,21 @@ public class NotificationBridgeDemo {
       return provider.send("SMS", message);
     }
   }
+
+  public static void run() {
+    System.out.println("=== Bridge — NotificationBridgeDemo ===");
+    System.out.println("STEP 1: Choose SNS as the transport Provider (Implementor)");
+    Provider provider = new SnsProvider();
+    System.out.println("STEP 2: Compose EmailNotification without subclass explosion");
+    var email = new EmailNotification(provider);
+    System.out.println(
+        "STEP 3: Send message — abstraction picks channel, provider handles transport");
+    System.out.println("  Email via SNS: " + email.send("Payment receipt ready"));
+    var sms = new SmsNotification(new TwilioProvider());
+    System.out.println("  SMS via Twilio: " + sms.send("OTP 123456"));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

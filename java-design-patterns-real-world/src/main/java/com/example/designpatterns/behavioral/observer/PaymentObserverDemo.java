@@ -54,4 +54,23 @@ public class PaymentObserverDemo {
       return received;
     }
   }
+
+  public static void run() {
+    System.out.println("=== Observer — PaymentObserverDemo ===");
+    System.out.println("STEP 1: Register CollectingObserver on PaymentEventBus");
+    var bus = new PaymentEventBus();
+    var auditObserver = new CollectingObserver("audit");
+    var analyticsObserver = new CollectingObserver("analytics");
+    bus.register(auditObserver);
+    bus.register(analyticsObserver);
+    System.out.println("STEP 2: publish PaymentCompletedEvent to all subscribers");
+    bus.publish(new PaymentCompletedEvent("pay-obs-1", 450));
+    System.out.println("STEP 3: Each observer records event independently");
+    System.out.println("  Audit received: " + auditObserver.received());
+    System.out.println("  Analytics received: " + analyticsObserver.received());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

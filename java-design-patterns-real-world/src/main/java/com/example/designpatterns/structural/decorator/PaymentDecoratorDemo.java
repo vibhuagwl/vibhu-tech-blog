@@ -111,4 +111,23 @@ public class PaymentDecoratorDemo {
       throw last;
     }
   }
+
+  public static void run() {
+    System.out.println("=== Decorator — PaymentDecoratorDemo ===");
+    System.out.println("STEP 1: Wrap BasicPayment with MetricsDecorator then LoggingDecorator");
+    var audit = new java.util.ArrayList<String>();
+    var metrics = new AtomicInteger();
+    PaymentProcessor processor =
+        new LoggingDecorator(new MetricsDecorator(new BasicPayment(), metrics), audit);
+    System.out.println("STEP 2: process(120) runs core logic plus cross-cutting wrappers");
+    var result = processor.process(120);
+    System.out.println("  Result: " + result);
+    System.out.println("STEP 3: Inspect audit trail and success counter");
+    System.out.println("  Audit: " + audit);
+    System.out.println("  Success count: " + metrics.get());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

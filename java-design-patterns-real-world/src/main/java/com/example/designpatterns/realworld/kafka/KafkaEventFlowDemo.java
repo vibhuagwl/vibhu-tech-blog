@@ -18,4 +18,24 @@ public class KafkaEventFlowDemo {
       consumers.forEach(c -> c.accept(event));
     }
   }
+
+  public static void run() {
+    System.out.println("=== Kafka Event Flow — KafkaEventFlowDemo ===");
+    System.out.println("STEP 1: Create InMemoryEventPublisher (stand-in for Kafka producer)");
+    var publisher = new InMemoryEventPublisher();
+    System.out.println("STEP 2: Register consumer that prints payment notifications");
+    publisher.register(
+        event ->
+            System.out.println(
+                "  Consumer received paymentId="
+                    + event.paymentId()
+                    + ", amount="
+                    + event.amount()));
+    System.out.println("STEP 3: publish PaymentCreatedEvent fans out to all consumers");
+    publisher.publish(new PaymentCreatedEvent("pay-kafka-1", 750));
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

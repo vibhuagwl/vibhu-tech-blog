@@ -32,4 +32,26 @@ public class TransactionIteratorDemo {
       return items.iterator();
     }
   }
+
+  public static void run() {
+    System.out.println("=== Iterator — TransactionIteratorDemo ===");
+    System.out.println("STEP 1: Load transactions into TransactionRepository");
+    var repo =
+        new TransactionRepository(
+            List.of(
+                new Transaction("tx-1", 100),
+                new Transaction("tx-2", 250),
+                new Transaction("tx-3", 75)));
+    System.out.println("STEP 2: Obtain Iterator without exposing internal list");
+    System.out.println("STEP 3: Traverse with enhanced-for (uses iterator() under the hood)");
+    var lines = new java.util.ArrayList<String>();
+    for (Transaction tx : repo) {
+      lines.add(tx.id() + "=" + tx.amount());
+    }
+    System.out.println("  Visited: " + lines);
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

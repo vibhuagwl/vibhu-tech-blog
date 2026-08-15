@@ -74,4 +74,21 @@ public class PaymentFacadeDemo {
       return new PaymentOutcome("success", reference, steps);
     }
   }
+
+  public static void run() {
+    System.out.println("=== Facade — PaymentFacadeDemo ===");
+    System.out.println("STEP 1: Client uses PaymentFacade instead of five subsystem services");
+    var facade = new PaymentFacade();
+    System.out.println(
+        "STEP 2: processDetailed orchestrates fraud, account, charge, notify, audit");
+    PaymentOutcome outcome = facade.processDetailed("acct-555", 300);
+    System.out.println("STEP 3: Single outcome summarizes status, reference, and steps");
+    System.out.println("  Status: " + outcome.status());
+    System.out.println("  Reference: " + outcome.reference());
+    System.out.println("  Steps: " + outcome.steps());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }

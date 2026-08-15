@@ -116,4 +116,20 @@ public class PaymentStrategyDemo {
       return strategy.pay(request);
     }
   }
+
+  public static void run() {
+    System.out.println("=== Strategy — PaymentStrategyDemo ===");
+    System.out.println("STEP 1: PaymentService resolves strategy via PaymentMethodRouter");
+    var service = new PaymentService();
+    System.out.println("STEP 2: Pay with UPI strategy (runtime algorithm selection)");
+    System.out.println("  UPI: " + service.pay("UPI", 500));
+    System.out.println("STEP 3: Pay with CARD strategy (different algorithm, same context)");
+    var receipt =
+        service.process(PaymentMethod.CARD, new PaymentRequest("cust-9", 900, "USD", true));
+    System.out.println("  CARD receipt: " + receipt.provider() + " — " + receipt.message());
+  }
+
+  public static void main(String[] args) {
+    run();
+  }
 }
