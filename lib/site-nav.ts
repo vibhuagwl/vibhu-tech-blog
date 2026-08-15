@@ -19,6 +19,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     description:'Design systems and distributed foundations',
     topics:[
       {href:'/system-design',label:'System Design',blurb:'HLD problems, estimation, Staff follow-ups'},
+      {href:'/microservices-patterns',label:'Microservices Patterns',blurb:'154 patterns · Java 21 code · saga · outbox · 500 Qs'},
       {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking, messaging, resilience, consistency'},
       {href:'/distributed-locking',label:'Distributed Locking',blurb:'Redis · DB · ZK · fencing · Spring Architect'},
       {href:'/load-balancing',label:'Load Balancing',blurb:'L4/L7 · ALB/NLB · algorithms · API GW · AWS'},
