@@ -1,0 +1,27 @@
+# Copy to terraform.tfvars
+aws_region        = "us-east-1"
+vpc_id            = "vpc-xxxxxxxx"
+public_subnet_ids = ["subnet-pub-a", "subnet-pub-b"]
+
+# Production: put tasks + internal ALB here (requires NAT for ECR pulls)
+private_subnet_ids = ["subnet-priv-a", "subnet-priv-b"]
+
+desired_count = 2
+image_tag     = "latest"
+
+# Restrict edge access (office/VPN CIDR in real prod)
+alb_ingress_cidrs = ["0.0.0.0/0"]
+
+# Optional HTTPS
+# acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxx"
+
+enable_waf     = true
+waf_rate_limit = 2000
+# alarm_email  = "ops@example.com"
+
+# Auto scaling
+enable_autoscaling              = true
+autoscaling_min_capacity        = 2
+autoscaling_max_capacity        = 6
+autoscaling_cpu_target          = 60
+autoscaling_requests_per_target = 1000

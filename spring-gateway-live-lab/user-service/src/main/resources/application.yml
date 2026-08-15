@@ -1,0 +1,28 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-service
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    registry-fetch-interval-seconds: 3
+  instance:
+    prefer-ip-address: true
+    # Shown in Eureka UI / useful for multi-instance demos
+    instance-id: ${spring.application.name}:${server.port}:${INSTANCE_ID:user-1}
+    metadata-map:
+      instance: ${INSTANCE_ID:user-1}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: INFO

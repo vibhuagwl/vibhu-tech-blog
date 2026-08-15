@@ -1,0 +1,76 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      # Phase 2+ — discover instances via Eureka, pick one with LoadBalancer
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            # /api/users/101  →  /users/101
+            - StripPrefix=1
+            - AddRequestHeader=X-Gateway, api-gateway-phase3
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-Gateway, api-gateway-phase3
+        # Banking: money path — CB fail-closed (see FallbackRoutesConfig); no Retry on POST
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-Gateway, api-gateway-phase3
+            - name: CircuitBreaker
+              args:
+                name: paymentServiceCB
+                fallbackUri: forward:/fallback/payments
+    loadbalancer:
+      # Phase 3 demo: short cache so a newly registered replica appears quickly.
+      # Default RoundRobinLoadBalancer rotates across instances in the cache.
+      cache:
+        ttl: 5s
+        capacity: 256
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    registry-fetch-interval-seconds: 3
+  instance:
+    prefer-ip-address: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      paymentServiceCB:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 40
+        waitDurationInOpenState: 15s
+  timelimiter:
+    instances:
+      paymentServiceCB:
+        timeoutDuration: 3s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.loadbalancer: INFO
