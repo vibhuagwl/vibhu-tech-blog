@@ -24,6 +24,90 @@ api-gateway (ECS Fargate)  profile=aws
    └──────────────► order-service tasks
 ```
 
+## ALB in front of Spring API Gateway — what we configured
+
+There are **two** load-balancing layers. Do not confuse them:
+
+```text
+Clients
+   │
+   ▼
+① Public ALB :80          ← AWS Application Load Balancer (this section)
+   │  target type = ip (Fargate awsvpc)
+   │  health = GET /actuator/health → 200
+   ▼
+api-gateway tasks :8080   ← Spring Cloud Gateway (ECS service)
+   │  USER_SERVICE_URI / ORDER_SERVICE_URI
+   ▼
+② Cloud Map DNS           ← not an ALB; MULTIVALUE A records for user/order
+```
+
+### Steps (matches `aws/terraform/main.tf`)
+
+1. **Security group for the ALB** (`aws_security_group.alb`)
+   - Inbound: TCP **80** from `0.0.0.0/0`
+   - Outbound: all (so ALB can reach gateway tasks)
+
+2. **Security group for ECS tasks** (`aws_security_group.services`)
+   - Inbound **8080** only from the **ALB SG** (edge → gateway)
+   - Inbound **8081–8082** from **self** (gateway → user/order east-west)
+
+3. **Create internet-facing ALB** (`aws_lb.public`)
+   - Type: `application`
+   - `internal = false`
+   - Subnets: `var.public_subnet_ids` (≥2 AZs)
+   - Attach ALB security group
+
+4. **Target group for api-gateway** (`aws_lb_target_group.gateway`)
+   - Protocol/port: HTTP **8080**
+   - `target_type = ip` (required for Fargate `awsvpc`)
+   - Health check: path `/actuator/health`, matcher `200`, interval 15s
+
+5. **HTTP listener** (`aws_lb_listener.http`)
+   - Port **80**
+   - Default action: **forward** → gateway target group  
+   - (No path rules yet — all traffic goes to Spring Cloud Gateway)
+
+6. **Register gateway with the ALB** (`aws_ecs_service.gateway` → `load_balancer { ... }`)
+   - `container_name = api-gateway`
+   - `container_port = 8080`
+   - `target_group_arn` = gateway TG  
+   - ECS automatically registers/deregisters task IPs as tasks scale
+
+7. **Spring Cloud Gateway (app config, not ALB)**
+   - Profile `aws`: routes `/api/users/**` and `/api/orders/**`
+   - Downstream URIs from env (Cloud Map), **not** Eureka:
+     - `USER_SERVICE_URI=http://user-service.gateway-lab.local:8081`
+     - `ORDER_SERVICE_URI=http://order-service.gateway-lab.local:8082`
+
+8. **Verify**
+   ```bash
+   terraform output alb_url
+   curl -i http://<alb-dns>/actuator/health
+   curl -i http://<alb-dns>/api/users/101
+   curl -i http://<alb-dns>/api/orders/5001
+   ```
+
+### What is *not* behind the public ALB today
+
+| Service | How traffic reaches it |
+|---------|------------------------|
+| `api-gateway` | Public ALB → TG → tasks |
+| `user-service` | Only via gateway + Cloud Map (no public ALB) |
+| `order-service` | Only via gateway + Cloud Map (no public ALB) |
+
+### Console equivalent (same design)
+
+1. EC2 → Load Balancers → Create **Application Load Balancer** (internet-facing, port 80)  
+2. Create target group (IP, port 8080, health `/actuator/health`)  
+3. Listener 80 → forward to that TG  
+4. ECS service `api-gateway` → Load balancing → attach that TG, container port 8080  
+5. SG rules as above  
+
+Terraform already encodes steps 1–6; you only set `vpc_id` + `public_subnet_ids` in `terraform.tfvars`.
+
+---
+
 ## 1) Prove locally (Docker DNS ≈ Cloud Map)
 
 ```bash
