@@ -17,11 +17,12 @@ export const MSC_TOC: TocItem[] = [
   {id: 'antipatterns', label: '13. Anti-patterns'},
   {id: 'choose', label: '14. Which would you choose?'},
   {id: 'incidents', label: '15. Production incidents'},
-  {id: 'spoken', label: '16. 30s / 2m / 5m answers'},
-  {id: 'tricks', label: '17. Trick questions'},
-  {id: 'interview', label: '18. Interview mode'},
-  {id: 'cheatsheet', label: '19. Cheat sheet · TRICKS-OLD'},
-  {id: 'checklist', label: '20. Coverage checklist'},
+  {id: 'failure-matrix', label: '16. Failure matrix'},
+  {id: 'spoken', label: '17. 30s / 2m / 5m answers'},
+  {id: 'tricks', label: '18. Trick questions'},
+  {id: 'interview', label: '19. Interview mode'},
+  {id: 'cheatsheet', label: '20. Cheat sheet · TRICKS-OLD'},
+  {id: 'checklist', label: '21. Coverage checklist'},
 ];
 
 export const MEMORY_SENTENCE =

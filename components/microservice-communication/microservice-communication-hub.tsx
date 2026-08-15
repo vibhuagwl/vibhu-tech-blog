@@ -16,6 +16,7 @@ import {
   CHOOSE_QS,
   COVERAGE_CHECKLIST,
   DECISION_ASCII,
+  FAILURE_MATRIX,
   FRAMEWORK_TRICKS_OLD,
   INCIDENTS,
   MEMORY_RULES,
@@ -343,7 +344,7 @@ export default function MicroserviceCommunicationHub() {
             <StoryWalkthrough />
           </Section>
 
-          <Section id="spoken" title="16. Spoken answers (30s / 2m / 5m Staff)">
+          <Section id="spoken" title="17. Spoken answers (30s / 2m / 5m Staff)">
             <div className="space-y-4">
               {(
                 [
@@ -377,14 +378,26 @@ export default function MicroserviceCommunicationHub() {
             <IncidentBrowser />
           </Section>
 
-          <Section id="interview" title="18. Interview mode">
+          <Section
+            id="failure-matrix"
+            title="16. Failure matrix"
+            lead="What breaks, what you do in the first five minutes, and what you change permanently."
+          >
+            <MiniTable
+              headers={['Failure', 'What happens', 'Temporary mitigation', 'Permanent solution']}
+              rows={FAILURE_MATRIX.map((r) => [r.failure, r.happens, r.temporary, r.permanent])}
+            />
+          </Section>
+
+          <Section id="interview" title="19. Interview mode">
             <InterviewMode />
             <p className="mt-2 text-sm text-slate-500">
-              {RAPID_QS.length} rapid · {TRICK_QS.length} tricks · {ARCHITECT.length} architect bank
+              {RAPID_QS.length} rapid · {TRICK_QS.length} tricks · {ARCHITECT.length} architect bank ·{' '}
+              {INCIDENTS.length} incidents
             </p>
           </Section>
 
-          <Section id="cheatsheet" title="19. Cheat sheet">
+          <Section id="cheatsheet" title="20. Cheat sheet">
             <CodePanel title="Decision tree" code={DECISION_ASCII} />
             <div className="mt-4">
               <MiniTable
@@ -495,7 +508,7 @@ export default function MicroserviceCommunicationHub() {
             </Section>
           )}
 
-          <Section id="tricks" title="17. Trick questions">
+          <Section id="tricks" title="18. Trick questions">
             <div className="space-y-2">
               {TRICK_QS.slice(0, 20).map((q) => (
                 <details key={q.id} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
@@ -508,7 +521,7 @@ export default function MicroserviceCommunicationHub() {
             <p className="mt-2 text-xs text-slate-500">{TRICK_QS.length} tricks — full set in Interview mode</p>
           </Section>
 
-          <Section id="checklist" title="20. Coverage checklist">
+          <Section id="checklist" title="21. Coverage checklist">
             <ul className="grid gap-1 sm:grid-cols-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
               {COVERAGE_CHECKLIST.map((c) => (
                 <li key={c} className="flex gap-2">

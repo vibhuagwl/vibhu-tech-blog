@@ -774,4 +774,54 @@ export const OPTIONS: CommSection[] = [
       },
     ],
   },
+  {
+    id: 'file-object-storage',
+    title: 'File / object storage integration (S3, GCS, Azure Blob)',
+    what:
+      'Large binary or batch payloads land in object storage; microservices coordinate via events or pre-signed URLs — not by treating the bucket as a synchronous RPC bus.',
+    why:
+      'Kafka/REST are poor vehicles for multi-MB artifacts (images, statements, ML features). Object storage is cheap, durable, and parallelizable for blobs.',
+    when:
+      'Document/image pipelines, statement generation, data lake handoffs, partner file drops. Pair with Kafka ObjectReady events or SNS/EventBridge notifications.',
+    how:
+      'Service A writes object (SSE-KMS), publishes event with bucket/key/etag/checksum. Service B consumes event, downloads with IAM role, processes idempotently. Clients use pre-signed GET/PUT without sharing long-lived keys. Spring: AWS SDK v2 S3Client / Spring Cloud AWS.',
+    flow: `Service A
+   |  PutObject
+   v
+ S3 / GCS / Blob
+   |
+   | ObjectReady (Kafka/SNS)
+   v
+ Service B (download + process)`,
+    failure:
+      'Polling shared folders races and misses files. ACL/key coupling across teams. Partial uploads without checksum verification. Event lost → orphan objects — need reconciliation sweeper.',
+    tradeoff:
+      'Pros: cheap large payload, parallel reads. Cons: eventual consistency edge cases, ops for lifecycle/IAM, not request/response latency path.',
+    security:
+      'Bucket policies least privilege; KMS CMK; block public ACLs; short-lived pre-signed URLs; virus scan on ingress; no secrets in object metadata.',
+    observability:
+      'Put/Get latency, 4xx/5xx, incomplete multipart, event→process lag, orphan object count, checksum mismatch rate.',
+    trap:
+      'Using S3 as the only “queue” by polling prefixes — staff will ask about duplicates, ordering, and failure recovery. Answer: event + idempotent consumer + reconciler.',
+    interviewAnswer:
+      'For large payloads I store the blob in S3 and publish a pointer event on Kafka. Consumers download asynchronously with IAM roles and checksum verification. I never put 50MB JSON on Kafka or treat a shared bucket folder as a hidden API between services.',
+    remember: [
+      'Blob in object store + event pointer',
+      'Pre-signed URLs for clients',
+      'IAM per service prefix ownership',
+      'Reconcile orphans; do not poll-only',
+    ],
+    oneLiner: 'Object storage — large payloads + events; not a synchronous service bus.',
+    tables: [
+      {
+        headers: ['Pattern', 'Use', 'Avoid'],
+        rows: [
+          ['Event + pointer', 'Async pipelines', 'Expecting sub-100ms UX'],
+          ['Pre-signed URL', 'Browser/mobile upload', 'Long-lived public objects'],
+          ['Shared prefix poll', 'Legacy batch only', 'Primary microservice contract'],
+          ['Kafka payload inline', '<~1MB rare', 'Multi-MB statements/images'],
+        ],
+      },
+    ],
+  },
 ];
