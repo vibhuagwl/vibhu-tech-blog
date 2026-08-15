@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      # Phase 1 — static URIs (no Eureka yet). Interview: start here, then lb:// later.
+      routes:
+        - id: user-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/**
+          filters:
+            # /api/users/101  →  /users/101
+            - StripPrefix=1
+            - AddRequestHeader=X-Gateway, api-gateway-phase1
+        - id: order-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+            - AddRequestHeader=X-Gateway, api-gateway-phase1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: INFO
