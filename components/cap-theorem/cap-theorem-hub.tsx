@@ -2,31 +2,21 @@
 
 import {useState} from 'react';
 import Link from 'next/link';
-import {CAP_TOC, MEMORY_SENTENCE, VERSION_NOTE} from '@/lib/cap-theorem/toc';
+import {CAP_TOC, CAP_TOC_THEORY, MEMORY_SENTENCE, VERSION_NOTE} from '@/lib/cap-theorem/toc';
 import {SECTIONS_FUND} from '@/lib/cap-theorem/parts-fundamentals';
 import {SECTIONS_MODELS} from '@/lib/cap-theorem/parts-models';
 import {SECTIONS_SYSTEMS} from '@/lib/cap-theorem/parts-systems';
 import {SECTIONS_DESIGN} from '@/lib/cap-theorem/parts-design';
+import {SPOKEN, CHEAT_ROWS, MEMORY_RULES} from '@/lib/cap-theorem/interview';
 import {
-  TRAP_QS,
-  RAPID_QS,
-  SCENARIO_QS,
-  BEHAVIOR_PREDICT,
-  PSEUDO,
-  INCIDENTS,
-  SENIOR_TRADEOFF_QS,
-  SPOKEN,
-  CHEAT_ROWS,
-  DECISION_ASCII,
-  COVERAGE_CHECKLIST,
-  MEMORY_RULES,
-  ALL as INTERVIEW_ALL,
-} from '@/lib/cap-theorem/interview';
-import {CAP_STORIES} from '@/lib/cap-theorem/stories';
+  ARCHITECT_CHEAT,
+  ARCHITECT_PICKS,
+  CAP_STORIES,
+  STORY_MEMORY_STRIP,
+} from '@/lib/cap-theorem/stories';
 import type {CapSection} from '@/lib/cap-theorem/types';
 import StickyToc from './sticky-toc';
 import CodePanel from './code-panel';
-import InterviewMode from './interview-mode';
 import StoryWalkthrough from './story-walkthrough';
 
 const ALL_SECTIONS: CapSection[] = [
@@ -93,39 +83,23 @@ function CapCard({s}: {s: CapSection}) {
     <div className="space-y-4">
       <div className="space-y-3 text-sm leading-7 text-slate-700 dark:text-slate-300">
         <p>
-          <strong>What:</strong> {s.what}
+          <strong>Architect take:</strong> {s.oneLiner}
         </p>
         <p>
-          <strong>Why:</strong> {s.why}
+          <strong>When it bites:</strong> {s.failure}
         </p>
         <p>
-          <strong>How:</strong> {s.how}
-        </p>
-        <p>
-          <strong>Failure:</strong> {s.failure}
-        </p>
-        <p>
-          <strong>Trade-off:</strong> {s.tradeoff}
-        </p>
-        <p>
-          <strong>Tech:</strong> {s.tech}
-        </p>
-        <p>
-          <strong>Interview:</strong> {s.interviewAnswer}
+          <strong>Say in interview:</strong> {s.interviewAnswer}
         </p>
       </div>
-      {s.example && <CodePanel title="Example / diagram" code={s.example} />}
-      {s.tables?.map((t, i) => (
-        <MiniTable key={i} headers={t.headers} rows={t.rows} />
-      ))}
+      {s.example && <CodePanel title="Diagram" code={s.example} />}
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-500">Remember</p>
         <ul className="mt-2 list-disc pl-5 text-sm leading-7 text-slate-700 dark:text-slate-300">
-          {s.remember.map((r) => (
+          {s.remember.slice(0, 4).map((r) => (
             <li key={r}>{r}</li>
           ))}
         </ul>
-        <p className="mt-3 text-sm font-semibold text-slate-900 dark:text-white">One-liner: {s.oneLiner}</p>
         <p className="mt-2 text-sm text-rose-700 dark:text-rose-300">
           <strong>Trap:</strong> {s.trap}
         </p>
@@ -134,138 +108,88 @@ function CapCard({s}: {s: CapSection}) {
   );
 }
 
-function PredictBrowser() {
+function PickDrill() {
   const [idx, setIdx] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const q = BEHAVIOR_PREDICT[idx];
-  if (!q) return null;
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
-      <CodePanel title={`Scenario #${idx + 1}`} code={q.setup} />
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setRevealed(true)}
-          className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
-        >
-          Reveal
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setIdx((i) => (i + 1) % BEHAVIOR_PREDICT.length);
-            setRevealed(false);
-          }}
-          className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800 dark:bg-slate-900 dark:text-slate-100"
-        >
-          Next
-        </button>
-      </div>
-      {revealed && (
-        <div className="mt-4 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-          <p>
-            <strong>Expected:</strong> {q.expected}
-          </p>
-          <p>
-            <strong>Why:</strong> {q.why}
-          </p>
-          <p>
-            <strong>Trade-off:</strong> {q.tradeoff}
-          </p>
-        </div>
-      )}
-      <p className="mt-3 text-xs text-slate-400">
-        {idx + 1} / {BEHAVIOR_PREDICT.length}
-      </p>
-    </div>
-  );
-}
+  const [guess, setGuess] = useState<'CP' | 'AP' | 'Hybrid' | null>(null);
+  const q = ARCHITECT_PICKS[idx];
+  const correct = guess === q.answer;
 
-function ScenarioBrowser() {
-  const [idx, setIdx] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const q = SCENARIO_QS[idx];
-  if (!q) return null;
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
-      <p className="text-lg font-semibold text-slate-900 dark:text-white">{q.title}</p>
-      <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{q.requirements}</p>
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setRevealed(true)}
-          className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
-        >
-          Reveal answer
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setIdx((i) => (i + 1) % SCENARIO_QS.length);
-            setRevealed(false);
-          }}
-          className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-800 dark:bg-slate-900 dark:text-slate-100"
-        >
-          Next
-        </button>
+      <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-500">
+        Scenario {idx + 1} / {ARCHITECT_PICKS.length}
+      </p>
+      <p className="mt-3 text-lg font-semibold text-slate-900 dark:text-white">{q.situation}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {(['CP', 'AP', 'Hybrid'] as const).map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => setGuess(opt)}
+            className={`rounded-lg px-4 py-2 text-sm font-bold ${
+              guess === opt
+                ? opt === q.answer
+                  ? 'bg-emerald-700 text-white'
+                  : 'bg-rose-700 text-white'
+                : 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100'
+            }`}
+          >
+            {opt}
+          </button>
+        ))}
       </div>
-      {revealed && (
+      {guess && (
         <div className="mt-4 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-          <p>
-            <strong>Consistency:</strong> {q.consistency}
+          <p className="font-semibold text-slate-900 dark:text-white">
+            {correct ? 'Yes.' : `Not ${guess} — answer is ${q.answer}.`}
           </p>
           <p>
-            <strong>Availability:</strong> {q.availability}
+            <strong>Say:</strong> {q.say}
           </p>
           <p>
-            <strong>Partition:</strong> {q.partition}
+            <strong>Why not the other:</strong> {q.whyNot}
           </p>
-          <p>
-            <strong>Architecture:</strong> {q.architecture}
-          </p>
-          <p>
-            <strong>Trade-off:</strong> {q.tradeoff}
-          </p>
-          <p>
-            <strong>Failure:</strong> {q.failure}
-          </p>
-          <p>
-            <strong>Recovery:</strong> {q.recovery}
-          </p>
-          <p className="font-semibold text-slate-900 dark:text-white">Spoken: {q.interviewAnswer}</p>
         </div>
       )}
-      <p className="mt-3 text-xs text-slate-400">
-        {idx + 1} / {SCENARIO_QS.length}
-      </p>
+      <button
+        type="button"
+        className="mt-4 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
+        onClick={() => {
+          setIdx((i) => (i + 1) % ARCHITECT_PICKS.length);
+          setGuess(null);
+        }}
+      >
+        Next scenario
+      </button>
     </div>
   );
 }
 
 export default function CapTheoremHub() {
-  const [view, setView] = useState<'stories' | 'reference'>('stories');
+  const [view, setView] = useState<'kit' | 'theory'>('kit');
+  const toc = view === 'kit' ? CAP_TOC : [...CAP_TOC, ...CAP_TOC_THEORY];
 
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
-      <header className="max-w-4xl">
+      <header className="max-w-3xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Story-first · Diagrams · Whiteboard · Staff system design
+          Architect interview kit · Draw · Decide · Speak
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          CAP Theorem — Interview Stories You Can Draw
+          CAP in 5 pictures — not a textbook
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Learn CAP as scenes: cut phone line, ATM, likes, concert seats, two CEOs, Kafka receipts, saga kitchen.
-          Speak the story, draw the fork, then open the deep reference only when you need it.
+          Forget long definitions. In the interview you draw two boxes, cut the wire, and pick{' '}
+          <strong>Correct</strong> or <strong>Answer</strong> for that API. Theory encyclopedia is optional.
         </p>
-        <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
+        <p className="mt-3 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {(
             [
-              ['stories', `Story theater (${CAP_STORIES.length})`],
-              ['reference', 'Full theory reference'],
+              ['kit', 'Interview kit (default)'],
+              ['theory', 'Theory encyclopedia (optional)'],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -282,39 +206,31 @@ export default function CapTheoremHub() {
             </button>
           ))}
         </div>
-        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
+        <p className="mt-3 text-sm text-slate-500">
           {VERSION_NOTE}{' '}
-          <Link href="/distributed-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Locking
+          <Link href="/microservice-communication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            How services talk
           </Link>
           {' · '}
           <Link href="/kafka-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Kafka
           </Link>
-          {' · '}
-          <Link href="/microservices-patterns" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Microservices
-          </Link>
-          {' · '}
-          <Link href="/system-design" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            System Design
-          </Link>
         </p>
       </header>
 
-      <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
-        <StickyToc items={CAP_TOC} />
-        <div className="min-w-0 space-y-16">
+      <div className="mt-10 grid gap-10 xl:grid-cols-[220px_minmax(0,1fr)]">
+        <StickyToc items={toc} />
+        <div className="min-w-0 space-y-14">
           <Section
-            id="overview"
-            title="00. Start here"
-            lead="One sentence: when the wire between replicas breaks, you either stay correct or stay answering — not both with a guarantee."
+            id="decide"
+            title="01. 30-second decision"
+            lead="This is the only CAP fork you must remember under pressure."
           >
             <div className="grid gap-3 sm:grid-cols-3">
               {[
-                ['C', 'Consistency', 'One correct latest answer — or refuse'],
-                ['A', 'Availability', 'Live node still answers — maybe stale'],
-                ['P', 'Partition', 'The cut will happen (multi-AZ / region)'],
+                ['C', 'Correct', 'Latest truth — or refuse'],
+                ['A', 'Answer', 'Live node replies — maybe stale'],
+                ['P', 'Partition', 'The cut will happen'],
               ].map(([k, t, d]) => (
                 <div
                   key={k}
@@ -326,18 +242,19 @@ export default function CapTheoremHub() {
                 </div>
               ))}
             </div>
+            <pre className="mt-4 overflow-x-auto rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 font-mono text-xs leading-6 text-slate-800 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">{`Wire cut?
+  YES → Money/seats?  YES → CP (reject)
+                 NO  → AP (answer stale OK)
+  NO  → Multi-region? YES → PACELC (fast vs strong)
+                 NO  → still size for failure`}</pre>
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                `${CAP_STORIES.length} drawable stories`,
-                `${TRAP_QS.length} trap Qs`,
-                `${RAPID_QS.length} rapid-fire`,
-                `${INTERVIEW_ALL.length} interview prompts`,
-              ].map((x) => (
+              {STORY_MEMORY_STRIP.slice(0, 4).map((m) => (
                 <div
-                  key={x}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:text-slate-300"
+                  key={m.title}
+                  className="rounded-xl border border-slate-200 px-3 py-2 dark:border-slate-800"
                 >
-                  {x}
+                  <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-slate-500">{m.title}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{m.line}</p>
                 </div>
               ))}
             </div>
@@ -345,19 +262,19 @@ export default function CapTheoremHub() {
 
           <Section
             id="stories"
-            title="Interview story theater"
-            lead="Click a story → see the diagram → memorize the one-liner → rehearse the 60s answer."
+            title="02. Draw these stories"
+            lead={`${CAP_STORIES.length} scenes. Click → diagram → one-liner. That is what sticks in interviews.`}
           >
             <StoryWalkthrough />
           </Section>
 
-          <Section id="spoken" title="Spoken answers (60s / 2m / Staff)">
+          <Section id="spoken" title="03. Say this out loud">
             <div className="space-y-4">
               {(
                 [
                   ['60 seconds', SPOKEN.sixtySec],
                   ['2 minutes', SPOKEN.twoMin],
-                  ['Staff / Principal', SPOKEN.staff],
+                  ['Staff close', SPOKEN.staff],
                 ] as const
               ).map(([label, text]) => (
                 <div
@@ -370,181 +287,77 @@ export default function CapTheoremHub() {
               ))}
             </div>
             <div className="mt-6">
-              <p className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-100">Memory rules</p>
               <MiniTable
-                headers={['Title', 'Rule']}
-                rows={MEMORY_RULES.map((m) => [m.title, m.rule])}
+                headers={['Memory', 'Line']}
+                rows={MEMORY_RULES.slice(0, 8).map((m) => [m.title, m.rule])}
               />
             </div>
           </Section>
 
-          <Section id="design-qs" title="Design scenarios (story answers)" lead="Walk requirements → partition behavior → spoken answer.">
-            <ScenarioBrowser />
+          <Section
+            id="picks"
+            title="04. Pick CP or AP"
+            lead="Train the reflex. Guess → hear the one sentence you should say."
+          >
+            <PickDrill />
           </Section>
 
-          <Section id="predict" title="Predict behavior" lead="N/W/R, partitions, Kafka acks, Cassandra CL, split brain.">
-            <PredictBrowser />
+          <Section id="cheat" title="05. One-page cheat">
+            <CodePanel title="Architect cheat sheet" code={ARCHITECT_CHEAT} />
+            <div className="mt-4">
+              <MiniTable
+                headers={['Term', 'Rule', 'Trap']}
+                rows={CHEAT_ROWS.slice(0, 12).map((r) => [r.term, r.rule, r.trap])}
+              />
+            </div>
           </Section>
 
-          <Section id="interview" title="Interview mode" lead="Drill Senior, Architect, or Rapid banks.">
-            <InterviewMode />
+          <Section id="drill" title="06. Quick drill">
+            <p className="mb-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Repeat until automatic: cut phone → money CP / likes AP → slice the product → add PACELC if
+              multi-region.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {STORY_MEMORY_STRIP.map((m) => (
+                <div
+                  key={m.title}
+                  className="rounded-xl border border-slate-200 px-3 py-3 dark:border-slate-800"
+                >
+                  <p className="text-xs font-bold uppercase tracking-[.12em] text-slate-500">{m.title}</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900 dark:text-white">{m.line}</p>
+                </div>
+              ))}
+            </div>
           </Section>
 
-          {view === 'reference' && (
+          {view === 'kit' && (
+            <Section
+              id="theory-hint"
+              title="Need definitions?"
+              lead="Only if the interviewer asks for Gilbert/Lynch depth — most Staff rounds want the design fork above."
+            >
+              <button
+                type="button"
+                onClick={() => setView('theory')}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Open theory encyclopedia
+              </button>
+            </Section>
+          )}
+
+          {view === 'theory' && (
             <>
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                Optional depth. Prefer the Interview kit for recall. Each card is trimmed to architect take +
+                trap.
+              </p>
               {ALL_SECTIONS.map((s) => (
                 <Section key={s.id} id={s.id} title={s.title} lead={s.oneLiner}>
                   <CapCard s={s} />
                 </Section>
               ))}
-
-              <Section id="traps" title="Interview traps" lead="Correct the misconceptions interviewers bait with.">
-                <div className="space-y-3">
-                  {TRAP_QS.slice(0, 12).map((q) => (
-                    <details
-                      key={q.id}
-                      className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
-                    >
-                      <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{q.question}</summary>
-                      <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-                        <p>{q.answer30s}</p>
-                        <p>{q.answer2m}</p>
-                        {q.trick && (
-                          <p className="text-rose-700 dark:text-rose-300">Trap: {q.trick}</p>
-                        )}
-                      </div>
-                    </details>
-                  ))}
-                  <p className="text-sm text-slate-500">
-                    {TRAP_QS.length} traps total — full set in Interview mode + Architect bank.
-                  </p>
-                </div>
-              </Section>
-
-              <Section id="rapid" title="Rapid-fire bank" lead={`${RAPID_QS.length} one-liners for warm-ups.`}>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {RAPID_QS.slice(0, 20).map((q) => (
-                    <details
-                      key={q.id}
-                      className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800"
-                    >
-                      <summary className="cursor-pointer font-medium text-slate-800 dark:text-slate-100">{q.question}</summary>
-                      <p className="mt-2 text-slate-600 dark:text-slate-300">{q.answer30s}</p>
-                    </details>
-                  ))}
-                </div>
-                <p className="mt-3 text-sm text-slate-500">Use Interview mode → Rapid for the full {RAPID_QS.length}.</p>
-              </Section>
-
-              <Section id="pseudocode" title="Pseudocode exercises">
-                <div className="space-y-6">
-                  {PSEUDO.map((p) => (
-                    <div key={p.id} className="space-y-3">
-                      <h3 className="text-xl font-semibold text-slate-900 dark:text-white">{p.title}</h3>
-                      <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">{p.statement}</p>
-                      <p className="text-sm text-slate-700 dark:text-slate-300">
-                        <strong>Approach:</strong> {p.approach}
-                      </p>
-                      <CodePanel title="Java-oriented pseudocode" code={p.code} />
-                      <p className="text-xs text-slate-500">
-                        {p.complexity} · Edges: {p.edgeCases.join('; ')}
-                      </p>
-                      <p className="text-sm italic text-slate-600 dark:text-slate-400">{p.interviewExplain}</p>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-
-              <Section id="incidents" title="Production incidents">
-                <div className="space-y-3">
-                  {INCIDENTS.map((inc) => (
-                    <details
-                      key={inc.id}
-                      className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
-                    >
-                      <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{inc.title}</summary>
-                      <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-                        <p>
-                          <strong>Symptom:</strong> {inc.symptom}
-                        </p>
-                        <p>
-                          <strong>Cause:</strong> {inc.cause}
-                        </p>
-                        <p>
-                          <strong>Investigate:</strong> {inc.investigate}
-                        </p>
-                        <p>
-                          <strong>Fix:</strong> {inc.fix}
-                        </p>
-                        <p>
-                          <strong>Prevent:</strong> {inc.prevent}
-                        </p>
-                      </div>
-                    </details>
-                  ))}
-                </div>
-              </Section>
-
-              <Section id="senior-tradeoffs" title="Senior / Staff trade-off questions">
-                <div className="space-y-3">
-                  {SENIOR_TRADEOFF_QS.map((q) => (
-                    <details
-                      key={q.id}
-                      className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
-                    >
-                      <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{q.question}</summary>
-                      <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-                        <p>{q.answer30s}</p>
-                        <p>{q.answer2m}</p>
-                      </div>
-                    </details>
-                  ))}
-                </div>
-              </Section>
-
-              <Section id="cheatsheet" title="Cheat sheet">
-                <MiniTable
-                  headers={['Term', 'Purpose', 'Key rule', 'Trap']}
-                  rows={CHEAT_ROWS.map((r) => [r.term, r.purpose, r.rule, r.trap])}
-                />
-                <div className="mt-6">
-                  <CodePanel title="Decision tree" code={DECISION_ASCII} />
-                </div>
-              </Section>
-
-              <Section id="checklist" title="Coverage checklist">
-                <ul className="grid gap-1 sm:grid-cols-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
-                  {COVERAGE_CHECKLIST.map((c) => (
-                    <li key={c} className="flex gap-2">
-                      <span className="text-emerald-600">✓</span>
-                      <span>{c}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Section>
             </>
-          )}
-
-          {view === 'stories' && (
-            <Section
-              id="reference-hint"
-              title="Need the deep theory?"
-              lead="Switch to Full theory reference for every CapSection, traps, Kafka knobs, and the checklist — kept out of the way so stories stay first."
-            >
-              <button
-                type="button"
-                onClick={() => setView('reference')}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-              >
-                Open full theory reference
-              </button>
-              <div className="mt-6">
-                <MiniTable
-                  headers={['Term', 'Purpose', 'Key rule', 'Trap']}
-                  rows={CHEAT_ROWS.slice(0, 12).map((r) => [r.term, r.purpose, r.rule, r.trap])}
-                />
-              </div>
-            </Section>
           )}
         </div>
       </div>

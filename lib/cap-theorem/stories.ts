@@ -413,3 +413,94 @@ export const STORY_MEMORY_STRIP = [
   {title: 'Two CEOs', line: 'Fence one'},
   {title: 'PACELC', line: 'Accident + commute'},
 ];
+
+/** Flash picks — architect interview, not textbook. */
+export const ARCHITECT_PICKS: {
+  id: string;
+  situation: string;
+  answer: 'CP' | 'AP' | 'Hybrid';
+  say: string;
+  whyNot: string;
+}[] = [
+  {
+    id: 'p1',
+    situation: 'Bank transfer while AZs cannot talk',
+    answer: 'CP',
+    say: 'Refuse or queue until quorum. Wrong balance is worse than 503.',
+    whyNot: 'AP would risk double-spend / invent money.',
+  },
+  {
+    id: 'p2',
+    situation: 'Like counter / view count during region split',
+    answer: 'AP',
+    say: 'Keep serving; merge later. Brief wrong count is OK.',
+    whyNot: 'Rejecting Likes feels broken for no money risk.',
+  },
+  {
+    id: 'p3',
+    situation: 'Last concert seat — two buyers',
+    answer: 'CP',
+    say: 'Only majority side sells. One winner.',
+    whyNot: 'AP oversell = refunds / lawsuits.',
+  },
+  {
+    id: 'p4',
+    situation: 'Product catalog browse vs checkout reserve',
+    answer: 'Hybrid',
+    say: 'Browse AP (stale OK). Reserve/pay CP.',
+    whyNot: 'One CAP stamp for whole shop is wrong.',
+  },
+  {
+    id: 'p5',
+    situation: 'DNS / CDN edge cache',
+    answer: 'AP',
+    say: 'TTL stale by design — keep answering.',
+    whyNot: 'Global strong DNS on every lookup is too slow.',
+  },
+  {
+    id: 'p6',
+    situation: 'Payment auth + ledger write',
+    answer: 'CP',
+    say: 'Idempotent + quorum/leader. Never guess success.',
+    whyNot: 'AP “success” that later vanishes destroys trust.',
+  },
+  {
+    id: 'p7',
+    situation: 'Search index / recommendations',
+    answer: 'AP',
+    say: 'Eventual index is fine; serve local.',
+    whyNot: 'Blocking search on remote quorum kills UX.',
+  },
+  {
+    id: 'p8',
+    situation: 'Multi-region read when network is healthy',
+    answer: 'Hybrid',
+    say: 'PACELC: local fast (L) vs sync strong (C). Pick per API.',
+    whyNot: 'CAP alone ignores the daily latency trade.',
+  },
+];
+
+export const ARCHITECT_CHEAT = `
+WHEN THE WIRE CUTS (partition)
+  Money / seats / ledger     → CP  (reject > wrong)
+  Likes / feed / CDN / search → AP  (answer > perfect)
+
+SAME PRODUCT
+  Slice CAP per API — never tattoo the whole app CP or AP
+
+HEALTHY MULTI-REGION (no cut)
+  PACELC: Latency vs Consistency
+  Local read = fast maybe stale
+  Sync quorum = strong maybe slow
+
+WHITEBOARD (90 seconds)
+  1. Two boxes + X
+  2. WRITE left · READ? right
+  3. Fork: REJECT (CP) | ANSWER STALE (AP)
+  4. Name 1 CP path + 1 AP path in your design
+  5. Add PACELC if cross-region
+
+SAY THIS
+  "P is assumed. Under partition I choose C or A per invariant.
+   Money is CP. Feed is AP. Knobs matter — Kafka acks, Cassandra CL."
+`;
