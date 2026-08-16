@@ -1,8 +1,9 @@
 import type {TocItem} from './types';
 
-/** Unified Kafka DLQ/DLT + Retry + Payments + Hadron case study — single final page. */
+/** Unified Kafka DLQ/DLT + Retry + Payments + Hadron + Staff production deep. */
 export const KAFKA_DLQ_TOC: TocItem[] = [
   {id: 'overview', label: '00. Overview & version'},
+  {id: 'gap-score', label: '00b. Gap scorecard'},
   {id: 'fundamentals', label: '01. DLQ fundamentals'},
   {id: 'terms', label: '02. DLQ vs DLT vs retry'},
   {id: 'why', label: '03. Why DLQ · failure categories'},
@@ -39,4 +40,16 @@ export const KAFKA_DLQ_TOC: TocItem[] = [
   {id: 'antipatterns', label: '34. Anti-patterns · Hadron mistakes'},
   {id: 'decisions', label: '35. Decision trees · master arch'},
   {id: 'interview', label: '36. Interview & cheat sheets'},
+  {id: 'producer-failures', label: '37. Producer failures ≠ consumer DLQ'},
+  {id: 'patterns-deep', label: '38. Patterns A–E · comparison'},
+  {id: 'dlt-publish-fail', label: '39. DLT publish failure · offsets'},
+  {id: 'rebalance-batch-deser', label: '40. Rebalance · batch · deser deep'},
+  {id: 'eos-db', label: '41. Kafka EOS vs PostgreSQL'},
+  {id: 'replay-loops', label: '42. Replay loops · envelope · schema'},
+  {id: 'multi-ops', label: '43. Multi-service · region · capacity'},
+  {id: 'payment-reconcile', label: '44. Payment reconcile · safe replay'},
+  {id: 'corner-matrix', label: '45. Corner-case matrix (50)'},
+  {id: 'chaos-tests', label: '46. Failure-injection tests'},
+  {id: 'staff-bank', label: '47. Staff Q bank · wrong answers'},
+  {id: 'final-arch', label: '48. Final architecture · cheat sheet'},
 ];

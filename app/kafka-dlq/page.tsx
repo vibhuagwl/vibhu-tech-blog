@@ -4,9 +4,9 @@ import KafkaDlqHub from '@/components/kafka-dlq/kafka-dlq-hub';
 import {buildHadronDlqLabTree, listHadronDlqLabFiles} from '@/lib/spring-hadron-dlq-source';
 
 export const metadata: Metadata = {
-  title: 'Kafka DLQ / DLT / Retry — Unified Guide (Payments + Hadron)',
+  title: 'Kafka DLQ / DLT / Retry — Staff Production Guide',
   description:
-    'Single final page for Kafka Dead Letter Topic, retry topics, Spring DefaultErrorHandler, DeadLetterPublishingRecoverer, payments settlement demo, and Hadron CashLines case study — delete duplicates of /hadron-dlq and kafka-payments-dlq.',
+    'Exhaustive Kafka Dead Letter Topic guide: producer ≠ consumer DLQ, Spring DefaultErrorHandler, DLT publish failure, EOS vs PostgreSQL, replay loops, payments reconcile, 50 corner cases, 110 Staff interview questions with wrong answers.',
 };
 
 export default function KafkaDlqPage() {

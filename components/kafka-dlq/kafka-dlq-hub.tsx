@@ -64,6 +64,58 @@ import {
   PAYMENTS_DEMO_THIRTY_SEC,
 } from '@/lib/kafka-dlq/payments-demo';
 import {
+  ARTICLE_SCORES,
+  GAP_INTRO,
+  MENTAL_MODEL_CONSUMER,
+  MENTAL_MODEL_NOTE,
+  MENTAL_MODEL_PRODUCER,
+  MISSING_BEFORE,
+  NEVER_SAY,
+} from '@/lib/kafka-dlq/gap-analysis';
+import {OUTBOX_NOTE, PRODUCER_CODE, PRODUCER_FAILURES, PRODUCER_NEQ_DLQ} from '@/lib/kafka-dlq/producer-failures';
+import {
+  BATCH_DEEP,
+  DESER_DEEP,
+  DLT_PUBLISH_FAIL,
+  OFFSET_SEQUENCES,
+  ORDERING_WALK,
+  PARKING_VS,
+  PATTERN_A,
+  PATTERN_B,
+  PATTERN_C,
+  PATTERN_COMPARE,
+  PATTERN_D,
+  REBALANCE_RACES,
+} from '@/lib/kafka-dlq/production-deep';
+import {
+  ENVELOPE_JSON as DLT_ENVELOPE_JSON,
+  ENVELOPE_NOTES,
+  EOS_VS_DB,
+  IDEMPOTENCY_BAD,
+  IDEMPOTENCY_SQL,
+  REPLAY_ARCH as REPLAY_ARCH_DEEP,
+  REPLAY_LOOP_CODE,
+  REPLAY_LOOPS,
+  SCHEMA_EVOLUTION,
+} from '@/lib/kafka-dlq/eos-replay';
+import {
+  ALERTS,
+  CAPACITY_MATH,
+  CHEAT_SHEET,
+  FINAL_ARCH,
+  FINAL_RECOMMENDATION,
+  MULTI_REGION,
+  MULTI_SERVICE,
+  OBS_LOG_FIELDS,
+  OBS_METRICS,
+  OBS_TRACE,
+  PAYMENT_CODE,
+  PAYMENT_RECONCILE,
+} from '@/lib/kafka-dlq/multi-ops';
+import {CORNER_MATRIX, MATRIX_HEADERS} from '@/lib/kafka-dlq/corner-matrix';
+import {CHAOS_TEST_CODE, CHAOS_TESTS, IMPL_CLASSIFIER, IMPL_CONFIG} from '@/lib/kafka-dlq/chaos-tests';
+import {BASIC_Q, SCENARIO_Q, SENIOR_Q, STAFF_Q} from '@/lib/kafka-dlq/staff-interview-bank';
+import {
   CHEAT as HADRON_CHEAT,
   CHECKLIST as HADRON_CHECKLIST,
   CLOSING as HADRON_CLOSING,
@@ -154,19 +206,19 @@ export default function KafkaDlqHub({
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Staff · Principal · Unified final page · DLQ · DLT · Retry · Payments · Hadron
+          Staff · Principal · Production design review · DLQ · DLT · Retry · Payments · Hadron
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
           Kafka DLQ / DLT / Retry — Complete Guide
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Single canonical board: failure classification → retry → DLT → offsets → replay → payments demo → Hadron
-          CashLines case study. Replaces the old separate <code className="text-sm">/hadron-dlq</code> and{' '}
-          <code className="text-sm">kafka-payments-dlq</code> pages.
+          Single canonical board: failure classification → retry → DLT → offsets → replay → payments → Hadron
+          CashLines → Staff production deep (producer ≠ DLQ, EOS vs DB, replay loops, multi-region).
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
         </p>
+        <p className="mt-3 max-w-3xl text-sm font-medium leading-7 text-rose-800 dark:text-rose-200">{NEVER_SAY}</p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{VERSION_NOTE}</p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           Hub:{' '}
@@ -225,6 +277,45 @@ ErrorHandlingDeserializer
 Replay tooling + idempotency`}
               />
             </div>
+          </Section>
+
+          <Section
+            id="gap-score"
+            title="00b. Production design review · scorecard"
+            lead={GAP_INTRO}
+          >
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-[.08em] text-slate-500 dark:bg-slate-900">
+                  <tr>
+                    <th className="px-3 py-2">Area</th>
+                    <th className="px-3 py-2">Score</th>
+                    <th className="px-3 py-2">Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ARTICLE_SCORES.map((r) => (
+                    <tr key={r.area} className="border-t border-slate-100 dark:border-slate-800">
+                      <td className="px-3 py-2 font-medium text-slate-900 dark:text-white">{r.area}</td>
+                      <td className="px-3 py-2 font-semibold text-emerald-700 dark:text-emerald-300">{r.score}/10</td>
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <h3 className="mt-8 text-lg font-bold text-slate-900 dark:text-white">Gaps closed in sections 37–48</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+              {MISSING_BEFORE.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
+            <h3 className="mt-8 text-lg font-bold text-slate-900 dark:text-white">Mental model</h3>
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              <CodePanel title="Producer-side (NOT consumer DLQ)" code={MENTAL_MODEL_PRODUCER} />
+              <CodePanel title="Consumer-side processing failure" tone="ok" code={MENTAL_MODEL_CONSUMER} />
+            </div>
+            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">{MENTAL_MODEL_NOTE}</p>
           </Section>
 
           <Section
@@ -813,7 +904,246 @@ mvn -q spring-boot:run
               <Link href="/kafka-interview/kafka-dlq-poison-message-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Poison Q71–Q81
               </Link>
+              {' · '}
+              <a href="#staff-bank" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                Staff wrong-answer bank (§47)
+              </a>
             </p>
+          </Section>
+
+          <Section
+            id="producer-failures"
+            title="37. Producer failures ≠ consumer DLQ"
+            lead={PRODUCER_NEQ_DLQ}
+          >
+            <MiniTable
+              headers={['Failure', 'Handling', 'Retry', 'Consumer DLQ']}
+              rows={PRODUCER_FAILURES.map((p) => [p.failure, p.handling, p.retry, p.consumerDlq])}
+            />
+            <div className="mt-4">
+              <CodePanel title="Producer config + unknown outcome" tone="ok" code={PRODUCER_CODE} />
+            </div>
+            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">{OUTBOX_NOTE}</p>
+          </Section>
+
+          <Section
+            id="patterns-deep"
+            title="38. Patterns A–E · comparison table"
+            lead="Blocking DEH, @RetryableTopic, manual hops, external scheduler, parking lot — pick deliberately."
+          >
+            <MiniTable
+              headers={['Approach', 'Delay', 'Ordering', 'Complexity', 'Throughput', 'Best for']}
+              rows={PATTERN_COMPARE}
+            />
+            <div className="mt-4 space-y-4">
+              <CodePanel title="A — Blocking DefaultErrorHandler" code={PATTERN_A} />
+              <CodePanel title="B — @RetryableTopic" code={PATTERN_B} />
+              <CodePanel title="C — Manual retry topics" code={PATTERN_C} />
+              <CodePanel title="D — External scheduler" code={PATTERN_D} />
+              <CodePanel title="E — Parking vs DLT vs quarantine" tone="ok" code={PARKING_VS} />
+              <CodePanel title="Ordering walkthrough A/B/C" code={ORDERING_WALK} />
+            </div>
+          </Section>
+
+          <Section
+            id="dlt-publish-fail"
+            title="39. DLT publish failure · offset sequences"
+            lead="Recoverer failure must seek and alert — never commit the only remaining copy away."
+          >
+            <CodePanel title="DLT publish failure runbook (Spring Kafka)" tone="ok" code={DLT_PUBLISH_FAIL} />
+            <div className="mt-4">
+              <CodePanel title="Offset sequences 1–3" code={OFFSET_SEQUENCES} />
+            </div>
+          </Section>
+
+          <Section
+            id="rebalance-batch-deser"
+            title="40. Rebalance · batch · deserialization deep"
+            lead="Spring Kafka documents recovery failure seeks, BatchListenerFailedException, and ErrorHandlingDeserializer — test them."
+          >
+            <CodePanel title="Rebalance races" code={REBALANCE_RACES} />
+            <div className="mt-4">
+              <CodePanel title="Batch partial failure" code={BATCH_DEEP} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Deserialization before listener" tone="ok" code={DESER_DEEP} />
+            </div>
+          </Section>
+
+          <Section
+            id="eos-db"
+            title="41. Kafka EOS vs PostgreSQL"
+            lead="Kafka transactions do not make PostgreSQL + Kafka exactly-once. Inbox/outbox + UNIQUE(event_id) do."
+          >
+            <CodePanel title="EOS boundary" code={EOS_VS_DB} />
+            <div className="mt-4">
+              <CodePanel title="Idempotency SQL" tone="ok" code={IDEMPOTENCY_SQL} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Charge twice anti-pattern" code={IDEMPOTENCY_BAD} />
+            </div>
+          </Section>
+
+          <Section
+            id="replay-loops"
+            title="42. Replay loops · envelope · schema evolution"
+            lead="Audited replay with replayCount caps; stable DLT envelopes; dual-read old schemas."
+          >
+            <CodePanel title="Replay architecture" code={REPLAY_ARCH_DEEP} />
+            <div className="mt-4">
+              <CodePanel title="Loop prevention" code={REPLAY_LOOPS} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="ReplayService (Java 21)" tone="ok" code={REPLAY_LOOP_CODE} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="DLT envelope JSON" code={DLT_ENVELOPE_JSON} />
+            </div>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{ENVELOPE_NOTES}</p>
+            <div className="mt-4">
+              <CodePanel title="Schema evolution" code={SCHEMA_EVOLUTION} />
+            </div>
+          </Section>
+
+          <Section
+            id="multi-ops"
+            title="43. Multi-service · multi-region · capacity · alerts"
+            lead="Per-consumer-group DLT ownership, MM2/Cluster Linking caveats, storage math, alerts beyond DLT count."
+          >
+            <CodePanel title="Multi-service DLT ownership" tone="ok" code={MULTI_SERVICE} />
+            <div className="mt-4">
+              <CodePanel title="Multi-region / DR" code={MULTI_REGION} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Capacity calculation" code={CAPACITY_MATH} />
+            </div>
+            <h3 className="mt-6 text-lg font-bold text-slate-900 dark:text-white">Metrics</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+              {OBS_METRICS.map((m) => (
+                <li key={m}>
+                  <code className="text-xs">{m}</code>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+              Logs: <code className="text-xs">{OBS_LOG_FIELDS}</code>
+            </p>
+            <div className="mt-4">
+              <CodePanel title="Tracing chain" code={OBS_TRACE} />
+            </div>
+            <div className="mt-4">
+              <MiniTable headers={['Alert', 'Sev', 'Why']} rows={ALERTS} />
+            </div>
+          </Section>
+
+          <Section
+            id="payment-reconcile"
+            title="44. Payment systems · timeout ≠ safe retry"
+            lead="Bank timeout may mean success at the bank. Reconcile before charge or DLT replay."
+          >
+            <CodePanel title="Payment + DLT design" code={PAYMENT_RECONCILE} />
+            <div className="mt-4">
+              <CodePanel title="Safe replay" tone="ok" code={PAYMENT_CODE} />
+            </div>
+          </Section>
+
+          <Section
+            id="corner-matrix"
+            title="45. Corner-case matrix (50)"
+            lead="Producer / consumer / DLT / batch / txn / replay / DR — retry, commit, seek, ordering, dup, loss, replay."
+          >
+            <MiniTable
+              headers={MATRIX_HEADERS}
+              rows={CORNER_MATRIX.map((c) => [
+                c.id,
+                c.failure,
+                c.side,
+                c.retry,
+                c.dlt,
+                c.commit,
+                c.seek,
+                c.ordering,
+                c.dup,
+                c.loss,
+                c.replay,
+              ])}
+            />
+          </Section>
+
+          <Section
+            id="chaos-tests"
+            title="46. Failure-injection tests · Spring implementation"
+            lead="Testcontainers sketches for every major race. Real Spring Kafka 3.x patterns — not pseudo-code."
+          >
+            <div className="space-y-2">
+              {CHAOS_TESTS.map((t) => (
+                <div key={t.name} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                  <p className="font-mono text-xs font-semibold text-slate-900 dark:text-white">{t.name}</p>
+                  <p className="mt-1 text-slate-600 dark:text-slate-300">{t.asserts}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 space-y-4">
+              <CodePanel title="IT sketches" code={CHAOS_TEST_CODE} />
+              <CodePanel title="FailureClassifier" tone="ok" code={IMPL_CLASSIFIER} />
+              <CodePanel title="DEH + DLP + EHD config" code={IMPL_CONFIG} />
+            </div>
+          </Section>
+
+          <Section
+            id="staff-bank"
+            title="47. Staff/Principal Q bank · wrong answers"
+            lead="110 questions: Basic 20 · Senior 30 · Staff 30 · Scenario 30 — expected, why asked, common wrong answer, follow-up."
+          >
+            {(
+              [
+                ['Basic', BASIC_Q],
+                ['Senior', SENIOR_Q],
+                ['Staff/Principal', STAFF_Q],
+                ['Scenario', SCENARIO_Q],
+              ] as const
+            ).map(([label, qs]) => (
+              <div key={label} className="mt-8">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  {label} ({qs.length})
+                </h3>
+                <div className="mt-3 space-y-2">
+                  {qs.map((q) => (
+                    <details key={q.id} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                      <summary className="cursor-pointer font-medium">
+                        [{q.id}] {q.question}
+                      </summary>
+                      <p className="mt-2 text-slate-700 dark:text-slate-200">
+                        <strong>Expected:</strong> {q.expected}
+                      </p>
+                      <p className="mt-1 text-slate-600 dark:text-slate-300">
+                        <strong>Why asked:</strong> {q.whyAsked}
+                      </p>
+                      <p className="mt-1 text-rose-700 dark:text-rose-300">
+                        <strong>Wrong:</strong> {q.wrong}
+                      </p>
+                      <p className="mt-1 text-slate-500">
+                        <strong>Follow-up:</strong> {q.followUp}
+                      </p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </Section>
+
+          <Section
+            id="final-arch"
+            title="48. Final architecture · recommendation · cheat sheet"
+            lead="What to ship for a high-volume financial system: bounded retries, no loss, ordering holds, idempotent mutates, audited replay."
+          >
+            <CodePanel title="Production architecture" tone="ok" code={FINAL_ARCH} />
+            <p className="mt-6 rounded-2xl bg-slate-900 px-4 py-4 text-sm leading-7 text-slate-100 whitespace-pre-wrap">
+              {FINAL_RECOMMENDATION}
+            </p>
+            <div className="mt-6">
+              <MiniTable headers={['Cheat', 'Rule']} rows={CHEAT_SHEET} />
+            </div>
           </Section>
         </div>
       </div>
