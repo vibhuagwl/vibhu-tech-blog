@@ -126,6 +126,14 @@ export const KAFKA_HUB={
       mode:'learn' as const,
     },
     {
+      id:'ska',
+      number:'A1',
+      title:'Spring Kafka Annotations',
+      blurb:'@KafkaListener, @RetryableTopic, @DltHandler, @SendTo, @Transactional — lifecycle and interactions only.',
+      href:'/spring-kafka-annotations',
+      mode:'learn' as const,
+    },
+    {
       id:'payment-dlq',
       number:'04',
       title:'Payment story + DLQ',

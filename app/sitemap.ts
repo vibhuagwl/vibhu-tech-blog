@@ -165,6 +165,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.85,
     },
     {
+      url: `${BASE}/spring-kafka-annotations/`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.85,
+    },
+    {
       url: `${BASE}/kafka-mastery/`,
       lastModified: now,
       changeFrequency: "monthly",

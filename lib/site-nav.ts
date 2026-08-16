@@ -66,6 +66,7 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
       {href:'/kafka-producer',label:'Producer'},
       {href:'/kafka-consumer',label:'Consumer'},
       {href:'/kafka-dlq',label:'DLQ'},
+      {href:'/spring-kafka-annotations',label:'Spring Kafka annotations'},
     ],
   },
   {
@@ -202,6 +203,7 @@ const KAFKA_FAMILY_PREFIXES=[
   '/kafka-internals',
   '/hadron-dlq',
   '/spring-kafka-payments-demo',
+  '/spring-kafka-annotations',
 ] as const;
 
 function isKafkaFamilyPath(pathname:string){

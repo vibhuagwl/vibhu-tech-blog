@@ -51,7 +51,13 @@ const banks=[
     href:'/kafka-interview',
     label:'Kafka',
     level:'Staff',
-    blurb:'One hub: producer, consumer, cluster, mastery drills, properties, monitoring, internals, Hadron DLQ.',
+    blurb:'Producer, consumer, DLQ, properties, and Spring Kafka annotations reference.',
+  },
+  {
+    href:'/spring-kafka-annotations',
+    label:'Spring Kafka Annotations',
+    level:'Staff',
+    blurb:'@KafkaListener, @RetryableTopic, @DltHandler, @SendTo, @Transactional — lifecycle and interview bank.',
   },
   {
     href:'/hadron-dlq',
