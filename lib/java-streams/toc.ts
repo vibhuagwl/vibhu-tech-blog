@@ -1,7 +1,8 @@
 import type {TocItem} from './types';
 
 export const STREAMS_TOC: TocItem[] = [
-  {id: 'overview', label: '00. Overview · how seniors use Streams'},
+  {id: 'overview', label: '00. Overview · senior Stream judgment'},
+  {id: 'tough-100', label: '00a. Top 100 tough programs · Priority 15'},
   {id: 'api-checklist', label: '00b. API coverage checklist'},
   {id: 'fundamentals', label: '01. Fundamentals'},
   {id: 'filter', label: '02. Filter · predicates'},
@@ -37,7 +38,7 @@ export const STREAMS_TOC: TocItem[] = [
   {id: 'architect-q', label: '32. Architect questions'},
   {id: 'java-versions', label: '33. Java 8 → 21+'},
   {id: 'levels', label: '34. What interviewers expect'},
-  {id: 'top100', label: '35. Top 100 must-know'},
+  {id: 'top100', label: '35. Catalog Top 100 ranked'},
   {id: 'cheat', label: '36. Cheat sheet'},
   {id: 'interview', label: '37. Interview bank'},
   {id: 'lab', label: '38. Runnable lab'},
@@ -45,7 +46,7 @@ export const STREAMS_TOC: TocItem[] = [
 ];
 
 export const MEMORY_SENTENCE =
-  'Identify operation → collector → data structure → complexity → edge cases → parallel? → is Stream appropriate? → would SQL win? → production scale.';
+  'Business problem → map vs flatMap → groupingBy vs partitioningBy → reduce vs collect → complexity → null/empty/duplicates → parallel? → loop or SQL better?';
 
 export const VERSION_NOTE =
-  'Java 8 Streams baseline · Java 9 takeWhile/dropWhile/ofNullable · Java 16 Stream.toList() · Java 21 records + virtual threads (not a Stream feature). Prefer Java 21 style in solutions.';
+  'Senior focus: Top 100 tough programs (Priority 15 first). Java 8 Streams · Java 9 takeWhile/ofNullable · Java 16 toList() · Java 21 records. Virtual threads ≠ Stream feature.';
