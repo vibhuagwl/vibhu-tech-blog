@@ -137,7 +137,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     title:'Messaging & Traffic',
     description:'Events, edge routing, and resilience',
     topics:[
-      {href:'/kafka-interview',label:'Apache Kafka',blurb:'Producer · consumer · DLQ · lag'},
+      {href:'/kafka-interview',label:'Apache Kafka',blurb:'Producer · consumer · DLQ · annotations · lag'},
       {href:'/api-gateway',label:'API Gateway',blurb:'Routing · auth · rate limits'},
       {href:'/load-balancing',label:'Load Balancing',blurb:'L4/L7 · algorithms · health'},
       {href:'/rate-limiter',label:'Rate Limiting',blurb:'Token bucket · Redis'},

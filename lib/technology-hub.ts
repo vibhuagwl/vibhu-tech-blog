@@ -50,7 +50,7 @@ export const KAFKA_HUB={
   title:'Kafka',
   subtitle:'Practical Spring Kafka',
   description:
-    'Interview mastery board (producer, consumer, DLQ/DLT, cluster, infra, properties) plus code, optimization, payment DLQ story, and Hadron DLQ.',
+    'Interview mastery board (producer, consumer, DLQ/DLT, Spring Kafka annotations, cluster, infra, properties) plus code, optimization, payment DLQ story, and Hadron DLQ.',
   basePath:'/kafka-interview',
   sections:[
     {
@@ -83,6 +83,14 @@ export const KAFKA_HUB={
       title:'DLQ / DLT / Retry',
       blurb:'Complete failure recovery: classification, retry topics, Spring handlers, offsets, replay, payments.',
       href:'/kafka-dlq',
+      mode:'learn' as const,
+    },
+    {
+      id:'ska',
+      number:'A1',
+      title:'Spring Kafka Annotations',
+      blurb:'@KafkaListener, @RetryableTopic, @DltHandler, @SendTo, @Transactional — lifecycle and interactions only.',
+      href:'/spring-kafka-annotations',
       mode:'learn' as const,
     },
     {
@@ -123,14 +131,6 @@ export const KAFKA_HUB={
       title:'Properties',
       blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs with GO/NO-GO.',
       href:'/kafka-properties',
-      mode:'learn' as const,
-    },
-    {
-      id:'ska',
-      number:'A1',
-      title:'Spring Kafka Annotations',
-      blurb:'@KafkaListener, @RetryableTopic, @DltHandler, @SendTo, @Transactional — lifecycle and interactions only.',
-      href:'/spring-kafka-annotations',
       mode:'learn' as const,
     },
     {
