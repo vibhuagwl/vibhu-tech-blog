@@ -1,5 +1,5 @@
 export const MEMORY_SENTENCE =
-  'Shared quota lives in Redis. Token bucket + Lua makes refill and consume atomic. Fail-closed on money paths; fail-open on public reads. Local HashMap is not a global limit.';
+  'Story → Token bucket → Redis Lua atomicity → hierarchical AND → 429+Retry-After → fail policy per route → hot keys & multi-region honesty.';
 
 export const ASSUMPTIONS: string[][] = [
   ['Dimension', 'Interview default', 'Why it matters'],
