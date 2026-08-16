@@ -82,6 +82,17 @@ public final class StreamsLabMain {
 
     System.out.println("=== parallel sum (correct) ===");
     System.out.println(List.of(1, 2, 3, 4, 5).parallelStream().mapToInt(Integer::intValue).sum());
+
+    System.out.println("=== API matrix: ofNullable / takeWhile / summaryStatistics ===");
+    System.out.println(java.util.stream.Stream.ofNullable(null).toList());
+    System.out.println(List.of(1, 2, 3, 4, 5).stream().takeWhile(n -> n < 4).toList());
+    System.out.println(java.util.stream.IntStream.rangeClosed(1, 5).summaryStatistics());
+
+    System.out.println("=== API matrix: concat / toUnmodifiableSet ===");
+    System.out.println(
+        java.util.stream.Stream.concat(java.util.stream.Stream.of("a"), java.util.stream.Stream.of("b")).toList());
+    System.out.println(
+        List.of("x", "x", "y").stream().collect(Collectors.toUnmodifiableSet()));
   }
 
   static Optional<Character> firstNonRepeated(String s) {

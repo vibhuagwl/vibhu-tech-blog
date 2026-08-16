@@ -27,6 +27,7 @@ import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
 import ProblemBrowser from './problem-browser';
 import StickyToc from './sticky-toc';
+import ApiCoverageChecklist from './api-coverage-checklist';
 
 function Section({
   id,
@@ -85,7 +86,7 @@ export default function JavaStreamsHub({
         </p>
         <p className="mt-3 text-sm text-slate-500">{VERSION_NOTE}</p>
         <p className="mt-3 text-sm text-slate-500">
-          {PROBLEM_COUNT} programs · {INTERVIEW_ALL.length} prompts · {CODING_ROUND.length} coding-round drills ·{' '}
+          {PROBLEM_COUNT} programs · API checklist · {INTERVIEW_ALL.length} prompts · {CODING_ROUND.length} coding-round drills ·{' '}
           <Link href="/java-concurrency" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Concurrency
           </Link>
@@ -105,6 +106,14 @@ export default function JavaStreamsHub({
               Each category below is a filterable problem browser. Every card includes Problem → Input → Output →
               Solution → Pipeline → Why → Complexity → Trap → Senior insight.
             </p>
+          </Section>
+
+          <Section
+            id="api-checklist"
+            title="00b. Java Stream API Coverage Checklist"
+            lead="Systematic API coverage — not just lots of programs. Every important factory, intermediate, terminal, primitive, Collector, and internal is marked."
+          >
+            <ApiCoverageChecklist />
           </Section>
 
           {PROBLEM_GROUPS.map((g, idx) => (

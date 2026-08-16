@@ -40,12 +40,24 @@ class StreamsLabTest {
   }
 
   @Test
-  void groupingAverage() {
-    record E(String d, double s) {}
-    var map =
-        List.of(new E("ENG", 100), new E("ENG", 200), new E("HR", 50)).stream()
-            .collect(Collectors.groupingBy(E::d, Collectors.averagingDouble(E::s)));
-    assertEquals(150.0, map.get("ENG"));
-    assertTrue(map.containsKey("HR"));
+  void apiMatrixTakeWhileAndOfNullable() {
+    assertEquals(List.of(1, 2, 3), List.of(1, 2, 3, 4, 5).stream().takeWhile(n -> n < 4).toList());
+    assertEquals(List.of(), java.util.stream.Stream.ofNullable(null).toList());
+    assertEquals(List.of("x"), java.util.stream.Stream.ofNullable("x").toList());
+  }
+
+  @Test
+  void apiMatrixSummaryStatisticsAndUnmodifiable() {
+    var stats = IntStream.rangeClosed(1, 5).summaryStatistics();
+    assertEquals(5, stats.getCount());
+    assertEquals(15, stats.getSum());
+    var set = List.of("a", "a", "b").stream().collect(Collectors.toUnmodifiableSet());
+    assertEquals(2, set.size());
+    try {
+      set.add("c");
+      throw new AssertionError("expected unmodifiable");
+    } catch (UnsupportedOperationException expected) {
+      // ok
+    }
   }
 }

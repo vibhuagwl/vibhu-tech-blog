@@ -6,7 +6,7 @@ import {buildJavaStreamsLabTree, listJavaStreamsLabFiles} from '@/lib/java-strea
 export const metadata: Metadata = {
   title: 'Java Streams — Complete Interview Program Collection (21+ Years)',
   description:
-    '200+ Java Stream interview programs for Senior/Staff/Principal: collectors, grouping, parallel traps, FinTech/employee suites, Spliterator, JPA warnings, coding drills.',
+    "200+ Java Stream interview programs for Senior/Staff/Principal: collectors, grouping, parallel traps, FinTech/employee suites, Spliterator, JPA warnings, coding drills, full API coverage checklist.",
 };
 
 export default function JavaStreamsPage() {

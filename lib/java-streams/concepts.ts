@@ -34,7 +34,13 @@ export const INTERNALS = `Stream pipeline (mental model)
        ↓
   Intermediate ops (lazy, form a pipeline — filter, map, flatMap, sorted, distinct, limit, skip, peek)
        ↓
+  Sink chain (internal push-based stages fused into one pipeline)
+       ↓
   Terminal op (triggers execution — collect, reduce, forEach, find*, match*, count, min/max)
+
+Sink: each intermediate stage wraps a downstream Sink; terminal provides the root Sink.
+Elements are pushed (tryAdvance / forEachRemaining), not "pulled" like an Iterator loop in user code —
+except when you explicitly call iterator()/spliterator().
 
 Lazy evaluation: nothing runs until a terminal operation.
 Short-circuiting: findFirst / anyMatch / limit can stop early.
@@ -53,7 +59,14 @@ export const SPLITERATOR = `Spliterator — the parallel engine under Streams
 
 Parallel streams recursively trySplit until tasks are "small enough", then run on ForkJoinPool.commonPool().
 
-Custom Spliterator is rarely needed in apps — know it for Staff interviews explaining parallel speedups and why ORDERED + sorted fights parallelism.`;
+Custom Spliterator is rarely needed in apps — know it for Staff interviews explaining parallel speedups and why ORDERED + sorted fights parallelism.
+
+Collector.Characteristics (Staff must-know)
+  CONCURRENT      — accumulator may share one container across threads (ConcurrentMap)
+  UNORDERED       — encounter order may be ignored
+  IDENTITY_FINISH — finisher is identity; framework may cast A→R without calling finisher
+
+Associativity of reduce/combiner: (a⊕b)⊕c = a⊕(b⊕c). Non-associative ops break under parallel.`;
 
 export const OPS_CLASSIFICATION = `Intermediate (lazy)
   filter, map, flatMap, mapToInt/Long/Double, flatMapTo*, distinct, sorted, peek, limit, skip,

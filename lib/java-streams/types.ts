@@ -31,7 +31,8 @@ export type StreamCategory =
   | 'datetime-optional'
   | 'parallel'
   | 'advanced-collectors'
-  | 'production';
+  | 'production'
+  | 'api-coverage';
 
 export type TocItem = {id: string; label: string};
 

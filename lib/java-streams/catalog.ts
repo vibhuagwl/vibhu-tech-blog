@@ -3,6 +3,7 @@ import {PROBLEMS_CORE} from './problems-core';
 import {PROBLEMS_COLLECTORS} from './problems-collectors';
 import {PROBLEMS_DOMAIN} from './problems-domain';
 import {PROBLEMS_ADVANCED} from './problems-advanced';
+import {PROBLEMS_API_MATRIX} from './problems-api-matrix';
 
 export type ProblemGroup = {
   id: StreamCategory | 'all';
@@ -16,6 +17,7 @@ export const ALL_PROBLEMS: StreamProblem[] = [
   ...PROBLEMS_COLLECTORS,
   ...PROBLEMS_DOMAIN,
   ...PROBLEMS_ADVANCED,
+  ...PROBLEMS_API_MATRIX,
 ];
 
 const byCat = (c: StreamCategory) => ALL_PROBLEMS.filter((p) => p.category === c);
@@ -46,6 +48,7 @@ export const PROBLEM_GROUPS: ProblemGroup[] = [
   {id:'parallel', title:'Parallel · traps', lead:'When to parallelize — and when not.', problems: byCat('parallel')},
   {id:'advanced-collectors', title:'Custom · teeing · andThen', lead:'Advanced collectors.', problems: byCat('advanced-collectors')},
   {id:'production', title:'Production · JPA · files', lead:'Scale, DB, resource management.', problems: byCat('production')},
+  {id:'api-coverage', title:'API coverage matrix programs', lead:'Less-common Stream / primitive / Collector APIs — systematic coverage.', problems: byCat('api-coverage')},
 ];
 
 export const PROBLEM_COUNT = ALL_PROBLEMS.length;

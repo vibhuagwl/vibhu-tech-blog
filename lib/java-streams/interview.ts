@@ -148,6 +148,17 @@ export const STAFF: InterviewQ[] = [
       'Check for sorted/distinct early, repeated collects, peek side effects, lazy JPA inside map, skip on huge lists. Replace with SQL if IO-bound aggregation.',
     followUps: ['Logging every element?', 'peek pitfalls?'],
   },
+  {
+    id: 'st7',
+    level: 'staff',
+    topic: 'API coverage',
+    question: 'Why does an API coverage checklist matter more than 200 random Stream problems?',
+    answer30s: 'Interviews probe obscure APIs and judgment; gaps hide weak fundamentals.',
+    answer2m:
+      'Business-domain variants are infinite. A checklist forces Stream.ofNullable, takeWhile, mapMulti, onClose, primitive summaryStatistics, toUnmodifiable*, collector characteristics, and Spliterator — the items candidates skip when only grinding groupingBy.',
+    followUps: ['Which API do juniors never see?', 'When is Stream.builder justified?'],
+    seniorInsight: 'Completeness of API surface + when-not-to-use beats volume of employee salary problems.',
+  },
 ];
 
 export const ARCHITECT: InterviewQ[] = [
@@ -203,6 +214,10 @@ export const RAPID: InterviewQ[] = [
   {id:'r6',level:'rapid',topic:'Rapid',question:'Reuse stream?',answer30s:'IllegalStateException',answer2m:'Single-use',followUps:['Why?']},
   {id:'r7',level:'rapid',topic:'Rapid',question:'findAny parallel?',answer30s:'Any match',answer2m:'Not order-bound',followUps:['findFirst?']},
   {id:'r8',level:'rapid',topic:'Rapid',question:'Files.lines must?',answer30s:'Be closed',answer2m:'try-with-resources',followUps:['Leak?']},
+  {id:'r9',level:'rapid',topic:'Rapid',question:'Stream.ofNullable version?',answer30s:'Java 9',answer2m:'0/1 element',followUps:['Optional.stream?']},
+  {id:'r10',level:'rapid',topic:'Rapid',question:'mapMulti version?',answer30s:'Java 16',answer2m:'Imperative flatMap',followUps:['When vs flatMap?']},
+  {id:'r11',level:'rapid',topic:'Rapid',question:'IDENTITY_FINISH means?',answer30s:'Finisher is identity',answer2m:'Framework may cast A→R',followUps:['CONCURRENT?']},
+  {id:'r12',level:'rapid',topic:'Rapid',question:'range vs rangeClosed?',answer30s:'Exclusive vs inclusive end',answer2m:'Off-by-one trap',followUps:['sum 1..n?']},
 ];
 
 export const ALL: InterviewQ[] = [...SENIOR, ...STAFF, ...ARCHITECT, ...RAPID];

@@ -2,6 +2,7 @@ import type {TocItem} from './types';
 
 export const STREAMS_TOC: TocItem[] = [
   {id: 'overview', label: '00. Overview · how seniors use Streams'},
+  {id: 'api-checklist', label: '00b. API coverage checklist'},
   {id: 'fundamentals', label: '01. Fundamentals'},
   {id: 'filter', label: '02. Filter · predicates'},
   {id: 'map', label: '03. Map'},
@@ -40,6 +41,7 @@ export const STREAMS_TOC: TocItem[] = [
   {id: 'cheat', label: '36. Cheat sheet'},
   {id: 'interview', label: '37. Interview bank'},
   {id: 'lab', label: '38. Runnable lab'},
+  {id: 'api-coverage', label: '39. API matrix programs'},
 ];
 
 export const MEMORY_SENTENCE =
