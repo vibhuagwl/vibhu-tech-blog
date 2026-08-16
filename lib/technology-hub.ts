@@ -15,7 +15,6 @@ export type HubTopic={
 
 /** Kafka hub sidebar: MDX pages listed under /kafka-interview (standalone hubs stay off this list). */
 export const KAFKA_SIDEBAR_ORDER=[
-  'kafka-payments-dlq',
   'kafka-optimization-index',
   'kafka-properties',
 ];
@@ -81,7 +80,7 @@ export const KAFKA_HUB={
       id:'dlq',
       number:'D1',
       title:'DLQ / DLT / Retry',
-      blurb:'Complete failure recovery: classification, retry topics, Spring handlers, offsets, replay, payments.',
+      blurb:'Unified final page: classification, retry topics, Spring handlers, payments demo, Hadron CashLines.',
       href:'/kafka-dlq',
       mode:'learn' as const,
     },
@@ -132,22 +131,6 @@ export const KAFKA_HUB={
       blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs with GO/NO-GO.',
       href:'/kafka-properties',
       mode:'learn' as const,
-    },
-    {
-      id:'payment-dlq',
-      number:'04',
-      title:'Payment story + DLQ',
-      blurb:'Controller → producer → consumer → DLQ with diagrams, curl, and Spring code.',
-      href:'/kafka-interview/kafka-payments-dlq',
-      mode:'experience' as const,
-    },
-    {
-      id:'hadron',
-      number:'05',
-      title:'Hadron DLQ',
-      blurb:'Neptune → retry topics → DLQ DB → replay with ordering and idempotency.',
-      href:'/hadron-dlq',
-      mode:'experience' as const,
     },
   ] satisfies HubSection[],
 };

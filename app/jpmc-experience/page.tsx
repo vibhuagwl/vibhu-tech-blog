@@ -41,7 +41,7 @@ export default function JpmcExperience(){
             </Link>
           </li>
           <li>
-            <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/hadron-dlq">
+            <Link className="text-sm font-semibold text-slate-700 hover:underline dark:text-blue-400" href="/kafka-dlq#hadron-story">
               CashLines DLQ lab (retry · ordering · replay) →
             </Link>
           </li>

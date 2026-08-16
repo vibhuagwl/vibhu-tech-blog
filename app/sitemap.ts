@@ -191,8 +191,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     {
       url: `${BASE}/hadron-dlq/`,
       lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
+      changeFrequency: "yearly",
+      priority: 0.3,
     },
     {
       url: `${BASE}/spring-kafka-payments-demo/`,

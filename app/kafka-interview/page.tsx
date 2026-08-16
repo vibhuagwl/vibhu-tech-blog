@@ -3,7 +3,7 @@ import TechnologySectionStrip from '@/components/technology-section-strip';
 
 export const metadata={
   title:'Kafka — Interview Hub',
-  description:'Kafka interview hub: producer, consumer, DLQ/DLT, Spring Kafka annotations, cluster, mastery, optimization, properties, payment story, code.',
+  description:'Kafka interview hub: producer, consumer, DLQ/DLT, Spring Kafka annotations, cluster, mastery, optimization, properties, code.',
 };
 
 /** One card per destination — mastery drills live on /kafka-mastery (not as # fragment cards). */
@@ -30,7 +30,7 @@ const CURRICULUM=[
     href:'/kafka-dlq',
     number:'03',
     title:'DLQ / DLT / Retry',
-    blurb:'Complete failure recovery board: classification, retry topics, Spring handlers, offsets, replay, payments.',
+    blurb:'Single final page: classification, retry topics, Spring handlers, payments demo, Hadron CashLines.',
   },
   {
     href:'/spring-kafka-annotations',
@@ -57,22 +57,10 @@ const CURRICULUM=[
     blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs — plus payment must-set GO/NO-GO.',
   },
   {
-    href:'/kafka-interview/kafka-payments-dlq',
-    number:'08',
-    title:'Payment story + DLQ',
-    blurb:'Controller → producer → consumer → retry/DLQ with diagrams, curl, and Spring code.',
-  },
-  {
     href:'/spring-kafka-payments-demo',
-    number:'09',
+    number:'08',
     title:'Kafka Code',
     blurb:'Spring payment-api producer + settlement-worker consumer source explorer.',
-  },
-  {
-    href:'/hadron-dlq',
-    number:'10',
-    title:'Hadron CashLines DLQ',
-    blurb:'Neptune → retry → DLQ → replay with ordering and idempotency.',
   },
 ];
 
@@ -120,12 +108,12 @@ export default function KafkaInterview(){
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600 dark:text-slate-300">
           <li>Open <strong>§01 Producer</strong> — say the send() lifecycle and acks=1 vs all out loud.</li>
           <li>Open <strong>§02 Consumer</strong> — poll(), session vs max.poll.interval, process→commit timelines.</li>
-          <li>Open <strong>§03 DLQ/DLT</strong> — classify failures, offsets, Spring recoverer, replay.</li>
+          <li>Open <strong>§03 DLQ/DLT</strong> — classify failures, offsets, Spring recoverer, payments + Hadron.</li>
           <li>Open <strong>§04 Spring Kafka Annotations</strong> — @KafkaListener, @RetryableTopic, @DltHandler, @SendTo, @Transactional.</li>
           <li>Open <strong>§05 Cluster</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
           <li>Open <strong>§00 Mastery</strong> — monitoring, instance counts, syncing, partitions, spoken answers.</li>
           <li>Skim <strong>§07 Properties</strong> and <strong>§06 Optimization</strong> for must-set baselines.</li>
-          <li>Walk <strong>§08 Payment story + DLQ</strong> once so you have a Spring payment narrative.</li>
+          <li>Browse <strong>§08 Kafka Code</strong> and the DLQ payments section for a Spring narrative.</li>
           <li>Practice the Mastery <strong>spoken-answer deck</strong> (Senior → Rapid).</li>
         </ol>
       </section>
