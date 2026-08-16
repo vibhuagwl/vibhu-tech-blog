@@ -29,7 +29,7 @@ const CURRICULUM=[
     href:'/kafka-dlq',
     number:'03',
     title:'DLQ / DLT / Retry',
-    blurb:'Complete failure recovery board: classification, retry topics, Spring handlers, offsets, replay, payments.',
+    blurb:'Single final page: classification, retry topics, Spring handlers, payments demo, Hadron CashLines.',
   },
   {
     href:'/kafka-cluster',
@@ -50,22 +50,10 @@ const CURRICULUM=[
     blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs — plus payment must-set GO/NO-GO.',
   },
   {
-    href:'/kafka-interview/kafka-payments-dlq',
-    number:'07',
-    title:'Payment story + DLQ',
-    blurb:'Controller → producer → consumer → retry/DLQ with diagrams, curl, and Spring code.',
-  },
-  {
     href:'/spring-kafka-payments-demo',
-    number:'08',
+    number:'07',
     title:'Kafka Code',
     blurb:'Spring payment-api producer + settlement-worker consumer source explorer.',
-  },
-  {
-    href:'/hadron-dlq',
-    number:'09',
-    title:'Hadron CashLines DLQ',
-    blurb:'Neptune → retry → DLQ → replay with ordering and idempotency.',
   },
 ];
 

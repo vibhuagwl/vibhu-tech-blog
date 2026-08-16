@@ -16,8 +16,8 @@ export default function FinTech(){
           the concepts that matter when a retry can create a real financial consequence.
         </p>
         <p className="mt-4 text-sm">
-          <Link href="/hadron-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Hadron CashLines DLQ lab →
+          <Link href="/kafka-dlq#hadron-story" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Hadron CashLines DLQ (on Kafka DLQ board) →
           </Link>
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
