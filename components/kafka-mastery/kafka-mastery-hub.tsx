@@ -250,16 +250,12 @@ export default function KafkaMasteryHub() {
                 Production Infrastructure
               </Link>
               {' · '}
-              <Link href="/kafka-interview/kafka-payments-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Payment story + DLQ
+              <Link href="/kafka-dlq#payments" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+                DLQ · payments + Hadron
               </Link>
               {' · '}
               <Link href="/kafka-cluster#replication" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Cluster
-              </Link>
-              {' · '}
-              <Link href="/hadron-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Hadron DLQ
               </Link>
             </p>
           </Section>

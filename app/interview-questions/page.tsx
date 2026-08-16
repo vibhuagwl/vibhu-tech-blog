@@ -51,13 +51,7 @@ const banks=[
     href:'/kafka-interview',
     label:'Kafka',
     level:'Staff',
-    blurb:'One hub: producer, consumer, cluster, mastery drills, properties, monitoring, internals, Hadron DLQ.',
-  },
-  {
-    href:'/hadron-dlq',
-    label:'Hadron CashLines DLQ',
-    level:'Staff',
-    blurb:'Neptune → Kafka → Hadron: retry topics, DLQ persistence, ordering, idempotency, replay, interview bank.',
+    blurb:'One hub: producer, consumer, cluster, mastery drills, properties, and unified DLQ/DLT/Retry board.',
   },
   {
     href:'/multi-tenant',

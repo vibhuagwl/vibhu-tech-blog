@@ -54,9 +54,36 @@ import {
   PAYMENT_REQS,
   REPLAY_WORKFLOW,
 } from '@/lib/kafka-dlq/payments';
+import {
+  PAYMENTS_DEMO_BOX,
+  PAYMENTS_DEMO_FILES,
+  PAYMENTS_DEMO_POISON,
+  PAYMENTS_DEMO_PRODUCER_PROPS,
+  PAYMENTS_DEMO_RUN,
+  PAYMENTS_DEMO_SUCCESS,
+  PAYMENTS_DEMO_THIRTY_SEC,
+} from '@/lib/kafka-dlq/payments-demo';
+import {
+  CHEAT as HADRON_CHEAT,
+  CHECKLIST as HADRON_CHECKLIST,
+  CLOSING as HADRON_CLOSING,
+  COST_MODEL,
+  DECISION_MATRIX as HADRON_DECISION_MATRIX,
+  FIVE_MIN as HADRON_FIVE_MIN,
+  MEMORY_SENTENCE as HADRON_MEMORY,
+  SIXTY_SEC as HADRON_SIXTY,
+  TWO_MINUTE_STORY,
+} from '@/lib/hadron-dlq/comparison';
+import {PRODUCTION_MISTAKES} from '@/lib/hadron-dlq/mistakes';
+import {TOPICS as HADRON_TOPICS} from '@/lib/hadron-dlq/topics';
+import {ALL as HADRON_INTERVIEW} from '@/lib/hadron-dlq/interview';
 import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
 import StickyToc from './sticky-toc';
+import SequenceWalkthrough from '@/components/hadron-dlq/sequence-walkthrough';
+import CornerCaseCatalog from '@/components/hadron-dlq/corner-case-catalog';
+import OAuthCodeExplorer from '@/components/oauth-code-explorer';
+import type {DemoSourceFile, DemoTreeNode} from '@/lib/oauth-demo-source';
 
 function Section({
   id,
@@ -110,20 +137,32 @@ function MiniTable({headers, rows}: {headers: string[]; rows: string[][]}) {
   );
 }
 
-export default function KafkaDlqHub() {
+export default function KafkaDlqHub({
+  hadronFiles = [],
+  hadronTree = [],
+  hadronDefaultPath = '',
+}: {
+  hadronFiles?: DemoSourceFile[];
+  hadronTree?: DemoTreeNode[];
+  hadronDefaultPath?: string;
+}) {
+  const hadronDomain = HADRON_TOPICS.filter((t) =>
+    ['neptune', 'state-machine', 'cashline-ordering', 'dlq-persist', 'dlq-database', 'when-not'].includes(t.id),
+  );
+
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Staff · Principal · Java 21 · Spring Kafka · Apache Kafka 4.x
+          Staff · Principal · Unified final page · DLQ · DLT · Retry · Payments · Hadron
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          Kafka DLQ / DLT — Complete Board
+          Kafka DLQ / DLT / Retry — Complete Guide
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          End-to-end dead-letter architecture: failure classification → retry → retry topics → DLT → offsets →
-          transactions → idempotent replay → observability. Kafka has no built-in DLQ — this board covers the
-          production pattern.
+          Single canonical board: failure classification → retry → DLT → offsets → replay → payments demo → Hadron
+          CashLines case study. Replaces the old separate <code className="text-sm">/hadron-dlq</code> and{' '}
+          <code className="text-sm">kafka-payments-dlq</code> pages.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
@@ -139,17 +178,17 @@ export default function KafkaDlqHub() {
             Consumer
           </Link>
           {' · '}
-          <Link href="/kafka-interview/kafka-realtime-case" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Payment story
-          </Link>
-          {' · '}
-          <Link href="/hadron-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Hadron DLQ lab
-          </Link>
-          {' · '}
           <Link href="/spring-kafka-payments-demo" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Spring code
+            Payments demo
           </Link>
+          {' · '}
+          <a href="#hadron-story" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Hadron case study
+          </a>
+          {' · '}
+          <a href="#labs" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Labs
+          </a>
         </p>
       </header>
 
@@ -504,7 +543,7 @@ Assume partial prior side effects — design for re-entry`}
             </div>
           </Section>
 
-          <Section id="payments" title="26. Payments DLT" lead="No accidental loss, duplicate protection, per-account ordering, audit, compliance.">
+          <Section id="payments" title="26. Payments DLT · runnable demo" lead="No accidental loss, duplicate protection, per-account ordering, audit — plus the spring-kafka-payments-demo story.">
             <MiniTable headers={['Requirement', 'Design']} rows={PAYMENT_REQS} />
             <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid chart={PAYMENT_ARCH} />
@@ -518,6 +557,39 @@ Assume partial prior side effects — design for re-entry`}
                 <li key={g}>{g}</li>
               ))}
             </ul>
+
+            <h3 className="mt-10 text-xl font-bold text-slate-900 dark:text-white">Runnable payment-api story</h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Absorbed from the old <code className="text-xs">/kafka-interview/kafka-payments-dlq</code> page.{' '}
+              <Link href="/spring-kafka-payments-demo" className="font-semibold underline">
+                Browse full demo source
+              </Link>
+            </p>
+            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid chart={PAYMENTS_DEMO_BOX} />
+            </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+                <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Success</p>
+                <Mermaid chart={PAYMENTS_DEMO_SUCCESS} />
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+                <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Poison → DLT</p>
+                <Mermaid chart={PAYMENTS_DEMO_POISON} />
+              </div>
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Run it" tone="ok" code={PAYMENTS_DEMO_RUN} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Producer properties (interview knobs)" code={PAYMENTS_DEMO_PRODUCER_PROPS} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Demo layout" code={PAYMENTS_DEMO_FILES} />
+            </div>
+            <p className="mt-4 rounded-xl bg-slate-900 px-4 py-3 text-sm leading-7 text-slate-100">
+              <strong>30s answer:</strong> {PAYMENTS_DEMO_THIRTY_SEC}
+            </p>
           </Section>
 
           <Section
@@ -538,7 +610,7 @@ Pause partition / use retry topics for long delays`}
             />
           </Section>
 
-          <Section id="corners" title="28. Corner cases" lead="Every case answers: processed? DLT published? offset committed? dup? loss? recovery?">
+          <Section id="corners" title="28. Corner cases (generic)" lead="Every case answers: processed? DLT published? offset committed? dup? loss? recovery?">
             <div className="space-y-3">
               {CORNER_CASES.map((c) => (
                 <div key={c.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
@@ -556,7 +628,111 @@ Pause partition / use retry topics for long delays`}
             </div>
           </Section>
 
-          <Section id="antipatterns" title="29. Anti-patterns" lead="Forty-plus ways teams turn DLT into a liability.">
+          <Section
+            id="hadron-story"
+            title="29. Hadron CashLines case study"
+            lead="Neptune → Kafka → Hadron: FinTech DLQ with ordering holds, UNIQUE(event_id), and replay through Kafka."
+          >
+            <p className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">{HADRON_MEMORY}</p>
+            <div className="mt-4 space-y-4 text-sm leading-7 text-slate-700 dark:text-slate-300">
+              <p>
+                <strong>60s:</strong> {HADRON_SIXTY}
+              </p>
+              <p>
+                <strong>2 min:</strong> {TWO_MINUTE_STORY}
+              </p>
+              <p>
+                <strong>5 min:</strong> {HADRON_FIVE_MIN}
+              </p>
+            </div>
+            <div className="mt-6">
+              <MiniTable headers={['Failure', 'Retry?', 'DLQ?', 'Why']} rows={HADRON_DECISION_MATRIX} />
+            </div>
+            <div className="mt-4">
+              <MiniTable headers={['Item', 'Unbounded', 'Bounded']} rows={COST_MODEL} />
+            </div>
+            <p className="mt-4 text-sm font-semibold text-emerald-800 dark:text-emerald-200">{HADRON_CLOSING}</p>
+          </Section>
+
+          <Section id="hadron-sequences" title="30. Hadron lifecycle sequences" lead="Success, retry, DLQ, replay, duplicate, out-of-order, settle-block, cancel.">
+            <SequenceWalkthrough />
+          </Section>
+
+          <Section id="hadron-corners" title="31. Hadron corner cases (35)" lead="Filterable production matrix — richer than the generic corner list above.">
+            <CornerCaseCatalog />
+          </Section>
+
+          <Section
+            id="hadron-domain"
+            title="32. Neptune · state machine · DLQ DB"
+            lead="Domain pieces that do not belong in abstract DLT theory."
+          >
+            <div className="space-y-4">
+              {hadronDomain.map((t) => (
+                <details key={t.id} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <summary className="cursor-pointer font-semibold text-slate-900 dark:text-white">{t.title}</summary>
+                  <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{t.problem}</p>
+                  <p className="mt-2 text-xs leading-6 text-slate-500">
+                    Use when: {t.whenToUse} · Avoid: {t.whenAvoid}
+                  </p>
+                  {t.mermaid && (
+                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+                      <Mermaid chart={t.mermaid} />
+                    </div>
+                  )}
+                  {t.code && (
+                    <div className="mt-3">
+                      <CodePanel title="Snippet" code={t.code} />
+                    </div>
+                  )}
+                  <p className="mt-3 text-xs leading-6 text-slate-500">
+                    <strong>30s:</strong> {t.interview30s}
+                  </p>
+                </details>
+              ))}
+            </div>
+            <div className="mt-6">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Production checklist</h3>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+                {HADRON_CHECKLIST.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="mt-4">
+              <MiniTable headers={['Cheat', 'Rule']} rows={HADRON_CHEAT} />
+            </div>
+          </Section>
+
+          <Section id="labs" title="33. Runnable labs" lead="Hadron CashLines lab on this page; payments demo explorer at /spring-kafka-payments-demo.">
+            <CodePanel
+              title="Hadron lab quick start"
+              tone="ok"
+              code={`cd hadron-cashlines-dlq
+docker compose up -d
+mvn -q spring-boot:run
+# LabController scenarios: success, poison, timeout, out-of-order, duplicate, …`}
+            />
+            {hadronFiles.length > 0 && (
+              <div className="mt-6">
+                <OAuthCodeExplorer
+                  files={hadronFiles}
+                  tree={hadronTree}
+                  defaultPath={hadronDefaultPath}
+                  routeBase="/kafka-dlq"
+                  ariaLabel="Hadron CashLines DLQ lab source"
+                />
+              </div>
+            )}
+            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+              Payments Spring modules:{' '}
+              <Link href="/spring-kafka-payments-demo" className="font-semibold underline">
+                /spring-kafka-payments-demo
+              </Link>
+            </p>
+          </Section>
+
+          <Section id="antipatterns" title="34. Anti-patterns · Hadron mistakes" lead="Generic DLT anti-patterns plus CashLine production mistakes.">
             <ul className="grid gap-2 md:grid-cols-2">
               {ANTI_PATTERNS.map((a) => (
                 <li
@@ -567,9 +743,19 @@ Pause partition / use retry topics for long delays`}
                 </li>
               ))}
             </ul>
+            <h3 className="mt-8 text-lg font-bold text-slate-900 dark:text-white">Hadron production mistakes</h3>
+            <div className="mt-3 space-y-2">
+              {PRODUCTION_MISTAKES.map((m) => (
+                <div key={m.bad} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                  <p className="font-semibold text-rose-700 dark:text-rose-300">Bad: {m.bad}</p>
+                  <p className="mt-1 text-emerald-800 dark:text-emerald-200">Good: {m.good}</p>
+                  <p className="mt-1 text-slate-600 dark:text-slate-300">{m.why}</p>
+                </div>
+              ))}
+            </div>
           </Section>
 
-          <Section id="decisions" title="30. Decision trees · master architecture" lead="Staff-level decision frameworks before coding.">
+          <Section id="decisions" title="35. Decision trees · master architecture" lead="Staff-level decision frameworks before coding.">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
               <Mermaid chart={MASTER_FAILURE_TREE} />
             </div>
@@ -586,10 +772,26 @@ Pause partition / use retry topics for long delays`}
             <div className="mt-6">
               <MiniTable headers={['Class', 'Layer', 'Responsibility']} rows={SOURCE_CLASSES} />
             </div>
+            <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+              <Mermaid chart={MASTER_ARCH} />
+            </div>
           </Section>
 
-          <Section id="interview" title="31. Interview & cheat sheets" lead="Drill Senior / Architect / Rapid. Then skim cheat sheets before a panel.">
+          <Section id="interview" title="36. Interview & cheat sheets" lead="Generic DLQ drills + Hadron CashLines track.">
             <InterviewMode />
+            <h3 className="mt-10 text-lg font-bold text-slate-900 dark:text-white">Hadron interview track ({HADRON_INTERVIEW.length})</h3>
+            <div className="mt-3 space-y-2">
+              {HADRON_INTERVIEW.slice(0, 24).map((q) => (
+                <details key={q.id} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+                  <summary className="cursor-pointer font-medium">
+                    [{q.id}] {q.question}
+                  </summary>
+                  <p className="mt-2 text-slate-600 dark:text-slate-300">{q.answer30s}</p>
+                  <p className="mt-1 text-slate-600 dark:text-slate-300">{q.answer2m}</p>
+                </details>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Showing 24 of {HADRON_INTERVIEW.length} — full set in source lib/hadron-dlq/interview.ts</p>
             <div className="mt-8 grid gap-4 md:grid-cols-2">
               {CHEATS.map((c) => (
                 <div key={c.title} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
@@ -605,15 +807,11 @@ Pause partition / use retry topics for long delays`}
             <p className="mt-8 text-sm text-slate-500">
               Related:{' '}
               <Link href="/kafka-consumer#errors" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Consumer errors section
+                Consumer errors
               </Link>
               {' · '}
               <Link href="/kafka-interview/kafka-dlq-poison-message-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
                 Poison Q71–Q81
-              </Link>
-              {' · '}
-              <Link href="/hadron-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-                Hadron production lab
               </Link>
             </p>
           </Section>

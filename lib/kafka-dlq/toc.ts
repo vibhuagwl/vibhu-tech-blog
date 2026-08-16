@@ -1,6 +1,6 @@
 import type {TocItem} from './types';
 
-/** Maps the Kafka DLQ/DLT + retry + recovery master curriculum into navigable boards. */
+/** Unified Kafka DLQ/DLT + Retry + Payments + Hadron case study — single final page. */
 export const KAFKA_DLQ_TOC: TocItem[] = [
   {id: 'overview', label: '00. Overview & version'},
   {id: 'fundamentals', label: '01. DLQ fundamentals'},
@@ -28,10 +28,15 @@ export const KAFKA_DLQ_TOC: TocItem[] = [
   {id: 'obs', label: '23. Observability · alerts'},
   {id: 'replay', label: '24. Replay · idempotency'},
   {id: 'ops', label: '25. Ops · incident · SLO'},
-  {id: 'payments', label: '26. Payments DLT'},
+  {id: 'payments', label: '26. Payments DLT · runnable demo'},
   {id: 'batch', label: '27. Batch · ack · rebalance'},
-  {id: 'corners', label: '28. Corner cases'},
-  {id: 'antipatterns', label: '29. Anti-patterns'},
-  {id: 'decisions', label: '30. Decision trees · master arch'},
-  {id: 'interview', label: '31. Interview & cheat sheets'},
+  {id: 'corners', label: '28. Corner cases (generic)'},
+  {id: 'hadron-story', label: '29. Hadron CashLines case study'},
+  {id: 'hadron-sequences', label: '30. Hadron lifecycle sequences'},
+  {id: 'hadron-corners', label: '31. Hadron corner cases (35)'},
+  {id: 'hadron-domain', label: '32. Neptune · state machine · DLQ DB'},
+  {id: 'labs', label: '33. Runnable labs'},
+  {id: 'antipatterns', label: '34. Anti-patterns · Hadron mistakes'},
+  {id: 'decisions', label: '35. Decision trees · master arch'},
+  {id: 'interview', label: '36. Interview & cheat sheets'},
 ];
