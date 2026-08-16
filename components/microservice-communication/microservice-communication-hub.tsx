@@ -10,6 +10,10 @@ import {RESILIENCE} from '@/lib/microservice-communication/parts-resilience';
 import {MESSAGING} from '@/lib/microservice-communication/parts-messaging';
 import {DESIGN} from '@/lib/microservice-communication/parts-design';
 import {
+  PRODUCTION_INTERVIEW,
+  TECH_CHEAT_DETAILED,
+} from '@/lib/microservice-communication/parts-production-interview';
+import {
   COMMUNICATION_TAXONOMY,
   INFRA_VS_MECHANISM,
   TAXONOMY_EXTRAS,
@@ -98,6 +102,11 @@ function CommCard({s}: {s: CommSection}) {
         <p className="mt-2 text-xs font-semibold text-emerald-800 dark:text-emerald-200">Remember: {s.remember[0]}</p>
       </summary>
       <div className="mt-4 space-y-3 text-sm leading-7 text-slate-700 dark:text-slate-300">
+        {s.problem && (
+          <p>
+            <strong>Problem:</strong> {s.problem}
+          </p>
+        )}
         <p>
           <strong>What:</strong> {s.what}
         </p>
@@ -105,12 +114,37 @@ function CommCard({s}: {s: CommSection}) {
           <strong>Why:</strong> {s.why}
         </p>
         <p>
-          <strong>When:</strong> {s.when}
+          <strong>When to use:</strong> {s.when}
         </p>
+        {s.whenNot && (
+          <p>
+            <strong>When NOT to use:</strong> {s.whenNot}
+          </p>
+        )}
         <p>
-          <strong>How:</strong> {s.how}
+          <strong>How (Spring / production):</strong> {s.how}
         </p>
         <CodePanel title="Flow" code={s.flow} />
+        {s.badDesign && s.goodDesign && (
+          <div className="grid gap-3 md:grid-cols-2">
+            <CodePanel title="Bad design" code={s.badDesign} tone="danger" />
+            <CodePanel title="Better design" code={s.goodDesign} tone="ok" />
+          </div>
+        )}
+        {(s.pros || s.cons) && (
+          <p>
+            {s.pros && (
+              <>
+                <strong>Pros:</strong> {s.pros}{' '}
+              </>
+            )}
+            {s.cons && (
+              <>
+                <strong>Cons:</strong> {s.cons}
+              </>
+            )}
+          </p>
+        )}
         <p>
           <strong>Failure:</strong> {s.failure}
         </p>
@@ -126,7 +160,9 @@ function CommCard({s}: {s: CommSection}) {
         <p className="text-rose-700 dark:text-rose-300">
           <strong>Trap:</strong> {s.trap}
         </p>
-        <p className="font-semibold text-slate-900 dark:text-white">{s.interviewAnswer}</p>
+        <p className="rounded-xl bg-slate-900 px-3 py-2 font-semibold text-slate-100">
+          <strong>Senior interview answer:</strong> {s.interviewAnswer}
+        </p>
         <ul className="list-disc pl-5">
           {s.remember.map((r) => (
             <li key={r}>{r}</li>
@@ -261,7 +297,8 @@ export default function MicroserviceCommunicationHub() {
     RESILIENCE.length +
     MESSAGING.length +
     DESIGN.length +
-    TAXONOMY_EXTRAS.length;
+    TAXONOMY_EXTRAS.length +
+    PRODUCTION_INTERVIEW.length;
 
   const tocItems = useMemo(
     () => (tocFocus === 'story' ? MSC_TOC.filter((i) => MSC_STORY_TOC_IDS.has(i.id)) : MSC_TOC),
@@ -288,15 +325,15 @@ export default function MicroserviceCommunicationHub() {
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Staff · Architect · Java 21 · Spring Boot 3 · Sync · Async · Resilience
+          Staff · Architect · FinTech production · Interview decisions · Java 21 · Spring Boot 3
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          How Microservice A Calls Microservice B
+          Microservice Communication — Production & Interview Guide
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Full reference is always on this page — every TOC and hash link (including{' '}
-          <code className="rounded bg-slate-100 px-1 dark:bg-slate-900">#grpc</code>) jumps to a real section.
-          Use the TOC filter below if you want a shorter interview path in the sidebar.
+          Not a glossary of REST and Kafka. A decision guide for how Payment, Account, Risk, Ledger, and
+          Notification talk in production — problem → options → implementation → failure → trade-off → what you
+          say in a senior interview.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
@@ -355,29 +392,79 @@ export default function MicroserviceCommunicationHub() {
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={tocItems} />
         <div className="min-w-0 space-y-16">
-          <Section id="overview" title="00. Start here" lead="A → B is a reliability design, not a GET call.">
+          <Section
+            id="overview"
+            title="00. Start here · interview spine"
+            lead="Answer the interviewer: how do your services communicate, and why?"
+          >
             <CodePanel
               title="Production answer spine"
-              code={`Business need
-  → Taxonomy branch (mechanism ≠ infra)
-  → Sync or Async?
-  → REST / gRPC / RSocket / Kafka / webhook / CDC / S3|SFTP
-  → Discovery + Load balancing (infra)
-  → Connection pool
-  → Timeout
-  → Retry + backoff + jitter (idempotent only)
-  → Circuit breaker + bulkhead
-  → Idempotency
-  → Security (TLS/mTLS/JWT)
-  → Observability (RED + OTel)
-  → Capacity (Little's Law)
-  → Failure / DR / testing`}
+              code={`Business interaction (Payment → Account? Ledger? Notify?)
+  → Does the caller need an immediate answer?
+       YES → Sync REST / gRPC  (+ timeout, CB, bulkhead, idempotency)
+       NO  → Async Kafka / webhook (+ outbox, idempotent consumer, DLQ)
+  → Hybrid is normal: sync decide, async fan-out
+  → TRICKS-OLD on every sync edge
+  → Observe: RED + traces + consumer lag + DLQ
+  → Never: shared DB as a bus · blind POST retries · broker EOS = business EOS`}
+            />
+            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Deep reference (taxonomy, clients, discovery, incidents) stays on this page. Start with why-comm and
+              the payment case study if you are revising for a staff interview.
+            </p>
+          </Section>
+
+          <Section
+            id="why-comm"
+            title="01. Why services talk · sync vs async"
+            lead="Network boundary = failure boundary. Decide sync vs async before naming a product."
+          >
+            <Group
+              cards={PRODUCTION_INTERVIEW.filter(
+                (c) => c.id === 'why-services-communicate' || c.id === 'sync-vs-async-framework',
+              )}
+            />
+          </Section>
+
+          <Section id="stories" title="02. Story theater" lead="Draw sync vs async, taxonomy, webhooks, CDC vs outbox, retry storm before naming libraries.">
+            <StoryWalkthrough />
+          </Section>
+
+          <Section
+            id="production-decisions"
+            title="03. REST · Kafka · hybrid · failure playbook"
+            lead="FinTech-first decisions: when REST, when Kafka, when both, and what breaks."
+          >
+            <Group
+              cards={PRODUCTION_INTERVIEW.filter((c) =>
+                [
+                  'rest-production-fintech',
+                  'kafka-production-fintech',
+                  'rest-vs-kafka-matrix',
+                  'rest-vs-kafka-scenario',
+                  'hybrid-architecture',
+                  'failure-playbook',
+                  'retry-idempotency-deep',
+                  'timeout-circuit-breaker',
+                  'saga-payments',
+                  'bad-vs-good-designs',
+                  'observability-security-perf',
+                ].includes(c.id),
+              )}
             />
           </Section>
 
           <Section
+            id="payment-case"
+            title="04. Payment platform case study"
+            lead="One end-to-end architecture you can draw and defend in a staff interview."
+          >
+            <Group cards={PRODUCTION_INTERVIEW.filter((c) => c.id === 'payment-case-study-complete')} />
+          </Section>
+
+          <Section
             id="taxonomy"
-            title="01. Complete taxonomy"
+            title="05. Complete taxonomy"
             lead="Classify the mechanism first. Gateway, mesh, DNS, and load balancers wrap it — they are not the call itself."
           >
             <CodePanel title="Eight branches" code={COMMUNICATION_TAXONOMY} />
@@ -386,32 +473,28 @@ export default function MicroserviceCommunicationHub() {
             </div>
           </Section>
 
-          <Section id="stories" title="02. Story theater" lead="Draw sync vs async, taxonomy, webhooks, CDC vs outbox, retry storm before naming libraries.">
-            <StoryWalkthrough />
-          </Section>
-
-          <Section id="options" title="03. All options compared">
+          <Section id="options" title="06. All options compared">
             <Group cards={OPTIONS} />
           </Section>
-          <Section id="extras" title="04. RSocket · webhooks · SSE · CDC · SFTP · UDS">
+          <Section id="extras" title="07. RSocket · webhooks · SSE · CDC · SFTP · UDS">
             <Group cards={TAXONOMY_EXTRAS.filter((c) => c.id !== 'taxonomy-overview')} />
           </Section>
-          <Section id="rest-clients" title="05. RestClient · WebClient · Feign · RestTemplate">
+          <Section id="rest-clients" title="08. RestClient · WebClient · Feign · RestTemplate">
             <Group cards={CLIENTS} />
           </Section>
-          <Section id="discovery-lb" title="06. Discovery · K8s · LB · Gateway · Mesh (infra)">
+          <Section id="discovery-lb" title="09. Discovery · K8s · LB · Gateway · Mesh (infra)">
             <Group cards={DISCOVERY} />
           </Section>
-          <Section id="grpc" title="07. gRPC (see options + clients comparison)">
+          <Section id="grpc" title="10. gRPC (see options + clients comparison)">
             <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
               Deep gRPC tradeoffs live in the options matrix; RSocket comparison sits under taxonomy extras.
             </p>
             <Group cards={OPTIONS.filter((o) => o.id.includes('grpc') || o.title.toLowerCase().includes('grpc'))} />
           </Section>
-          <Section id="async" title="08. Kafka · brokers · events">
+          <Section id="async" title="11. Kafka · brokers · events">
             <Group cards={MESSAGING} />
           </Section>
-          <Section id="gateway-mesh" title="09. Gateway · mesh — infrastructure, not the mechanism">
+          <Section id="gateway-mesh" title="12. Gateway · mesh — infrastructure, not the mechanism">
             <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
               These wrap REST/gRPC/Kafka. Say the mechanism first, then the infra.
             </p>
@@ -424,10 +507,10 @@ export default function MicroserviceCommunicationHub() {
               )}
             />
           </Section>
-          <Section id="resilience" title="10. Timeout · retry · CB · bulkhead · pools">
+          <Section id="resilience" title="13. Timeout · retry · CB · bulkhead · pools">
             <Group cards={RESILIENCE} />
           </Section>
-          <Section id="idempotency" title="11. Idempotency · saga · chains">
+          <Section id="idempotency" title="14. Idempotency · saga · chains">
             <Group
               cards={RESILIENCE.filter(
                 (r) =>
@@ -438,7 +521,7 @@ export default function MicroserviceCommunicationHub() {
               )}
             />
           </Section>
-          <Section id="security-obs" title="12. Security · tracing · capacity">
+          <Section id="security-obs" title="15. Security · tracing · capacity">
             <Group
               cards={DESIGN.filter(
                 (d) =>
@@ -452,10 +535,10 @@ export default function MicroserviceCommunicationHub() {
               )}
             />
           </Section>
-          <Section id="capacity" title="13. Capacity · architectures · anti-patterns">
+          <Section id="capacity" title="16. Capacity · architectures · anti-patterns">
             <Group cards={DESIGN} />
           </Section>
-          <Section id="architectures" title="14. Payment · ecommerce · banking">
+          <Section id="architectures" title="17. Payment · ecommerce · banking">
             <Group
               cards={DESIGN.filter(
                 (d) =>
@@ -466,26 +549,27 @@ export default function MicroserviceCommunicationHub() {
               )}
             />
           </Section>
-          <Section id="antipatterns" title="15. Anti-patterns (incl. shared DB/cache as buses)">
+          <Section id="antipatterns" title="18. Anti-patterns · bad vs good">
             <Group
               cards={[
+                ...PRODUCTION_INTERVIEW.filter((c) => c.id === 'bad-vs-good-designs'),
                 ...OPTIONS.filter((o) => o.id === 'shared-database' || o.id === 'shared-cache'),
                 ...DESIGN.filter((d) => d.title.toLowerCase().includes('anti') || d.id.includes('anti')),
               ]}
             />
           </Section>
 
-          <Section id="choose" title="16. Which would you choose?">
+          <Section id="choose" title="19. Which would you choose?">
             <ChooseBrowser />
           </Section>
 
-          <Section id="incidents" title="17. Production incidents">
+          <Section id="incidents" title="20. Production incidents">
             <IncidentBrowser />
           </Section>
 
           <Section
             id="failure-matrix"
-            title="18. Failure matrix"
+            title="21. Failure matrix"
             lead="What breaks, what you do in the first five minutes, and what you change permanently."
           >
             <MiniTable
@@ -494,7 +578,7 @@ export default function MicroserviceCommunicationHub() {
             />
           </Section>
 
-          <Section id="spoken" title="19. Spoken answers (30s / 2m / 5m Staff)">
+          <Section id="spoken" title="22. Spoken answers (30s / 2m / 5m Staff)">
             <div className="space-y-4">
               {(
                 [
@@ -520,7 +604,7 @@ export default function MicroserviceCommunicationHub() {
             </div>
           </Section>
 
-          <Section id="tricks" title="20. Trick questions">
+          <Section id="tricks" title="23. Trick questions">
             <div className="space-y-2">
               {TRICK_QS.slice(0, 20).map((q) => (
                 <details key={q.id} className="rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
@@ -533,7 +617,7 @@ export default function MicroserviceCommunicationHub() {
             <p className="mt-2 text-xs text-slate-500">{TRICK_QS.length} tricks — full set in Interview mode</p>
           </Section>
 
-          <Section id="interview" title="21. Interview mode">
+          <Section id="interview" title="24. Interview mode">
             <InterviewMode />
             <p className="mt-2 text-sm text-slate-500">
               {RAPID_QS.length} rapid · {TRICK_QS.length} tricks · {ARCHITECT.length} architect bank ·{' '}
@@ -541,8 +625,37 @@ export default function MicroserviceCommunicationHub() {
             </p>
           </Section>
 
-          <Section id="cheatsheet" title="22. Cheat sheet">
-            <CodePanel title="Decision tree" code={DECISION_ASCII} />
+          <Section
+            id="cheatsheet"
+            title="25. Cheat sheet · tech revision"
+            lead="Revise decisions the night before — best for, avoid when, one-liner."
+          >
+            <Group cards={PRODUCTION_INTERVIEW.filter((c) => c.id === 'tech-cheat-sheet')} />
+            <div className="mt-4">
+              <MiniTable
+                headers={[
+                  'Technology',
+                  'Best for',
+                  'Avoid when',
+                  'Coupling',
+                  'Consistency',
+                  'Failure handling',
+                  'One-liner',
+                ]}
+                rows={TECH_CHEAT_DETAILED.map((r) => [
+                  r.technology,
+                  r.bestFor,
+                  r.avoidWhen,
+                  r.coupling,
+                  r.consistency,
+                  r.failureHandling,
+                  r.oneLiner,
+                ])}
+              />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Decision tree" code={DECISION_ASCII} />
+            </div>
             <div className="mt-4">
               <MiniTable
                 headers={['Term', 'Rule', 'Trap']}
@@ -558,7 +671,7 @@ export default function MicroserviceCommunicationHub() {
             </div>
           </Section>
 
-          <Section id="checklist" title="23. Coverage checklist">
+          <Section id="checklist" title="26. Coverage checklist">
             <ul className="grid gap-1 sm:grid-cols-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
               {COVERAGE_CHECKLIST.map((c) => (
                 <li key={c} className="flex gap-2">

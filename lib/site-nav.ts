@@ -125,7 +125,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking · hashing · CDC curricula'},
       {href:'/distributed-locking',label:'Distributed Locking',blurb:'Leases · fencing · Redis/Postgres'},
       {href:'/distributed-caching',label:'Distributed Caching',blurb:'Stampede · TTL · Spring Cache'},
-      {href:'/microservice-communication',label:'Service Communication',blurb:'Sync · async · discovery'},
+      {href:'/microservice-communication',label:'Service Communication',blurb:'Production decisions · FinTech · interview'},
       {href:'/microservices-patterns',label:'Microservices Patterns',blurb:'Saga · outbox · choreography'},
       {href:'/db-sharding',label:'Database Sharding',blurb:'Partition · router · DR'},
       {href:'/multi-tenant',label:'Multi-Tenant SaaS',blurb:'Isolation · RLS · tenancy'},

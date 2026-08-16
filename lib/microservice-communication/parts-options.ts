@@ -12,6 +12,8 @@ export const OPTIONS: CommSection[] = [
       'Universal interoperability — any language, any cloud, debuggable with curl. Mature tooling for auth (OAuth2), caching (ETag), versioning (/api/v1), and API gateways. Lowest team friction for CRUD microservices.',
     when:
       'Default choice for synchronous service-to-service and public APIs. Read-heavy CRUD, command/query with immediate response, third-party integrations, mobile and web frontends.',
+    whenNot:
+      'Do not use REST to fan out payment side effects (ledger + notify + reporting) on the request thread. Do not use REST for bulk file exchange. Prefer Kafka (or batch/SFTP) when the caller does not need an immediate answer.',
     how:
       'Define OpenAPI contract. Server: @RestController + DTO validation + ProblemDetail errors (RFC 7807). Client: RestClient with connect/read timeouts, connection pool, Resilience4j decorators. Propagate traceparent and Authorization headers.',
     flow: `sequenceDiagram
@@ -118,6 +120,8 @@ export const OPTIONS: CommSection[] = [
       'Handle thousands of concurrent outbound calls with few event-loop threads. Natural for streaming, SSE, backpressure, and parallel aggregation (zip/merge).',
     when:
       'WebFlux applications. Fan-out to many services in parallel on one request. Streaming large responses. Gateway/BFF aggregating multiple backends.',
+    whenNot:
+      'Do not drop WebClient into a simple Spring MVC payment service “because reactive is modern.” Prefer RestClient (or Feign) for imperative sync calls; WebClient’s complexity is justified by concurrency model, not fashion.',
     how:
       'WebClient.builder().baseUrl().defaultHeader().build(). Use retrieve().bodyToMono() chained with flatMap. Configure Reactor Netty connection provider (max connections, idle timeout). Never .block() on servlet threads.',
     flow: `flowchart TD
@@ -161,6 +165,8 @@ export const OPTIONS: CommSection[] = [
       'DRY client code — no manual URL building. Interface mirrors server controller. Easy mock in tests. Familiar to Spring Cloud teams.',
     when:
       'Multiple sync REST integrations with stable contracts. Teams already on Spring Cloud. Prefer interface-driven clients over manual RestClient calls.',
+    whenNot:
+      'Do not use Feign if timeouts/retries stay on defaults and POST retries are enabled blindly. Prefer RestClient when you want explicit, readable HTTP without Spring Cloud magic — especially greenfield Boot 3 MVC.',
     how:
       '@EnableFeignClients + @FeignClient(name = "payment-service", path = "/api/v1"). Configure feign.client.config with connectTimeout, readTimeout. Add RequestInterceptor for auth. Fallback class for circuit open.',
     flow: `sequenceDiagram
@@ -207,7 +213,9 @@ export const OPTIONS: CommSection[] = [
     why:
       'Lower latency and smaller payloads than JSON REST. Bi-directional streaming. Strict schema evolution with field numbers. First-class in polyglot and high-throughput internal meshes.',
     when:
-      'Internal service-to-service with strict contracts and performance needs. Streaming RPC (market data, logs). Polyglot stacks. NOT default for browser-facing APIs without grpc-web gateway.',
+      'Internal service-to-service with strict contracts and performance needs. Streaming RPC (market data, logs). Polyglot stacks. NOT default for browser-facing APIs without grpc-web gateway. Realistic FinTech: Payment → Risk/Fraud scoring under tight SLO.',
+    whenNot:
+      'Do not force gRPC for public mobile/web APIs or for simple CRUD where JSON REST + OpenAPI is enough. Contract churn across many consumers without protobuf discipline is painful.',
     how:
       'Define .proto → protobuf-maven-plugin generates stubs. Server: @GrpcService extends generated base. Client: ManagedChannel with keepAlive, deadline per call. Spring Boot 3: spring-grpc or grpc-spring-boot-starter. mTLS between services.',
     flow: `sequenceDiagram
@@ -380,7 +388,9 @@ export const OPTIONS: CommSection[] = [
     why:
       'Durable high-throughput fan-out. Decouples producers from consumers. Replay for new services. Event sourcing and CDC pipelines. Buffer during spikes.',
     when:
-      'Event notification, audit trail, analytics pipeline, CQRS read models, inter-service async integration at scale. OrderCreated → inventory, email, fraud.',
+      'Event notification, audit trail, analytics pipeline, CQRS read models, inter-service async integration at scale. OrderCreated → inventory, email, fraud. Payment-created fan-out to Ledger/Notify/Reporting.',
+    whenNot:
+      'Do not use Kafka for account eligibility or card auth when the user is waiting. Do not use Kafka request-reply as a clever REST replacement for checkout. Broker EOS settings do not equal business exactly-once ledger posting.',
     how:
       'KafkaTemplate.send(topic, key, value) with idempotent producer. @KafkaListener with concurrency = partition count. Outbox pattern: DB transaction + outbox table → Debezium or polling publisher. Schema Registry for Avro.',
     flow: `flowchart LR
