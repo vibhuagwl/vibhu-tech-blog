@@ -4,9 +4,9 @@ import JavaStreamsHub from '@/components/java-streams/java-streams-hub';
 import {buildJavaStreamsLabTree, listJavaStreamsLabFiles} from '@/lib/java-streams-lab-source';
 
 export const metadata: Metadata = {
-  title: 'Java Streams — Complete Interview Program Collection (21+ Years)',
+  title: 'Java Streams — Top 100 Tough Programs · Senior / Staff Interview',
   description:
-    "200+ Java Stream interview programs for Senior/Staff/Principal: collectors, grouping, parallel traps, FinTech/employee suites, Spliterator, JPA warnings, coding drills, full API coverage checklist.",
+    'SDE3/Staff Java Stream interview prep: Top 100 tough programs, Priority 15 (Nth salary, groupingBy, anagrams, custom Collector), follow-ups on complexity, nulls, parallel — plus full API catalog.',
 };
 
 export default function JavaStreamsPage() {

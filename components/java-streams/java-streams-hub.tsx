@@ -28,6 +28,8 @@ import InterviewMode from './interview-mode';
 import ProblemBrowser from './problem-browser';
 import StickyToc from './sticky-toc';
 import ApiCoverageChecklist from './api-coverage-checklist';
+import Tough100Browser from './tough-100-browser';
+import {PRIORITY_15, TOUGH_100} from '@/lib/java-streams/tough-100';
 
 function Section({
   id,
@@ -72,21 +74,23 @@ export default function JavaStreamsHub({
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Java 21 · Staff · Principal · Architect · 21+ years interview prep
+          Java 21 · SDE3 · Staff · Principal · Top 100 tough Stream programs
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          Java Streams — Complete Interview Program Collection
+          Java Streams — Senior Interview Program Collection
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Not a beginner tutorial. A systematic catalog of Stream problems with solutions, pipelines, complexity,
-          traps, and senior judgment — plus parallel, Spliterator, JPA, files, and when <em>not</em> to use Streams.
+          Not beginner <code className="text-sm">filter/map/collect</code> drills. Grouping, multi-level aggregation,
+          flatMap, duplicates, anagrams, nested collections, custom collectors — plus complexity, edge cases, and when
+          a loop beats a stream.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
         </p>
         <p className="mt-3 text-sm text-slate-500">{VERSION_NOTE}</p>
         <p className="mt-3 text-sm text-slate-500">
-          {PROBLEM_COUNT} programs · API checklist · {INTERVIEW_ALL.length} prompts · {CODING_ROUND.length} coding-round drills ·{' '}
+          {PROBLEM_COUNT} catalog programs · {TOUGH_100.length} tough · {PRIORITY_15.length} priority ·{' '}
+          {INTERVIEW_ALL.length} prompts · {CODING_ROUND.length} coding-round drills ·{' '}
           <Link href="/java-concurrency" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Concurrency
           </Link>
@@ -100,12 +104,20 @@ export default function JavaStreamsHub({
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={STREAMS_TOC} />
         <div className="min-w-0 space-y-16">
-          <Section id="overview" title="00. Overview · how seniors use Streams" lead="Identify the operation, collector, complexity, and whether Streams belong at all.">
+          <Section id="overview" title="00. Overview · senior Stream judgment" lead="Identify the operation, collector, complexity, and whether Streams belong at all.">
             <CodePanel title="Domain models" code={DOMAIN_MODELS} language="java" />
             <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Each category below is a filterable problem browser. Every card includes Problem → Input → Output →
-              Solution → Pipeline → Why → Complexity → Trap → Senior insight.
+              Start with <strong>00a. Top 100 tough</strong> (Priority 15). The full catalog below remains for depth and
+              API coverage.
             </p>
+          </Section>
+
+          <Section
+            id="tough-100"
+            title="00a. Top 100 Tough Java Stream Programs"
+            lead="SDE3 / Staff focus — Priority 15 first, then all six levels with solutions, complexity, and edge cases."
+          >
+            <Tough100Browser />
           </Section>
 
           <Section

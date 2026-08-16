@@ -93,6 +93,51 @@ public final class StreamsLabMain {
         java.util.stream.Stream.concat(java.util.stream.Stream.of("a"), java.util.stream.Stream.of("b")).toList());
     System.out.println(
         List.of("x", "x", "y").stream().collect(Collectors.toUnmodifiableSet()));
+
+    System.out.println("=== Priority: group anagrams ===");
+    System.out.println(groupAnagrams(List.of("eat", "tea", "tan", "ate", "nat", "bat")));
+
+    System.out.println("=== Priority: above department average ===");
+    Map<String, Double> deptAvg =
+        emps.stream()
+            .collect(Collectors.groupingBy(Employee::department, Collectors.averagingDouble(Employee::salary)));
+    emps.stream()
+        .filter(e -> e.salary() > deptAvg.get(e.department()))
+        .map(Employee::name)
+        .forEach(System.out::println);
+
+    System.out.println("=== Priority: top 2 per department ===");
+    System.out.println(topNPerDepartment(emps, 2));
+  }
+
+  static List<List<String>> groupAnagrams(List<String> words) {
+    return words.stream()
+        .collect(
+            Collectors.groupingBy(
+                w ->
+                    w.chars()
+                        .sorted()
+                        .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+                        .toString()))
+        .values()
+        .stream()
+        .map(List::copyOf)
+        .toList();
+  }
+
+  static Map<String, List<String>> topNPerDepartment(List<Employee> emps, int n) {
+    return emps.stream()
+        .collect(
+            Collectors.groupingBy(
+                Employee::department,
+                Collectors.collectingAndThen(
+                    Collectors.toList(),
+                    list ->
+                        list.stream()
+                            .sorted(Comparator.comparingDouble(Employee::salary).reversed())
+                            .limit(n)
+                            .map(Employee::name)
+                            .toList())));
   }
 
   static Optional<Character> firstNonRepeated(String s) {

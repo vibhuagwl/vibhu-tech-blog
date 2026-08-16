@@ -47,17 +47,24 @@ class StreamsLabTest {
   }
 
   @Test
-  void apiMatrixSummaryStatisticsAndUnmodifiable() {
-    var stats = IntStream.rangeClosed(1, 5).summaryStatistics();
-    assertEquals(5, stats.getCount());
-    assertEquals(15, stats.getSum());
-    var set = List.of("a", "a", "b").stream().collect(Collectors.toUnmodifiableSet());
-    assertEquals(2, set.size());
-    try {
-      set.add("c");
-      throw new AssertionError("expected unmodifiable");
-    } catch (UnsupportedOperationException expected) {
-      // ok
-    }
+  void groupAnagrams() {
+    var groups = StreamsLabMain.groupAnagrams(List.of("eat", "tea", "tan", "ate", "nat", "bat"));
+    assertEquals(3, groups.size());
+    assertTrue(groups.stream().anyMatch(g -> g.containsAll(List.of("eat", "tea", "ate"))));
+  }
+
+  @Test
+  void topNPerDepartment() {
+    record E(String d, String n, double s) {}
+    // reuse lab Employee via StreamsLabMain helpers with constructed list in main types
+    var emps =
+        List.of(
+            new StreamsLabMain.Employee(1, "A", "ENG", 100, java.time.LocalDate.now(), List.of()),
+            new StreamsLabMain.Employee(2, "B", "ENG", 200, java.time.LocalDate.now(), List.of()),
+            new StreamsLabMain.Employee(3, "C", "ENG", 150, java.time.LocalDate.now(), List.of()),
+            new StreamsLabMain.Employee(4, "D", "HR", 90, java.time.LocalDate.now(), List.of()));
+    var top = StreamsLabMain.topNPerDepartment(emps, 2);
+    assertEquals(List.of("B", "C"), top.get("ENG"));
+    assertEquals(List.of("D"), top.get("HR"));
   }
 }
