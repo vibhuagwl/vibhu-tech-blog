@@ -66,6 +66,7 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
       {href:'/kafka-producer',label:'Producer'},
       {href:'/kafka-consumer',label:'Consumer'},
       {href:'/kafka-dlq',label:'DLQ'},
+      {href:'/spring-kafka-annotations',label:'Spring Kafka annotations'},
     ],
   },
   {
@@ -136,7 +137,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     title:'Messaging & Traffic',
     description:'Events, edge routing, and resilience',
     topics:[
-      {href:'/kafka-interview',label:'Apache Kafka',blurb:'Producer · consumer · DLQ · lag'},
+      {href:'/kafka-interview',label:'Apache Kafka',blurb:'Producer · consumer · DLQ · annotations · lag'},
       {href:'/api-gateway',label:'API Gateway',blurb:'Routing · auth · rate limits'},
       {href:'/load-balancing',label:'Load Balancing',blurb:'L4/L7 · algorithms · health'},
       {href:'/rate-limiter',label:'Rate Limiting',blurb:'Token bucket · Redis'},
@@ -202,6 +203,7 @@ const KAFKA_FAMILY_PREFIXES=[
   '/kafka-internals',
   '/hadron-dlq',
   '/spring-kafka-payments-demo',
+  '/spring-kafka-annotations',
 ] as const;
 
 function isKafkaFamilyPath(pathname:string){

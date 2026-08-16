@@ -1,8 +1,9 @@
 import Link from 'next/link';
+import TechnologySectionStrip from '@/components/technology-section-strip';
 
 export const metadata={
   title:'Kafka — Interview Hub',
-  description:'Kafka interview hub: producer, consumer, DLQ/DLT, cluster, mastery drills, optimization, properties, payment story, code — one card per destination.',
+  description:'Kafka interview hub: producer, consumer, DLQ/DLT, Spring Kafka annotations, cluster, mastery, optimization, properties, code.',
 };
 
 /** One card per destination — mastery drills live on /kafka-mastery (not as # fragment cards). */
@@ -32,26 +33,32 @@ const CURRICULUM=[
     blurb:'Single final page: classification, retry topics, Spring handlers, payments demo, Hadron CashLines.',
   },
   {
-    href:'/kafka-cluster',
+    href:'/spring-kafka-annotations',
     number:'04',
+    title:'Spring Kafka Annotations',
+    blurb:'Standalone annotation reference: @KafkaListener, @RetryableTopic, @DltHandler, @SendTo, @Transactional — not broker configs.',
+  },
+  {
+    href:'/kafka-cluster',
+    number:'05',
     title:'Cluster & Broker',
     blurb:'Complete cluster board: KRaft, request path, ISR, storage, multi-AZ, capacity, failures, ops.',
   },
   {
     href:'/kafka-interview/kafka-optimization-index',
-    number:'05',
+    number:'06',
     title:'Optimization',
     blurb:'End-to-end: producer → broker → controller → cluster → consumer — bottlenecks, knobs, trade-offs.',
   },
   {
     href:'/kafka-properties',
-    number:'06',
+    number:'07',
     title:'Properties',
     blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs — plus payment must-set GO/NO-GO.',
   },
   {
     href:'/spring-kafka-payments-demo',
-    number:'07',
+    number:'08',
     title:'Kafka Code',
     blurb:'Spring payment-api producer + settlement-worker consumer source explorer.',
   },
@@ -69,9 +76,13 @@ export default function KafkaInterview(){
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
           One card per destination. Deep curricula live on dedicated boards; mastery owns the sizing and
-          spoken-answer drills.
+          spoken-answer drills. Spring Kafka annotations are a separate board from broker/client properties.
         </p>
       </header>
+
+      <div className="mt-8">
+        <TechnologySectionStrip technology="kafka" />
+      </div>
 
       <section className="mt-10">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Interview curriculum</h2>
@@ -97,11 +108,12 @@ export default function KafkaInterview(){
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600 dark:text-slate-300">
           <li>Open <strong>§01 Producer</strong> — say the send() lifecycle and acks=1 vs all out loud.</li>
           <li>Open <strong>§02 Consumer</strong> — poll(), session vs max.poll.interval, process→commit timelines.</li>
-          <li>Open <strong>§03 DLQ/DLT</strong> — classify failures, offsets, Spring recoverer, replay.</li>
-          <li>Open <strong>§04 Cluster</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
+          <li>Open <strong>§03 DLQ/DLT</strong> — classify failures, offsets, Spring recoverer, payments + Hadron.</li>
+          <li>Open <strong>§04 Spring Kafka Annotations</strong> — @KafkaListener, @RetryableTopic, @DltHandler, @SendTo, @Transactional.</li>
+          <li>Open <strong>§05 Cluster</strong> — KRaft, ISR/HW, leader crash, multi-AZ.</li>
           <li>Open <strong>§00 Mastery</strong> — monitoring, instance counts, syncing, partitions, spoken answers.</li>
-          <li>Skim <strong>§06 Properties</strong> and <strong>§05 Optimization</strong> for must-set baselines.</li>
-          <li>Walk <strong>§07 Payment story + DLQ</strong> once so you have a Spring payment narrative.</li>
+          <li>Skim <strong>§07 Properties</strong> and <strong>§06 Optimization</strong> for must-set baselines.</li>
+          <li>Browse <strong>§08 Kafka Code</strong> and the DLQ payments section for a Spring narrative.</li>
           <li>Practice the Mastery <strong>spoken-answer deck</strong> (Senior → Rapid).</li>
         </ol>
       </section>

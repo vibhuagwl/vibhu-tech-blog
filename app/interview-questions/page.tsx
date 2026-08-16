@@ -51,7 +51,13 @@ const banks=[
     href:'/kafka-interview',
     label:'Kafka',
     level:'Staff',
-    blurb:'One hub: producer, consumer, cluster, mastery drills, properties, and unified DLQ/DLT/Retry board.',
+    blurb:'One hub: producer, consumer, cluster, mastery drills, properties, unified DLQ/DLT/Retry, and Spring Kafka annotations.',
+  },
+  {
+    href:'/spring-kafka-annotations',
+    label:'Spring Kafka Annotations',
+    level:'Staff',
+    blurb:'@KafkaListener, @RetryableTopic, @DltHandler, @SendTo, @Transactional — lifecycle and interview bank.',
   },
   {
     href:'/multi-tenant',
