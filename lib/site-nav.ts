@@ -152,6 +152,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/spring-annotations',label:'Spring Annotations',blurb:'Proxies · transactions · DI'},
       {href:'/spring-security',label:'Spring Security',blurb:'JWT · OAuth2 · CSRF · CORS'},
       {href:'/java-concurrency',label:'Java Concurrency',blurb:'JMM · pools · virtual threads'},
+      {href:'/java-streams',label:'Java Streams',blurb:'200+ programs · collectors · parallel'},
       {href:'/java-locking',label:'JVM Locking',blurb:'synchronized · locks · JUC'},
       {href:'/redis-interview',label:'Redis',blurb:'Cache · locks · high availability'},
       {href:'/encryption',label:'Encryption & TLS',blurb:'AES-GCM · mTLS · key management'},
