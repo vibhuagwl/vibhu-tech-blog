@@ -3,6 +3,32 @@ import type {StoryBeat} from './types';
 /** Memorable Mermaid interview stories — sync vs async, resilience, and production paths. */
 export const MSC_STORIES: StoryBeat[] = [
   {
+    id: 'payment-hybrid-story',
+    title: 'Payment submit — hybrid REST + Kafka',
+    badge: 'FinTech case',
+    hook: 'Draw this when asked how payment microservices communicate in production.',
+    mermaid: `sequenceDiagram
+  participant C as Client
+  participant G as API Gateway
+  participant P as Payment
+  participant A as Account
+  participant K as Kafka
+  participant L as Ledger
+  participant N as Notify
+  C->>G: POST /payments
+  G->>P: JWT + rate limit
+  P->>A: REST validate (sync)
+  A-->>P: eligible
+  P->>P: commit + outbox
+  P-->>C: 201 paymentId ACCEPTED
+  P->>K: payment-created
+  K->>L: consume (idempotent)
+  K->>N: consume (idempotent)`,
+    say:
+      'The client needs an immediate payment id and accept/reject. Account validation is synchronous REST with timeouts and a circuit breaker. After Payment commits, ledger and notification are Kafka consumers — so Notify being down does not fail the money accept. I mention outbox, Idempotency-Key, DLQ, and payment status for eventual ledger posting. That is the hybrid answer interviewers want — not REST-only or Kafka-only.',
+    memory: 'Sync validate/auth · async fan-out · outbox · idempotency · status API.',
+  },
+  {
     id: 'sync-vs-async',
     title: 'Sync vs async mental model',
     badge: 'THE mental model',

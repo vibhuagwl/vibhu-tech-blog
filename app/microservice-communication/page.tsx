@@ -2,9 +2,9 @@ import type {Metadata} from 'next';
 import MicroserviceCommunicationHub from '@/components/microservice-communication/microservice-communication-hub';
 
 export const metadata: Metadata = {
-  title: 'Microservice Communication — A Calls B Interview Mastery',
+  title: 'Microservice Communication — Production & Staff Interview Guide',
   description:
-    'Staff guide: RestClient, WebClient, OpenFeign, gRPC, Kafka, discovery, K8s, mesh, timeouts, retries, circuit breakers, idempotency, TRICKS-OLD — Spring Boot 3 / Java 21.',
+    'FinTech-first guide: when REST vs Kafka vs gRPC, hybrid payment architectures, retry+idempotency, circuit breakers, saga, failure playbooks, and senior interview answers — Spring Boot 3 / Java 21.',
 };
 
 export default function MicroserviceCommunicationPage() {

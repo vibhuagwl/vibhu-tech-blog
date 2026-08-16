@@ -16,6 +16,14 @@ export type CommSection = {
   interviewAnswer: string;
   remember: string[];
   oneLiner: string;
+  /** Explicit problem this mechanism solves (interview framing). */
+  problem?: string;
+  /** When NOT to use — required nuance for senior answers. */
+  whenNot?: string;
+  pros?: string;
+  cons?: string;
+  badDesign?: string;
+  goodDesign?: string;
   tables?: {headers: string[]; rows: string[][]}[];
 };
 
