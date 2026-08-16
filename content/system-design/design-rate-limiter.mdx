@@ -1,73 +1,46 @@
 ---
 slug: design-rate-limiter
 title: Design a Distributed Rate Limiter
-description: Design a rate limiter for APIs using token bucket, Redis, atomic operations and resilient enforcement.
+description: Staff/Principal rate limiter design — token bucket, Redis Lua, AWS layers, fail policies, hot keys, and a Spring lab.
 category: System Design
 difficulty: Advanced
-tags: [Redis, API, Distributed Systems]
-readingTime: 18 min
+tags: [Redis, API, Distributed Systems, Interview]
+readingTime: 45 min
 publishedAt: 2026-08-10
 ---
 
-Deep dive + Java lab: [Distributed Rate Limiter hub](/rate-limiter) (`spring-rate-limiter-lab` on port 8098).
+Full interview board + Java lab: **[Rate Limiter — End-to-End HLD + LLD Master](/rate-limiter)** (`spring-rate-limiter-lab` on port 8098).
+
+## 30-second answer
+
+Shared Redis **token bucket** with **Lua** so refill+consume is atomic across pods; gateway/WAF for floods; app library for JWT identity; hierarchical AND limits; **429 + Retry-After**; fail-closed on payments, fail-open on public reads; watch hot keys and Redis p99.
 
 ## The problem
 
-An API serves many customers. One tenant suddenly sends a huge burst and consumes shared capacity. We need to enforce limits fairly without adding significant latency to every request.
+`POST /payments` jumps from 1K to 50K RPS (bug, bot, retry storm). Without admission control you burn thread pools, DB pools, Kafka buffers, and downstream providers — then retries amplify the outage.
 
 ## Requirements
 
-Examples: 100 requests/second per user, burst capacity of 200, separate limits for expensive endpoints, and predictable behavior during limiter failure.
+Per user / tenant / API / IP / global limits (AND). Burst + sustained. p99 check &lt; 5–10 ms. Explicit fail-open / fail-closed / local-fallback. Dynamic config. Observability.
 
-## Token bucket
+## Algorithm choice
 
-A token bucket stores a token count and refill rate. Each request consumes a token. Bursts are allowed up to the bucket capacity, while the refill rate controls sustained traffic.
-
-```text
-Request → Rate Limiter → API
-              |
-             Redis
-```
+| Algorithm | Burst | Memory | Typical use |
+| --- | --- | --- | --- |
+| Fixed window | Boundary 2× | O(1) | Coarse gateway |
+| Sliding log | Strict | High | Billing-grade |
+| Sliding counter | Medium | O(1) | Cheap approx |
+| **Token bucket** | Controlled | O(1) | **APIs (default)** |
+| Leaky bucket | Low | O(1) | Traffic shaping |
 
 ## Distributed implementation
 
-All application instances need a shared decision. Redis is useful because a small state update can be made atomically. A Lua script can calculate elapsed time, refill tokens and consume one token as a single operation.
+All pods share Redis. **Never GET then SET** — race admits twice. One Lua `EVAL` on a single key: refill, consume, `PEXPIRE`.
 
-## Key design
+## Failure & scale
 
-A key might be `rate:{tenant}:{route}`. The key must match the business isolation boundary. If the requirement is per-user, using an IP-only key is the wrong abstraction.
+Payments fail-closed; public GET may fail-open. Hot keys need local pre-limit / sharding. Multi-region exact globals are usually approximate — say that out loud.
 
-## Failure handling
+## Follow-ups
 
-The critical question is whether a limiter outage should be fail-open or fail-closed. For a public read API, fail-open for a short window may protect availability. For a security-sensitive operation, fail-closed may be safer. The choice belongs to the business risk model.
-
-## Scaling
-
-A single Redis shard can become hot for a globally popular tenant. Mitigations include local pre-limiting, hierarchical limits, sharded keys or regional limiters.
-
-## Trade-offs
-
-| Strategy | Benefit | Cost |
-|---|---|---|
-| Token bucket | Burst + sustained control | State management |
-| Fixed window | Simple | Boundary bursts |
-| Sliding window | More accurate | More state |
-| Local limiter | Very low latency | Cross-instance inconsistency |
-| Redis limiter | Shared decision | Redis dependency |
-
-## Interviewer follow-ups
-
-1. Token bucket vs leaky bucket?
-2. Why must the Redis operation be atomic?
-3. What happens if Redis is down?
-4. How do you prevent a hot tenant key?
-5. How do you rate-limit across regions?
-6. How do you return retry information?
-7. How do you test burst behavior?
-8. What happens during clock skew?
-9. How do you support different quotas by plan?
-10. How would you monitor false positives?
-
-## Staff-level discussion
-
-A mature design distinguishes enforcement from observability, defines fail-open/closed behavior per endpoint, and treats quotas as a product contract rather than only an infrastructure setting.
+Open the [hub interview bank](/rate-limiter#interview) for 50+ Staff/Principal prompts with expected vs wrong answers.

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Mermaid from '@/components/mermaid';
 import OAuthCodeExplorer from '@/components/oauth-code-explorer';
 import type {DemoSourceFile, DemoTreeNode} from '@/lib/oauth-demo-source';
 import {
@@ -16,16 +17,50 @@ import {
   CHEAT,
   CHECKLIST,
   FIVE_MIN,
-  FOLLOWUPS,
   JAVA_SNIPPET,
   LUA_LINES,
   MEMORY_SENTENCE,
   OBS_ALERTS,
   REST_EXAMPLE,
   SCALE_ROWS,
-  SCENARIOS,
   TRADEOFFS,
 } from '@/lib/rate-limiter/content';
+import {
+  MERMAID_ALLOW,
+  MERMAID_CLASS,
+  MERMAID_HLD,
+  MERMAID_LAYERS,
+  MERMAID_PAYMENT,
+  MERMAID_REJECT,
+  MERMAID_TOKEN,
+} from '@/lib/rate-limiter/diagrams';
+import {ANTI_PATTERNS, INCIDENTS} from '@/lib/rate-limiter/incidents';
+import {
+  AWS_ASCII,
+  CAPACITY_MATH,
+  CAP_VIEW,
+  CLOCK_NOTES,
+  CONCURRENCY_VS_RATE,
+  DYNAMIC_CONFIG,
+  FAIRNESS,
+  HYBRID,
+  KAFKA_RL,
+  ONE_PAGE,
+  PAYMENT_FLOW,
+  PERF_COMPARE,
+  RESILIENCE_ORDER,
+  RETRY_CODE,
+  THIRTY_SEC,
+} from '@/lib/rate-limiter/ops';
+import {
+  CONCEPT_ROWS,
+  DEFINITION,
+  FUNCTIONAL_LIMITS,
+  NFR_BLOCKS,
+  PROBLEM_STORY,
+  RATE_FORMULA,
+  WHY_WITHOUT,
+} from '@/lib/rate-limiter/problem';
 import {RATE_LIMIT_TOC} from '@/lib/rate-limiter/toc';
 import CodePanel from './code-panel';
 import InterviewMode from './interview-mode';
@@ -80,6 +115,51 @@ function MiniTable({headers, rows}: {headers: string[]; rows: string[][]}) {
   );
 }
 
+function Insight({
+  problem,
+  why,
+  solution,
+  example,
+  tradeoff,
+  senior,
+}: {
+  problem: string;
+  why: string;
+  solution: string;
+  example?: string;
+  tradeoff?: string;
+  senior?: string;
+}) {
+  return (
+    <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm leading-7 text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+      <p>
+        <strong className="text-slate-900 dark:text-white">Problem:</strong> {problem}
+      </p>
+      <p>
+        <strong className="text-slate-900 dark:text-white">Why:</strong> {why}
+      </p>
+      <p>
+        <strong className="text-slate-900 dark:text-white">Solution:</strong> {solution}
+      </p>
+      {example && (
+        <p>
+          <strong className="text-slate-900 dark:text-white">Example:</strong> {example}
+        </p>
+      )}
+      {tradeoff && (
+        <p>
+          <strong className="text-slate-900 dark:text-white">Trade-off:</strong> {tradeoff}
+        </p>
+      )}
+      {senior && (
+        <p className="text-emerald-800 dark:text-emerald-300">
+          <strong>Senior insight:</strong> {senior}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function RateLimiterHub({
   files = [],
   tree = [],
@@ -93,36 +173,36 @@ export default function RateLimiterHub({
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Staff · System Design · Java · Spring Boot · Redis
+          Staff · Principal · Architect · Java · Spring Boot · Redis · AWS
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
-          Distributed Rate Limiting — Token Bucket, Redis Lua, Multi-Level Quotas
+          Rate Limiter — End-to-End HLD + LLD Interview Master
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          A production-shaped design for APIs and internal services: per user, client, API, IP, tenant, and
-          service limits that stay correct when traffic is spread across many application servers.
+          Story-driven production design for Senior Staff / Principal interviews: why → requirements → algorithms →
+          HLD/LLD → Redis Lua → AWS → failures → incidents → 50+ prompts — with a runnable Spring lab on :8098.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
         </p>
-        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
+        <p className="mt-3 text-sm text-slate-500">
           Lab:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-rate-limiter-lab/</code>
-          {' · port 8098 · '}
+          {' · '}
           <Link href="/system-design/design-rate-limiter" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             short catalog article
           </Link>
           {' · '}
           <Link href="/resilience4j" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Resilience4j (per-JVM)
-          </Link>
-          {' · '}
-          <Link href="/redis-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
-            Redis
+            Resilience4j
           </Link>
           {' · '}
           <Link href="/api-gateway" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             API Gateway
+          </Link>
+          {' · '}
+          <Link href="/redis-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Redis
           </Link>
         </p>
       </header>
@@ -130,24 +210,59 @@ export default function RateLimiterHub({
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={RATE_LIMIT_TOC} />
         <div className="min-w-0 space-y-16">
-          <Section
-            id="requirements"
-            title="1. Requirements & Assumptions"
-            lead="Functional: identity-scoped limits, multiple windows, burst, dynamic config, Allow/Reject/Retry-After/remaining, multi-tenant quotas, abuse blocks. Non-functional: multi-server, ~global counters, p99 check under 10ms, no extra SPOF, millions of keys, HA, Redis failure policy, no consume races, metrics."
-          >
-            <MiniTable headers={ASSUMPTIONS[0]} rows={ASSUMPTIONS.slice(1)} />
-            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Consistency is <strong>single-key atomic</strong> on a Redis primary, not a globally linearizable
-              counter across continents. Availability is a <strong>per-route fail policy</strong>, because a
-              limiter that fail-opens payments and a limiter that fail-closes a public homepage are different products.
-            </p>
+          <Section id="problem" title="01. Problem statement" lead="Start with Meridian Bank POST /payments — not a textbook definition.">
+            <CodePanel title="Cascade without admission control" code={PROBLEM_STORY} />
+            <ul className="mt-4 grid gap-2 md:grid-cols-2">
+              {WHY_WITHOUT.map((w) => (
+                <li key={w} className="rounded-xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-800">
+                  {w}
+                </li>
+              ))}
+            </ul>
           </Section>
 
-          <Section
-            id="algorithms"
-            title="2. Rate-Limiting Algorithms"
-            lead="Five algorithms you must be able to compare on a whiteboard. Memory, accuracy, burst, and distributed complexity decide the production default."
-          >
+          <Section id="why" title="02. Why rate limiting" lead="It buys fairness, predictability, and time — it is not infinite scale.">
+            <Insight
+              problem="Uncontrolled RPS turns one buggy client into a cluster outage."
+              why="Thread pools, DB pools, Kafka buffers, and providers all have hard ceilings."
+              solution="Admit only what the system can absorb for each identity and route."
+              example="50K RPS spike on /payments → without limits, provider 429s amplify retries."
+              tradeoff="Good clients may wait; bad actors are shed. Quotas become a product contract."
+              senior="Say what you protect (DB/provider) and what you explicitly do not claim (perfect global multi-region counters)."
+            />
+          </Section>
+
+          <Section id="definition" title="03. Definition & cousins">
+            <blockquote className="rounded-2xl border-l-4 border-slate-900 bg-slate-50 px-5 py-4 text-base leading-8 text-slate-800 dark:border-slate-100 dark:bg-slate-900 dark:text-slate-100">
+              {DEFINITION}
+            </blockquote>
+            <div className="mt-4">
+              <CodePanel title="Formula" code={RATE_FORMULA} />
+            </div>
+            <div className="mt-4">
+              <MiniTable
+                headers={['Concept', 'Definition', 'Controls', 'Typical response']}
+                rows={CONCEPT_ROWS.map((c) => [c.name, c.definition, c.controls, c.typicalResponse])}
+              />
+            </div>
+          </Section>
+
+          <Section id="requirements" title="04. Requirements" lead="Functional dimensions + NFRs interviewers expect out loud.">
+            <CodePanel title="Functional limits (AND)" code={FUNCTIONAL_LIMITS} />
+            <div className="mt-4">
+              <MiniTable headers={ASSUMPTIONS[0]} rows={ASSUMPTIONS.slice(1)} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {NFR_BLOCKS.map((n) => (
+                <div key={n.title} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <h3 className="font-bold text-slate-900 dark:text-white">{n.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{n.body}</p>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          <Section id="algorithms" title="05. Algorithms" lead="Whiteboard all five — memory, accuracy, burst, distributed cost.">
             <MiniTable headers={ALGORITHM_ROWS[0]} rows={ALGORITHM_ROWS.slice(1)} />
             <div className="mt-6 space-y-4">
               {ALGORITHM_PROS.map((a) => (
@@ -167,152 +282,115 @@ export default function RateLimiterHub({
             </div>
           </Section>
 
-          <Section
-            id="selection"
-            title="3. Algorithm Selection"
-            lead="Token bucket is the primary implementation unless the interviewer forces a shaper (leaky) or a billing-grade exact window (sliding log)."
-          >
-            <div className="space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              <p>
-                <strong className="text-slate-900 dark:text-white">Why token bucket: </strong>
-                capacity is burst, refillRate/period is sustained (100/min + burst 20 → capacity 120, refill 100 per
-                minute), remaining tokens and Retry-After fall out of the math, memory is two numbers per key, and
-                Redis Lua can make refill+consume atomic.
-              </p>
-              <p>
-                <strong className="text-slate-900 dark:text-white">Why not fixed window: </strong>
-                a client can spend the full limit at 12:00:59 and again at 12:01:00 — up to 2×. That is a Staff trap.
-              </p>
-              <p>
-                <strong className="text-slate-900 dark:text-white">Why not sliding log: </strong>
-                exact, but ZSET of timestamps explodes on a 10K req/hour client. Save it for billing disputes, not the
-                hot path.
-              </p>
-              <p>
-                <strong className="text-slate-900 dark:text-white">At 1M RPS: </strong>
-                keep token bucket for user/API keys; consider sliding-window counter for the coarsest global key if
-                you need cheaper approximation.
-              </p>
-              <p>
-                Resilience4j RateLimiter is <strong>per JVM</strong>. Ten pods × 100/s = 1000/s. That is a different
-                layer (protect a dependency), not this system.
-              </p>
-            </div>
-          </Section>
-
-          <Section
-            id="architecture"
-            title="4. High-Level Architecture"
-            lead="Limiter lives in two places: coarse at the gateway, identity-aware as an embedded library. Redis Cluster holds the buckets. Config fans out without restarts."
-          >
-            <CodePanel title="HLD" code={ASCII_HLD} />
-            <div className="mt-4">
-              <CodePanel title="Where it lives" code={ASCII_WHERE} />
-            </div>
-            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              <li>
-                <strong>Redis architecture:</strong> Cluster with replicas per shard. One EVAL per key. Connection
-                pool per app pod in the same AZ.
-              </li>
-              <li>
-                <strong>Sharding:</strong> CRC16 of the key → 16384 slots. Hash-tag <code>{'{tenantId}'}</code> only if
-                you need multi-key Lua; otherwise let keys spread.
-              </li>
-              <li>
-                <strong>Config:</strong> admin API → DB → Kafka → in-process map. Lab skips Kafka and upserts a
-                ConcurrentHashMap.
-              </li>
-              <li>
-                <strong>Failures:</strong> tight timeouts, circuit breaker, per-route fail-open / fail-closed /
-                local-fallback.
-              </li>
-            </ul>
-          </Section>
-
-          <Section
-            id="components"
-            title="5. Component Design"
-            lead="Strategy for algorithms, factory for selection, store for Redis vs memory, config provider for dynamic policies, Spring DI to wire them."
-          >
-            <ul className="list-disc space-y-2 pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              <li>
-                <code>RateLimiter</code> — strategy. <code>TokenBucketRateLimiter</code> is the production strategy.
-              </li>
-              <li>
-                <code>RateLimiterFactory</code> — flyweight per policy id; rejects unimplemented algorithms so the
-                interview stays honest.
-              </li>
-              <li>
-                <code>CompositeRateLimiter</code> — AND of matching policies, fail-fast.
-              </li>
-              <li>
-                <code>RateLimitStore</code> / <code>RedisRateLimitStore</code> / <code>InMemoryRateLimitStore</code> —
-                repository. Lua vs <code>ConcurrentHashMap.compute</code>.
-              </li>
-              <li>
-                <code>RateLimitConfigProvider</code> — swap in DB+Kafka without touching the limiter.
-              </li>
-              <li>
-                <code>RateLimitFilter</code> — servlet filter, 429 + headers. Config CRUD is excluded from the filter.
-              </li>
-            </ul>
-          </Section>
-
-          <Section id="class-diagram" title="6. Class Diagram">
-            <CodePanel title="Classes" code={ASCII_CLASS} />
-          </Section>
-
-          <Section
-            id="sequence"
-            title="7. Sequence Diagram"
-            lead="Auth happens before the limiter. Identity is not a client-supplied IP header."
-          >
-            <CodePanel title="Allow path" code={ASCII_SEQ} />
-          </Section>
-
-          <Section
-            id="data-model"
-            title="8. Data Model"
-            lead="Two stores: policy config (small, strongly consistent enough via DB) and bucket state (huge, Redis, TTL)."
-          >
+          <Section id="selection" title="06. Algorithm selection" lead="Token bucket + Redis is the default Staff answer unless forced otherwise.">
             <CodePanel
-              title="Keys"
-              code={`Policy (config)
-  id, scope, capacity, refillRate, refillPeriod,
-  tenantId?, clientId?, apiPath?, serviceName?,
-  failPolicy, blocked, algorithm=TOKEN_BUCKET
+              title="Decision tree"
+              code={`Need simple coarse shield?     → Fixed window (gateway)
+Need exact rolling count?      → Sliding log (expensive)
+Need cheap almost-sliding?     → Sliding window counter
+Need burst + sustained API?    → Token bucket  ★ choose this
+Need smooth egress to DB?      → Leaky bucket (shaper)
 
-Bucket (Redis hash)
-  key    = rate_limit:{tenantId}:SCOPE:...
-  tokens = double
-  ts     = last refill epoch ms
-  TTL    = 2 × window (PEXPIRE)
-
-Example
-  rate_limit:{acme}:CLIENT_API:client-123:/api/payments
-  HSET tokens 87.4  ts 1710000000000
-  PEXPIRE 120000`}
+Interview line:
+  "I choose token bucket: capacity=burst, refill=sustained, O(1), Lua-atomic."`}
             />
-          </Section>
-
-          <Section
-            id="java"
-            title="9. Java 17 Implementation"
-            lead="Java 21 / Spring Boot 3.4 lab. Interfaces, records, thread-safe stores, explicit fail policies. Not pseudocode."
-          >
-            <CodePanel title="Core types" code={JAVA_SNIPPET} />
             <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Browse the runnable module in the lab section. Default store is in-memory so tests do not need Docker;
-              <code> rate-limit.store=redis</code> swaps in Lua.
+              Resilience4j RateLimiter is <strong>per JVM</strong>. Ten pods × 100/s = 1000/s. Pair it with Redis for
+              global quotas — do not confuse the layers.
             </p>
           </Section>
 
-          <Section
-            id="lua"
-            title="10. Redis Lua Script"
-            lead="One key, one EVAL: calculation and update are atomic. Two application servers cannot consume the same token."
-          >
-            <div className="space-y-3">
+          <Section id="hld" title="07. High-level design">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <CodePanel title="ASCII HLD" code={ASCII_HLD} />
+              <Mermaid chart={MERMAID_HLD} />
+            </div>
+            <div className="mt-4">
+              <Mermaid chart={MERMAID_LAYERS} />
+            </div>
+          </Section>
+
+          <Section id="placement" title="08. Where it lives" lead="Client-only is insufficient. Defense in depth: edge + app.">
+            <CodePanel title="Gateway + service" code={ASCII_WHERE} />
+            <Insight
+              problem="A single layer misses either floods or product quotas."
+              why="WAF does not know JWT tenants; app alone dies under L7 floods."
+              solution="Edge for volumetric/unauth; embedded library + Redis for identity-aware quotas."
+              tradeoff="Two policies to keep coherent — publish an ownership matrix."
+              senior="Central remote limiter services often blow the <5ms SLO unless co-located."
+            />
+          </Section>
+
+          <Section id="lld" title="09. LLD & patterns" lead="Strategy + Factory + Store adapter — SOLID without ceremony.">
+            <CodePanel title="Class sketch" code={ASCII_CLASS} />
+            <div className="mt-4">
+              <Mermaid chart={MERMAID_CLASS} />
+            </div>
+            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              <li>
+                <strong>Strategy:</strong> <code>RateLimiter</code> / <code>TokenBucketRateLimiter</code>
+              </li>
+              <li>
+                <strong>Factory:</strong> <code>RateLimiterFactory</code> flyweight per policy
+              </li>
+              <li>
+                <strong>Composite:</strong> AND of matching policies, fail-fast
+              </li>
+              <li>
+                <strong>Store adapter:</strong> Redis Lua vs in-memory <code>compute</code>
+              </li>
+            </ul>
+          </Section>
+
+          <Section id="java" title="10. Java token bucket" lead="Thread-safe store; clamp clock; no GET/SET race.">
+            <CodePanel title="Core types" code={JAVA_SNIPPET} />
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Full implementation lives in the lab explorer — <code>TokenBucketRateLimiter</code>,{' '}
+              <code>TokenBucketMath</code>, <code>InMemoryRateLimitStore</code>, concurrency tests with capacity
+              assertions.
+            </p>
+          </Section>
+
+          <Section id="spring" title="11. Spring Boot filter" lead="OncePerRequestFilter → service → store → 429.">
+            <CodePanel
+              title="Request path"
+              code={`HTTP Request
+  → RateLimitFilter (OncePerRequestFilter)
+  → extract tenant/user/client/api from JWT (lab: X-* headers)
+  → CompositeRateLimiter.allow(ctx)
+  → ALLOW → controller
+  → REJECT → HTTP 429 + Retry-After + X-RateLimit-*`}
+            />
+            <CodePanel title="Headers" code={REST_EXAMPLE} />
+          </Section>
+
+          <Section id="redis" title="12. Redis design">
+            <CodePanel
+              title="Keys & structures"
+              code={`rate_limit:{tenantId}:CLIENT_API:client-123:/api/payments
+  Hash: tokens (double), ts (epoch ms)
+  TTL:  PEXPIRE ≥ 2× window
+
+Token bucket  → Hash + Lua
+Fixed window  → String INCR + EXPIRE
+Sliding log   → ZSET timestamps (expensive)
+Sliding counter → two counters / hash fields
+
+Cardinality: millions of identities OK if TTL expires idle keys.
+Hot keys: celebrity tenants — see section 15.`}
+            />
+          </Section>
+
+          <Section id="lua" title="13. Lua atomicity" lead="This is the Staff trap section — nail the race.">
+            <CodePanel
+              title="WRONG"
+              code={`tokens = redis.get(key);
+if (tokens > 0) {
+  redis.decrement(key); // TOO LATE — another pod already read the same 1
+  return true;
+}`}
+            />
+            <div className="mt-4 space-y-3">
               {LUA_LINES.map((l) => (
                 <div key={l.line} className="rounded-xl border border-slate-200 px-4 py-3 text-sm dark:border-slate-800">
                   <code className="font-semibold text-slate-900 dark:text-white">{l.line}</code>
@@ -320,151 +398,121 @@ Example
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Full script: <code>spring-rate-limiter-lab/src/main/resources/lua/token_bucket.lua</code>. Returns
-              <code> {'{allowed, remaining, retry_after_ms, capacity}'}</code>.
-            </p>
-          </Section>
-
-          <Section id="rest" title="11. REST APIs" lead="Config CRUD plus enforcement headers on the business API.">
-            <CodePanel title="Config + headers" code={REST_EXAMPLE} />
-            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Rejected business calls are <strong>HTTP 429 Too Many Requests</strong>, not 401/403. If the store is
-              down and the route is fail-closed, 429 or 503 with Retry-After is acceptable; say which you picked.
-            </p>
-          </Section>
-
-          <Section
-            id="concurrency"
-            title="12. Distributed Concurrency"
-            lead="The race is two requests (same or different pods) reading 1 token and both admitting."
-          >
-            <div className="space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              <p>
-                <strong className="text-slate-900 dark:text-white">Same process: </strong>
-                <code>ConcurrentHashMap.compute</code> serializes per key. The concurrency test fires 32 threads × 10
-                against capacity 50 with a day-long refill and asserts allowed == 50.
-              </p>
-              <p>
-                <strong className="text-slate-900 dark:text-white">Many servers: </strong>
-                they all EVAL the same Redis key. The shard thread runs scripts one at a time. Capacity is a hard
-                ceiling.
-              </p>
-              <p>
-                <strong className="text-slate-900 dark:text-white">Clock: </strong>
-                negative elapsed is clamped so a backwards NTP step does not steal tokens. Prefer Redis TIME in
-                production Lua.
-              </p>
+            <div className="mt-4">
+              <Mermaid chart={MERMAID_TOKEN} />
             </div>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Script: <code>spring-rate-limiter-lab/src/main/resources/lua/token_bucket.lua</code>
+            </p>
           </Section>
 
-          <Section
-            id="failure"
-            title="13. Failure Handling"
-            lead="Fail-open, fail-closed, local fallback — pick per route, never as a global religion."
-          >
+          <Section id="distributed" title="14. Distributed limits">
+            <Insight
+              problem="Four pods each allowing 100/s become 400/s."
+              why="Local memory is not shared coordination."
+              solution="Redis (or gateway) as shared state; every pod EVAL the same key."
+              example="Limit 100, 4 instances, in-memory → 400; Redis Lua → 100."
+              senior="Say Cluster slot ownership: one primary runs the script for that key."
+            />
+            <CodePanel title="Multi-level AND" code={ASCII_MULTI} />
+            <CodePanel title="Clock" code={CLOCK_NOTES} />
+            <CodePanel title="Hybrid local+Redis" code={HYBRID} />
+          </Section>
+
+          <Section id="hotkeys" title="15. Hot keys">
+            <Insight
+              problem="One celebrity tenant hashes to one slot and melts Redis CPU."
+              why="All RPS for that identity hits one primary thread."
+              solution="Gateway pre-limit, local fractional buckets, hierarchical keys, shard into N approximate keys, isolate clusters."
+              tradeoff="Sharded keys approximate the exact global for that tenant."
+              senior="Hash-tags help multi-key Lua but can create hotter partitions — use deliberately."
+            />
+          </Section>
+
+          <Section id="multiregion" title="16. Multi-region">
+            <CodePanel
+              title="Options"
+              code={`1) Global Redis          — high latency, availability risk
+2) Regional Redis        — low latency, over-admit vs “global”
+3) Approximate global    — aggregator / sampled / slower central ledger
+
+Strict exact global across 20 regions on the hot path is usually the wrong product.
+Finance hard caps ≠ API admission limiter.`}
+            />
+            <CodePanel title="CAP perspective" code={CAP_VIEW} />
+          </Section>
+
+          <Section id="failure" title="17. Failure handling">
             <MiniTable
               headers={['Strategy', 'Behavior', 'Use', 'Risk']}
               rows={[
-                ['Fail open', 'Allow when Redis errors/timeouts', 'Public reads, marketing APIs', 'Abuse during the outage'],
-                ['Fail closed', 'Reject when Redis errors', 'Payments, login, OTP, transfers', 'Self-inflicted outage'],
-                ['Local fallback', 'In-process bucket', 'Internal workers, mesh', 'N pods ≈ N× quota while Redis is down'],
+                ['Fail open', 'Allow when Redis errors', 'Public reads', 'Abuse during outage'],
+                ['Fail closed', 'Reject when Redis errors', 'Payments / login / OTP', 'Self-inflicted outage'],
+                ['Local fallback', 'In-process bucket', 'Internal workers', 'N pods ≈ N× while degraded'],
               ]}
             />
             <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Recommendation: <strong>payments FAIL_CLOSED</strong>, <strong>public GET FAIL_OPEN</strong> with a
-              budget and a page, <strong>internal services LOCAL_FALLBACK</strong>. Treat slow Redis like down —
-              timeouts of a few milliseconds plus a circuit breaker.
+              Slow Redis without timeouts exhausts threads — treat latency like an outage (circuit + policy).
             </p>
           </Section>
 
-          <Section
-            id="multilevel"
-            title="14. Multi-Level Rate Limiting"
-            lead="A request is allowed only if every matching policy grants a token."
-          >
-            <CodePanel title="Evaluation order" code={ASCII_MULTI} />
+          <Section id="retry" title="18. Retry + backoff">
+            <CodePanel title="Client" code={RETRY_CODE} />
+            <CodePanel title="Ordering with CB" code={RESILIENCE_ORDER} />
+          </Section>
+
+          <Section id="resilience" title="19. Circuit breaker · Kafka · DB · concurrency">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <CodePanel title="Kafka" code={KAFKA_RL} />
+              <CodePanel title="Concurrency vs rate" code={CONCURRENCY_VS_RATE} />
+            </div>
             <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Sequential, not one Redis MULTI: Cluster hash slots would CROSSSLOT unless every level shares a
-              hash-tag — which recreates a hot partition. Fail-fast on reject so we do not spend inner tokens after
-              an outer deny. That is a conscious trade-off, not a bug you hide.
+              Rate limit protects DB pools/IOPS by admitting fewer queries than the database can take. Example: DB
+              5K QPS capacity ⇒ API admission must sit below that after fan-out.
             </p>
           </Section>
 
-          <Section id="config" title="15. Dynamic Configuration">
-            <CodePanel title="Propagation" code={ASCII_CONFIG} />
-            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Lab <code>PUT /api/rate-limits/{'{key}'}</code> upserts the map and evicts the factory flyweight. The
-              next <code>allow()</code> uses the new capacity. Existing Redis tokens refill toward the new ceiling;
-              they are not wiped (unless an operator deletes the key).
-            </p>
+          <Section id="aws" title="20. AWS architecture">
+            <CodePanel title="Production shape" code={AWS_ASCII} />
           </Section>
 
-          <Section id="observability" title="16. Observability">
-            <MiniTable headers={OBS_ALERTS[0]} rows={OBS_ALERTS.slice(1)} />
-            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Micrometer names in the lab: <code>rate_limit_requests_total</code>, <code>rate_limit_allowed_total</code>,{' '}
-              <code>rate_limit_rejected_total</code>, <code>rate_limit_latency</code>, <code>redis_errors</code>,{' '}
-              <code>hot_keys</code>. Distinguish “customers hitting the plan” from “Redis is sick”.
-            </p>
-          </Section>
-
-          <Section id="security" title="17. Security">
+          <Section id="security" title="21. Security">
             <ul className="list-disc space-y-2 pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              <li>
-                <strong>Identity:</strong> userId/clientId/tenantId from a verified JWT or API key, not from
-                spoofable headers in production. The lab uses <code>X-User-Id</code> only as a stand-in.
-              </li>
-              <li>
-                <strong>IP hopping:</strong> IP-only keys are bypassable. Bind quota to the principal; use IP as a
-                secondary unauth signal.
-              </li>
-              <li>
-                <strong>API-key abuse:</strong> stolen keys inherit the key&apos;s quota — revoke the key, do not just
-                rate-limit. Optional per-key anomaly alerts.
-              </li>
-              <li>
-                <strong>Authn vs rate limiting:</strong> 401 is “who are you”; 429 is “I know who you are, slow down”.
-              </li>
-              <li>
-                <strong>Tenant isolation:</strong> keys are prefixed with <code>{'{tenantId}'}</code>. Never accept
-                tenant from an unverified body field.
-              </li>
-              <li>
-                <strong>Config APIs:</strong> role <code>RATE_LIMIT_ADMIN</code>, audit log. A public POST that
-                raises everyone&apos;s quota is a vulnerability.
-              </li>
+              <li>Principal from JWT/API key — not spoofable IP alone.</li>
+              <li>IP + user + API key + tenant when appropriate.</li>
+              <li>Helps brute force / stuffing / scraping — does not replace Shield/WAF/CloudFront.</li>
+              <li>Config APIs require RATE_LIMIT_ADMIN + audit.</li>
+              <li>Do not log secrets or PANs in reject bodies.</li>
             </ul>
           </Section>
 
-          <Section id="scaling" title="18. Scaling Strategy">
-            <MiniTable headers={SCALE_ROWS[0]} rows={SCALE_ROWS.slice(1)} />
-            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Tools: Redis sharding, extra clusters (region / money vs public), local caching of policies (not of
-              remaining tokens, unless you accept over-admit), distributed counters via Lua, hot-key split,
-              hierarchical limits, gateway scale-out for L7 floods.
-            </p>
+          <Section id="observability" title="22. Observability">
+            <MiniTable headers={OBS_ALERTS[0]} rows={OBS_ALERTS.slice(1)} />
           </Section>
 
-          <Section
-            id="testing"
-            title="19. Testing Strategy"
-            lead="JUnit 5 + Mockito. Testcontainers Redis when Docker exists. The concurrency test is the one that proves the design."
-          >
+          <Section id="capacity" title="23. Capacity & performance">
+            <CodePanel title="1M RPS sketch" code={CAPACITY_MATH} />
+            <div className="mt-4">
+              <MiniTable headers={PERF_COMPARE[0]} rows={PERF_COMPARE.slice(1)} />
+            </div>
+            <div className="mt-4">
+              <MiniTable headers={SCALE_ROWS[0]} rows={SCALE_ROWS.slice(1)} />
+            </div>
+          </Section>
+
+          <Section id="testing" title="24. Load & unit tests">
             <ul className="grid gap-2 md:grid-cols-2">
               {[
                 'Within limit → allow, remaining decreases',
                 'Over limit → reject + Retry-After',
                 'Refill after fake clock advance',
-                'Burst uses capacity, not refillRate',
-                'Concurrent: allowed == capacity',
-                'Independent client buckets',
-                'Independent tenant buckets',
-                'Store throw → fail-open / fail-closed / fallback',
-                'Deleted key rebuilds at capacity',
-                'Config upsert visible on next allow()',
-                'Mocked Lua payload mapping',
-                'Filter 200 + X-RateLimit-* headers',
+                'Burst uses capacity',
+                '100 threads, capacity 10 → allowed ≤ 10 (+burst rules)',
+                'Independent client/tenant buckets',
+                'Store throw → fail-open / closed / fallback',
+                'Config upsert visible next allow()',
+                'Filter 200 + X-RateLimit-* / 429',
+                'k6/Gatling: normal, burst, hot tenant, Redis latency, failover',
               ].map((item) => (
                 <li key={item} className="rounded-xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-800">
                   [ ] {item}
@@ -473,47 +521,83 @@ Example
             </ul>
           </Section>
 
-          <Section id="scenarios" title="20. Failure Scenarios">
+          <Section id="incidents" title="25. Production incidents" lead="Symptom → investigation → root cause → fix → prevention.">
             <div className="space-y-4">
-              {SCENARIOS.map((s) => (
-                <div key={s.title} className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800">
+              {INCIDENTS.map((s) => (
+                <div key={s.id} className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800">
                   <h3 className="font-bold text-slate-900 dark:text-white">{s.title}</h3>
-                  <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{s.what}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
+                    <strong>Symptom:</strong> {s.symptom}
+                  </p>
+                  <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
+                    <strong>Investigation:</strong> {s.investigation}
+                  </p>
+                  <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
+                    <strong>Root cause:</strong> {s.rootCause}
+                  </p>
+                  <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
+                    <strong>Fix:</strong> {s.fix}
+                  </p>
+                  <p className="text-sm leading-7 text-emerald-800 dark:text-emerald-300">
+                    <strong>Prevention:</strong> {s.prevention}
+                  </p>
                 </div>
               ))}
             </div>
           </Section>
 
-          <Section id="tradeoffs" title="21. Design Trade-offs">
-            <MiniTable headers={TRADEOFFS[0]} rows={TRADEOFFS.slice(1)} />
-          </Section>
-
-          <Section id="five-min" title="22. How I Would Explain This in a Senior Engineer Interview">
-            <div className="rounded-2xl bg-slate-900 p-6 text-sm font-medium leading-8 text-slate-100">{FIVE_MIN}</div>
+          <Section id="antipatterns" title="26. Anti-patterns">
+            <div className="grid gap-3 md:grid-cols-2">
+              {ANTI_PATTERNS.map((a) => (
+                <div key={a.title} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                  <h3 className="font-bold text-rose-800 dark:text-rose-300">{a.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{a.why}</p>
+                  <p className="mt-1 text-sm leading-7 text-emerald-800 dark:text-emerald-300">
+                    <strong>Instead:</strong> {a.instead}
+                  </p>
+                </div>
+              ))}
+            </div>
             <div className="mt-6">
-              <InterviewMode />
+              <MiniTable headers={TRADEOFFS[0]} rows={TRADEOFFS.slice(1)} />
             </div>
           </Section>
 
-          <Section id="followups" title="23. Interview Follow-up Questions">
-            <div className="space-y-4">
-              {FOLLOWUPS.map((f, i) => (
-                <div key={f.q} className="rounded-2xl border border-slate-200 p-5 dark:border-slate-800">
-                  <h3 className="font-bold text-slate-900 dark:text-white">
-                    {i + 1}. {f.q}
-                  </h3>
-                  <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{f.a}</p>
-                </div>
-              ))}
+          <Section id="diagrams" title="27. Mermaid diagrams">
+            <div className="space-y-6">
+              <Mermaid chart={MERMAID_ALLOW} />
+              <Mermaid chart={MERMAID_REJECT} />
+              <CodePanel title="Sequence ASCII" code={ASCII_SEQ} />
             </div>
-            <ul className="mt-8 grid gap-2 md:grid-cols-2">
-              {CHECKLIST.map((item) => (
-                <li key={item} className="rounded-xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-800">
-                  [ ] {item}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-6 grid gap-2 md:grid-cols-2">
+          </Section>
+
+          <Section id="payment" title="28. Payment system example">
+            <CodePanel title="Meridian POST /payments" code={PAYMENT_FLOW} />
+            <div className="mt-4">
+              <Mermaid chart={MERMAID_PAYMENT} />
+            </div>
+          </Section>
+
+          <Section id="config" title="29. Dynamic config · fairness">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <CodePanel title="Config propagation" code={DYNAMIC_CONFIG} />
+              <CodePanel title="Fairness" code={FAIRNESS} />
+            </div>
+            <div className="mt-4">
+              <CodePanel title="Lab config path" code={ASCII_CONFIG} />
+            </div>
+          </Section>
+
+          <Section id="answers" title="30. 5-minute · 30-second · cheat sheet">
+            <h3 className="text-sm font-bold uppercase tracking-[.12em] text-slate-500">30-second</h3>
+            <p className="mt-2 rounded-2xl bg-emerald-950 px-4 py-3 text-sm font-semibold leading-7 text-emerald-50">
+              {THIRTY_SEC}
+            </p>
+            <h3 className="mt-6 text-sm font-bold uppercase tracking-[.12em] text-slate-500">5-minute</h3>
+            <div className="mt-2 rounded-2xl bg-slate-900 p-6 text-sm font-medium leading-8 text-slate-100">{FIVE_MIN}</div>
+            <h3 className="mt-6 text-sm font-bold uppercase tracking-[.12em] text-slate-500">One-page</h3>
+            <CodePanel title="Cheat sheet" code={ONE_PAGE} />
+            <div className="mt-4 grid gap-2 md:grid-cols-2">
               {CHEAT.map(([k, v]) => (
                 <div key={k} className="rounded-xl border border-slate-200 px-4 py-3 text-sm dark:border-slate-800">
                   <div className="font-bold">{k}</div>
@@ -521,12 +605,23 @@ Example
                 </div>
               ))}
             </div>
+            <ul className="mt-6 grid gap-2 md:grid-cols-2">
+              {CHECKLIST.map((item) => (
+                <li key={item} className="rounded-xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-800">
+                  [ ] {item}
+                </li>
+              ))}
+            </ul>
+          </Section>
+
+          <Section id="interview" title="31. Interview bank" lead="Senior · Architect · Principal · Rapid — reveal expected vs trap answers.">
+            <InterviewMode />
           </Section>
 
           <Section
             id="lab"
-            title="Runnable lab"
-            lead="Java 21 / Spring Boot 3.4 on :8098. In-memory default, Redis Lua optional, multi-level policies, 429 headers, dynamic config."
+            title="32. Runnable lab"
+            lead="Java 21 / Spring Boot 3.4 on :8098. In-memory default, Redis Lua optional, multi-level policies, 429 headers."
           >
             <CodePanel
               title="Quick start"

@@ -4,9 +4,9 @@ import RateLimiterHub from '@/components/rate-limiter/rate-limiter-hub';
 import {buildSpringRateLimiterLabTree, listSpringRateLimiterLabFiles} from '@/lib/spring-rate-limiter-lab-source';
 
 export const metadata: Metadata = {
-  title: 'Distributed Rate Limiter — Token Bucket, Redis Lua, Spring Interview Deep Dive',
+  title: 'Rate Limiter — End-to-End HLD + LLD Staff/Principal Interview Master',
   description:
-    'Staff-level distributed rate limiting: token bucket vs sliding windows, Redis Lua atomicity, multi-level quotas, fail-open vs fail-closed, Java/Spring lab on port 8098.',
+    'Complete distributed rate limiter interview guide: problem story, algorithms, HLD/LLD, Redis Lua atomicity, AWS, hot keys, multi-region, 16 incidents, 50+ prompts, Spring lab on :8098.',
 };
 
 export default function RateLimiterPage() {
