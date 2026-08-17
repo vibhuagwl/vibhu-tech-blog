@@ -14,7 +14,7 @@ export const STREAMS_TOC: TocItem[] = [
   {id: 'find-match', label: '08. Find · Match'},
   {id: 'reduce', label: '09. Reduce'},
   {id: 'collectors', label: '10. Collectors catalog'},
-  {id: 'grouping', label: '11. GroupingBy'},
+  {id: 'grouping', label: '11. GroupingBy (all overloads)'},
   {id: 'partitioning', label: '12. PartitioningBy'},
   {id: 'tomap-joining', label: '13. toMap · joining'},
   {id: 'topn-nth', label: '14. Max · Min · Nth'},

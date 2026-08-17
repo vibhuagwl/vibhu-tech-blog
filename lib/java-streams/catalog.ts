@@ -33,7 +33,7 @@ export const PROBLEM_GROUPS: ProblemGroup[] = [
   {id:'find-match', title:'Find · Match', lead:'Short-circuit find/match.', problems: byCat('find-match')},
   {id:'reduce', title:'Reduce', lead:'Folds and parallel combiners.', problems: byCat('reduce')},
   {id:'collectors', title:'Collectors', lead:'Core Collectors API.', problems: byCat('collectors')},
-  {id:'grouping', title:'GroupingBy', lead:'Nested grouping and downstream collectors.', problems: byCat('grouping')},
+  {id:'grouping', title:'GroupingBy', lead:'Complete JDK coverage: all groupingBy / groupingByConcurrent overloads, downstream collectors, map factories, and edge cases (g01–g35).', problems: byCat('grouping')},
   {id:'partitioning', title:'PartitioningBy', lead:'Boolean partitions.', problems: byCat('partitioning')},
   {id:'tomap-joining', title:'toMap · joining', lead:'Maps and string joining.', problems: byCat('tomap-joining')},
   {id:'topn-nth', title:'Max · Min · Nth', lead:'Top-N and Nth highest pitfalls.', problems: byCat('topn-nth')},
