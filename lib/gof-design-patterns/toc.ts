@@ -1,18 +1,27 @@
 import type {TocItem} from './types';
 
 export const GOF_TOC: TocItem[] = [
-  {id: 'overview', label: '00. Overview'},
-  {id: 'creational', label: '01. Creational (5)'},
-  {id: 'structural', label: '02. Structural (7)'},
-  {id: 'behavioral', label: '03. Behavioral (11)'},
-  {id: 'matrix', label: '04. Decision matrix'},
-  {id: 'twins', label: '05. Confused twins'},
-  {id: 'interview', label: '06. Interview bank'},
-  {id: 'lab', label: '07. Runnable lab'},
+  {id: 'philosophy', label: '00. Golden rule'},
+  {id: 'map', label: '01. Master map'},
+  {id: 'problem-table', label: '02. Problem table'},
+  {id: 'stories', label: '03. Pattern stories'},
+  {id: 'twins', label: '04. Confusing twins'},
+  {id: 'decision', label: '05. Decision tree'},
+  {id: 'smells', label: '06. Smell → pattern'},
+  {id: 'revision', label: '07. 15-min revision'},
+  {id: 'flashcards', label: '08. Flashcards'},
+  {id: 'guess', label: '09. Guess the pattern'},
+  {id: 'spring', label: '10. Spring links'},
+  {id: 'project', label: '11. Payment project'},
+  {id: 'oneliners', label: '12. One-liners'},
+  {id: 'when-you-see', label: '13. When you see…'},
+  {id: 'deep', label: '14. Deep cards'},
+  {id: 'interview', label: '15. Interview bank'},
+  {id: 'lab', label: '16. Runnable lab'},
 ];
 
 export const MEMORY_SENTENCE =
-  'One Meridian Bank rent payment · 23 GoF patterns · Why → Architecture → Code → Failures → Ops → Interview.';
+  "Don't memorize the pattern — remember the problem. Bad code → pain → pattern → one-line memory. Payment platform threads all 23.";
 
 export const VERSION_NOTE =
-  'Java 21 demos in java-design-patterns-real-world/ · Spring notes where DI replaces hand-rolled wiring · same UX as Microservices Patterns.';
+  'Problem-first GoF playbook · FinTech domain · flashcards · guess mode · Spring notes · java-design-patterns-real-world lab.';
