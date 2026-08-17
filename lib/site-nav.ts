@@ -45,7 +45,7 @@ export const INTERVIEW_PATHS:InterviewPath[]=[
     id:'cap',
     step:'02',
     title:'Consistency trade-offs',
-    memory:'CAP · PACELC',
+    memory:'Partition → CP or AP',
     href:'/cap-theorem',
     story:'Partition happens — pick availability or consistency; then latency vs consistency when healthy.',
     diagram:'Partition? → AP or CP   ·   Else → latency vs consistency (PACELC)',
@@ -122,7 +122,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     title:'Distributed Systems',
     description:'Consistency, coordination, and scale',
     topics:[
-      {href:'/cap-theorem',label:'CAP & Consistency',blurb:'CAP · PACELC · trade-offs'},
+      {href:'/cap-theorem',label:'CAP & Consistency',blurb:'Payment partition story · CP vs AP · simulator'},
       {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking · hashing · CDC curricula'},
       {href:'/distributed-locking',label:'Distributed Locking',blurb:'Leases · fencing · Redis/Postgres'},
       {href:'/distributed-caching',label:'Distributed Caching',blurb:'Stampede · TTL · Spring Cache'},
