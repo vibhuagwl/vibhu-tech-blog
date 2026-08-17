@@ -7,9 +7,9 @@ import {
 } from '@/lib/java-design-patterns-real-world-source';
 
 export const metadata: Metadata = {
-  title: 'GoF Design Patterns — End-to-End Implementation Master',
+  title: 'GoF Design Patterns — Remember the Problem (Java Interview Playbook)',
   description:
-    'All 23 Gang of Four design patterns in the Microservices Patterns format: Why, Architecture, Code, Failures, Ops, Interview — Meridian Bank payment story + Java 21 lab.',
+    '23 Gang of Four patterns as FinTech payment problems: bad code → pain → pattern → memory. Flashcards, guess-the-pattern, decision tree, Spring links, runnable lab.',
 };
 
 export default function GofDesignPatternsPage() {

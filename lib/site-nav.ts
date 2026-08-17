@@ -169,7 +169,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/realtime-issues',label:'Production Incidents',blurb:'Stuck threads · DB · on-call'},
       {href:'/production-troubleshooting',label:'Production Troubleshooting',blurb:'IC handbook · RCA playbooks'},
       {href:'/system-design',label:'System Design',blurb:'HLD · estimation · failure modes'},
-      {href:'/gof-design-patterns',label:'GoF Design Patterns',blurb:'23 patterns · MSP-format catalog'},
+      {href:'/gof-design-patterns',label:'GoF Design Patterns',blurb:'Problem-first · flashcards · payment stories'},
       {href:'/design-patterns',label:'Design Patterns Hub',blurb:'GoF · revision · mock interview'},
       {href:'/behavioral-interview',label:'Behavioral Interview',blurb:'STAR stories · ownership'},
       {href:'/leadership-principles',label:'Leadership Principles',blurb:'Amazon leadership principles'},
