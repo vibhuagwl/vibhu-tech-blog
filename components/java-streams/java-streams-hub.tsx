@@ -21,6 +21,15 @@ import {
   STREAM_VS_LOOP,
 } from '@/lib/java-streams/concepts';
 import {MEMORY_SENTENCE, STREAMS_TOC, VERSION_NOTE} from '@/lib/java-streams/toc';
+import {
+  GROUPING_CHEAT,
+  GROUPING_DOWNSTREAM,
+  GROUPING_EDGES,
+  GROUPING_INTRO,
+  GROUPING_MAP_FACTORIES,
+  GROUPING_OVERLOADS,
+} from '@/lib/java-streams/grouping-reference';
+import {SECTION_REFS} from '@/lib/java-streams/section-references';
 import {CODING_ROUND, DEBUGS, PREDICTIONS, TOP100_RANKED} from '@/lib/java-streams/top100';
 import {ALL as INTERVIEW_ALL} from '@/lib/java-streams/interview';
 import CodePanel from './code-panel';
@@ -128,16 +137,72 @@ export default function JavaStreamsHub({
             <ApiCoverageChecklist />
           </Section>
 
-          {PROBLEM_GROUPS.map((g, idx) => (
+          {PROBLEM_GROUPS.map((g, idx) => {
+            const ref = g.id === 'grouping' ? null : SECTION_REFS[g.id];
+            return (
             <Section
               key={g.id}
               id={g.id}
               title={`${String(idx + 1).padStart(2, '0')}. ${g.title} (${g.problems.length})`}
               lead={g.lead}
             >
+              {g.id === 'grouping' && (
+                <div className="mb-6 space-y-4">
+                  <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">{GROUPING_INTRO}</p>
+                  <Pre>{GROUPING_OVERLOADS}</Pre>
+                  <Pre>{GROUPING_DOWNSTREAM}</Pre>
+                  <Pre>{GROUPING_MAP_FACTORIES}</Pre>
+                  <Pre>{GROUPING_EDGES}</Pre>
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-slate-50 uppercase tracking-[.08em] text-slate-500 dark:bg-slate-900">
+                        <tr>
+                          <th className="px-2 py-2 text-left">Cheat</th>
+                          <th className="px-2 py-2 text-left">Rule</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {GROUPING_CHEAT.map(([k, v]) => (
+                          <tr key={k} className="border-t border-slate-100 dark:border-slate-800">
+                            <td className="px-2 py-2 font-medium text-slate-900 dark:text-white">{k}</td>
+                            <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{v}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {ref && (
+                <div className="mb-6 space-y-4">
+                  <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">{ref.intro}</p>
+                  <Pre>{ref.overloads}</Pre>
+                  {ref.downstream && <Pre>{ref.downstream}</Pre>}
+                  <Pre>{ref.edges}</Pre>
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-slate-50 uppercase tracking-[.08em] text-slate-500 dark:bg-slate-900">
+                        <tr>
+                          <th className="px-2 py-2 text-left">Cheat</th>
+                          <th className="px-2 py-2 text-left">Rule</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ref.cheat.map(([k, v]) => (
+                          <tr key={k} className="border-t border-slate-100 dark:border-slate-800">
+                            <td className="px-2 py-2 font-medium text-slate-900 dark:text-white">{k}</td>
+                            <td className="px-2 py-2 text-slate-600 dark:text-slate-300">{v}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               <ProblemBrowser problems={g.problems} />
             </Section>
-          ))}
+            );
+          })}
 
           <Section id="internals" title="26. Internals · Spliterator">
             <Pre>{INTERNALS}</Pre>
