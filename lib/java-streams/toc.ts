@@ -49,4 +49,4 @@ export const MEMORY_SENTENCE =
   'Business problem → map vs flatMap → groupingBy vs partitioningBy → reduce vs collect → complexity → null/empty/duplicates → parallel? → loop or SQL better?';
 
 export const VERSION_NOTE =
-  'Senior focus: Top 100 tough programs (Priority 15 first). Java 8 Streams · Java 9 takeWhile/ofNullable · Java 16 toList() · Java 21 records. Virtual threads ≠ Stream feature.';
+  'Senior focus: Top 100 tough programs (Priority 15 first) + complete API flavour matrices per section (groupingBy, filter, map, flatMap, reduce, collectors, …). Java 8 Streams · Java 9 takeWhile/ofNullable · Java 16 toList()/mapMulti · Java 21 records. Virtual threads ≠ Stream feature.';
