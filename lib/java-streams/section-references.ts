@@ -971,4 +971,491 @@ teeing(c1,c2,merger)
       ['maxBy unwrap', 'andThen Optional::orElseThrow'],
     ],
   },
+
+  strings: {
+    intro:
+      'Complete String / CharSequence stream flavours — chars vs codePoints, split/tokenize, joining, anagrams, first-unique, and Unicode traps.',
+    overloads: `String → Stream sources
+
+  s.chars()           → IntStream of UTF-16 code units (char)
+  s.codePoints()      → IntStream of Unicode code points (handles surrogates)
+  Arrays.stream(s.split(regex))
+  Pattern.compile(r).splitAsStream(s)   // better for repeated regex
+  BufferedReader.lines() / Files.lines  // line streams (close!)
+
+Map / box
+  chars().mapToObj(c -> (char) c)       // Character stream
+  chars().mapToObj(c -> String.valueOf((char) c))
+  codePoints().mapToObj(Character::toString)  // Java 11+
+
+Join / reduce
+  Collectors.joining() | joining(delim) | joining(d, prefix, suffix)
+  reduce((a,b) -> a + b)  // avoid for many parts — use joining`,
+    downstream: `Interview string patterns
+
+Anagram
+  normalize → chars sorted → equals
+  OR groupingBy(identity, counting()) frequency maps equal
+
+First unique char / word
+  LinkedHashMap freq → filter count==1 → findFirst
+  OR indexOf == lastIndexOf (O(n²) small n)
+
+Word reverse / LCP / palindrome
+  split → stream → collectingAndThen reverse / reduce LCP / filter palindrome
+
+Case / locale
+  toLowerCase(Locale.ROOT) for ASCII-ish interview tokens
+  Never default-locale for identifiers`,
+    edges: `Edge cases interviewers probe
+
+• chars() splits surrogate pairs; emoji/CJK → prefer codePoints()
+• split(" ") vs \\\\s+ — empty tokens / multiple spaces
+• Pattern.splitAsStream vs String.split (regex compile cost)
+• joining empty stream → "" (not null)
+• reduce(+) on strings is quadratic risk — joining uses StringBuilder
+• Character.toUpperCase vs String.toUpperCase(Locale)
+• Parallel string pipelines rarely win (tiny N, poor split on chars)`,
+    cheat: [
+      ['chars()', 'UTF-16 IntStream'],
+      ['codePoints()', 'Unicode safe'],
+      ['splitAsStream', 'regex tokenize'],
+      ['joining', 'CSV / concat'],
+      ['mapToObj(char)', 'Character stream'],
+      ['freq maps', 'anagram / unique'],
+      ['LinkedHashMap', 'first unique'],
+      ['Locale.ROOT', 'stable case'],
+      ['avoid reduce(+)', 'use joining'],
+      ['surrogates', 'codePoints'],
+      ['Files.lines', 'close resource'],
+      ['empty join', '""'],
+    ],
+  },
+
+  'arrays-lists': {
+    intro:
+      'Arrays.stream traps, set operations on two lists, zip/intersect/diff, and primitive-array gotchas Staff interviews expect.',
+    overloads: `Array → Stream
+
+  Arrays.stream(T[])
+  Arrays.stream(T[], from, to)          // half-open slice
+  Arrays.stream(int[]|long[]|double[])  → Int/Long/DoubleStream
+  Stream.of(T...)                       // varargs
+  Stream.of(array)  // TRAP: ONE element if array is Object[] / T[]
+
+List / Collection
+  list.stream() / parallelStream()
+  Collection.toArray then Arrays.stream — prefer list.stream()
+
+Two-list set ops (via Set)
+  intersection: a.stream().filter(bSet::contains)
+  difference:   a.stream().filter(x -> !bSet.contains(x))
+  union:        Stream.concat(a.stream(), b.stream()).distinct()
+  Build HashSet from the other side for O(1) contains`,
+    downstream: `Zip & multi-source
+
+Zip (same length assumed)
+  IntStream.range(0, n).mapToObj(i -> pair(a.get(i), b.get(i)))
+  No JDK zip — range index is the interview idiom
+
+Flatten arrays of arrays
+  Stream.of(arrOfArr).flatMap(Arrays::stream)
+  flatMapToInt(Arrays::stream) for int[][]
+
+Distinct merge / sort merge
+  Stream.concat(a,b).distinct().sorted()
+  Collectors.toCollection(LinkedHashSet::new) for order-preserving union`,
+    edges: `Edge cases interviewers probe
+
+• Stream.of(intArray) does NOT unbox — use Arrays.stream(int[])
+• Arrays.stream(T[], from, to) end exclusive
+• Mutating lists while streaming → ConcurrentModificationException
+• Set ops need equals/hashCode; records help
+• Zip unequal lengths — decide truncate vs error
+• parallel + ArrayList OK; LinkedList poor split
+• Unmodifiable List.of — cannot add; stream still fine`,
+    cheat: [
+      ['Arrays.stream', 'array → stream'],
+      ['Stream.of(arr)', 'ONE element trap'],
+      ['slice', 'stream(arr,from,to)'],
+      ['int[]', 'Arrays.stream → IntStream'],
+      ['intersect', 'filter(set::contains)'],
+      ['diff', 'filter(!contains)'],
+      ['union', 'concat + distinct'],
+      ['zip', 'IntStream.range index'],
+      ['flatMap Arrays::stream', '2D flatten'],
+      ['LinkedHashSet', 'order-preserving union'],
+      ['CME', 'no mutate while stream'],
+      ['equals/hashCode', 'set ops need it'],
+    ],
+  },
+
+  maps: {
+    intro:
+      'Map.entrySet / keySet / values streams — filter, sort, transform, merge, invert, and ConcurrentMap rules.',
+    overloads: `Map → Stream sources
+
+  map.entrySet().stream()     // preferred for key+value
+  map.keySet().stream()
+  map.values().stream()
+  map.entrySet().parallelStream()
+
+Sort / rank
+  sorted(Map.Entry.comparingByKey())
+  sorted(Map.Entry.comparingByValue())
+  comparingByValue().reversed().thenComparing(comparingByKey())
+
+Rebuild maps
+  toMap(Entry::getKey, Entry::getValue)
+  toMap(k, v, merge, LinkedHashMap::new)
+  groupingBy(Entry::getValue, mapping(Entry::getKey, toList()))  // invert`,
+    downstream: `Merge · filter · transform
+
+Filter → new map
+  entrySet().stream().filter(...).collect(toMap(...))
+
+Transform values
+  toMap(Entry::getKey, e -> transform(e.getValue()))
+  OR map.replaceAll (mutates in place)
+
+Merge two maps
+  Stream.concat(m1.entrySet().stream(), m2.entrySet().stream())
+    .collect(toMap(Entry::getKey, Entry::getValue, Integer::sum))
+
+compute / merge (Map API, often clearer than Streams)
+  map.merge(k, v, Integer::sum)`,
+    edges: `Edge cases interviewers probe
+
+• HashMap iteration order unstable — LinkedHashMap / sort for APIs
+• toMap duplicate keys → IllegalStateException without merge
+• null values: HashMap allows; toMap forbids null values
+• ConcurrentHashMap: null keys/values forbidden; prefer groupingByConcurrent
+• Inverting non-unique values → groupingBy, not toMap
+• Mutating map during entrySet stream → CME (except CHM carefully)
+• comparingByValue needs Comparable values or Comparator`,
+    cheat: [
+      ['entrySet().stream', 'key+value ops'],
+      ['comparingByKey', 'sort keys'],
+      ['comparingByValue', 'sort values'],
+      ['toMap + merge', 'rebuild / sum'],
+      ['filter→toMap', 'new filtered map'],
+      ['invert', 'groupingBy(value)'],
+      ['concat entrySets', 'merge maps'],
+      ['LinkedHashMap factory', 'stable order'],
+      ['null values', 'toMap NPE'],
+      ['dup keys', 'need merge fn'],
+      ['CHM', 'no nulls'],
+      ['Map.merge', 'often clearer'],
+    ],
+  },
+
+  'datetime-optional': {
+    intro:
+      'java.time classifiers in Streams + Optional as a 0/1 stream — windows, YearMonth buckets, Optional.stream, and orElse traps.',
+    overloads: `Optional ↔ Stream
+
+  Optional.stream()              // Java 9 — 0 or 1 element Stream
+  Stream.ofNullable(T)           // same idea from nullable ref
+  list.stream().flatMap(Optional::stream)  // unwrap present values
+
+Optional terminals (not Stream, but paired in interviews)
+  map / flatMap / filter
+  orElse / orElseGet / orElseThrow
+  ifPresent / ifPresentOrElse (Java 9)
+  or(Supplier<Optional>) (Java 9)
+
+java.time in pipelines
+  LocalDate / LocalDateTime / Instant / ZonedDateTime
+  YearMonth.from(date) / date.getDayOfWeek()
+  Duration.between(a,b) / Period.between
+  ChronoUnit.DAYS.between`,
+    downstream: `Time-bucket collectors
+
+  groupingBy(d -> YearMonth.from(d), counting())
+  groupingBy(Instant::atZone → LocalDate, …)  // pick ZoneId explicitly
+  partitioningBy(d -> d.getDayOfWeek().getValue() <= 5)  // weekdays
+
+Window filters
+  filter(d -> !d.isBefore(start) && d.isBefore(end))  // half-open
+  takeWhile / dropWhile on sorted Instant streams
+
+Max / min Instant
+  flatMap(Optional::stream).min(Comparator.naturalOrder())`,
+    edges: `Edge cases interviewers probe
+
+• Optional.of(null) NPE — use ofNullable
+• orElse(expensive()) always evaluates — prefer orElseGet
+• map returning Optional → Optional<Optional<>> — use flatMap
+• ZoneId: never rely on system default in server code — pass ZoneOffset/ZoneId
+• LocalDate vs Instant: Instant needs zone to become LocalDate
+• Empty Optional.stream → empty Stream (not null)
+• Parallel + Optional rarely relevant; focus on correctness`,
+    cheat: [
+      ['Optional.stream', 'Java 9 bridge'],
+      ['ofNullable', 'nullable → 0/1'],
+      ['flatMap(Optional::stream)', 'unwrap list'],
+      ['orElseGet', 'lazy default'],
+      ['flatMap Optional', 'unwrap nested'],
+      ['YearMonth', 'month buckets'],
+      ['ZoneId explicit', 'no default zone'],
+      ['half-open window', '[start,end)'],
+      ['Duration.between', 'elapsed'],
+      ['weekday filter', 'DayOfWeek'],
+      ['of vs ofNullable', 'NPE trap'],
+      ['ifPresentOrElse', 'Java 9 branch'],
+    ],
+  },
+
+  production: {
+    intro:
+      'Production Stream discipline — resource ownership, JPA/DB boundaries, exception bridging, determinism, and when not to use Streams.',
+    overloads: `Resources & I/O
+
+  try (Stream<String> lines = Files.lines(path)) { … }
+  BufferedReader.lines() — close the reader
+  Never return open Files.lines to callers without ownership docs
+
+Exceptions in lambdas
+  map(p -> { try { return Files.readString(p); }
+             catch (IOException e) { throw new UncheckedIOException(e); } })
+  Prefer small private methods over huge lambdas
+
+JPA / DB
+  Stream query results → close / try-with-resources on getResultStream()
+  Do not hold DB streams across transaction boundaries casually
+  Prefer SQL aggregation for huge tables — Streams after fetch is in-memory`,
+    downstream: `Determinism · scale · pools
+
+Stable API output
+  groupingBy(k, LinkedHashMap::new, down)
+  toList() / toUnmodifiableList() for publish
+
+Scale
+  Avoid collecting multimillion-row Streams into List blindly
+  Pagination / keyset > skip(huge)
+  parallelStream only when measured CPU-bound + good split
+
+Request threads
+  sequential by default in servlet/reactive event loops
+  commonPool starvation if every request parallelizes`,
+    edges: `Edge cases interviewers probe
+
+• Returning Stream from repository without closing → leak
+• Swallowing exceptions → null in map → NPE later
+• HashMap order flapping in golden tests — use LinkedHashMap
+• Lazy pipelines: side effects only after terminal
+• JPA getResultStream + transaction timeout
+• parallel + blocking JDBC inside map → disaster
+• Streams are not a substitute for SQL indexes / GROUP BY`,
+    cheat: [
+      ['try-with-resources', 'Files.lines'],
+      ['UncheckedIOException', 'bridge checked'],
+      ['LinkedHashMap', 'stable JSON'],
+      ['no skip(huge)', 'keyset page'],
+      ['seq in request', 'avoid commonPool'],
+      ['close JPA stream', 'getResultStream'],
+      ['SQL first', 'big aggregates'],
+      ['lazy until terminal', 'debug side effects'],
+      ['measure parallel', 'tiny N loses'],
+      ['ownership', 'who closes Stream'],
+      ['no swallow', 'keep cause'],
+      ['unmodifiable', 'publish safely'],
+    ],
+  },
+
+  employee: {
+    intro:
+      'Classic Employee interview suite — projections, dept filters, salary aggregations, grouping/partitioning, and ranking patterns.',
+    overloads: `Core Employee pipelines
+
+Projection / filter
+  map(Employee::name) / filter(dept) / filter(salary > X)
+
+Aggregates
+  groupingBy(Employee::department, averagingInt(Employee::salary))
+  groupingBy(dept, summarizingInt(salary))
+  collectingAndThen(maxBy(salary), Optional::orElseThrow)
+
+Ranking
+  sorted(comparingInt(Employee::salary).reversed()).limit(N)
+  groupingBy(dept, collectingAndThen(maxBy(...), …))  // top per dept
+
+Partition
+  partitioningBy(Employee::contractor)
+  partitioningBy(e -> e.salary() >= band)`,
+    downstream: `Multi-key & skills
+
+  groupingBy(dept, groupingBy(title))
+  flatMap(e -> e.skills().stream()) → distinct skills inventory
+  teeing(counting(), averagingInt(salary), HrReport::new)
+
+Tie-breaks
+  comparingInt(salary).thenComparing(name)
+  Always define total order for "highest paid"`,
+    edges: `Edge cases interviewers probe
+
+• Constant.equals(e.department()) for null-safe dept filter
+• averagingInt → Double; money often needs BigDecimal reducing
+• Empty company → max returns empty Optional
+• Parallel HR reports: prefer groupingByConcurrent only if measured
+• Skills flatMap NPE if skills list null — filter / ofNullable`,
+    cheat: [
+      ['map name', 'projection'],
+      ['filter dept', 'Constant.equals'],
+      ['groupingBy+avg', 'dept stats'],
+      ['max salary', 'Optional'],
+      ['top-N', 'sorted+limit'],
+      ['top per dept', 'grouping+maxBy'],
+      ['partitioningBy', 'contractor split'],
+      ['flatMap skills', 'inventory'],
+      ['tie-break', 'thenComparing'],
+      ['BigDecimal', 'money totals'],
+      ['summarizingInt', 'multi-stat'],
+      ['teeing', 'dual KPI'],
+    ],
+  },
+
+  ecommerce: {
+    intro:
+      'Customer → Order → LineItem nested flatMaps — revenue, top products, abandoned carts, and multi-level grouping.',
+    overloads: `Nested model pipelines
+
+Flatten
+  customers.stream().flatMap(c -> c.orders().stream())
+  orders.stream().flatMap(o -> o.items().stream())
+
+Revenue
+  mapToLong(Item::lineTotal).sum()
+  groupingBy(Item::sku, summingLong(Item::lineTotal))
+
+Customer KPIs
+  groupingBy(Order::customerId, counting())
+  collectingAndThen(summingLong(...), …)`,
+    downstream: `Filters & rankings
+
+  filter(Order::paid) before flatten items
+  filter cart abandoned → no payment Instant
+  top products: groupingBy sku counting → entrySet sorted limit
+
+Join-like
+  orders + customers via Map<customerId, Customer> lookup in map
+  Prefer preparing lookup Map over nested O(n*m) filters`,
+    edges: `Edge cases interviewers probe
+
+• Null items list → flatMap NPE — emptyList default
+• Money: long cents / BigDecimal — not double for FX
+• Time zone on order Instant for "today" filters
+• Distinct customers who bought X — map customerId + distinct
+• Parallel flatten of deep graphs often loses to sequential`,
+    cheat: [
+      ['flatMap orders', 'nested model'],
+      ['flatMap items', 'line items'],
+      ['summingLong', 'revenue'],
+      ['groupingBy sku', 'product totals'],
+      ['filter paid', 'before aggregate'],
+      ['top-N products', 'freq+sort+limit'],
+      ['lookup Map', 'avoid O(n*m)'],
+      ['emptyList', 'null-safe flatMap'],
+      ['cents/BigDecimal', 'money'],
+      ['ZoneId', 'day windows'],
+      ['distinct buyers', 'customerId'],
+      ['abandoned', 'missing payment'],
+    ],
+  },
+
+  fintech: {
+    intro:
+      'Payments / ledger Stream patterns — status rates, FX conversion, idempotent keys, BigDecimal totals, and time windows.',
+    overloads: `Transaction pipelines
+
+Status
+  partitioningBy(Tx::success) / groupingBy(Tx::status, counting())
+  success rate = success / total (guard div-by-zero)
+
+Money
+  reducing(BigDecimal.ZERO, Tx::amount, BigDecimal::add)
+  NEVER averagingDouble for currency
+
+FX
+  map(tx -> tx.amount().multiply(rateTable.get(tx.ccy())))
+  Normalize to USD/ledger ccy before sum`,
+    downstream: `Idempotency · windows · risk
+
+  toMap(Tx::idempotencyKey, Fn.identity(), (a,b) -> a)  // keep first
+  groupingBy(tx -> YearMonth.from(tx.at()), summing…)
+  filter amount > threshold → review queue
+  teeing(counting(), reducing(BigDecimal…), Risk::new)`,
+    edges: `Edge cases interviewers probe
+
+• Double for money → rounding bugs — BigDecimal + MathContext
+• Empty stream reducing without identity → Optional empty
+• FX missing rate → fail closed (exception) not silent zero
+• Parallel + BigDecimal reducing needs associative add (OK) but prefer seq for ledgers
+• Idempotency merge must be explicit (first vs last vs sum — sum is wrong)`,
+    cheat: [
+      ['partitioningBy success', 'rates'],
+      ['BigDecimal reducing', 'totals'],
+      ['no averagingDouble', 'currency'],
+      ['FX map then sum', 'normalize ccy'],
+      ['toMap idem key', 'dedupe'],
+      ['YearMonth bucket', 'statements'],
+      ['fail closed FX', 'missing rate'],
+      ['teeing', 'count+sum'],
+      ['identity reduce', 'empty → 0'],
+      ['seq ledger', 'prefer clear'],
+      ['threshold filter', 'AML review'],
+      ['status grouping', 'ops dashboards'],
+    ],
+  },
+
+  'api-coverage': {
+    intro:
+      'Less-common Stream / primitive / Collector APIs called out in the coverage matrix — factories, mapMulti, gatherers-era awareness, and Spliterator notes.',
+    overloads: `Factories & misc often missed
+
+  Stream.ofNullable / empty / builder / concat
+  iterate 2-arg vs 3-arg (Java 9)
+  generate + limit
+  StreamSupport.stream(spliterator, parallel)
+
+Primitive extras
+  IntStream.range / rangeClosed / sum / average / summaryStatistics
+  mapToObj / boxed / asLongStream / asDoubleStream
+  Arrays.stream(int[])
+
+Java 16+ / 9+
+  mapMulti / mapMultiToInt
+  toList() unmodifiable
+  Optional.stream`,
+    downstream: `Collectors coverage companions
+
+  teeing / collectingAndThen / filtering / flatMapping
+  toCollection / toUnmodifiable*
+  summarizing* / reducing
+
+Internals interview talk track
+  Spliterator characteristics (SIZED, SUBSIZED, ORDERED, DISTINCT)
+  Pipeline fusion / laziness — no need to cite HotSpot opcodes`,
+    edges: `Edge cases interviewers probe
+
+• Coverage ≠ use everywhere — know when a loop is clearer
+• mapMulti vs flatMap allocation tradeoffs
+• builder after build() throws IllegalStateException
+• concat closes both sources when result closed
+• summaryStatistics on empty → count 0, min/max sentinel extremes`,
+    cheat: [
+      ['ofNullable', '0/1 source'],
+      ['iterate 3-arg', 'finite'],
+      ['mapMulti', 'Java 16 push'],
+      ['toList()', 'unmodifiable'],
+      ['range vs closed', 'off-by-one'],
+      ['summaryStatistics', 'multi-stat'],
+      ['StreamSupport', 'custom source'],
+      ['teeing', 'dual collect'],
+      ['Spliterator', 'split quality'],
+      ['builder build once', 'ISE after'],
+      ['concat close', 'both sources'],
+      ['empty stats', 'sentinel min/max'],
+    ],
+  },
 };
