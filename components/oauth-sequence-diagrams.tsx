@@ -133,13 +133,13 @@ const diagrams = [
 
 export default function OAuthSequenceDiagrams() {
   return (
-    <section className="mt-10 max-w-5xl" aria-labelledby="oauth-flows-heading">
+    <section className="mt-10 max-w-5xl" aria-labelledby="oauth-flows-heading" id="diagrams">
       <h2 id="oauth-flows-heading" className="text-2xl font-bold tracking-[-.02em] text-slate-900 dark:text-white">
         Sequence diagrams — OAuth & JWT end-to-end
       </h2>
       <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-        How tokens move through Authorization Server (:9000), Gateway (:8080), and Resource Server (:8081)
-        in this demo.
+        Visual flows for Authorization Server (:9000), Gateway (:8080), and Resource Server (:8081).
+        See <a href="#endpoints" className="font-semibold text-slate-700 underline dark:text-blue-400">numbered endpoint sequences</a> above for method + path names.
       </p>
 
       <div className="mt-6 space-y-10">
@@ -147,6 +147,33 @@ export default function OAuthSequenceDiagrams() {
           <div key={d.id} id={d.id}>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{d.title}</h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{d.blurb}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {d.id === 'auth-code' && (
+                <a href="#seq-auth-code" className="font-semibold text-slate-600 underline dark:text-slate-400">
+                  View numbered steps →
+                </a>
+              )}
+              {d.id === 'pkce' && (
+                <a href="#seq-pkce" className="font-semibold text-slate-600 underline dark:text-slate-400">
+                  View numbered steps →
+                </a>
+              )}
+              {d.id === 'client-credentials' && (
+                <a href="#seq-client-creds" className="font-semibold text-slate-600 underline dark:text-slate-400">
+                  View numbered steps →
+                </a>
+              )}
+              {d.id === 'jwt-validation' && (
+                <a href="#seq-jwt-validation" className="font-semibold text-slate-600 underline dark:text-slate-400">
+                  View numbered steps →
+                </a>
+              )}
+              {d.id === 'refresh' && (
+                <a href="#seq-refresh" className="font-semibold text-slate-600 underline dark:text-slate-400">
+                  View numbered steps →
+                </a>
+              )}
+            </p>
             <Mermaid chart={d.chart} />
           </div>
         ))}
