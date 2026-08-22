@@ -1,6 +1,7 @@
 import {Suspense} from 'react';
 import Link from 'next/link';
 import OAuthCodeExplorer from '@/components/oauth-code-explorer';
+import OAuthEndpointReference from '@/components/oauth-endpoint-reference';
 import OAuthSequenceDiagrams from '@/components/oauth-sequence-diagrams';
 import {buildOAuthDemoTree,listOAuthDemoFiles} from '@/lib/oauth-demo-source';
 
@@ -40,6 +41,10 @@ export default function OAuthJwtDemoPage(){
             First-party JWT (no OAuth) →
           </Link>
           <span className="text-slate-300">·</span>
+          <a href="#endpoints" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
+            API endpoints →
+          </a>
+          <span className="text-slate-300">·</span>
           <a href="#auth-code" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Sequence diagrams →
           </a>
@@ -54,6 +59,8 @@ export default function OAuthJwtDemoPage(){
           </a>
         </div>
       </header>
+
+      <OAuthEndpointReference />
 
       <OAuthSequenceDiagrams />
 
