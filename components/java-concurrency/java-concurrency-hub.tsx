@@ -44,6 +44,8 @@ export default function JavaConcurrencyHub(){
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           ~10% theory. Lock deep-dives also on{' '}
           <Link href="/java-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Java Locking</Link>
+          {' · '}
+          <Link href="/java-reentrant-lock" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">ReentrantLock playbook</Link>
           . JDK 25: <strong>Scoped Values FINAL (JEP 506)</strong>; <strong>Structured Concurrency PREVIEW (JEP 505)</strong>.
           Run code in the{' '}
           <Link href="/java-compiler" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Java Compiler</Link>

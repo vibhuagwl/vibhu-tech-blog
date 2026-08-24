@@ -54,7 +54,11 @@ export default function JavaLockingHub(){
           Problem → broken code → race → fix → diagram → output → production choice.
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
-          90% practical. Not a textbook. For multi-JVM locks see{' '}
+          90% practical. Not a textbook. Deep dive:{' '}
+          <Link href="/java-reentrant-lock" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            ReentrantLock &amp; ReadWriteLock playbook
+          </Link>
+          . For multi-JVM locks see{' '}
           <Link href="/distributed-systems" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Distributed Systems
           </Link>
