@@ -155,6 +155,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/java-concurrency',label:'Java Concurrency',blurb:'JMM · pools · virtual threads'},
       {href:'/java-streams',label:'Java Streams',blurb:'Top 100 tough · Priority 15 · Staff'},
       {href:'/java-locking',label:'JVM Locking',blurb:'synchronized · locks · JUC'},
+      {href:'/java-reentrant-lock',label:'ReentrantLock Playbook',blurb:'AQS · RWLock · FinTech · interview'},
       {href:'/redis-interview',label:'Redis',blurb:'Cache · locks · high availability'},
       {href:'/encryption',label:'Encryption & TLS',blurb:'AES-GCM · mTLS · key management'},
       {href:'/performance',label:'Performance Engineering',blurb:'Measure · bottleneck · JVM/AWS'},
@@ -218,7 +219,8 @@ export function isNavActive(pathname:string|null,href:string){
   if(href==='/kafka-interview' && isKafkaFamilyPath(pathname)) return true;
   if(href==='/behavioral-interview' && (pathname.startsWith('/behavior') || pathname.startsWith('/leadership-principles'))) return true;
   if(href==='/microservice-communication' && pathname.startsWith('/microservices-patterns')) return false;
-  if(href==='/java-concurrency' && pathname.startsWith('/java-locking')) return false;
+  if(href==='/java-concurrency' && (pathname.startsWith('/java-locking') || pathname.startsWith('/java-reentrant-lock'))) return false;
+  if(href==='/java-locking' && pathname.startsWith('/java-reentrant-lock')) return false;
   if(href==='/realtime-issues' && pathname.startsWith('/production-troubleshooting')) return false;
   return pathname===href || pathname.startsWith(`${href}/`);
 }
