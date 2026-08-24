@@ -46,7 +46,9 @@ export default function JavaConcurrencyHub(){
           <Link href="/java-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Java Locking</Link>
           . JDK 25: <strong>Scoped Values FINAL (JEP 506)</strong>; <strong>Structured Concurrency PREVIEW (JEP 505)</strong>.
           Run code in the{' '}
-          <Link href="/java-compiler" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Java Compiler</Link>.
+          <Link href="/java-compiler" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Java Compiler</Link>
+          . Deep ThreadPoolExecutor playbook:{' '}
+          <Link href="/java-executor" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Executor Framework</Link>.
         </p>
       </header>
 
