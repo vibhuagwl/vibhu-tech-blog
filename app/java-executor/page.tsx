@@ -2,9 +2,9 @@ import type {Metadata} from 'next';
 import JavaExecutorHub from '@/components/java-executor/java-executor-hub';
 
 export const metadata: Metadata = {
-  title: 'Java Executor Framework — Production Playbook for Payments',
+  title: 'Java Executor Framework — Senior/Staff Interview Playbook',
   description:
-    'Deep ThreadPoolExecutor guide for FinTech: core→queue→max→reject algorithm, sizing vs DB pools, rejection policies, Kafka/Spring traps, virtual threads, incidents, and Staff interview scenarios.',
+    'Practical ThreadPoolExecutor guide: core→queue→max→reject, 15 broken-code drills, payment/Kafka/Spring scenarios, Future cancel, CF pipelines, rejection labs, decision trees, and Staff interview Q&A.',
 };
 
 export default function JavaExecutorPage() {

@@ -376,4 +376,54 @@ export const INTERVIEW_BANK: IQ[] = [
     wrong: 'Recite interface method list only',
     followUp: 'Draw the decision tree on the whiteboard',
   },
+  {
+    id: 'p11',
+    level: 'Principal',
+    question: 'Your API is 20k RPS and DB supports only 100 concurrent connections. Design the executor strategy.',
+    thought: 'Global vs per-instance; smallest pool wins',
+    strong:
+      'Horizontalize: per instance concurrency ≪ 100 total across fleet. Cap local TPE by share of DB pool; bound queues; Abort→503; timeouts; never 20k threads in one JVM.',
+    wrong: 'One JVM with 20k cached threads',
+    followUp: 'Where does admission control start?',
+  },
+  {
+    id: 'p12',
+    level: 'Principal',
+    question: 'Queue grew to 100k tasks but CPU is only 20%. What is happening?',
+    thought: 'Waiting not computing',
+    strong:
+      'Workers blocked on I/O/locks/pool borrows; tasks pile in queue. Dump threads; fix downstream or reduce concurrency — do not add CPU cores first.',
+    wrong: 'Need a bigger CPU machine immediately',
+    followUp: 'Which metrics confirm it in 2 minutes?',
+  },
+  {
+    id: 'p13',
+    level: 'Principal',
+    question: 'Increasing thread count reduced throughput. Why?',
+    thought: 'Oversubscription',
+    strong:
+      'Past the bottleneck, extra threads add context switches, cache thrash, and longer waits on the same DB/HTTP pools — throughput falls.',
+    wrong: 'Impossible — threads only help',
+    followUp: 'How do you find the sweet spot?',
+  },
+  {
+    id: 'p14',
+    level: 'Principal',
+    question: 'Kafka consumer lag rises continuously after introducing an executor. Diagnose it.',
+    thought: 'Handoff / commit / pause',
+    strong:
+      'Check unbounded handoff queue, commit-before-complete, rebalance mid-flight, worker slower than poll rate. Pause consumer on depth; sync processing or bounded handoff with ack-after-success.',
+    wrong: 'Just raise concurrency to 100',
+    followUp: 'How do you preserve per-key order?',
+  },
+  {
+    id: 'p15',
+    level: 'Principal',
+    question: 'How do you safely shut down an executor during a blue/green payment deploy?',
+    thought: 'Traffic → drain → interrupt → idempotency',
+    strong:
+      'Fail readiness, stop enqueues, shutdown + awaitTermination budget, shutdownNow leftovers, verify in-flight via idempotency store; clients retry safely.',
+    wrong: 'SIGKILL after 1s is fine',
+    followUp: 'What must every charge task guarantee?',
+  },
 ];
