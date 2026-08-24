@@ -61,6 +61,42 @@ import {
   TEN_SENIOR_LINES,
 } from '@/lib/java-executor/antipatterns';
 import {INTERVIEW_BANK} from '@/lib/java-executor/interview';
+import {BROKEN_EXAMPLES} from '@/lib/java-executor/broken-code';
+import {
+  BATCH_CODE,
+  BATCH_SCENARIO,
+  EXTERNAL_API_CODE,
+  EXTERNAL_API_SCENARIO,
+  KAFKA_FLOW,
+  KAFKA_SPRING_CODE,
+  PAYMENT_COMPLETE_CODE,
+  PAYMENT_SLOW_PATHS,
+  QUEUE_SIZE_EXPERIMENT,
+  REPORT_BULKHEAD_CODE,
+} from '@/lib/java-executor/scenarios-deep';
+import {
+  ANSWERS_60S,
+  BACKPRESSURE_SECTION,
+  CANCEL_CODE,
+  CANCEL_DEEP,
+  CF_PIPELINE,
+  CTL_STATES,
+  DEBUG_SCENARIO_WALK,
+  DECISION_INCREASE_POOL,
+  DECISION_WORKLOAD,
+  EXCEPTION_MATRIX,
+  EXCEPTION_TYPES,
+  FIVE_MIN_REVISION,
+  INTERVIEW_TRAPS,
+  MDC_PROPAGATION,
+  MICROMETER_SNIPPET,
+  REJECTION_LAB_CODE,
+  REJECTION_LABS,
+  TOP10_DESIGN,
+  TOP20_CODE,
+  TOP20_PROD,
+  TOP20_TRAPS,
+} from '@/lib/java-executor/interview-depth';
 import StickyToc from './sticky-toc';
 import CodePanel from '@/components/hub-code-panel-compact';
 
@@ -97,6 +133,24 @@ function Callout({title, children}: {title: string; children: React.ReactNode}) 
     <div className="rounded-2xl border border-slate-900 bg-slate-900 p-4 text-white">
       <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-300">{title}</p>
       <div className="mt-2 text-sm leading-7 text-slate-100">{children}</div>
+    </div>
+  );
+}
+
+function Trap({children}: {children: React.ReactNode}) {
+  return (
+    <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-7 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+      <p className="text-[11px] font-semibold uppercase tracking-[.14em]">Interview trap</p>
+      <div className="mt-2">{children}</div>
+    </div>
+  );
+}
+
+function Rule({children}: {children: React.ReactNode}) {
+  return (
+    <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm leading-7 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100">
+      <p className="text-[11px] font-semibold uppercase tracking-[.14em]">Production rule</p>
+      <div className="mt-2">{children}</div>
     </div>
   );
 }
@@ -236,19 +290,59 @@ function IncidentDrill() {
   );
 }
 
+function BrokenBrowser() {
+  const [open, setOpen] = useState<string | null>(BROKEN_EXAMPLES[0]?.id ?? null);
+  return (
+    <div className="space-y-3">
+      {BROKEN_EXAMPLES.map((ex, idx) => {
+        const isOpen = open === ex.id;
+        return (
+          <div key={ex.id} className="rounded-2xl border border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left"
+              onClick={() => setOpen(isOpen ? null : ex.id)}
+            >
+              <span>
+                <span className="text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">
+                  Broken {idx + 1} · {ex.id}
+                </span>
+                <span className="mt-1 block text-sm font-semibold text-slate-900 dark:text-white">{ex.title}</span>
+              </span>
+              <span className="text-slate-400">{isOpen ? '−' : '+'}</span>
+            </button>
+            {isOpen && (
+              <div className="space-y-3 border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+                <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">What is wrong? {ex.ask}</p>
+                <CodePanel title="Bad code" code={ex.bad} language="java" />
+                <Pre>{ex.runtime}</Pre>
+                <CodePanel title="Fixed code" code={ex.fix} language="java" />
+                <p className="text-sm leading-7 text-slate-700 dark:text-slate-300">
+                  <strong>Why the fix works:</strong> {ex.why}
+                </p>
+                <Callout title="Remember">{ex.hook}</Callout>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function JavaExecutorHub() {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-3xl">
         <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-slate-600 dark:text-slate-300">
-          Java concurrency · FinTech / payments · Staff–Principal
+          Java concurrency · FinTech / payments · Staff–Principal interview
         </p>
         <h1 className="mt-3 text-4xl font-bold tracking-[-.04em] text-slate-900 md:text-5xl dark:text-white">
           Java Executor Framework — production playbook
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
-          Not certification trivia. Design, debug, and size pools for payment platforms — with the exact{' '}
-          <strong>core → queue → max → reject</strong> algorithm.
+          Problem → broken code → runtime → fix → internals → interview answer. Built around{' '}
+          <strong>core → queue → max → reject</strong> for payment platforms.
         </p>
         <p className="mt-3 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
@@ -261,6 +355,10 @@ export default function JavaExecutorHub() {
           {' · '}
           <Link href="/java-locking" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Locking
+          </Link>
+          {' · '}
+          <Link href="/java-reentrant-lock" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            ReentrantLock
           </Link>
           {' · '}
           <Link href="/kafka-dlq" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
@@ -281,6 +379,7 @@ export default function JavaExecutorHub() {
 
           <Section id="submit-internals" title="02. What submit() does internally" lead="Every step from call site to worker.">
             <Pre>{SUBMIT_INTERNALS}</Pre>
+            <Trap>submit() does not throw task failures to the caller — they wait inside the Future until get().</Trap>
           </Section>
 
           <Section id="lifecycle" title="03. Thread lifecycle vs pool worker" lead="Platform Thread.State ≠ worker reuse story.">
@@ -322,7 +421,12 @@ export default function JavaExecutorHub() {
 
           <Section id="algorithm" title="05. execute() decision tree" lead="The most misunderstood algorithm in j.u.c.">
             <Pre>{EXECUTE_TREE}</Pre>
-            <Callout title="Concrete walk">{CONCRETE_WALK}</Callout>
+            <Callout title="Concrete walk — core=5 max=10 queue=100">{CONCRETE_WALK}</Callout>
+            <Rule>Max threads are created ONLY after the queue refuses the task.</Rule>
+          </Section>
+
+          <Section id="queue-experiment" title="05b. Queue size experiment" lead="Same pool, different buffers — different production outcomes.">
+            <Pre>{QUEUE_SIZE_EXPERIMENT}</Pre>
           </Section>
 
           <Section id="queues" title="06. BlockingQueue deep dive" lead="Queue choice is a production decision.">
@@ -366,6 +470,11 @@ export default function JavaExecutorHub() {
             <CodePanel title="afterExecute logging" code={AFTER_EXECUTE} language="java" />
           </Section>
 
+          <Section id="exception-matrix" title="09b. Exception handling matrix">
+            <MiniTable headers={EXCEPTION_MATRIX[0]} rows={EXCEPTION_MATRIX.slice(1)} />
+            <Pre>{EXCEPTION_TYPES}</Pre>
+          </Section>
+
           <Section id="thread-factory" title="10. ThreadFactory">
             <CodePanel title="Named payment workers" code={THREAD_FACTORY_CODE} language="java" />
           </Section>
@@ -401,16 +510,28 @@ export default function JavaExecutorHub() {
             <Pre>{CALLER_RUNS_TRAP}</Pre>
           </Section>
 
+          <Section id="rejection-labs" title="11b. Rejection policy labs" lead="Feel each policy with a tiny pool.">
+            <Pre>{REJECTION_LABS}</Pre>
+            <CodePanel title="Rejection demo harness" code={REJECTION_LAB_CODE} language="java" />
+          </Section>
+
           <Section id="payment-design" title="12. Payment pool design" lead="Numbers with reasons — not vanity TPS.">
             <Pre>{PAYMENT_DESIGN}</Pre>
+            <Pre>{PAYMENT_SLOW_PATHS}</Pre>
+          </Section>
+
+          <Section id="payment-code" title="12b. Complete payment executor code">
+            <CodePanel title="PaymentExecutorFactory + authorize" code={PAYMENT_COMPLETE_CODE} language="java" />
           </Section>
 
           <Section id="cpu-io" title="13. CPU-bound vs I/O-bound">
             <Pre>{CPU_IO}</Pre>
+            <Trap>&quot;CPU cores × 2&quot; is not a universal rule — it collapses when DB/HTTP dominate.</Trap>
           </Section>
 
           <Section id="pools-interact" title="14. Thread pool vs DB / HTTP pools">
             <Pre>{POOL_INTERACT}</Pre>
+            <Rule>The smallest pool on the path is the real concurrency limit.</Rule>
           </Section>
 
           <Section id="deadlock" title="15. Deadlock & pool starvation">
@@ -421,12 +542,25 @@ export default function JavaExecutorHub() {
             <Callout title="Remember">Separate executor · compose with CF · or run inline. Do not hope max helps.</Callout>
           </Section>
 
+          <Section id="cancel" title="16b. Future cancellation" lead="cancel(true) is cooperative, not a kill switch.">
+            <Pre>{CANCEL_DEEP}</Pre>
+            <CodePanel title="Interrupt-aware Callable" code={CANCEL_CODE} language="java" />
+          </Section>
+
           <Section id="cf" title="17. CompletableFuture + Executor">
             <Pre>{CF_NOTES}</Pre>
           </Section>
 
+          <Section id="cf-pipeline" title="17b. CF customer / account / transactions pipeline">
+            <CodePanel title="Sequential vs parallel fan-out" code={CF_PIPELINE} language="java" />
+          </Section>
+
           <Section id="scheduled" title="18. ScheduledExecutorService">
             <Pre>{SCHEDULED}</Pre>
+          </Section>
+
+          <Section id="ctl-states" title="18b. ThreadPoolExecutor run states">
+            <Pre>{CTL_STATES}</Pre>
           </Section>
 
           <Section id="shutdown" title="19. Graceful shutdown" lead="Deploys must not double-charge.">
@@ -435,6 +569,11 @@ export default function JavaExecutorHub() {
 
           <Section id="monitoring" title="20. Monitoring">
             <Pre>{MONITORING}</Pre>
+            <CodePanel title="Micrometer / Spring sketch" code={MICROMETER_SNIPPET} language="java" />
+          </Section>
+
+          <Section id="debug-walk" title="20b. Production debug walkthrough" lead="Latency up, CPU low — reason before scaling.">
+            <Pre>{DEBUG_SCENARIO_WALK}</Pre>
           </Section>
 
           <Section id="incidents" title="21. Production incidents" lead="Reason before revealing.">
@@ -445,8 +584,13 @@ export default function JavaExecutorHub() {
             <Pre>{THREADLOCAL_TRAP}</Pre>
           </Section>
 
+          <Section id="mdc" title="22b. MDC / context propagation" lead="traceId must survive the hop to a worker.">
+            <Pre>{MDC_PROPAGATION}</Pre>
+          </Section>
+
           <Section id="virtual" title="23. Virtual threads">
             <Pre>{VIRTUAL_THREADS}</Pre>
+            <Trap>100,000 virtual threads still share 20 DB connections — VT do not invent capacity.</Trap>
           </Section>
 
           <Section id="fjp" title="24. ForkJoinPool">
@@ -455,6 +599,18 @@ export default function JavaExecutorHub() {
 
           <Section id="kafka" title="25. Kafka + ExecutorService">
             <Pre>{KAFKA_EXECUTOR}</Pre>
+            <Pre>{KAFKA_FLOW}</Pre>
+            <CodePanel title="Spring Kafka handoff cautions" code={KAFKA_SPRING_CODE} language="java" />
+          </Section>
+
+          <Section id="external-api" title="25b. External API orchestration" lead="One slow dependency must not freeze the order path.">
+            <Pre>{EXTERNAL_API_SCENARIO}</Pre>
+            <CodePanel title="CF with timeouts per dependency" code={EXTERNAL_API_CODE} language="java" />
+          </Section>
+
+          <Section id="batch" title="25c. Batch processing">
+            <Pre>{BATCH_SCENARIO}</Pre>
+            <CodePanel title="Paged batch with bounded queue" code={BATCH_CODE} language="java" />
           </Section>
 
           <Section id="tx" title="26. @Transactional + executor">
@@ -465,6 +621,10 @@ export default function JavaExecutorHub() {
             <Pre>{ASYNC_SPRING}</Pre>
           </Section>
 
+          <Section id="report-pool" title="27b. Report generation isolation" lead="Protect customer APIs from expensive reports.">
+            <CodePanel title="customerApiExecutor + reportExecutor" code={REPORT_BULKHEAD_CODE} language="java" />
+          </Section>
+
           <Section id="architecture" title="28. Full payment architecture">
             <Pre>{FULL_ARCH}</Pre>
           </Section>
@@ -473,10 +633,30 @@ export default function JavaExecutorHub() {
             <Pre>{BULKHEAD}</Pre>
           </Section>
 
-          <Section id="antipatterns" title="30. Anti-patterns">
+          <Section id="backpressure" title="29b. Backpressure" lead="Controlled reject beats uncontrolled collapse.">
+            <Pre>{BACKPRESSURE_SECTION}</Pre>
+          </Section>
+
+          <Section id="decision-trees" title="29c. Decision trees">
+            <Pre>{DECISION_WORKLOAD}</Pre>
+            <Pre>{DECISION_INCREASE_POOL}</Pre>
+          </Section>
+
+          <Section
+            id="broken-code"
+            title="30. Broken-code interview drills (15)"
+            lead="Bad code → ask → runtime → fix → why. Expand each card."
+          >
+            <BrokenBrowser />
+          </Section>
+
+          <Section id="antipatterns" title="31. Anti-patterns">
             <div className="space-y-3">
               {ANTIPATTERNS.map((a) => (
-                <div key={a.name} className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm dark:border-rose-900 dark:bg-rose-950/30">
+                <div
+                  key={a.name}
+                  className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm dark:border-rose-900 dark:bg-rose-950/30"
+                >
                   <p className="font-bold text-rose-900 dark:text-rose-100">{a.name}</p>
                   <p className="mt-1 text-slate-700 dark:text-slate-300">
                     <strong>Problem:</strong> {a.problem}
@@ -495,16 +675,48 @@ export default function JavaExecutorHub() {
             </div>
           </Section>
 
-          <Section id="interview" title="31. Interview bank" lead="Scenario questions with thought process.">
+          <Section id="traps" title="32. Things interviewers try to trick you with">
+            <div className="space-y-2">
+              {INTERVIEW_TRAPS.map((t) => (
+                <div key={t.trap} className="rounded-xl border border-slate-200 px-4 py-3 text-sm dark:border-slate-800">
+                  <p className="font-semibold text-rose-700 dark:text-rose-300">Myth: {t.trap}</p>
+                  <p className="mt-1 text-slate-700 dark:text-slate-300">Truth: {t.truth}</p>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          <Section id="answers-60s" title="33. Interview answers in 30 / 60 / senior seconds">
+            <div className="space-y-4">
+              {ANSWERS_60S.map((a) => (
+                <div key={a.concept} className="rounded-2xl border border-slate-200 p-4 text-sm leading-7 dark:border-slate-800">
+                  <p className="font-bold text-slate-900 dark:text-white">{a.concept}</p>
+                  <p className="mt-2">
+                    <strong>30s:</strong> {a.s30}
+                  </p>
+                  <p>
+                    <strong>60s:</strong> {a.s60}
+                  </p>
+                  <p>
+                    <strong>Senior:</strong> {a.senior}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Section>
+
+          <Section id="interview" title="34. Interview bank" lead="Scenario questions with thought process.">
             <InterviewBrowser />
           </Section>
 
-          <Section id="memory" title="32. Memory hooks">
+          <Section id="memory" title="35. Memory hooks">
             <MiniTable headers={['Concept', 'Hook']} rows={MEMORY_HOOKS} />
           </Section>
 
-          <Section id="cheatsheet" title="33. Cheat sheet · 30-min revision · 2-min pitch">
+          <Section id="cheatsheet" title="36. Cheat sheet · 5-min revision · traps · scenarios">
             <Pre>{CHEAT_ASCII}</Pre>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Executor Framework — 5 minute revision</h3>
+            <MiniTable headers={['Concept', 'One-liner']} rows={FIVE_MIN_REVISION} />
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">10 rules</h3>
@@ -539,11 +751,36 @@ export default function JavaExecutorHub() {
                 </ul>
               </div>
             </div>
+            <h3 className="mt-4 text-sm font-bold text-slate-900 dark:text-white">Top 20 interview traps</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+              {TOP20_TRAPS.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+            <h3 className="mt-4 text-sm font-bold text-slate-900 dark:text-white">Top 20 production scenarios</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+              {TOP20_PROD.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+            <h3 className="mt-4 text-sm font-bold text-slate-900 dark:text-white">Top 20 code questions</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+              {TOP20_CODE.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+            <h3 className="mt-4 text-sm font-bold text-slate-900 dark:text-white">Top 10 design questions</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+              {TOP10_DESIGN.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
             <Callout title="30-minute revision">
               <ul className="list-disc space-y-1 pl-5">
                 {REVISION_30.map((r) => (
                   <li key={r}>{r}</li>
                 ))}
+                <li>Extra: expand 3 broken-code cards + say one 60s answer aloud</li>
               </ul>
             </Callout>
             <Callout title="2-minute interview explanation">{TWO_MIN}</Callout>
