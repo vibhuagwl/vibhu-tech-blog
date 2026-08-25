@@ -26,8 +26,8 @@ import org.junit.jupiter.api.Test;
 
 class TokenBucketRateLimiterTest {
 
-  private final MutableClock clock = new MutableClock(0);
-  private final InMemoryRateLimitStore store = new InMemoryRateLimitStore(clock);
+  private final RateLimiterTestSupport.TestHarness harness = RateLimiterTestSupport.harness();
+  private final InMemoryRateLimitStore store = harness.tokenBucket();
   private final RateLimitMetrics metrics = new RateLimitMetrics(new SimpleMeterRegistry());
 
   @Test
@@ -121,7 +121,7 @@ class TokenBucketRateLimiterTest {
             .refillPeriod(RefillPeriod.HOUR)
             .build();
     provider.upsert(tight);
-    RateLimiterFactory factory = new RateLimiterFactory(store, store, metrics);
+    RateLimiterFactory factory = harness.factory();
     CompositeRateLimiter composite = new CompositeRateLimiter(provider, factory, metrics);
     RequestContext ctx = ctx();
     assertTrue(composite.allow(ctx).allowed());
@@ -135,7 +135,7 @@ class TokenBucketRateLimiterTest {
             .refillPeriod(RefillPeriod.HOUR)
             .build());
     factory.evict("live");
-    clock.advance(java.time.Duration.ofHours(1).toMillis());
+    harness.clock().advance(java.time.Duration.ofHours(1).toMillis());
     assertTrue(composite.allow(ctx).allowed());
   }
 
@@ -160,7 +160,7 @@ class TokenBucketRateLimiterTest {
             .refillPeriod(RefillPeriod.MINUTE)
             .build());
     CompositeRateLimiter composite =
-        new CompositeRateLimiter(provider, new RateLimiterFactory(store, store, metrics), metrics);
+        new CompositeRateLimiter(provider, RateLimiterTestSupport.harness().factory(), metrics);
     RequestContext ctx = ctx();
     assertTrue(composite.allow(ctx).allowed());
     RateLimitResult second = composite.allow(ctx);

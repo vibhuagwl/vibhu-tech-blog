@@ -13,7 +13,18 @@ public record RequestContext(
     String ipAddress,
     String apiPath,
     String httpMethod,
-    String serviceName) {
+    String serviceName,
+    double cost) {
+
+  public RequestContext {
+    if (cost <= 0) {
+      throw new IllegalArgumentException("cost must be > 0");
+    }
+  }
+
+  public double effectiveCost() {
+    return cost;
+  }
 
   public static Builder builder() {
     return new Builder();
@@ -27,6 +38,7 @@ public record RequestContext(
     private String apiPath;
     private String httpMethod;
     private String serviceName;
+    private double cost = 1.0;
 
     public Builder userId(String userId) {
       this.userId = userId;
@@ -63,6 +75,11 @@ public record RequestContext(
       return this;
     }
 
+    public Builder cost(double cost) {
+      this.cost = cost;
+      return this;
+    }
+
     public RequestContext build() {
       return new RequestContext(
           blankToNull(userId),
@@ -71,7 +88,8 @@ public record RequestContext(
           blankToNull(ipAddress),
           blankToNull(apiPath),
           blankToNull(httpMethod),
-          blankToNull(serviceName));
+          blankToNull(serviceName),
+          cost);
     }
 
     private static String blankToNull(String value) {
