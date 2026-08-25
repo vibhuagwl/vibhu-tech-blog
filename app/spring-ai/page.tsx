@@ -1,5 +1,7 @@
 import type {Metadata} from 'next';
+import {Suspense} from 'react';
 import SpringAiHub from '@/components/spring-ai/spring-ai-hub';
+import {buildSpringAiDemoTree, listSpringAiDemoFiles} from '@/lib/spring-ai-demo-source';
 
 export const metadata: Metadata = {
   title: 'Spring AI Financial Intelligence Platform — Principal FinTech Playbook',
@@ -8,9 +10,19 @@ export const metadata: Metadata = {
 };
 
 export default function SpringAiPage() {
+  const files = listSpringAiDemoFiles();
+  const tree = buildSpringAiDemoTree(files);
+  const defaultPath =
+    files.find((f) => f.path === 'README.md')?.path ??
+    files.find((f) => f.path.includes('FinancialAiOrchestrator.java'))?.path ??
+    files[0]?.path ??
+    '';
+
   return (
     <main>
-      <SpringAiHub />
+      <Suspense fallback={<div className="px-5 py-10 text-sm text-slate-500">Loading Spring AI hub…</div>}>
+        <SpringAiHub files={files} tree={tree} defaultPath={defaultPath} />
+      </Suspense>
     </main>
   );
 }
