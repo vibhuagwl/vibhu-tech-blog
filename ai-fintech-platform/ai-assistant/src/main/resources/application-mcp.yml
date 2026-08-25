@@ -1,0 +1,13 @@
+# Optional profile — enable MCP client to call remote streamable HTTP servers.
+spring:
+  ai:
+    mcp:
+      client:
+        enabled: true
+        type: SYNC
+        streamable-http:
+          connections:
+            payment-server:
+              url: http://localhost:8091
+              mcp-endpoint: /mcp
+              api-key: dev-mcp-key
