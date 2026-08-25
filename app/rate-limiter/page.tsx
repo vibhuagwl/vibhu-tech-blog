@@ -13,9 +13,10 @@ export default function RateLimiterPage() {
   const files = listSpringRateLimiterLabFiles();
   const tree = buildSpringRateLimiterLabTree(files);
   const defaultPath =
-    files.find((f) => f.path.includes('token_bucket.lua'))?.path
+    files.find((f) => f.path === 'README.md')?.path
+    ?? files.find((f) => f.path.includes('PlaygroundController.java'))?.path
     ?? files.find((f) => f.path.includes('TokenBucketRateLimiter.java'))?.path
-    ?? files.find((f) => f.path === 'README.md')?.path
+    ?? files.find((f) => f.path.includes('token_bucket.lua'))?.path
     ?? files[0]?.path
     ?? '';
 
