@@ -142,7 +142,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/kafka-interview',label:'Apache Kafka',blurb:'Producer · consumer · DLQ · annotations · lag'},
       {href:'/api-gateway',label:'API Gateway',blurb:'Routing · auth · rate limits'},
       {href:'/load-balancing',label:'Load Balancing',blurb:'L4/L7 · algorithms · health'},
-      {href:'/rate-limiter',label:'Rate Limiting',blurb:'Token bucket · Redis'},
+      {href:'/rate-limiter',label:'Rate Limiting',blurb:'Fixed · Sliding · Token · Redis lab'},
       {href:'/resilience4j',label:'Resilience Patterns',blurb:'Circuit breaker · retry · bulkhead'},
       {href:'/fintech',label:'Payments & FinTech',blurb:'Idempotency · settlement flows'},
     ],
