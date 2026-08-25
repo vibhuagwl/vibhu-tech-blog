@@ -61,7 +61,7 @@ export default function ReactInterviewPage() {
 
       <section className="mt-10">
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Demo path</h2>
-        <pre className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-5 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+        <pre className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
           {FLOW}
         </pre>
       </section>
@@ -103,7 +103,7 @@ export default function ReactInterviewPage() {
 
       <section className="mt-10">
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Run</h2>
-        <pre className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-5 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">{`cd react-springboot-interview/backend && mvn spring-boot:run
+        <pre className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">{`cd react-springboot-interview/backend && mvn spring-boot:run
 cd react-springboot-interview/frontend && npm install && npm run dev`}</pre>
       </section>
     </main>

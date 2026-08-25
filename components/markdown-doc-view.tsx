@@ -16,11 +16,11 @@ function FencedCode({className, children}: {className?: string; children?: React
   const html = highlightCode(raw, lang).html;
 
   return (
-    <div className="code-block my-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[.08em] text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+    <div className="code-block my-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
+      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[.08em] text-slate-400">
         <span>{lang}</span>
       </div>
-      <pre className="m-0 overflow-x-auto bg-slate-950 p-4 text-[12.5px] leading-5">
+      <pre className="syntax-pre m-0 overflow-x-auto bg-slate-950 p-4 text-[12.5px] leading-5 text-slate-100">
         <code
           className={`hljs language-${lang} font-mono whitespace-pre text-slate-100`}
           dangerouslySetInnerHTML={{__html: html}}

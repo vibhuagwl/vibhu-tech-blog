@@ -1047,11 +1047,19 @@ a{text-decoration:none}
 .prose-design li{margin:.35rem 0}
 .prose-design li > p{margin:.35rem 0}
 
+/*
+ * Code / diagram surfaces must stay DARK.
+ * Light hljs tokens (#e2e8f0, #93c5fd, …) are unreadable on white.
+ * Do NOT set pre background to transparent — that overrides Tailwind
+ * bg-slate-950 and caused site-wide invisible code blocks.
+ */
 .prose-design pre,
-.code-block pre{
+.code-block pre,
+.code-panel .syntax-pre,
+.syntax-pre{
   overflow:auto;
   border-radius:0;
-  background:transparent;
+  background:#020617;
   color:#e2e8f0;
   padding:0;
   margin:0;
@@ -1061,7 +1069,9 @@ a{text-decoration:none}
 }
 .prose-design .code-block{margin:1.25rem 0}
 .prose-design pre code,
-.code-block pre code{
+.code-block pre code,
+.code-panel .syntax-pre code,
+.syntax-pre code{
   display:block;
   background:transparent;
   color:inherit;
@@ -1072,6 +1082,22 @@ a{text-decoration:none}
   white-space:inherit;
   word-break:normal;
   font-family:inherit;
+}
+
+/* Bare prose fences (no .code-block chrome) still need a dark pad */
+.prose-design > pre{
+  padding:1rem;
+  border-radius:.75rem;
+  border:1px solid #1e293b;
+}
+/* Light-surface ASCII/diagram <pre> used outside syntax theme */
+pre.bg-slate-50,
+pre[class*='bg-slate-50']{
+  color:#0f172a;
+}
+.dark pre.bg-slate-50,
+.dark pre[class*='bg-slate-50']{
+  color:#e2e8f0;
 }
 
 .prose-design :not(pre) > code{
@@ -1315,9 +1341,11 @@ a{text-decoration:none}
 /* —— Unified syntax theme (dark surfaces: MDX + hub CodePanels) —— */
 .code-block .hljs,
 .code-panel .hljs,
-.syntax-pre .hljs{
+.syntax-pre .hljs,
+.prose-design pre .hljs,
+.markdown-doc-panel .hljs{
   background: transparent;
-  color: #e2e8f0;
+  color: #f1f5f9; /* brighter default — plaintext / unspanned tokens */
   font-family: var(--font-mono);
   font-size: inherit;
   line-height: inherit;
@@ -1424,19 +1452,37 @@ a{text-decoration:none}
 .syntax-pre .hljs-deletion{ color: #fca5a5; }
 .code-block .hljs-params,
 .code-panel .hljs-params,
-.syntax-pre .hljs-params{ color: #e2e8f0; }
+.syntax-pre .hljs-params,
+.prose-design pre .hljs-params,
+.markdown-doc-panel .hljs-params{ color: #f1f5f9; }
 .code-block .hljs-punctuation,
 .code-panel .hljs-punctuation,
-.syntax-pre .hljs-punctuation{ color: #cbd5e1; }
+.syntax-pre .hljs-punctuation,
+.prose-design pre .hljs-punctuation,
+.markdown-doc-panel .hljs-punctuation{ color: #e2e8f0; }
 .code-block .hljs-operator,
 .code-panel .hljs-operator,
-.syntax-pre .hljs-operator{ color: #cbd5e1; }
+.syntax-pre .hljs-operator,
+.prose-design pre .hljs-operator,
+.markdown-doc-panel .hljs-operator{ color: #e2e8f0; }
 .code-block .hljs-property,
 .code-panel .hljs-property,
-.syntax-pre .hljs-property{ color: #7dd3fc; }
+.syntax-pre .hljs-property,
+.prose-design pre .hljs-property,
+.markdown-doc-panel .hljs-property{ color: #7dd3fc; }
 .code-block .hljs-regexp,
 .code-panel .hljs-regexp,
-.syntax-pre .hljs-regexp{ color: #f9a8d4; }
+.syntax-pre .hljs-regexp,
+.prose-design pre .hljs-regexp,
+.markdown-doc-panel .hljs-regexp{ color: #f9a8d4; }
+
+/* Plaintext / diagram lines without token spans */
+.code-block .hljs:not(:has(span)),
+.code-panel .hljs:not(:has(span)),
+.syntax-pre .hljs:not(:has(span)),
+.markdown-doc-panel .hljs:not(:has(span)){
+  color: #f8fafc;
+}
 
 /* —— Home hero & motion —— */
 @keyframes home-fade-up{

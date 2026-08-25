@@ -94,7 +94,7 @@ export default function ProblemBrowser({problems}: {problems: StreamProblem[]}) 
           <CodePanel title="Solution (Java 21 style)" code={selected.solution} language="java" />
           <div>
             <p className="font-semibold text-slate-900 dark:text-white">Pipeline</p>
-            <pre className="mt-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-3 text-[12px] dark:border-slate-800 dark:bg-slate-900">
+            <pre className="mt-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-3 text-[12px] text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
               {selected.pipeline}
             </pre>
           </div>
