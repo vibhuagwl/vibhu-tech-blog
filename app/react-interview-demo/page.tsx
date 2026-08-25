@@ -21,6 +21,8 @@ export default function ReactInterviewDemoPage() {
   const files = listReactInterviewLabFiles();
   const tree = buildReactInterviewLabTree(files);
   const defaultPath =
+    files.find((f) => f.path === 'frontend/src/App.tsx')?.path ??
+    files.find((f) => f.path === 'frontend/src/pages/PaymentsPage.tsx')?.path ??
     files.find((f) => f.path === 'README.md')?.path ??
     files.find((f) => f.path === 'REACT_CHEAT_SHEET.md')?.path ??
     files.find((f) => f.path.includes('PaymentController.java'))?.path ??

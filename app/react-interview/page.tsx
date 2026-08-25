@@ -36,6 +36,11 @@ export default function ReactInterviewPage() {
         Payment Operations Dashboard: React 19 + Vite talks to Spring Boot JWT APIs. ~90% code, ~10% diagrams.
         Frontend route guards are UX only — Spring Security authorizes.
       </p>
+      <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+        GitHub Pages cannot run the Payment Ops SPA. Use <strong>Open source explorer</strong> below to read UI files
+        (<code className="text-xs">frontend/src/…</code>), or run locally on{' '}
+        <code className="text-xs">http://localhost:5173</code>.
+      </p>
 
       <div className="mt-6 flex flex-wrap gap-3 text-sm">
         <Link
