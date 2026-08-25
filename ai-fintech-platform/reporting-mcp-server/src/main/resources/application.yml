@@ -1,0 +1,26 @@
+server:
+  port: 8094
+
+spring:
+  application:
+    name: reporting-mcp-server
+  ai:
+    mcp:
+      server:
+        name: reporting-mcp-server
+        version: 1.0.0
+        protocol: STREAMABLE
+        streamable-http:
+          mcp-endpoint: /mcp
+
+app:
+  mcp:
+    security:
+      enabled: false
+    api-key: dev-mcp-key
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

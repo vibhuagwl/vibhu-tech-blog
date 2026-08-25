@@ -49,7 +49,7 @@ export const SPRING_AI_TOC: TocItem[] = [
 ];
 
 export const VERSION_NOTE =
-  'Spring Boot 3.4 · Spring AI 1.1.x oriented (ChatClient, @Tool, Advisors, VectorStore, MCP). Full source: /spring-ai-demo · lab: financial-ai-platform/ · Sibling: /fintech · /kafka-interview · /spring-security · /resilience4j.';
+  'Spring Boot 3.4 · Spring AI 1.1.x · Ops Assistant: /ai-fintech-demo (ai-fintech-platform/) · Earlier lab: /spring-ai-demo · Sibling: /fintech · /kafka-interview · /spring-security · /resilience4j.';
 
 export const CORE_RULE =
   'AI = orchestration, retrieval, explanation. Java = money math, authorization, audit. Never let the LLM invent P&L or execute unrestricted transfers.';

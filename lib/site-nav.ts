@@ -155,6 +155,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/spring-annotations',label:'Spring Annotations',blurb:'Proxies · transactions · DI'},
       {href:'/spring-ai',label:'Spring AI Platform',blurb:'MCP · RAG · FinTech agent · interview'},
       {href:'/spring-ai-demo',label:'Spring AI Lab Source',blurb:'Browse financial-ai-platform in browser'},
+      {href:'/ai-fintech-demo',label:'AI Ops Assistant Source',blurb:'Harness · MCP servers · RAG · PAY-123'},
       {href:'/spring-security',label:'Spring Security',blurb:'JWT · OAuth2 · CSRF · CORS'},
       {href:'/java-concurrency',label:'Java Concurrency',blurb:'JMM · pools · virtual threads'},
       {href:'/java-executor',label:'Executor Framework',blurb:'TPE algorithm · payment pool sizing'},
