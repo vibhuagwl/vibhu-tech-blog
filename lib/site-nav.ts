@@ -151,6 +151,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
     description:'Runtime, framework, security, and data',
     topics:[
       {href:'/spring-annotations',label:'Spring Annotations',blurb:'Proxies · transactions · DI'},
+      {href:'/spring-ai',label:'Spring AI Platform',blurb:'MCP · RAG · FinTech agent · interview'},
       {href:'/spring-security',label:'Spring Security',blurb:'JWT · OAuth2 · CSRF · CORS'},
       {href:'/java-concurrency',label:'Java Concurrency',blurb:'JMM · pools · virtual threads'},
       {href:'/java-executor',label:'Executor Framework',blurb:'TPE algorithm · payment pool sizing'},
