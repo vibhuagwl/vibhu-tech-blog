@@ -28,15 +28,26 @@ public class OpsScriptedChatModel implements ChatModel {
   public ChatResponse call(Prompt prompt) {
     List<Message> messages = prompt.getInstructions();
     boolean hasToolResponses = messages.stream().anyMatch(m -> m.getMessageType() == MessageType.TOOL);
-    String userText = lastUser(messages);
+    String userText = opsQuestion(messages);
 
     if (hasToolResponses) {
       return finalAnswer(userText);
     }
 
     String lower = userText.toLowerCase();
+    // Payment failure investigation must win over structured-output schema text that mentions "status".
+    if ((lower.contains("fail") || lower.contains("why") || lower.contains("investigate"))
+        && PAYMENT_ID.matcher(userText).find()
+        && !lower.contains("replay")
+        && !lower.contains("report")
+        && !lower.contains("retry")) {
+      String paymentId = extract(PAYMENT_ID, userText, "PAY-123");
+      return toolCalls(
+          call("getPayment", "{\"paymentId\":\"" + paymentId + "\"}"),
+          call("getPaymentFailureReason", "{\"paymentId\":\"" + paymentId + "\"}"));
+    }
     if (lower.contains("replay") || lower.contains("kafka")) {
-      String msgId = lower.contains("msg-") ? extract(PAYMENT_ID, userText, "MSG-501") : "MSG-501";
+      String msgId = "MSG-501";
       return toolCalls(
           call("findFailedMessage", "{\"paymentId\":\"PAY-123\"}"),
           call("getMessageDetails", "{\"messageId\":\"" + msgId + "\"}"),
@@ -52,7 +63,7 @@ public class OpsScriptedChatModel implements ChatModel {
           call("getPayment", "{\"paymentId\":\"PAY-123\"}"),
           call("getPaymentFailureReason", "{\"paymentId\":\"PAY-123\"}"));
     }
-    if (lower.contains("status")) {
+    if (lower.contains("status") && PAYMENT_ID.matcher(userText).find()) {
       return toolCalls(call("getPaymentStatus", "{\"paymentId\":\"PAY-123\"}"));
     }
 
@@ -60,6 +71,26 @@ public class OpsScriptedChatModel implements ChatModel {
     return toolCalls(
         call("getPayment", "{\"paymentId\":\"" + paymentId + "\"}"),
         call("getPaymentFailureReason", "{\"paymentId\":\"" + paymentId + "\"}"));
+  }
+
+  /** Prefer the operator question over ChatClient.entity() schema instructions. */
+  private static String opsQuestion(List<Message> messages) {
+    StringBuilder all = new StringBuilder();
+    for (Message message : messages) {
+      if (message instanceof UserMessage um && um.getText() != null) {
+        all.append(' ').append(um.getText());
+      }
+    }
+    String joined = all.toString();
+    if (PAYMENT_ID.matcher(joined).find()) {
+      return joined;
+    }
+    for (int i = messages.size() - 1; i >= 0; i--) {
+      if (messages.get(i) instanceof UserMessage um) {
+        return um.getText() == null ? "" : um.getText();
+      }
+    }
+    return "";
   }
 
   private ChatResponse finalAnswer(String userText) {
@@ -114,12 +145,7 @@ public class OpsScriptedChatModel implements ChatModel {
   }
 
   private static String lastUser(List<Message> messages) {
-    for (int i = messages.size() - 1; i >= 0; i--) {
-      if (messages.get(i) instanceof UserMessage um) {
-        return um.getText();
-      }
-    }
-    return "";
+    return opsQuestion(messages);
   }
 
   private static String extract(Pattern pattern, String text, String fallback) {

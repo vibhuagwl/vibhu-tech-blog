@@ -156,10 +156,16 @@ export default function SpringAiHub({
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{VERSION_NOTE}</p>
         <p className="mt-4 flex flex-wrap gap-3">
           <Link
-            href="/spring-ai-demo"
+            href="/ai-fintech-demo"
             className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
           >
-            Browse full source →
+            Browse AI Ops Assistant →
+          </Link>
+          <Link
+            href="/spring-ai-demo"
+            className="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-900"
+          >
+            Earlier FinTech AI lab →
           </Link>
           <a
             href="#runnable-lab"
@@ -198,7 +204,17 @@ export default function SpringAiHub({
           >
             <div className="rounded-2xl border-2 border-slate-900 bg-slate-50 p-5 dark:border-slate-200 dark:bg-slate-900">
               <p className="text-sm leading-7 text-slate-700 dark:text-slate-200">
-                Full-page explorer:{' '}
+                Production-style Ops Assistant (Harness + MCP servers + RAG):{' '}
+                <Link href="/ai-fintech-demo" className="font-semibold underline">
+                  /ai-fintech-demo
+                </Link>
+                {' · '}
+                <code className="rounded bg-white/80 px-1 dark:bg-slate-800">ai-fintech-platform/</code>
+                {' — '}
+                Host → Client → Server, @McpTool, PAY-123 investigation.
+              </p>
+              <p className="mt-2 text-sm leading-7 text-slate-700 dark:text-slate-200">
+                Earlier lab explorer:{' '}
                 <Link href="/spring-ai-demo" className="font-semibold underline">
                   /spring-ai-demo
                 </Link>

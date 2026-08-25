@@ -75,6 +75,9 @@ class AiAssistantIntegrationTest {
     assertThat(response.intent()).isEqualTo(Intent.PAYMENT_FAILURE_ANALYSIS);
     assertThat(response.answer()).contains("BANK_TIMEOUT");
     assertThat(response.answer()).contains("PAY-123");
+    assertThat(response.toolTraces())
+        .extracting(t -> t.toolName())
+        .contains("getPayment", "getPaymentFailureReason");
   }
 
   @Test

@@ -26,6 +26,7 @@ public class AiHarness {
   private final AiObservability observability;
   private final AiEvaluationService evaluationService;
   private final ConversationMemory conversationMemory;
+  private final ToolCallRecorder toolCallRecorder;
 
   public AiHarness(
       IntentRouter intentRouter,
@@ -35,7 +36,8 @@ public class AiHarness {
       OutputGuardrail outputGuardrail,
       AiObservability observability,
       AiEvaluationService evaluationService,
-      ConversationMemory conversationMemory) {
+      ConversationMemory conversationMemory,
+      ToolCallRecorder toolCallRecorder) {
     this.intentRouter = intentRouter;
     this.inputGuardrail = inputGuardrail;
     this.contextBuilder = contextBuilder;
@@ -44,6 +46,7 @@ public class AiHarness {
     this.observability = observability;
     this.evaluationService = evaluationService;
     this.conversationMemory = conversationMemory;
+    this.toolCallRecorder = toolCallRecorder;
   }
 
   public PreparedAiCall prepare(AiChatRequest request, UserContext user) {
@@ -74,6 +77,7 @@ public class AiHarness {
     return observability.record(
         "execute",
         () -> {
+          toolCallRecorder.begin();
           var spec =
               chatClient
                   .prompt()
@@ -91,7 +95,7 @@ public class AiHarness {
             answer = outputGuardrail.validateAnswer(String.valueOf(payload));
           }
           conversationMemory.append(prepared.conversationId(), "assistant", answer);
-          List<ToolCallTrace> traces = new ArrayList<>();
+          List<ToolCallTrace> traces = new ArrayList<>(toolCallRecorder.drain());
           EvalScore score =
               evaluationService.score(prepared.intent(), prepared.context(), traces, answer);
           return new AiChatResponse(
