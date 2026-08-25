@@ -64,6 +64,7 @@ Statement for interviews:
   DB = source of truth · Cache = optimization.`;
 
 export const LAB = `Runnable project: spring-cache-lab/
+Browse in browser: /spring-cache-demo
 
   algorithms/   SimpleCache, LruCache, LfuCache, TtlCache + tests
   product/      @Cacheable/@CachePut/@CacheEvict ProductService
@@ -73,12 +74,12 @@ export const LAB = `Runnable project: spring-cache-lab/
   docs/         01–09 markdown curriculum
 
 Quick start:
-  cd spring-cache-lab && ./mvnw test
-  ./mvnw spring-boot:run
+  cd spring-cache-lab && mvn test
+  mvn spring-boot:run
   curl localhost:8080/api/products/1
   curl localhost:8080/api/products/1   # expect HIT
   docker compose up -d redis
-  ./mvnw spring-boot:run -Dspring-boot.run.profiles=redis
+  mvn spring-boot:run -Dspring-boot.run.profiles=redis
 
 Also see: spring-distributed-cache-demo/ (stampede locks, Kafka invalidate)
   and hub /distributed-caching`;

@@ -39,8 +39,12 @@ import {
   LAB,
   NEGATIVE_CODE,
 } from '@/lib/spring-cache/production';
+import OAuthCodeExplorer from '@/components/oauth-code-explorer';
+import type {DemoSourceFile, DemoTreeNode} from '@/lib/oauth-demo-source';
 import StickyToc from './sticky-toc';
 import InterviewBrowser from './interview-browser';
+
+const LAB_GITHUB = 'https://github.com/vibhuagwl/vibhu-tech-blog/tree/main/spring-cache-lab';
 
 function Section({
   id,
@@ -111,7 +115,15 @@ function Callout({children}: {children: string}) {
   );
 }
 
-export default function SpringCacheHub() {
+export default function SpringCacheHub({
+  files = [],
+  tree = [],
+  defaultPath = '',
+}: {
+  files?: DemoSourceFile[];
+  tree?: DemoTreeNode[];
+  defaultPath?: string;
+}) {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
@@ -126,6 +138,20 @@ export default function SpringCacheHub() {
           interview-ready architecture — with a runnable lab.
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{VERSION_NOTE}</p>
+        <p className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href="/spring-cache-demo"
+            className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+          >
+            Browse lab source →
+          </Link>
+          <a
+            href="#lab"
+            className="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-900"
+          >
+            Jump to runnable lab ↓
+          </a>
+        </p>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
           Related:{' '}
           <Link href="/distributed-caching" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
@@ -237,7 +263,38 @@ export default function SpringCacheHub() {
             <Pre>{FINTECH}</Pre>
           </Section>
 
-          <Section id="lab" title="21. Runnable lab">
+          <Section
+            id="lab"
+            title="21. Runnable lab"
+            lead="Browse every file in spring-cache-lab/ in the browser (same explorer as OAuth JWT / Spring AI demos). Clone to run Spring Boot locally."
+          >
+            <div className="rounded-2xl border-2 border-slate-900 bg-slate-50 p-5 dark:border-slate-200 dark:bg-slate-900">
+              <p className="text-sm leading-7 text-slate-700 dark:text-slate-200">
+                Full-page explorer:{' '}
+                <Link href="/spring-cache-demo" className="font-semibold underline">
+                  /spring-cache-demo
+                </Link>
+                {' · '}
+                GitHub:{' '}
+                <a href={LAB_GITHUB} target="_blank" rel="noreferrer" className="font-semibold underline">
+                  spring-cache-lab/
+                </a>
+                {' '}
+                — LRU/LFU/TTL · @Cacheable Product API · Caffeine · Redis profile.
+              </p>
+              <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
+                GitHub Pages cannot execute Spring Boot. Use the tree below to read code; run the commands on your machine.
+              </p>
+            </div>
+            {files.length > 0 && (
+              <OAuthCodeExplorer
+                files={files}
+                tree={tree}
+                defaultPath={defaultPath}
+                routeBase="/spring-cache"
+                ariaLabel="Spring Cache lab source tree"
+              />
+            )}
             <Pre>{LAB}</Pre>
           </Section>
 
