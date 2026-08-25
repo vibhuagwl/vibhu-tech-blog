@@ -180,15 +180,29 @@ export default function RateLimiterHub({
         </h1>
         <p className="mt-4 text-lg leading-8 text-slate-600 dark:text-slate-300">
           Story-driven production design for Senior Staff / Principal interviews: why → requirements → algorithms →
-          HLD/LLD → Redis Lua → AWS → failures → incidents → 50+ prompts — with a runnable Spring lab on :8098.
+          HLD/LLD → Redis Lua → AWS → failures → incidents — with a runnable algorithm playground on :8098.
         </p>
         <p className="mt-3 max-w-3xl rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold leading-7 text-white">
           {MEMORY_SENTENCE}
         </p>
+        <p className="mt-4 flex flex-wrap gap-3">
+          <a
+            href="#lab"
+            className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+          >
+            Browse runnable lab source →
+          </a>
+          <a
+            href="#algorithms"
+            className="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-900"
+          >
+            Algorithms ↓
+          </a>
+        </p>
         <p className="mt-3 text-sm text-slate-500">
           Lab:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-rate-limiter-lab/</code>
-          {' · '}
+          {' · Fixed · Sliding log/counter · Token · Leaky · Redis Lua · '}
           <Link href="/system-design/design-rate-limiter" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             short catalog article
           </Link>
@@ -210,6 +224,56 @@ export default function RateLimiterHub({
       <div className="mt-10 grid gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
         <StickyToc items={RATE_LIMIT_TOC} />
         <div className="min-w-0 space-y-16">
+          <Section
+            id="lab"
+            title="00. Runnable lab"
+            lead="Java 21 / Spring Boot 3.4 on :8098. Swap Fixed Window · Sliding Log · Sliding Counter · Token Bucket · Leaky Bucket. In-memory default; Redis Lua for distributed. HTTP 429 + Retry-After."
+          >
+            <div className="mb-4 rounded-2xl border-2 border-slate-900 bg-slate-50 p-5 text-sm leading-7 text-slate-700 dark:border-slate-200 dark:bg-slate-900 dark:text-slate-200">
+              <p>
+                Playground: <code className="rounded bg-white/80 px-1 dark:bg-slate-800">GET /api/lab/{'{algorithm}'}</code>{' '}
+                with <code className="rounded bg-white/80 px-1 dark:bg-slate-800">X-Lab-Key</code> — algorithms:{' '}
+                <code>FIXED_WINDOW</code>, <code>SLIDING_WINDOW_LOG</code>, <code>SLIDING_WINDOW_COUNTER</code>,{' '}
+                <code>TOKEN_BUCKET</code>, <code>LEAKY_BUCKET</code>.
+              </p>
+              <p className="mt-2">
+                Docs in the repo: <code>INTERVIEW.md</code> · <code>RATE_LIMITER_CHEAT_SHEET.md</code> ·{' '}
+                <code>COMMON_MISTAKES.md</code>.
+              </p>
+            </div>
+            <CodePanel
+              title="Quick start"
+              code={`cd spring-rate-limiter-lab
+mvn test
+mvn spring-boot:run   # :8098
+
+# List algorithms
+curl -s http://127.0.0.1:8098/api/lab/algorithms
+
+# Hit token bucket playground (repeat until 429)
+curl -i 'http://127.0.0.1:8098/api/lab/TOKEN_BUCKET?cost=1' -H 'X-Lab-Key: demo-user'
+
+# Payment filter path (composite policies)
+curl -i -X POST http://127.0.0.1:8098/api/payments \\
+  -H 'X-Tenant-Id: acme' -H 'X-Client-Id: client-123' -H 'X-User-Id: user-1'
+
+# Optional Redis
+docker compose up -d
+mvn spring-boot:run -Dspring-boot.run.profiles=redis`}
+            />
+            {files.length > 0 && (
+              <div className="mt-6">
+                <OAuthCodeExplorer
+                  files={files}
+                  tree={tree}
+                  defaultPath={defaultPath}
+                  routeBase="/rate-limiter"
+                  ariaLabel="Distributed rate limiter lab source tree"
+                />
+              </div>
+            )}
+          </Section>
+
           <Section id="problem" title="01. Problem statement" lead="Start with Meridian Bank POST /payments — not a textbook definition.">
             <CodePanel title="Cascade without admission control" code={PROBLEM_STORY} />
             <ul className="mt-4 grid gap-2 md:grid-cols-2">
@@ -616,35 +680,6 @@ Finance hard caps ≠ API admission limiter.`}
 
           <Section id="interview" title="31. Interview bank" lead="Senior · Architect · Principal · Rapid — reveal expected vs trap answers.">
             <InterviewMode />
-          </Section>
-
-          <Section
-            id="lab"
-            title="32. Runnable lab"
-            lead="Java 21 / Spring Boot 3.4 on :8098. In-memory default, Redis Lua optional, multi-level policies, 429 headers."
-          >
-            <CodePanel
-              title="Quick start"
-              code={`cd spring-rate-limiter-lab
-mvn test
-mvn spring-boot:run
-
-curl -i -X POST http://127.0.0.1:8098/api/payments \\
-  -H 'X-Tenant-Id: acme' -H 'X-Client-Id: client-123' -H 'X-User-Id: user-1'
-
-curl -sS http://127.0.0.1:8098/api/rate-limits | jq .`}
-            />
-            {files.length > 0 && (
-              <div className="mt-6">
-                <OAuthCodeExplorer
-                  files={files}
-                  tree={tree}
-                  defaultPath={defaultPath}
-                  routeBase="/rate-limiter"
-                  ariaLabel="Distributed rate limiter lab source tree"
-                />
-              </div>
-            )}
           </Section>
         </div>
       </div>

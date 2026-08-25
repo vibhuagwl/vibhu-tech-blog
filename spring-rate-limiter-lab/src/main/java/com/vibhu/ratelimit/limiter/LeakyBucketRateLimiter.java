@@ -4,13 +4,10 @@ import com.vibhu.ratelimit.api.RateLimitPolicy;
 import com.vibhu.ratelimit.metrics.RateLimitMetrics;
 import com.vibhu.ratelimit.store.RateLimitStore;
 
-/**
- * Primary algorithm: token bucket over a {@link RateLimitStore}. Fail-open / fail-closed /
- * local-fallback is applied when the store throws.
- */
-public final class TokenBucketRateLimiter extends AbstractStoreBackedRateLimiter {
+/** Leaky-bucket — smooth output rate with bounded queue depth; overflow rejects. */
+public final class LeakyBucketRateLimiter extends AbstractStoreBackedRateLimiter {
 
-  public TokenBucketRateLimiter(
+  public LeakyBucketRateLimiter(
       RateLimitPolicy policy,
       RateLimitStore store,
       RateLimitStore localFallback,

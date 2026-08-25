@@ -54,6 +54,25 @@ class RateLimitWebTest {
   }
 
   @Test
+  void playgroundListsAlgorithms() throws Exception {
+    mvc.perform(get("/api/lab/algorithms"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").exists());
+  }
+
+  @Test
+  void playgroundRequiresLabKey() throws Exception {
+    mvc.perform(get("/api/lab/TOKEN_BUCKET")).andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void playgroundAllowsWithLabKey() throws Exception {
+    mvc.perform(get("/api/lab/TOKEN_BUCKET").header("X-Lab-Key", "web-test"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.allowed").value(true));
+  }
+
+  @Test
   void createPolicyConflictWhenIdExists() throws Exception {
     mvc.perform(
             post("/api/rate-limits")

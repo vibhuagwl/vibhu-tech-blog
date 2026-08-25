@@ -4,13 +4,10 @@ import com.vibhu.ratelimit.api.RateLimitPolicy;
 import com.vibhu.ratelimit.metrics.RateLimitMetrics;
 import com.vibhu.ratelimit.store.RateLimitStore;
 
-/**
- * Primary algorithm: token bucket over a {@link RateLimitStore}. Fail-open / fail-closed /
- * local-fallback is applied when the store throws.
- */
-public final class TokenBucketRateLimiter extends AbstractStoreBackedRateLimiter {
+/** Fixed-window counter rate limiter. Boundary bursts at window edges are a known trade-off. */
+public final class FixedWindowRateLimiter extends AbstractStoreBackedRateLimiter {
 
-  public TokenBucketRateLimiter(
+  public FixedWindowRateLimiter(
       RateLimitPolicy policy,
       RateLimitStore store,
       RateLimitStore localFallback,

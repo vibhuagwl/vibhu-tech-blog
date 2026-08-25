@@ -5,10 +5,16 @@ import com.vibhu.ratelimit.clock.SystemClock;
 import com.vibhu.ratelimit.limiter.CompositeRateLimiter;
 import com.vibhu.ratelimit.limiter.RateLimiterFactory;
 import com.vibhu.ratelimit.metrics.RateLimitMetrics;
+import com.vibhu.ratelimit.store.InMemoryFixedWindowStore;
+import com.vibhu.ratelimit.store.InMemoryLeakyBucketStore;
 import com.vibhu.ratelimit.store.InMemoryRateLimitStore;
+import com.vibhu.ratelimit.store.InMemorySlidingWindowCounterStore;
+import com.vibhu.ratelimit.store.InMemorySlidingWindowLogStore;
 import com.vibhu.ratelimit.store.RateLimitStore;
+import com.vibhu.ratelimit.store.RedisFixedWindowStore;
 import com.vibhu.ratelimit.store.RedisRateLimitStore;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.Optional;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,6 +34,26 @@ public class RateLimitBeans {
   @Bean
   InMemoryRateLimitStore inMemoryRateLimitStore(Clock clock) {
     return new InMemoryRateLimitStore(clock);
+  }
+
+  @Bean
+  InMemoryFixedWindowStore inMemoryFixedWindowStore(Clock clock) {
+    return new InMemoryFixedWindowStore(clock);
+  }
+
+  @Bean
+  InMemorySlidingWindowLogStore inMemorySlidingWindowLogStore(Clock clock) {
+    return new InMemorySlidingWindowLogStore(clock);
+  }
+
+  @Bean
+  InMemorySlidingWindowCounterStore inMemorySlidingWindowCounterStore(Clock clock) {
+    return new InMemorySlidingWindowCounterStore(clock);
+  }
+
+  @Bean
+  InMemoryLeakyBucketStore inMemoryLeakyBucketStore(Clock clock) {
+    return new InMemoryLeakyBucketStore(clock);
   }
 
   @Bean
@@ -69,11 +95,30 @@ public class RateLimitBeans {
   }
 
   @Bean
+  @ConditionalOnProperty(name = "rate-limit.store", havingValue = "redis")
+  RedisFixedWindowStore redisFixedWindowStore(StringRedisTemplate template, Clock clock) {
+    return new RedisFixedWindowStore(template, clock);
+  }
+
+  @Bean
   RateLimiterFactory rateLimiterFactory(
       RateLimitStore primaryStore,
       InMemoryRateLimitStore inMemoryRateLimitStore,
+      InMemoryFixedWindowStore inMemoryFixedWindowStore,
+      InMemorySlidingWindowLogStore inMemorySlidingWindowLogStore,
+      InMemorySlidingWindowCounterStore inMemorySlidingWindowCounterStore,
+      InMemoryLeakyBucketStore inMemoryLeakyBucketStore,
+      Optional<RedisFixedWindowStore> redisFixedWindowStore,
       RateLimitMetrics metrics) {
-    return new RateLimiterFactory(primaryStore, inMemoryRateLimitStore, metrics);
+    return new RateLimiterFactory(
+        primaryStore,
+        inMemoryRateLimitStore,
+        inMemoryFixedWindowStore,
+        inMemorySlidingWindowLogStore,
+        inMemorySlidingWindowCounterStore,
+        inMemoryLeakyBucketStore,
+        redisFixedWindowStore,
+        metrics);
   }
 
   @Bean

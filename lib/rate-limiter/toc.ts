@@ -2,6 +2,7 @@ import type {TocItem} from './types';
 
 /** Staff/Principal rate-limiter interview board — mirrors the production design doc outline. */
 export const RATE_LIMIT_TOC: TocItem[] = [
+  {id: 'lab', label: '00. Runnable lab'},
   {id: 'problem', label: '01. Problem statement'},
   {id: 'why', label: '02. Why rate limiting'},
   {id: 'definition', label: '03. Definition & cousins'},
@@ -33,5 +34,4 @@ export const RATE_LIMIT_TOC: TocItem[] = [
   {id: 'config', label: '29. Dynamic config · fairness'},
   {id: 'answers', label: '30. 5-min · 30-sec · cheat'},
   {id: 'interview', label: '31. Interview bank'},
-  {id: 'lab', label: '32. Runnable lab'},
 ];
