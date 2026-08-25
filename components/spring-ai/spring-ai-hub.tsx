@@ -51,6 +51,8 @@ import {
 import {RESPONSE_EXAMPLE, USECASE_PAYMENT, USECASE_PNL, USECASE_REVERSAL} from '@/lib/spring-ai/use-cases';
 import {CHECKLIST, MISTAKES, MOCK_INTERVIEW, PERF, TESTING} from '@/lib/spring-ai/mistakes';
 import {LAB_CURL, LAB_GITHUB, LAB_LAYOUT, LAB_RESPONSE, LAB_RUN} from '@/lib/spring-ai/lab';
+import OAuthCodeExplorer from '@/components/oauth-code-explorer';
+import type {DemoSourceFile, DemoTreeNode} from '@/lib/oauth-demo-source';
 import StickyToc from './sticky-toc';
 import {ConceptPacks, Interview100Browser} from './interview-browser';
 
@@ -129,7 +131,15 @@ function Callout({tone, title, children}: {tone: 'rule' | 'warn' | 'ok'; title: 
   );
 }
 
-export default function SpringAiHub() {
+export default function SpringAiHub({
+  files = [],
+  tree = [],
+  defaultPath = '',
+}: {
+  files?: DemoSourceFile[];
+  tree?: DemoTreeNode[];
+  defaultPath?: string;
+}) {
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-10">
       <header className="max-w-4xl">
@@ -144,12 +154,18 @@ export default function SpringAiHub() {
           Kafka, security, human approval, and observability — not a toy chatbot.
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{VERSION_NOTE}</p>
-        <p className="mt-4">
-          <a
-            href="#runnable-lab"
+        <p className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href="/spring-ai-demo"
             className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
           >
-            Jump to runnable Java lab ↓
+            Browse full source →
+          </Link>
+          <a
+            href="#runnable-lab"
+            className="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-900"
+          >
+            Jump to lab ↓
           </a>
         </p>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
@@ -178,26 +194,35 @@ export default function SpringAiHub() {
           <Section
             id="runnable-lab"
             title="00. Runnable Java lab"
-            lead="This Pages site is a teaching hub. The Spring Boot app lives in the GitHub repo — clone and run it locally (no OpenAI key required)."
+            lead="Browse every file in financial-ai-platform/ in the browser (same explorer as OAuth JWT demo). Clone to run Spring Boot locally — no OpenAI key required."
           >
             <div className="rounded-2xl border-2 border-slate-900 bg-slate-50 p-5 dark:border-slate-200 dark:bg-slate-900">
               <p className="text-sm leading-7 text-slate-700 dark:text-slate-200">
-                Repo folder:{' '}
-                <a
-                  href={LAB_GITHUB}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-semibold underline"
-                >
+                Full-page explorer:{' '}
+                <Link href="/spring-ai-demo" className="font-semibold underline">
+                  /spring-ai-demo
+                </Link>
+                {' · '}
+                GitHub:{' '}
+                <a href={LAB_GITHUB} target="_blank" rel="noreferrer" className="font-semibold underline">
                   financial-ai-platform/
                 </a>
                 {' '}
                 — ChatClient + @Tool + ToolCallAdvisor + RAG + approvals + scripted ChatModel.
               </p>
               <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
-                GitHub Pages cannot execute Spring Boot. Open the lab on GitHub, then run the commands below on your machine.
+                GitHub Pages cannot execute Spring Boot. Use the tree below to read code; run the commands on your machine.
               </p>
             </div>
+            {files.length > 0 && (
+              <OAuthCodeExplorer
+                files={files}
+                tree={tree}
+                defaultPath={defaultPath}
+                routeBase="/spring-ai"
+                ariaLabel="Spring AI FinTech lab source tree"
+              />
+            )}
             <Pre>{LAB_LAYOUT}</Pre>
             <CodePanel title="Build & run" code={LAB_RUN} language="bash" />
             <CodePanel title="Investigate TXN-1001" code={LAB_CURL} language="bash" />
