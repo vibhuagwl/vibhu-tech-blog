@@ -50,6 +50,7 @@ import {
 } from '@/lib/spring-ai/production';
 import {RESPONSE_EXAMPLE, USECASE_PAYMENT, USECASE_PNL, USECASE_REVERSAL} from '@/lib/spring-ai/use-cases';
 import {CHECKLIST, MISTAKES, MOCK_INTERVIEW, PERF, TESTING} from '@/lib/spring-ai/mistakes';
+import {LAB_CURL, LAB_GITHUB, LAB_LAYOUT, LAB_RESPONSE, LAB_RUN} from '@/lib/spring-ai/lab';
 import StickyToc from './sticky-toc';
 import {ConceptPacks, Interview100Browser} from './interview-browser';
 
@@ -143,10 +144,13 @@ export default function SpringAiHub() {
           Kafka, security, human approval, and observability — not a toy chatbot.
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{VERSION_NOTE}</p>
-        <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
-          Runnable code lab:{' '}
-          <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">financial-ai-platform/</code>
-          {' '}(ChatClient + tools + scripted model, no API key required).
+        <p className="mt-4">
+          <a
+            href="#runnable-lab"
+            className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+          >
+            Jump to runnable Java lab ↓
+          </a>
         </p>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
           Related:{' '}
@@ -171,183 +175,212 @@ export default function SpringAiHub() {
 
       <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-16">
-          <Section id="mission" title="00. Mission & rules" lead="What this platform is for — and the non-negotiable boundary between AI and Java.">
+          <Section
+            id="runnable-lab"
+            title="00. Runnable Java lab"
+            lead="This Pages site is a teaching hub. The Spring Boot app lives in the GitHub repo — clone and run it locally (no OpenAI key required)."
+          >
+            <div className="rounded-2xl border-2 border-slate-900 bg-slate-50 p-5 dark:border-slate-200 dark:bg-slate-900">
+              <p className="text-sm leading-7 text-slate-700 dark:text-slate-200">
+                Repo folder:{' '}
+                <a
+                  href={LAB_GITHUB}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold underline"
+                >
+                  financial-ai-platform/
+                </a>
+                {' '}
+                — ChatClient + @Tool + ToolCallAdvisor + RAG + approvals + scripted ChatModel.
+              </p>
+              <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
+                GitHub Pages cannot execute Spring Boot. Open the lab on GitHub, then run the commands below on your machine.
+              </p>
+            </div>
+            <Pre>{LAB_LAYOUT}</Pre>
+            <CodePanel title="Build & run" code={LAB_RUN} language="bash" />
+            <CodePanel title="Investigate TXN-1001" code={LAB_CURL} language="bash" />
+            <CodePanel title="Expected structured result" code={LAB_RESPONSE} language="json" />
+          </Section>
+
+          <Section id="mission" title="01. Mission & rules" lead="What this platform is for — and the non-negotiable boundary between AI and Java.">
             <Pre>{MISSION}</Pre>
             <Callout tone="rule" title="Core rule">
               {CORE_RULE}
             </Callout>
           </Section>
 
-          <Section id="product" title="01. Product capabilities" lead="Natural-language trader questions that force tool selection, RAG, calc, and approvals.">
+          <Section id="product" title="02. Product capabilities" lead="Natural-language trader questions that force tool selection, RAG, calc, and approvals.">
             <Pre>{PRODUCT_CAPS}</Pre>
           </Section>
 
-          <Section id="architecture" title="02. Reference architecture" lead="Every box has an owner: identity at the edge, governance in the AI Gateway, money in domain services.">
+          <Section id="architecture" title="03. Reference architecture" lead="Every box has an owner: identity at the edge, governance in the AI Gateway, money in domain services.">
             <Pre>{ARCH_DIAGRAM}</Pre>
             <MiniTable headers={['Component', 'Role']} rows={COMPONENT_ROLES} />
           </Section>
 
-          <Section id="modules" title="03. Multi-module structure" lead="Maven layout you can defend in a design review.">
+          <Section id="modules" title="04. Multi-module structure" lead="Maven layout you can defend in a design review.">
             <Pre>{MODULES}</Pre>
           </Section>
 
-          <Section id="fundamentals" title="04. Spring AI fundamentals" lead="ChatClient → Prompt → ChatModel → provider — money still lives in Java.">
+          <Section id="fundamentals" title="05. Spring AI fundamentals" lead="ChatClient → Prompt → ChatModel → provider — money still lives in Java.">
             <Pre>{FUNDAMENTALS_FLOW}</Pre>
             <Pre>{MODEL_OPTIONS}</Pre>
           </Section>
 
-          <Section id="chatclient" title="05. ChatClient deep dive" lead="Sync for structured APIs; stream for long narrative UX.">
+          <Section id="chatclient" title="06. ChatClient deep dive" lead="Sync for structured APIs; stream for long narrative UX.">
             <CodePanel title="ChatClient · Spring AI 1.0+" code={CHATCLIENT_CODE} language="java" />
           </Section>
 
-          <Section id="prompts" title="06. Prompt architecture" lead="Versioned templates, budgets, and FinTech guardrails.">
+          <Section id="prompts" title="07. Prompt architecture" lead="Versioned templates, budgets, and FinTech guardrails.">
             <Pre>{PROMPTS}</Pre>
           </Section>
 
-          <Section id="structured" title="07. Structured output" lead="LLM → typed record → validation → business reconcile → approved result.">
+          <Section id="structured" title="08. Structured output" lead="LLM → typed record → validation → business reconcile → approved result.">
             <CodePanel title="RiskAnalysis entity" code={STRUCTURED_CODE} language="java" />
             <Pre>{STRUCTURED_NOTES}</Pre>
           </Section>
 
-          <Section id="tools" title="08. Tool calling" lead="Model plans; Java executes with authz on every call.">
+          <Section id="tools" title="09. Tool calling" lead="Model plans; Java executes with authz on every call.">
             <Pre>{TOOL_FLOW}</Pre>
             <CodePanel title="@Tool portfolio & P&L" code={TOOLS_CODE} language="java" />
           </Section>
 
-          <Section id="mcp" title="09. MCP deep dive" lead="Discoverable AI capabilities vs human REST APIs.">
+          <Section id="mcp" title="10. MCP deep dive" lead="Discoverable AI capabilities vs human REST APIs.">
             <Pre>{MCP_WHY}</Pre>
             <MiniTable headers={MCP_VS_REST_TABLE[0]} rows={MCP_VS_REST_TABLE.slice(1)} />
           </Section>
 
-          <Section id="mcp-server" title="10. Financial MCP server" lead="Tools, resources, prompts — with schemas and discovery.">
+          <Section id="mcp-server" title="11. Financial MCP server" lead="Tools, resources, prompts — with schemas and discovery.">
             <Pre>{MCP_SERVER}</Pre>
           </Section>
 
-          <Section id="mcp-security" title="11. MCP security" lead="Least privilege, anti-poisoning, propose-only money moves.">
+          <Section id="mcp-security" title="12. MCP security" lead="Least privilege, anti-poisoning, propose-only money moves.">
             <Callout tone="warn" title="Never auto-execute transfers">
               {MCP_SECURITY}
             </Callout>
           </Section>
 
-          <Section id="rag" title="12. RAG pipeline" lead="Policies and runbooks — never live balances or prices.">
+          <Section id="rag" title="13. RAG pipeline" lead="Policies and runbooks — never live balances or prices.">
             <Pre>{RAG_PIPELINE}</Pre>
             <CodePanel title="RAG ingest / search sketch" code={RAG_CODE} language="java" />
           </Section>
 
-          <Section id="embeddings" title="13. Embeddings internals" lead="Why “payment failed” sits near “bank rejected” in vector space.">
+          <Section id="embeddings" title="14. Embeddings internals" lead="Why “payment failed” sits near “bank rejected” in vector space.">
             <Pre>{EMBEDDINGS}</Pre>
           </Section>
 
-          <Section id="vector-memory" title="14. In-memory vector store" lead="Mandatory lab before pgvector / dedicated stores.">
+          <Section id="vector-memory" title="15. In-memory vector store" lead="Mandatory lab before pgvector / dedicated stores.">
             <Pre>{IN_MEMORY_VS}</Pre>
           </Section>
 
-          <Section id="vectorstore" title="15. Spring AI VectorStore" lead="add / similaritySearch abstraction and migration path.">
+          <Section id="vectorstore" title="16. Spring AI VectorStore" lead="add / similaritySearch abstraction and migration path.">
             <CodePanel title="VectorStore API" code={VECTORSTORE_API} language="java" />
           </Section>
 
-          <Section id="advisors" title="16. Advisors" lead="Security → PII → Memory → RAG around ChatClient.">
+          <Section id="advisors" title="17. Advisors" lead="Security → PII → Memory → RAG around ChatClient.">
             <Pre>{ADVISORS}</Pre>
           </Section>
 
-          <Section id="memory" title="17. Conversation memory" lead="TTL, summarization, tenant isolation — know when not to store.">
+          <Section id="memory" title="18. Conversation memory" lead="TTL, summarization, tenant isolation — know when not to store.">
             <Pre>{MEMORY}</Pre>
           </Section>
 
-          <Section id="agents" title="18. Controlled agents" lead="Observable tool traces, not hidden chain-of-thought.">
+          <Section id="agents" title="19. Controlled agents" lead="Observable tool traces, not hidden chain-of-thought.">
             <Pre>{AGENT}</Pre>
           </Section>
 
-          <Section id="guardrails" title="19. Agent guardrails" lead="Read auto; write approve; budgets and circuit breakers.">
+          <Section id="guardrails" title="20. Agent guardrails" lead="Read auto; write approve; budgets and circuit breakers.">
             <Pre>{GUARDRAILS}</Pre>
           </Section>
 
-          <Section id="kafka" title="20. Real-time Kafka" lead="AI reads projections/caches — never raw bus dumps in prompts.">
+          <Section id="kafka" title="21. Real-time Kafka" lead="AI reads projections/caches — never raw bus dumps in prompts.">
             <Pre>{KAFKA}</Pre>
           </Section>
 
-          <Section id="deterministic" title="21. Deterministic finance" lead="AI reasons; Java calculates P&L, risk, fees, exposure.">
+          <Section id="deterministic" title="22. Deterministic finance" lead="AI reasons; Java calculates P&L, risk, fees, exposure.">
             <Callout tone="ok" title="AI vs Java">
               {DETERMINISTIC}
             </Callout>
           </Section>
 
-          <Section id="event-ai" title="22. Event-driven AI" lead="Async investigation for PaymentFailed and risk alerts.">
+          <Section id="event-ai" title="23. Event-driven AI" lead="Async investigation for PaymentFailed and risk alerts.">
             <Pre>{EVENT_AI}</Pre>
           </Section>
 
-          <Section id="hitl" title="23. Human-in-the-loop" lead="Maker-checker for reversals, restrictions, high-value actions.">
+          <Section id="hitl" title="24. Human-in-the-loop" lead="Maker-checker for reversals, restrictions, high-value actions.">
             <Pre>{HITL}</Pre>
           </Section>
 
-          <Section id="injection" title="24. Prompt injection" lead="Direct, indirect, tool poisoning — defenses in advisors and allowlists.">
+          <Section id="injection" title="25. Prompt injection" lead="Direct, indirect, tool poisoning — defenses in advisors and allowlists.">
             <Pre>{INJECTION}</Pre>
           </Section>
 
-          <Section id="security" title="25. Security architecture" lead="Gateway → JWT → orchestrator → tool gateway → MCP → services.">
+          <Section id="security" title="26. Security architecture" lead="Gateway → JWT → orchestrator → tool gateway → MCP → services.">
             <Pre>{SECURITY_ARCH}</Pre>
           </Section>
 
-          <Section id="observability" title="26. Observability" lead="Tokens, cost, tool latency, RAG latency, agent iterations.">
+          <Section id="observability" title="27. Observability" lead="Tokens, cost, tool latency, RAG latency, agent iterations.">
             <Pre>{OBSERVABILITY}</Pre>
           </Section>
 
-          <Section id="resilience" title="27. Resilience" lead="Timeouts, CB, bulkheads, fallbacks when LLM or vector is down.">
+          <Section id="resilience" title="28. Resilience" lead="Timeouts, CB, bulkheads, fallbacks when LLM or vector is down.">
             <Pre>{RESILIENCE}</Pre>
           </Section>
 
-          <Section id="caching-cost" title="28. Caching · cost · routing" lead="Cache embeddings; never cache ledger truth inappropriately.">
+          <Section id="caching-cost" title="29. Caching · cost · routing" lead="Cache embeddings; never cache ledger truth inappropriately.">
             <Pre>{CACHING_COST}</Pre>
             <Pre>{MODEL_ROUTING}</Pre>
           </Section>
 
-          <Section id="gateway" title="29. AI Gateway" lead="Stop every microservice from holding provider keys.">
+          <Section id="gateway" title="30. AI Gateway" lead="Stop every microservice from holding provider keys.">
             <Pre>{AI_GATEWAY}</Pre>
           </Section>
 
-          <Section id="data-api" title="30. Data model · APIs" lead="Postgres truth, Redis hot path, Kafka streams, vector docs.">
+          <Section id="data-api" title="31. Data model · APIs" lead="Postgres truth, Redis hot path, Kafka streams, vector docs.">
             <Pre>{DATA_MODEL}</Pre>
             <Pre>{APIS}</Pre>
           </Section>
 
-          <Section id="usecase-pnl" title="31. E2E: portfolio P&L" lead="Tools + Java calc + optional RAG → structured FinancialAnalysis.">
+          <Section id="usecase-pnl" title="32. E2E: portfolio P&L" lead="Tools + Java calc + optional RAG → structured FinancialAnalysis.">
             <Pre>{USECASE_PNL}</Pre>
             <CodePanel title="Example structured response" code={RESPONSE_EXAMPLE} language="json" />
           </Section>
 
-          <Section id="usecase-payment" title="32. E2E: payment failure" lead="Transaction tool + payment logs + policy RAG → root cause.">
+          <Section id="usecase-payment" title="33. E2E: payment failure" lead="Transaction tool + payment logs + policy RAG → root cause.">
             <Pre>{USECASE_PAYMENT}</Pre>
           </Section>
 
-          <Section id="usecase-reversal" title="33. E2E: reversal + approval" lead="Why LLM must never execute ₹20L reverse alone.">
+          <Section id="usecase-reversal" title="34. E2E: reversal + approval" lead="Why LLM must never execute ₹20L reverse alone.">
             <Pre>{USECASE_REVERSAL}</Pre>
           </Section>
 
-          <Section id="testing" title="34. Testing · performance" lead="Mock ChatModel in CI; golden evals for injection and tool choice.">
+          <Section id="testing" title="35. Testing · performance" lead="Mock ChatModel in CI; golden evals for injection and tool choice.">
             <Pre>{TESTING}</Pre>
             <Pre>{PERF}</Pre>
           </Section>
 
-          <Section id="deploy" title="35. K8s deployment" lead="Stateless orchestrator/MCP; sessions in Redis; canary prompts.">
+          <Section id="deploy" title="36. K8s deployment" lead="Stateless orchestrator/MCP; sessions in Redis; canary prompts.">
             <Pre>{DEPLOY}</Pre>
             <Pre>{DOCKER_SKETCH}</Pre>
           </Section>
 
-          <Section id="tradeoffs" title="36. Architecture trade-offs" lead="Why / alternative / when you would flip.">
+          <Section id="tradeoffs" title="37. Architecture trade-offs" lead="Why / alternative / when you would flip.">
             <MiniTable
               headers={['Topic', 'Choose', 'Alternative', 'When alt']}
               rows={TRADEOFFS.map((t) => [t.topic, t.choose, t.alt, t.whenAlt])}
             />
           </Section>
 
-          <Section id="mistakes" title="37. Production mistakes" lead="What Staff+ candidates call out before writing code.">
+          <Section id="mistakes" title="38. Production mistakes" lead="What Staff+ candidates call out before writing code.">
             <MiniTable
               headers={['Mistake', 'Why it hurts', 'Better']}
               rows={MISTAKES.map((m) => [m.bad, m.why, m.better])}
             />
           </Section>
 
-          <Section id="adrs" title="38. ADRs" lead="Ten decisions you should be able to defend aloud.">
+          <Section id="adrs" title="39. ADRs" lead="Ten decisions you should be able to defend aloud.">
             <div className="space-y-3">
               {ADRS.map((a) => (
                 <details key={a.id} className="rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -373,22 +406,22 @@ export default function SpringAiHub() {
             </div>
           </Section>
 
-          <Section id="phases" title="39. Build phases" lead="Incremental delivery — do not dump the monorepo day one.">
+          <Section id="phases" title="40. Build phases" lead="Incremental delivery — do not dump the monorepo day one.">
             <MiniTable
               headers={['Phase', 'Outcome']}
               rows={PHASES.map((p) => [p.title, p.outcome])}
             />
           </Section>
 
-          <Section id="interview-concepts" title="40. Concept interview packs" lead="30s / 2m / 10m / principal for core topics.">
+          <Section id="interview-concepts" title="41. Concept interview packs" lead="30s / 2m / 10m / principal for core topics.">
             <ConceptPacks />
           </Section>
 
-          <Section id="interview-100" title="41. 100+ advanced questions" lead="Filter by topic; expand for expert answers.">
+          <Section id="interview-100" title="42. 100+ advanced questions" lead="Filter by topic; expand for expert answers.">
             <Interview100Browser />
           </Section>
 
-          <Section id="checklist" title="42. Production checklist">
+          <Section id="checklist" title="43. Production checklist">
             <ul className="space-y-2 text-sm leading-7 text-slate-700 dark:text-slate-300">
               {CHECKLIST.map((c) => (
                 <li key={c} className="flex gap-2">
@@ -399,7 +432,7 @@ export default function SpringAiHub() {
             </ul>
           </Section>
 
-          <Section id="mock" title="43. Mock interview" lead="Principal interviewer ladder — self-score on threat model and failure modes.">
+          <Section id="mock" title="44. Mock interview" lead="Principal interviewer ladder — self-score on threat model and failure modes.">
             <Pre>{MOCK_INTERVIEW}</Pre>
           </Section>
         </div>
