@@ -19,6 +19,10 @@ export default function FinTech(){
           <Link href="/kafka-dlq#hadron-story" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             Hadron CashLines DLQ (on Kafka DLQ board) →
           </Link>
+          {' · '}
+          <Link href="/spring-ai" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
+            Spring AI Financial Intelligence Platform →
+          </Link>
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-500">
           <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold dark:bg-slate-900">{posts.length} topics</span>
