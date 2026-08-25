@@ -1,0 +1,11 @@
+app:
+  cache:
+    redis-enabled: true
+
+spring:
+  cache:
+    type: redis
+  data:
+    redis:
+      host: localhost
+      port: 6379

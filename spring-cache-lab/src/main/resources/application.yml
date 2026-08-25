@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: spring-cache-lab
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+app:
+  cache:
+    redis-enabled: false
+    caffeine:
+      max-size: 10000
+      ttl-seconds: 60
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,caches
+  metrics:
+    tags:
+      application: ${spring.application.name}
