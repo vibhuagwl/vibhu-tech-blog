@@ -31,4 +31,4 @@ export const CORE_RULE =
   'Spring Cache is an abstraction (CacheManager → provider). Local vs distributed is decided by the backend (Caffeine vs Redis), not by @Cacheable.';
 
 export const VERSION_NOTE =
-  'Spring Boot 3.4 · Java 21 · Spring Cache + Caffeine + Redis. Companion deep-dive: /distributed-caching · lab: spring-cache-lab/';
+  'Spring Boot 3.4 · Java 21 · Spring Cache + Caffeine + Redis. Companion deep-dive: /distributed-caching · full source: /spring-cache-demo · lab: spring-cache-lab/';

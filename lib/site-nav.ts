@@ -126,6 +126,7 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/distributed-systems',label:'Distributed Systems',blurb:'Locking · hashing · CDC curricula'},
       {href:'/distributed-locking',label:'Distributed Locking',blurb:'Leases · fencing · Redis/Postgres'},
       {href:'/spring-cache',label:'Spring Cache Master',blurb:'@Cacheable · Caffeine · Redis · LRU'},
+      {href:'/spring-cache-demo',label:'Spring Cache Lab Source',blurb:'Browse spring-cache-lab in browser'},
       {href:'/distributed-caching',label:'Distributed Caching',blurb:'Stampede · TTL · Spring Cache'},
       {href:'/microservice-communication',label:'Service Communication',blurb:'Production decisions · FinTech · interview'},
       {href:'/microservices-patterns',label:'Microservices Patterns',blurb:'Saga · outbox · choreography'},
