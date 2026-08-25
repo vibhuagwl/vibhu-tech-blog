@@ -20,7 +20,6 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { useAppDispatch, useAuth } from './hooks/useAuth'
 import { markHydrated, setUser, logout } from './store/authSlice'
 import { authApi } from './services/authApi'
-import { ApiError } from './services/apiClient'
 import './App.css'
 
 const queryClient = new QueryClient({
@@ -33,33 +32,29 @@ const queryClient = new QueryClient({
   },
 })
 
-/** Bootstrap /api/auth/me when a token exists in localStorage. */
+/**
+ * Restore session from localStorage.
+ * This lab API has login only (no /me) — user JSON is stored next to the JWT.
+ */
 function SessionBootstrap({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch()
-  const { token, hydrated } = useAuth()
+  const { token, hydrated, user } = useAuth()
 
   useEffect(() => {
-    let cancelled = false
-    async function run() {
-      if (!token) {
-        dispatch(markHydrated())
-        return
-      }
-      try {
-        const user = await authApi.me()
-        if (!cancelled) dispatch(setUser(user))
-      } catch (e) {
-        if (!cancelled) {
-          if (e instanceof ApiError && e.status === 401) dispatch(logout())
-          else dispatch(markHydrated())
-        }
-      }
+    if (hydrated) return
+    if (!token) {
+      dispatch(markHydrated())
+      return
     }
-    if (!hydrated) void run()
-    return () => {
-      cancelled = true
+    const restored = authApi.restoreSession()
+    if (restored) {
+      dispatch(setUser(restored))
+    } else if (user) {
+      dispatch(markHydrated())
+    } else {
+      dispatch(logout())
     }
-  }, [token, hydrated, dispatch])
+  }, [token, hydrated, user, dispatch])
 
   return children
 }

@@ -20,7 +20,10 @@ export function TransactionsPage() {
       <header className="page-header">
         <div>
           <h1>Recent transactions</h1>
-          <p className="muted">Latest ledger movements across payments</p>
+          <p className="muted">
+            Flattened from the newest payments via{' '}
+            <code>/payments/&#123;id&#125;/transactions</code>
+          </p>
         </div>
       </header>
 
@@ -32,9 +35,8 @@ export function TransactionsPage() {
             <thead>
               <tr>
                 <th>Payment</th>
-                <th>Type</th>
-                <th>Amount</th>
                 <th>Status</th>
+                <th>Message</th>
                 <th>At</th>
               </tr>
             </thead>
@@ -44,11 +46,10 @@ export function TransactionsPage() {
                   <td>
                     <Link to={`/payments/${t.paymentId}`}>{t.paymentId}</Link>
                   </td>
-                  <td>{t.type}</td>
-                  <td>{t.amount}</td>
                   <td>
                     <StatusBadge status={t.status} />
                   </td>
+                  <td>{t.message}</td>
                   <td className="muted">
                     {new Date(t.createdAt).toLocaleString()}
                   </td>

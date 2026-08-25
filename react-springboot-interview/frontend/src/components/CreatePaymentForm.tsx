@@ -1,18 +1,18 @@
 import { useForm } from 'react-hook-form'
 import type { CreatePaymentRequest } from '../types/payment'
-import { useCreatePayment } from '../hooks/usePayments'
+import { useCreatePayment, useCustomers } from '../hooks/usePayments'
 import { usePermissions } from '../hooks/usePermissions'
+import { LoadingState } from './LoadingState'
 
 type FormValues = {
   amount: number
   currency: string
-  merchantId: string
-  customerEmail: string
-  reference: string
+  customerId: number
 }
 
 export function CreatePaymentForm({ onCreated }: { onCreated?: () => void }) {
   const { canCreatePayments } = usePermissions()
+  const customers = useCustomers()
   const create = useCreatePayment()
   const {
     register,
@@ -23,28 +23,28 @@ export function CreatePaymentForm({ onCreated }: { onCreated?: () => void }) {
     defaultValues: {
       amount: 10,
       currency: 'USD',
-      merchantId: 'mrc_demo',
-      customerEmail: 'customer@example.com',
-      reference: '',
+      customerId: 0,
     },
   })
 
   if (!canCreatePayments) {
-    return (
-      <p className="muted">Read-only role cannot create payments.</p>
-    )
+    return <p className="muted">Read-only role cannot create payments.</p>
   }
+
+  if (customers.isLoading) return <LoadingState label="Loading customers…" />
 
   const onSubmit = handleSubmit(async (values) => {
     const body: CreatePaymentRequest = {
       amount: Number(values.amount),
-      currency: values.currency,
-      merchantId: values.merchantId,
-      customerEmail: values.customerEmail,
-      reference: values.reference || undefined,
+      currency: values.currency.toUpperCase(),
+      customerId: Number(values.customerId),
     }
     await create.mutateAsync(body)
-    reset()
+    reset({
+      amount: 10,
+      currency: 'USD',
+      customerId: customers.data?.[0]?.id ?? 0,
+    })
     onCreated?.()
   })
 
@@ -57,28 +57,39 @@ export function CreatePaymentForm({ onCreated }: { onCreated?: () => void }) {
           <input
             type="number"
             step="0.01"
-            {...register('amount', { required: true, min: 0.01 })}
+            {...register('amount', { required: true, min: 0.01, valueAsNumber: true })}
           />
           {errors.amount && <span className="field-error">Required</span>}
         </label>
         <label>
           Currency
-          <input {...register('currency', { required: true, minLength: 3 })} />
-        </label>
-        <label>
-          Merchant ID
-          <input {...register('merchantId', { required: true })} />
-        </label>
-        <label>
-          Customer email
           <input
-            type="email"
-            {...register('customerEmail', { required: true })}
+            maxLength={3}
+            {...register('currency', { required: true, minLength: 3 })}
           />
         </label>
         <label className="span-2">
-          Reference (optional)
-          <input {...register('reference')} />
+          Customer
+          <select
+            {...register('customerId', {
+              required: true,
+              valueAsNumber: true,
+              validate: (v) => v > 0,
+            })}
+            defaultValue={customers.data?.[0]?.id ?? 0}
+          >
+            <option value={0} disabled>
+              Select customer…
+            </option>
+            {(customers.data ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.email})
+              </option>
+            ))}
+          </select>
+          {errors.customerId && (
+            <span className="field-error">Pick a customer</span>
+          )}
         </label>
       </div>
       {create.isError && (

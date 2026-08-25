@@ -1,13 +1,15 @@
 import type {
   CreatePaymentRequest,
+  Customer,
   DashboardMetrics,
   PageResponse,
   Payment,
-  PaymentDetail,
   PaymentListParams,
   Transaction,
 } from '../types/payment'
 import { apiClient } from './apiClient'
+
+const API = '/api/v1'
 
 function toQuery(params: PaymentListParams): string {
   const q = new URLSearchParams()
@@ -22,28 +24,45 @@ function toQuery(params: PaymentListParams): string {
 
 export const paymentApi = {
   list(params: PaymentListParams = {}, signal?: AbortSignal) {
-    return apiClient<PageResponse<Payment>>(`/api/payments${toQuery(params)}`, {
+    return apiClient<PageResponse<Payment>>(`${API}/payments${toQuery(params)}`, {
       signal,
     })
   },
 
-  getById(id: string, signal?: AbortSignal) {
-    return apiClient<PaymentDetail>(`/api/payments/${id}`, { signal })
+  getById(id: string | number, signal?: AbortSignal) {
+    return apiClient<Payment>(`${API}/payments/${id}`, { signal })
   },
 
-  create(body: CreatePaymentRequest) {
-    return apiClient<Payment>('/api/payments', { method: 'POST', body })
+  transactions(id: string | number, signal?: AbortSignal) {
+    return apiClient<Transaction[]>(`${API}/payments/${id}/transactions`, {
+      signal,
+    })
   },
 
-  retry(id: string) {
-    return apiClient<Payment>(`/api/payments/${id}/retry`, { method: 'POST' })
+  create(body: CreatePaymentRequest, idempotencyKey?: string) {
+    return apiClient<Payment>(`${API}/payments`, {
+      method: 'POST',
+      body,
+      headers: idempotencyKey
+        ? { 'Idempotency-Key': idempotencyKey }
+        : undefined,
+    })
+  },
+
+  retry(id: string | number, idempotencyKey?: string) {
+    return apiClient<Payment>(`${API}/payments/${id}/retry`, {
+      method: 'POST',
+      headers: idempotencyKey
+        ? { 'Idempotency-Key': idempotencyKey }
+        : undefined,
+    })
   },
 
   metrics(signal?: AbortSignal) {
-    return apiClient<DashboardMetrics>('/api/payments/metrics', { signal })
+    return apiClient<DashboardMetrics>(`${API}/dashboard/metrics`, { signal })
   },
 
-  recentTransactions(signal?: AbortSignal) {
-    return apiClient<Transaction[]>('/api/transactions/recent', { signal })
+  customers(signal?: AbortSignal) {
+    return apiClient<Customer[]>(`${API}/customers`, { signal })
   },
 }

@@ -20,19 +20,22 @@ function PaymentRowInner({ payment, onSelect }: PaymentRowProps) {
   return (
     <tr
       data-testid="payment-row"
-      onClick={() => onSelect?.(payment.id)}
+      onClick={() => onSelect?.(String(payment.id))}
       className="clickable-row"
     >
       <td>
-        <Link to={`/payments/${payment.id}`} onClick={(e) => e.stopPropagation()}>
+        <Link
+          to={`/payments/${payment.id}`}
+          onClick={(e) => e.stopPropagation()}
+        >
           {payment.reference}
         </Link>
       </td>
-      <td>{formatMoney(payment.amount, payment.currency)}</td>
+      <td>{formatMoney(Number(payment.amount), payment.currency)}</td>
       <td>
         <StatusBadge status={payment.status} />
       </td>
-      <td>{payment.merchantId}</td>
+      <td>{payment.customerName}</td>
       <td className="muted">{payment.customerEmail}</td>
       <td className="muted">
         {new Date(payment.createdAt).toLocaleString()}

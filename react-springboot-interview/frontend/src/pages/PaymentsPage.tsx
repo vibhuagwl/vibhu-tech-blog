@@ -2,9 +2,8 @@ import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useDebounce } from '../hooks/useDebounce'
 import { usePayments } from '../hooks/usePayments'
-import { useAppDispatch } from '../hooks/useAuth'
+import { useAppDispatch, useAppSelector } from '../hooks/useAuth'
 import { selectPayment, setCreateFormOpen } from '../store/paymentUiSlice'
-import { useAppSelector } from '../hooks/useAuth'
 import { SearchBar } from '../components/SearchBar'
 import { PaymentTable } from '../components/PaymentTable'
 import { Pagination } from '../components/Pagination'
@@ -17,10 +16,8 @@ const STATUSES: Array<PaymentStatus | ''> = [
   '',
   'PENDING',
   'PROCESSING',
-  'COMPLETED',
+  'SUCCESS',
   'FAILED',
-  'CANCELLED',
-  'RETRYING',
 ]
 
 /**
@@ -96,7 +93,7 @@ export function PaymentsPage() {
         <SearchBar
           value={q}
           onChange={(v) => patch({ q: v, page: '0' })}
-          placeholder="Search reference, email, merchant…"
+          placeholder="Search reference, email…"
         />
         <select
           value={status}

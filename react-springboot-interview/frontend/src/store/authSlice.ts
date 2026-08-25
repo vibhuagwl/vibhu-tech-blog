@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { AuthUser } from '../types/payment'
 import { getStoredToken, setStoredToken } from '../services/apiClient'
+import { getStoredUser, setStoredUser } from '../services/authApi'
 
 interface AuthState {
   token: string | null
@@ -10,7 +11,7 @@ interface AuthState {
 
 const initialState: AuthState = {
   token: getStoredToken(),
-  user: null,
+  user: getStoredUser(),
   hydrated: false,
 }
 
@@ -26,16 +27,19 @@ const authSlice = createSlice({
       state.user = action.payload.user
       state.hydrated = true
       setStoredToken(action.payload.token)
+      setStoredUser(action.payload.user)
     },
     setUser(state, action: PayloadAction<AuthUser | null>) {
       state.user = action.payload
       state.hydrated = true
+      setStoredUser(action.payload)
     },
     logout(state) {
       state.token = null
       state.user = null
       state.hydrated = true
       setStoredToken(null)
+      setStoredUser(null)
     },
     markHydrated(state) {
       state.hydrated = true

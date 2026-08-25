@@ -26,8 +26,8 @@ export function PaymentTable({
             <th>Reference</th>
             <th>Amount</th>
             <th>Status</th>
-            <th>Merchant</th>
             <th>Customer</th>
+            <th>Email</th>
             <th>Created</th>
           </tr>
         </thead>

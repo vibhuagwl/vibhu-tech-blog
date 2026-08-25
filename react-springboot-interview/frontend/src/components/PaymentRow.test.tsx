@@ -5,12 +5,13 @@ import { PaymentRow } from '../components/PaymentRow'
 import type { Payment } from '../types/payment'
 
 const sample: Payment = {
-  id: 'p1',
+  id: 1,
   reference: 'PAY-1001',
   amount: 42.5,
   currency: 'USD',
-  status: 'COMPLETED',
-  merchantId: 'mrc_1',
+  status: 'SUCCESS',
+  customerId: 10,
+  customerName: 'Ada Lovelace',
   customerEmail: 'a@example.com',
   createdAt: '2026-01-15T10:00:00Z',
   updatedAt: '2026-01-15T10:01:00Z',
@@ -30,7 +31,7 @@ describe('PaymentRow', () => {
 
     expect(screen.getByTestId('payment-row')).toBeInTheDocument()
     expect(screen.getByText('PAY-1001')).toBeInTheDocument()
-    expect(screen.getByText('Completed')).toBeInTheDocument()
+    expect(screen.getByText('Success')).toBeInTheDocument()
     expect(screen.getByText('a@example.com')).toBeInTheDocument()
   })
 })

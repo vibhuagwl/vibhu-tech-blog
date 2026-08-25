@@ -14,7 +14,7 @@ Interview-oriented SPA for a senior Java/Spring engineer preparing for React que
 ## Prerequisites
 
 1. Node 20+
-2. Spring Boot backend on `http://localhost:8080` exposing `/api/**`
+2. Spring Boot backend on `http://localhost:8080` exposing `/api/v1/**`
 
 ## Run
 
@@ -26,7 +26,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-Vite proxies `/api` → `http://localhost:8080` (see `vite.config.ts`). Optionally set `VITE_API_URL` in `.env` (see `.env.example`) if you are not using the proxy.
+Vite proxies `/api` → `http://localhost:8080` (see `vite.config.ts`), so calls like `/api/v1/payments` hit the Spring app. Optionally set `VITE_API_URL` in `.env` (see `.env.example`) if you are not using the proxy.
 
 ## Demo logins
 

@@ -338,20 +338,18 @@
   color: var(--text);
 }
 
-.badge-completed {
+.badge-success {
   background: color-mix(in srgb, var(--success) 18%, transparent);
   color: var(--success);
 }
 
-.badge-failed,
-.badge-cancelled {
+.badge-failed {
   background: var(--danger-soft);
   color: var(--danger);
 }
 
 .badge-pending,
-.badge-processing,
-.badge-retrying {
+.badge-processing {
   background: color-mix(in srgb, var(--warning) 18%, transparent);
   color: var(--warning);
 }

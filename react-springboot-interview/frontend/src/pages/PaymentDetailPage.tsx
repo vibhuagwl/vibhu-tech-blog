@@ -36,11 +36,11 @@ export function PaymentDetailPage() {
 
   const onRetry = () => {
     startTransition(async () => {
-      setOptimisticStatus('RETRYING')
+      setOptimisticStatus('PROCESSING')
       try {
-        await retry.mutateAsync(data.id)
+        await retry.mutateAsync(String(data.id))
       } catch {
-        /* TanStack onError rolls back query cache; optimistic resets on re-render */
+        /* TanStack onError rolls back query cache */
       }
     })
   }
@@ -79,20 +79,15 @@ export function PaymentDetailPage() {
             <dd>
               {data.amount} {data.currency}
             </dd>
-            <dt>Merchant</dt>
-            <dd>{data.merchantId}</dd>
             <dt>Customer</dt>
-            <dd>{data.customerEmail}</dd>
+            <dd>
+              {data.customerName}
+              <div className="muted">{data.customerEmail}</div>
+            </dd>
             <dt>Created</dt>
             <dd>{new Date(data.createdAt).toLocaleString()}</dd>
             <dt>Updated</dt>
             <dd>{new Date(data.updatedAt).toLocaleString()}</dd>
-            {data.failureReason && (
-              <>
-                <dt>Failure</dt>
-                <dd className="field-error">{data.failureReason}</dd>
-              </>
-            )}
           </dl>
         </section>
 
@@ -114,22 +109,20 @@ function TransactionList({ detail }: { detail: PaymentDetail }) {
       <table className="data-table">
         <thead>
           <tr>
-            <th>Type</th>
-            <th>Amount</th>
+            <th>ID</th>
             <th>Status</th>
-            <th>Provider</th>
+            <th>Message</th>
             <th>At</th>
           </tr>
         </thead>
         <tbody>
           {detail.transactions.map((t) => (
             <tr key={t.id}>
-              <td>{t.type}</td>
-              <td>{t.amount}</td>
+              <td>{t.id}</td>
               <td>
                 <StatusBadge status={t.status} />
               </td>
-              <td className="muted">{t.providerRef ?? '—'}</td>
+              <td>{t.message}</td>
               <td className="muted">
                 {new Date(t.createdAt).toLocaleString()}
               </td>

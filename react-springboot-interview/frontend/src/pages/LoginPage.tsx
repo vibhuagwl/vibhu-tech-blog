@@ -34,7 +34,7 @@ export function LoginPage() {
     setApiError(null)
     try {
       const res = await authApi.login(values)
-      dispatch(setCredentials({ token: res.token, user: res.user }))
+      dispatch(setCredentials(res))
       void navigate(from, { replace: true })
     } catch (e) {
       const msg =

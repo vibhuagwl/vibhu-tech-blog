@@ -3,8 +3,8 @@ import type { PaymentEvent } from '../types/payment'
 import { getStoredToken } from '../services/apiClient'
 
 /**
- * SSE payment events — mirrors Spring SseEmitter / WebFlux Flux.
- * Falls back silently if backend has no /api/payments/events stream.
+ * SSE payment events — mirrors Spring SseEmitter.
+ * Falls back silently if the stream is unavailable.
  */
 export function usePaymentEvents(enabled = true) {
   const [lastEvent, setLastEvent] = useState<PaymentEvent | null>(null)
@@ -17,7 +17,7 @@ export function usePaymentEvents(enabled = true) {
     const base = import.meta.env.VITE_API_URL || ''
     const token = getStoredToken()
     // EventSource cannot set Authorization headers — token query is lab-only.
-    const url = `${base}/api/payments/events${token ? `?access_token=${encodeURIComponent(token)}` : ''}`
+    const url = `${base}/api/v1/events/payments${token ? `?access_token=${encodeURIComponent(token)}` : ''}`
 
     let es: EventSource
     try {

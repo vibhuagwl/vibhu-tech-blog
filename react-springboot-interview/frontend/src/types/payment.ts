@@ -1,36 +1,28 @@
-/** Shared payment domain types — mirror Spring DTOs as closely as possible. */
+/** Shared payment domain types — aligned with Spring Boot DTOs under /api/v1. */
 
-export type PaymentStatus =
-  | 'PENDING'
-  | 'PROCESSING'
-  | 'COMPLETED'
-  | 'FAILED'
-  | 'CANCELLED'
-  | 'RETRYING'
+export type PaymentStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
 
 export type Role = 'ADMIN' | 'SUPPORT' | 'READ_ONLY'
 
 export interface Payment {
-  id: string
+  id: number
   reference: string
   amount: number
   currency: string
   status: PaymentStatus
-  merchantId: string
+  customerId: number
+  customerName: string
   customerEmail: string
   createdAt: string
   updatedAt: string
-  failureReason?: string
 }
 
 export interface Transaction {
-  id: string
-  paymentId: string
-  type: 'AUTH' | 'CAPTURE' | 'REFUND' | 'RETRY'
-  amount: number
+  id: number
+  paymentId: number
   status: PaymentStatus
+  message: string
   createdAt: string
-  providerRef?: string
 }
 
 export interface PaymentDetail extends Payment {
@@ -40,9 +32,14 @@ export interface PaymentDetail extends Payment {
 export interface CreatePaymentRequest {
   amount: number
   currency: string
-  merchantId: string
-  customerEmail: string
-  reference?: string
+  customerId: number
+}
+
+export interface Customer {
+  id: number
+  name: string
+  email: string
+  country: string
 }
 
 export interface PageResponse<T> {
@@ -55,11 +52,11 @@ export interface PageResponse<T> {
 
 export interface DashboardMetrics {
   totalPayments: number
-  completedToday: number
-  failedToday: number
+  successCount: number
+  failedCount: number
   pendingCount: number
-  volumeToday: number
-  successRate: number
+  processingCount: number
+  customerCount: number
 }
 
 export interface AuthUser {
@@ -73,9 +70,11 @@ export interface LoginRequest {
   password: string
 }
 
+/** Spring LoginResponse shape */
 export interface LoginResponse {
-  token: string
-  user: AuthUser
+  accessToken: string
+  role: Role
+  username: string
 }
 
 export interface ApiErrorBody {
@@ -95,8 +94,12 @@ export interface PaymentListParams {
 }
 
 export interface PaymentEvent {
-  type: 'PAYMENT_UPDATED' | 'PAYMENT_CREATED' | 'HEARTBEAT'
-  paymentId?: string
+  paymentId?: number
+  reference?: string
   status?: PaymentStatus
-  at: string
+  amount?: number
+  currency?: string
+  occurredAt?: string
+  type?: string
+  at?: string
 }

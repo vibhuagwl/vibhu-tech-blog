@@ -28,10 +28,7 @@ export function DashboardPage() {
   if (isLoading) return <LoadingState label="Loading metrics…" />
   if (error) {
     return (
-      <ErrorState
-        error={error as Error}
-        onRetry={() => void refetch()}
-      />
+      <ErrorState error={error as Error} onRetry={() => void refetch()} />
     )
   }
   if (!data) return null
@@ -43,7 +40,9 @@ export function DashboardPage() {
           <h1>Dashboard</h1>
           <p className="muted">
             Live ops snapshot · SSE {connected ? 'connected' : 'offline'}
-            {lastEvent ? ` · last ${lastEvent.type}` : ''}
+            {lastEvent?.paymentId
+              ? ` · payment #${lastEvent.paymentId}`
+              : ''}
           </p>
         </div>
         <button
@@ -58,20 +57,11 @@ export function DashboardPage() {
 
       <div className="metric-grid">
         <MetricCard label="Total payments" value={data.totalPayments} />
-        <MetricCard label="Completed today" value={data.completedToday} />
-        <MetricCard label="Failed today" value={data.failedToday} />
+        <MetricCard label="Success" value={data.successCount} />
+        <MetricCard label="Failed" value={data.failedCount} />
         <MetricCard label="Pending" value={data.pendingCount} />
-        <MetricCard
-          label="Volume today"
-          value={new Intl.NumberFormat(undefined, {
-            style: 'currency',
-            currency: 'USD',
-          }).format(data.volumeToday)}
-        />
-        <MetricCard
-          label="Success rate"
-          value={`${(data.successRate * 100).toFixed(1)}%`}
-        />
+        <MetricCard label="Processing" value={data.processingCount} />
+        <MetricCard label="Customers" value={data.customerCount} />
       </div>
     </div>
   )

@@ -3,7 +3,9 @@ import { paymentApi } from '../services/paymentApi'
 import type {
   CreatePaymentRequest,
   Payment,
+  PaymentDetail,
   PaymentListParams,
+  Transaction,
 } from '../types/payment'
 
 export const paymentKeys = {
@@ -14,7 +16,8 @@ export const paymentKeys = {
   details: () => [...paymentKeys.all, 'detail'] as const,
   detail: (id: string) => [...paymentKeys.details(), id] as const,
   metrics: () => [...paymentKeys.all, 'metrics'] as const,
-  transactions: () => [...paymentKeys.all, 'transactions'] as const,
+  customers: () => [...paymentKeys.all, 'customers'] as const,
+  recentTx: () => [...paymentKeys.all, 'recent-tx'] as const,
 }
 
 export function usePayments(params: PaymentListParams) {
@@ -27,7 +30,13 @@ export function usePayments(params: PaymentListParams) {
 export function usePayment(id: string | undefined) {
   return useQuery({
     queryKey: paymentKeys.detail(id ?? ''),
-    queryFn: ({ signal }) => paymentApi.getById(id!, signal),
+    queryFn: async ({ signal }): Promise<PaymentDetail> => {
+      const [payment, transactions] = await Promise.all([
+        paymentApi.getById(id!, signal),
+        paymentApi.transactions(id!, signal),
+      ])
+      return { ...payment, transactions }
+    },
     enabled: Boolean(id),
   })
 }
@@ -39,17 +48,40 @@ export function usePaymentMetrics() {
   })
 }
 
+export function useCustomers() {
+  return useQuery({
+    queryKey: paymentKeys.customers(),
+    queryFn: ({ signal }) => paymentApi.customers(signal),
+  })
+}
+
+/** Recent ledger lines — flatten tx from the newest payments page. */
 export function useRecentTransactions() {
   return useQuery({
-    queryKey: paymentKeys.transactions(),
-    queryFn: ({ signal }) => paymentApi.recentTransactions(signal),
+    queryKey: paymentKeys.recentTx(),
+    queryFn: async ({ signal }) => {
+      const page = await paymentApi.list(
+        { page: 0, size: 8, sort: 'createdAt,desc' },
+        signal,
+      )
+      const batches = await Promise.all(
+        page.content.map((p) => paymentApi.transactions(p.id, signal)),
+      )
+      const flat: Transaction[] = batches.flat()
+      flat.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      return flat.slice(0, 40)
+    },
   })
 }
 
 export function useCreatePayment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: CreatePaymentRequest) => paymentApi.create(body),
+    mutationFn: (body: CreatePaymentRequest) =>
+      paymentApi.create(body, crypto.randomUUID()),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: paymentKeys.lists() })
       void qc.invalidateQueries({ queryKey: paymentKeys.metrics() })
@@ -61,14 +93,14 @@ export function useCreatePayment() {
 export function useRetryPayment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => paymentApi.retry(id),
+    mutationFn: (id: string) => paymentApi.retry(id, crypto.randomUUID()),
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: paymentKeys.detail(id) })
-      const previous = qc.getQueryData<Payment>(paymentKeys.detail(id))
+      const previous = qc.getQueryData<PaymentDetail>(paymentKeys.detail(id))
       if (previous) {
         qc.setQueryData(paymentKeys.detail(id), {
           ...previous,
-          status: 'RETRYING',
+          status: 'PROCESSING' as const,
         })
       }
       return { previous }
@@ -81,6 +113,10 @@ export function useRetryPayment() {
     onSettled: (_data, _err, id) => {
       void qc.invalidateQueries({ queryKey: paymentKeys.detail(id) })
       void qc.invalidateQueries({ queryKey: paymentKeys.lists() })
+      void qc.invalidateQueries({ queryKey: paymentKeys.recentTx() })
     },
   })
 }
+
+// re-export Payment for callers that typed against mutation cache
+export type { Payment }

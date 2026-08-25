@@ -3,10 +3,8 @@ import type { PaymentStatus } from '../types/payment'
 const LABELS: Record<PaymentStatus, string> = {
   PENDING: 'Pending',
   PROCESSING: 'Processing',
-  COMPLETED: 'Completed',
+  SUCCESS: 'Success',
   FAILED: 'Failed',
-  CANCELLED: 'Cancelled',
-  RETRYING: 'Retrying',
 }
 
 export function StatusBadge({ status }: { status: PaymentStatus }) {

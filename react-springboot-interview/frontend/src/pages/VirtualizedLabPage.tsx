@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 type Row = { id: number; ref: string; amount: number; status: string }
 
 function buildRows(n: number): Row[] {
-  const statuses = ['COMPLETED', 'PENDING', 'FAILED', 'PROCESSING']
+  const statuses = ['SUCCESS', 'PENDING', 'FAILED', 'PROCESSING']
   const rows: Row[] = []
   for (let i = 0; i < n; i++) {
     rows.push({
