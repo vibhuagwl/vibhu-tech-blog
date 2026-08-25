@@ -157,6 +157,8 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/spring-ai-demo',label:'Spring AI Lab Source',blurb:'Browse financial-ai-platform in browser'},
       {href:'/ai-fintech-demo',label:'AI Ops Assistant Source',blurb:'Harness · MCP servers · RAG · PAY-123'},
       {href:'/spring-security',label:'Spring Security',blurb:'JWT · OAuth2 · CSRF · CORS'},
+      {href:'/react-interview',label:'React Interview Lab',blurb:'Payment Ops · Query · Spring JWT · 150+ Qs'},
+      {href:'/react-interview-demo',label:'React Lab Source',blurb:'Browse react-springboot-interview'},
       {href:'/java-concurrency',label:'Java Concurrency',blurb:'JMM · pools · virtual threads'},
       {href:'/java-executor',label:'Executor Framework',blurb:'TPE algorithm · payment pool sizing'},
       {href:'/java-streams',label:'Java Streams',blurb:'Top 100 tough · Priority 15 · Staff'},
