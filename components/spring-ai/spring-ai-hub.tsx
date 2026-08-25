@@ -144,6 +144,11 @@ export default function SpringAiHub() {
         </p>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">{VERSION_NOTE}</p>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
+          Runnable code lab:{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">financial-ai-platform/</code>
+          {' '}(ChatClient + tools + scripted model, no API key required).
+        </p>
+        <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">
           Related:{' '}
           <Link href="/fintech" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">
             FinTech
