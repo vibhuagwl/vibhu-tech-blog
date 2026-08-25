@@ -36,6 +36,8 @@ export default function DistributedCachingHub(){
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
           ~90% diagrams/code/scenarios. Companion Redis depth:{' '}
           <Link href="/redis-interview" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Redis Interview</Link>
+          {' '}· fundamentals:{' '}
+          <Link href="/spring-cache" className="font-semibold text-slate-700 hover:underline dark:text-slate-300">Spring Cache Master</Link>
           {' '}· lab:{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-900">spring-distributed-cache-demo/</code>
         </p>
