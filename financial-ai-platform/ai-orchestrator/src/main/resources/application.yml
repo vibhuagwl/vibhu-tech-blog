@@ -1,0 +1,43 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: financial-ai-platform
+  flyway:
+    enabled: false
+  datasource:
+    url: jdbc:h2:mem:fai;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  h2:
+    console:
+      enabled: true
+  ai:
+    chat:
+      client:
+        enabled: false
+
+app:
+  ai:
+    provider: scripted
+  kafka:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,caches
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.vibhu.fai: INFO
