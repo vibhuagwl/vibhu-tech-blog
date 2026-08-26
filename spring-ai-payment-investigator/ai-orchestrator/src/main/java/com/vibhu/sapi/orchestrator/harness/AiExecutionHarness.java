@@ -42,8 +42,7 @@ public class AiExecutionHarness {
     public AiExecutionHarness(InputGuardrail inputGuardrail, ToolAuthorizationService toolAuthorizationService,
             ContextEngineeringService contextEngineeringService, StructuredOutputValidator outputValidator,
             ChatClient chatClient, InvestigationTools investigationTools, InvestigationSkillService skillService,
-            ToolAuditService toolAuditService,
-            HarnessMetrics metrics, HarnessProperties properties) {
+            ToolAuditService toolAuditService, HarnessMetrics metrics, HarnessProperties properties) {
         this.inputGuardrail = inputGuardrail;
         this.toolAuthorizationService = toolAuthorizationService;
         this.contextEngineeringService = contextEngineeringService;
