@@ -148,7 +148,7 @@ function DeepCard({c}: {c: AnnotationCard}) {
         <p>
           <strong className="text-slate-800 dark:text-slate-100">When:</strong> {c.when}
         </p>
-        <pre className="overflow-x-auto rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 font-mono text-[11px] leading-5 dark:border-slate-700 dark:bg-slate-900/60">
+        <pre className="overflow-x-auto rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 font-mono text-[11px] leading-5 text-slate-800 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
           {c.flow}
         </pre>
         <p>
