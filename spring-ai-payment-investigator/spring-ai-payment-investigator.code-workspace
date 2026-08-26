@@ -1,0 +1,19 @@
+{
+  "folders": [
+    {
+      "name": "spring-ai-payment-investigator (Java)",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "java.import.maven.enabled": true,
+    "java.configuration.updateBuildConfiguration": "automatic"
+  },
+  "extensions": {
+    "recommendations": [
+      "vscjava.vscode-java-pack",
+      "vmware.vscode-spring-boot",
+      "vscjava.vscode-maven"
+    ]
+  }
+}

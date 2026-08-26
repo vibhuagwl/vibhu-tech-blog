@@ -1,4 +1,35 @@
+# Compiled / build
 target/
-*.iml
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+*.lo
+hs_err_pid*
+
+# Maven wrapper jar (properties kept)
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
 .idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# OS / env
+.DS_Store
 .env
+.env.local
+*.log
+
+# Spring
+.springBeans
+.factorypath
