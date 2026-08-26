@@ -13,8 +13,6 @@ import com.vibhu.sapi.payment.entity.BankResponseEntity;
 import com.vibhu.sapi.payment.entity.CustomerProfileEntity;
 import com.vibhu.sapi.payment.entity.InvestigationCaseEntity;
 import com.vibhu.sapi.payment.entity.PaymentEntity;
-import com.vibhu.sapi.payment.entity.PaymentHistoryEntity;
-import com.vibhu.sapi.payment.entity.PaymentRetryEntity;
 import com.vibhu.sapi.payment.kafka.InMemoryKafkaEventStore;
 import com.vibhu.sapi.payment.repo.BankResponseRepository;
 import com.vibhu.sapi.payment.repo.CustomerProfileRepository;

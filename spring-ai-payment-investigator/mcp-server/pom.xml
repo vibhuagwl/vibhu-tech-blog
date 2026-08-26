@@ -7,13 +7,20 @@
     <groupId>com.vibhu.sapi</groupId>
     <artifactId>spring-ai-payment-investigator</artifactId>
     <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>mcp-server</artifactId>
-  <name>mcp-server</name>
+  <name>sapi-mcp-server</name>
   <dependencies>
     <dependency>
       <groupId>com.vibhu.sapi</groupId>
+      <artifactId>common</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.vibhu.sapi</groupId>
       <artifactId>payment-service</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>

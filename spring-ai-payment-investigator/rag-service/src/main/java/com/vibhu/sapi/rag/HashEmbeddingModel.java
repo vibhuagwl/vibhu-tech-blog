@@ -1,6 +1,5 @@
 package com.vibhu.sapi.rag;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.ai.document.Document;

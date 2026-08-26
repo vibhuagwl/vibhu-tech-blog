@@ -7,25 +7,30 @@
     <groupId>com.vibhu.sapi</groupId>
     <artifactId>spring-ai-payment-investigator</artifactId>
     <version>1.0.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>ai-orchestrator</artifactId>
-  <name>ai-orchestrator</name>
+  <name>sapi-ai-orchestrator</name>
   <dependencies>
     <dependency>
       <groupId>com.vibhu.sapi</groupId>
       <artifactId>common</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>com.vibhu.sapi</groupId>
       <artifactId>payment-service</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>com.vibhu.sapi</groupId>
       <artifactId>rag-service</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>com.vibhu.sapi</groupId>
       <artifactId>tool-gateway</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -81,6 +86,28 @@
   </dependencies>
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-investigation-skills</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.outputDirectory}/skills</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.parent.basedir}/skills</directory>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

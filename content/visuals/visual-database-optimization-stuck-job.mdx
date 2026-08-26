@@ -1,0 +1,33 @@
+---
+slug: visual-database-optimization-stuck-job
+title: "Visual Story: Database Optimization When a Job Is Stuck"
+description: A production troubleshooting cheat-sheet image for stuck jobs — locks, deadlocks, EXPLAIN, indexes, pools, batching, and monitoring.
+category: Visual Story
+difficulty: Intermediate
+tags: [Visual, Database, Production, Performance]
+readingTime: 6 min
+publishedAt: "2026-08-15"
+---
+
+## Read this image first
+
+Job stuck in production? Don’t guess. Walk the path: app → pool → DB → hardware → network, then the numbered checks.
+
+<Visual
+  src="/visuals/database-optimization-stuck-job.jpg"
+  alt="Database optimization techniques when a job is stuck in production infographic"
+  caption="End-to-end production DB troubleshooting flow with SQL checks, locks, plans, and do/don't rules."
+/>
+
+## 20-second interview version
+
+1. Find active queries / blockers  
+2. Deadlocks & long transactions  
+3. `EXPLAIN ANALYZE` + missing indexes  
+4. Pool exhaustion (Hikari)  
+5. Batch big writes · prefer keyset pagination  
+6. Fix → deploy → watch p95/p99, locks, lag  
+
+## Remember
+
+Identify the bottleneck first. A fast plan beats a brave rewrite.

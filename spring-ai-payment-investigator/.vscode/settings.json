@@ -1,13 +1,17 @@
 {
   "java.configuration.updateBuildConfiguration": "automatic",
   "java.import.maven.enabled": true,
-  "java.compile.nullAnalysis.mode": "automatic",
-  "java.jdt.ls.java.home": "",
-  "java.configuration.runtimes": [],
+  "java.compile.nullAnalysis.mode": "disabled",
+  "java.jdt.ls.java.home": "/Users/vibhuagarwal/Library/Java/JavaVirtualMachines/ms-21.0.12/Contents/Home",
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-21",
+      "path": "/Users/vibhuagarwal/Library/Java/JavaVirtualMachines/ms-21.0.12/Contents/Home",
+      "default": true
+    }
+  ],
+  "maven.executable.preferMavenWrapper": true,
   "files.exclude": {
     "**/target": true
-  },
-  "java.project.sourcePaths": [],
-  "maven.executable.path": "",
-  "maven.terminal.useJavaHome": true
+  }
 }

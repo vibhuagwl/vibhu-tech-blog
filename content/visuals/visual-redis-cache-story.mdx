@@ -1,0 +1,31 @@
+---
+slug: visual-redis-cache-story
+title: "Visual Story: Redis Cache"
+description: Learn Redis caching from a story diagram — hit/miss path, TTL fill, hot keys, stampede protection, and when Redis is not the source of truth.
+category: Visual Story
+difficulty: Beginner
+tags: [Visual, Redis, Caching, Interview]
+readingTime: 4 min
+publishedAt: "2026-08-15"
+---
+
+## Read this image first
+
+Product page → Redis hit/miss → DB fill → TTL. Then see the hot-key failure and the fix.
+
+<Visual
+  src="/visuals/redis-cache-visual-story.png"
+  alt="Redis cache real world story infographic"
+  caption="Cache-aside story, hot-key problem, and when Redis should not own money data."
+/>
+
+## 20-second interview version
+
+- Cache-aside for hot reads  
+- TTL + single-flight against stampede  
+- Hot keys need extra tricks (local cache / split)  
+- If Redis dies, protect the DB — don’t stampede  
+
+## Remember
+
+Redis is speed. Durability still needs a real source of truth.

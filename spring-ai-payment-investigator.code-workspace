@@ -1,14 +1,17 @@
 {
   "folders": [
     {
-      "name": "spring-ai-payment-investigator (Java)",
+      "name": "vibhu-tech-blog",
       "path": "."
+    },
+    {
+      "name": "spring-ai-payment-investigator (Java)",
+      "path": "spring-ai-payment-investigator"
     }
   ],
   "settings": {
     "java.import.maven.enabled": true,
     "java.configuration.updateBuildConfiguration": "automatic",
-    "java.compile.nullAnalysis.mode": "disabled",
     "maven.executable.preferMavenWrapper": true
   },
   "extensions": {

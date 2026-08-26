@@ -35,6 +35,12 @@ spring:
 app:
   ai:
     provider: scripted
+  rag:
+    seed-enabled: true
+    docs-pattern: classpath:docs/*.md
+    fail-on-empty: true
+    top-k: 3
+    similarity-threshold: 0.0
   harness:
     max-tool-calls: 10
     max-model-iterations: 5
@@ -43,6 +49,10 @@ app:
   kafka:
     enabled: false
     topic: payments.failed
+  skills:
+    enabled: true
+    location: classpath:skills/payment-investigation
+    fail-on-missing: true
 
 management:
   endpoints:

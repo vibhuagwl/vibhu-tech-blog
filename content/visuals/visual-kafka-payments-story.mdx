@@ -1,0 +1,31 @@
+---
+slug: visual-kafka-payments-story
+title: "Visual Story: Kafka in Payments"
+description: Understand Kafka with a payment story diagram — accept fast, publish events, consumers for fraud/ledger/notify, partitions, lag, idempotency, DLQ.
+category: Visual Story
+difficulty: Intermediate
+tags: [Visual, Kafka, Payments, Interview]
+readingTime: 4 min
+publishedAt: "2026-08-15"
+---
+
+## Read this image first
+
+User pays → API saves critical state → Kafka → fraud / ledger / notify consumers. The API does **not** wait for every consumer.
+
+<Visual
+  src="/visuals/kafka-payment-visual-story.png"
+  alt="Kafka in payments real world story infographic"
+  caption="Async payment fan-out, partition ordering by orderId, and failure cards for lag, duplicates, DLQ."
+/>
+
+## 20-second interview version
+
+- Kafka decouples slow side effects from the user request  
+- Partition key = ordering entity (`orderId`)  
+- At-least-once ⇒ idempotent consumers  
+- Watch consumer lag · poison messages go to DLQ  
+
+## Remember
+
+Partition = scale **and** ordering boundary.

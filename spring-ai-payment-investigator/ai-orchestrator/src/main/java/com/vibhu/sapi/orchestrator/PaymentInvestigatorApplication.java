@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Import;
 @SpringBootApplication(scanBasePackages = "com.vibhu.sapi")
 @Import({PaymentAutoConfiguration.class, RagAutoConfiguration.class, ToolGatewayAutoConfiguration.class})
 public class PaymentInvestigatorApplication {
+  // RagAutoConfiguration registers ApplicationRunner ragDocumentSeedRunner → DocumentSeeder.seed()
 
   public static void main(String[] args) {
     SpringApplication.run(PaymentInvestigatorApplication.class, args);

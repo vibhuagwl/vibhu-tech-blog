@@ -1,0 +1,32 @@
+---
+slug: visual-docusign-end-to-end
+title: "Visual Story: DocuSign End-to-End Flow"
+description: Learn e-sign architecture from a story diagram — envelopes, identity checks, SHA-256 signatures, tamper evidence, audit trail, and webhooks.
+category: Visual Story
+difficulty: Beginner
+tags: [Visual, DocuSign, PKI, Integration]
+readingTime: 5 min
+publishedAt: "2026-08-15"
+---
+
+## Read this image first
+
+HR uploads an offer letter. Trace envelope → identity → signature → certificate → tamper check → webhook back to your app.
+
+<Visual
+  src="/visuals/docusign-end-to-end-flow.jpg"
+  alt="DocuSign end to end flow real world story infographic"
+  caption="Business steps plus PKI behind the scenes, architecture, and security pillars."
+/>
+
+## 20-second interview version
+
+- Envelope holds docs + recipients + status  
+- Identity before sign (email / OTP / access code)  
+- Hash document → sign with private key → attach cert + audit  
+- Change bytes → signature invalid (tamper evident)  
+- Connect webhook tells Spring Boot “completed”  
+
+## Remember
+
+E-sign trust = **identity + PKI + immutable audit**, not a PNG of a signature.

@@ -10,13 +10,32 @@ import org.springframework.stereotype.Service;
 public class RagService {
 
   private final VectorStore vectorStore;
+  private final RagProperties properties;
+  private final DocumentSeeder documentSeeder;
 
-  public RagService(VectorStore vectorStore) {
+  public RagService(VectorStore vectorStore, RagProperties properties, DocumentSeeder documentSeeder) {
     this.vectorStore = vectorStore;
+    this.properties = properties;
+    this.documentSeeder = documentSeeder;
+  }
+
+  public List<Document> search(String query) {
+    return search(query, properties.topK());
   }
 
   public List<Document> search(String query, int topK) {
+    if (query == null || query.isBlank() || topK <= 0) {
+      return List.of();
+    }
     return vectorStore.similaritySearch(
-        SearchRequest.builder().query(query).topK(topK).similarityThreshold(0.0).build());
+        SearchRequest.builder()
+            .query(query)
+            .topK(topK)
+            .similarityThreshold(properties.similarityThreshold())
+            .build());
+  }
+
+  public int indexedDocumentCount() {
+    return documentSeeder.indexedCount();
   }
 }

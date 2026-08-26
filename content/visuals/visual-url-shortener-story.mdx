@@ -1,0 +1,31 @@
+---
+slug: visual-url-shortener-story
+title: "Visual Story: URL Shortener"
+description: Learn URL shortener design from a story diagram — create key, DB mapping, Redis cache, redirect path, and why reads dominate.
+category: Visual Story
+difficulty: Beginner
+tags: [Visual, URL Shortener, Redis, Interview]
+readingTime: 4 min
+publishedAt: "2026-08-15"
+---
+
+## Read this image first
+
+Paste long URL → short key → store → cache → click → redirect. Reads are the hot path.
+
+<Visual
+  src="/visuals/url-shortener-visual-story.png"
+  alt="URL shortener real world story infographic"
+  caption="Six-step user story plus Redis-on-redirect architecture and takeaways."
+/>
+
+## 20-second interview version
+
+- Optimize **redirect** (10:1 reads typical)  
+- Redis in front of DB for lookups  
+- Unique key generation + collision handling  
+- Analytics async so redirects stay fast  
+
+## Remember
+
+Design for the click path, not the create path.

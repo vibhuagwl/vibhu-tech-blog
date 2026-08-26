@@ -1,0 +1,31 @@
+---
+slug: visual-pki-mtls-spring-boot
+title: "Visual Story: PKI & mTLS in Spring Boot"
+description: Understand mTLS with a real payment story diagram — when to use mutual TLS, certificate lifecycle, keystore/truststore, and production CA tooling.
+category: Visual Story
+difficulty: Intermediate
+tags: [Visual, mTLS, Security, Spring Boot]
+readingTime: 6 min
+publishedAt: "2026-08-15"
+---
+
+## Read this image first
+
+Riya sends $500. Follow the path: public HTTPS → gateway → internal services → **mTLS only on sensitive hops** → bank.
+
+<Visual
+  src="/visuals/pki-mtls-spring-boot.jpg"
+  alt="PKI and mTLS in Spring Boot real world payment story infographic"
+  caption="Full story diagram: when mTLS is worth it, certificate lifecycle, and production architecture."
+/>
+
+## 20-second interview version
+
+- Browser → gateway: normal HTTPS is usually enough  
+- Payment ↔ bank / money services: **mTLS** (both sides prove identity with certificates)  
+- Keystore = who I am · Truststore = who I trust  
+- Automate renewals (cert-manager / Vault / ACM) or certs expire and outages follow  
+
+## Remember
+
+mTLS is for **critical trust**, not every chatty internal call.
