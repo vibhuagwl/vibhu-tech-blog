@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.4.5</version>
+    <relativePath/>
+  </parent>
+  <groupId>com.vibhu.sapi</groupId>
+  <artifactId>spring-ai-payment-investigator</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>spring-ai-payment-investigator</name>
+  <description>Spring AI Payment Investigator — Context Engineering + Harness + Tool Gateway</description>
+
+  <modules>
+    <module>common</module>
+    <module>payment-service</module>
+    <module>rag-service</module>
+    <module>tool-gateway</module>
+    <module>ai-orchestrator</module>
+    <module>mcp-server</module>
+  </modules>
+
+  <properties>
+    <java.version>21</java.version>
+    <spring-ai.version>1.1.8</spring-ai.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-bom</artifactId>
+        <version>${spring-ai.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.vibhu.sapi</groupId>
+        <artifactId>common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.vibhu.sapi</groupId>
+        <artifactId>payment-service</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.vibhu.sapi</groupId>
+        <artifactId>rag-service</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.vibhu.sapi</groupId>
+        <artifactId>tool-gateway</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
