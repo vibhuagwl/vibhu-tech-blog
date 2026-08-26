@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "PaymentInvestigatorApplication",
+      "request": "launch",
+      "mainClass": "com.vibhu.sapi.orchestrator.PaymentInvestigatorApplication",
+      "projectName": "ai-orchestrator",
+      "cwd": "${workspaceFolder}/ai-orchestrator",
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "default"
+      }
+    }
+  ]
+}

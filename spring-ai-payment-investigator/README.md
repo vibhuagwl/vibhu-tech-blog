@@ -1,10 +1,37 @@
 # Spring AI Payment Investigator
 
+**Standalone multi-module Java / Maven / Spring Boot project** (Java 21).
+
 Multi-module Maven lab for **Context Engineering + AI Execution Harness + Tool Gateway** payment failure investigation.
 
 - Spring Boot **3.4.5**, Spring AI **1.1.8**, Java **21**
 - Default profile: **H2 in-memory**, scripted `ChatModel` (no OpenAI key)
 - Seed scenario: **TXN-1001** / **BEN-001** / 3 retries
+- Includes **Maven Wrapper** (`./mvnw`) — no global Maven required
+
+## Open as a Java project (IDE)
+
+This folder is a complete Maven root (`pom.xml` + modules). Open **this directory**, not only the monorepo parent, so the IDE indexes Java sources.
+
+### IntelliJ IDEA
+1. **File → Open…** → select `spring-ai-payment-investigator/pom.xml` (or the folder)
+2. Choose **Open as Project** / import as **Maven**
+3. Wait for indexing; modules (`common`, `payment-service`, `ai-orchestrator`, …) appear in the Project tool window
+4. Run `PaymentInvestigatorApplication` in module `ai-orchestrator`
+
+### Cursor / VS Code
+1. **File → Open Folder…** → `spring-ai-payment-investigator`
+   - or open `spring-ai-payment-investigator.code-workspace`
+2. Install recommended extensions (Java Pack + Spring Boot + Maven) when prompted
+3. Command Palette → **Java: Import Java projects in workspace**
+4. Run/Debug → **PaymentInvestigatorApplication**
+
+### CLI
+```bash
+cd spring-ai-payment-investigator
+./mvnw test
+./mvnw -pl ai-orchestrator spring-boot:run
+```
 
 ## Modules
 
@@ -21,8 +48,8 @@ Multi-module Maven lab for **Context Engineering + AI Execution Harness + Tool G
 
 ```bash
 cd spring-ai-payment-investigator
-mvn test                    # H2 + scripted model, no Docker
-mvn -pl ai-orchestrator spring-boot:run
+./mvnw test                              # H2 + scripted model, no Docker
+./mvnw -pl ai-orchestrator spring-boot:run
 ```
 
 App: http://localhost:8090
@@ -45,7 +72,7 @@ curl -s http://localhost:8090/api/payments/TXN-1001 | jq
 ## MCP server (optional)
 
 ```bash
-mvn -pl mcp-server spring-boot:run   # port 8091
+./mvnw -pl mcp-server spring-boot:run   # port 8091
 ```
 
 ## Docker infra (optional)
