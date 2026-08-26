@@ -154,6 +154,8 @@ export const TOPIC_GROUPS:NavGroup[]=[
     topics:[
       {href:'/spring-annotations',label:'Spring Annotations',blurb:'Proxies · transactions · DI'},
       {href:'/spring-ai',label:'Spring AI Platform',blurb:'MCP · RAG · FinTech agent · interview'},
+      {href:'/spring-ai-investigator',label:'AI Payment Investigator',blurb:'Context · Harness · ToolGateway · TXN-1001'},
+      {href:'/spring-ai-investigator-demo',label:'Investigator Lab Source',blurb:'Browse spring-ai-payment-investigator'},
       {href:'/spring-ai-demo',label:'Spring AI Lab Source',blurb:'Browse financial-ai-platform in browser'},
       {href:'/ai-fintech-demo',label:'AI Ops Assistant Source',blurb:'Harness · MCP servers · RAG · PAY-123'},
       {href:'/spring-security',label:'Spring Security',blurb:'JWT · OAuth2 · CSRF · CORS'},
