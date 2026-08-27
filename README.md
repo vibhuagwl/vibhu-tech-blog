@@ -65,6 +65,10 @@ npm run dev
 npm run build
 ```
 
+## Java / Spring labs (IntelliJ warning)
+
+If every `.java` file shows **“located outside of the module source root”**, the IDE opened the monorepo without Maven modules. Open the **root `pom.xml`** as a Maven project (or open one lab folder), then reload Maven. Details: [docs/IDE_JAVA_SETUP.md](docs/IDE_JAVA_SETUP.md).
+
 ## Structure
 
 ```text
