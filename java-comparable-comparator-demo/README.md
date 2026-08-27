@@ -3,17 +3,10 @@
 Companion for `/java-comparable-comparator`.
 
 ```bash
-javac src/*.java
-java -cp src ComparableLab
-java -cp src ComparatorLab
-java -cp src PredictOutputLab
-```
-
-Or compile to `out/`:
-
-```bash
-javac -d out src/*.java
-java -cp out ComparableLab
+mvn -q compile
+mvn -q exec:java -Dexec.mainClass=ComparableLab
+mvn -q exec:java -Dexec.mainClass=ComparatorLab
+mvn -q exec:java -Dexec.mainClass=PredictOutputLab
 ```
 
 ## Labs
@@ -24,4 +17,4 @@ java -cp out ComparableLab
 | `ComparatorLab` | Multi-level `Comparator`, `nullsLast`, `PriorityQueue` poll vs iterate, `TreeSet` `compare==0` duplicates |
 | `PredictOutputLab` | Runnable predict-the-output snippets |
 
-Java 8+ (tested on Java 21).
+Java 21+.

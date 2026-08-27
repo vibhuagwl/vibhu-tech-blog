@@ -6,13 +6,15 @@ This repo is a **Next.js content site** plus many **standalone Spring/Maven labs
 
 ## Fix in IntelliJ IDEA (recommended)
 
-1. **File → Close Project** (if already open as a plain directory).
-2. **File → Open…** and select the repo root **`pom.xml`** (not only the folder), then **Open as Project**.
-3. Trust the project; wait for Maven import to finish (status bar).
-4. **File → Project Structure → Project SDK** → **JDK 21**.
-5. **View → Tool Windows → Maven** → click **Reload All Maven Projects** if modules look incomplete.
+This repo commits shared IntelliJ module files (`.idea/modules.xml` + each lab’s `*.iml`) so every Maven `src/main/java` is already a **Sources Root**. It also points Maven at the root `pom.xml`.
 
-You can also keep the folder open and use **Maven tool window → + →** add the root `pom.xml` (or each lab’s `pom.xml`).
+1. **File → Open…** the **repo root folder** (or root `pom.xml`) → Open as Project.
+2. If IntelliJ asks to **Load Maven Project** / trust the project — accept it.
+3. **File → Invalidate Caches** only if the yellow banner remains after a pull, then reopen.
+4. **File → Project Structure → Project SDK** → **JDK 21**.
+5. **View → Tool Windows → Maven** → **Reload All Maven Projects** so dependencies resolve (red imports go away).
+
+You can also open a **single lab folder** (e.g. `spring-cache-lab/`) when you only need one project.
 
 ### Optional: work on one lab only
 
@@ -40,4 +42,10 @@ Validate the aggregator listing:
 
 ```bash
 mvn -N validate
+```
+
+After adding a new Maven lab, regenerate IntelliJ source-root modules:
+
+```bash
+python3 scripts/generate-intellij-modules.py
 ```

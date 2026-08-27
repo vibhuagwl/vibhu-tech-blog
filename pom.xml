@@ -21,7 +21,9 @@
     <module>financial-ai-platform</module>
     <module>hadron-cashlines-dlq</module>
     <module>idanywhere-oidc-demo</module>
+    <module>java-comparable-comparator-demo</module>
     <module>java-design-patterns-real-world</module>
+    <module>java-equals-hashcode-demo</module>
     <module>java-locking-lab</module>
     <module>java-streams-lab</module>
     <module>load-balancer-lab</module>
