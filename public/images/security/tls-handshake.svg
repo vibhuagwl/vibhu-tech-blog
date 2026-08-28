@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="TLS 1.3 handshake">
+  <rect width="640" height="360" fill="#fff"/>
+  <text x="320" y="28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="600" fill="#0f172a">TLS 1.3 Handshake (simplified)</text>
+  <text x="120" y="60" font-weight="600" fill="#2563eb">Client</text>
+  <text x="520" y="60" font-weight="600" fill="#059669">Server</text>
+  <line x1="80" y1="320" x2="560" y2="320" stroke="#cbd5e1" stroke-width="1"/>
+  <line x1="120" y1="70" x2="120" y2="320" stroke="#94a3b8" stroke-dasharray="4"/>
+  <line x1="520" y1="70" x2="520" y2="320" stroke="#94a3b8" stroke-dasharray="4"/>
+  <path d="M120 90 H480" stroke="#334155" stroke-width="2" marker-end="url(#a)"/>
+  <text x="300" y="85" text-anchor="middle" font-size="12" fill="#475569">ClientHello (ciphers, key share)</text>
+  <path d="M480 120 H120" stroke="#334155" stroke-width="2" marker-end="url(#a)"/>
+  <text x="300" y="115" text-anchor="middle" font-size="12" fill="#475569">ServerHello + Certificate + Finished</text>
+  <path d="M120 150 H480" stroke="#334155" stroke-width="2" marker-end="url(#a)"/>
+  <text x="300" y="145" text-anchor="middle" font-size="12" fill="#475569">Finished</text>
+  <rect x="180" y="180" width="280" height="50" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="320" y="210" text-anchor="middle" font-size="13" fill="#9a3412">Encrypted application data (AES-GCM session keys)</text>
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#334155"/></marker></defs>
+  <text x="320" y="260" text-anchor="middle" font-size="11" fill="#64748b">Handshake uses ephemeral keys — bulk data encrypted with symmetric session keys</text>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 240" role="img" aria-label="OAuth2 Authorization Code PKCE">
+  <rect width="700" height="240" fill="#fff"/>
+  <text x="350" y="26" text-anchor="middle" font-weight="600" font-size="15" fill="#0f172a">OAuth2 Authorization Code + PKCE</text>
+  <rect x="20" y="50" width="80" height="36" rx="6" fill="#dbeafe" stroke="#2563eb"/><text x="60" y="73" text-anchor="middle" font-size="11">Browser</text>
+  <rect x="130" y="50" width="80" height="36" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="170" y="73" text-anchor="middle" font-size="11">Client</text>
+  <rect x="280" y="50" width="120" height="36" rx="6" fill="#ffedd5" stroke="#ea580c"/><text x="340" y="73" text-anchor="middle" font-size="11">Auth Server</text>
+  <rect x="480" y="50" width="120" height="36" rx="6" fill="#f3e8ff" stroke="#9333ea"/><text x="540" y="73" text-anchor="middle" font-size="11">Resource Server</text>
+  <text x="350" y="120" text-anchor="middle" font-size="12" fill="#475569">authorize → code → token (+ code_verifier) → access_token → API</text>
+  <text x="350" y="150" text-anchor="middle" font-size="12" fill="#64748b">OIDC adds ID Token + /userinfo · Lab: oauth-jwt-demo AS :9000</text>
+</svg>

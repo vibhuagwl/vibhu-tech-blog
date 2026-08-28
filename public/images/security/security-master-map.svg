@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 520" role="img" aria-label="Security master map">
+  <defs>
+    <style>
+      .t{font:600 13px system-ui,sans-serif;fill:#0f172a}
+      .s{font:500 11px system-ui,sans-serif;fill:#475569}
+      .box{rx:10;stroke-width:2}
+      .net{fill:#dbeafe;stroke:#2563eb}
+      .app{fill:#dcfce7;stroke:#16a34a}
+      .authz{fill:#f3e8ff;stroke:#9333ea}
+      .crypto{fill:#ffedd5;stroke:#ea580c}
+      .infra{fill:#f1f5f9;stroke:#64748b}
+      .arrow{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#m)}
+    </style>
+    <marker id="m" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect width="920" height="520" fill="#ffffff"/>
+  <text x="24" y="32" class="t" font-size="18">Security Master Map  Client to SIEM</text>
+  <g transform="translate(40,60)">
+    <rect class="box net" x="0" y="0" width="100" height="44"/><text x="50" y="27" text-anchor="middle" class="t">Client</text>
+    <path class="arrow" d="M100 22 H130"/><rect class="box net" x="130" y="0" width="80" height="44"/><text x="170" y="27" text-anchor="middle" class="t">DNS</text>
+    <path class="arrow" d="M210 22 H240"/><rect class="box net" x="240" y="0" width="80" height="44"/><text x="280" y="27" text-anchor="middle" class="t">CDN</text>
+    <path class="arrow" d="M320 22 H350"/><rect class="box net" x="350" y="0" width="90" height="44"/><text x="395" y="27" text-anchor="middle" class="t">AWS WAF</text>
+    <path class="arrow" d="M440 22 H470"/><rect class="box net" x="470" y="0" width="110" height="44"/><text x="525" y="27" text-anchor="middle" class="t">Load Balancer</text>
+    <path class="arrow" d="M580 22 H610"/><rect class="box net" x="610" y="0" width="110" height="44"/><text x="665" y="27" text-anchor="middle" class="t">API Gateway</text>
+    <path class="arrow" d="M665 44 V70"/><rect class="box app" x="610" y="70" width="110" height="48"/><text x="665" y="99" text-anchor="middle" class="t">Spring Boot</text>
+    <path class="arrow" d="M665 118 V148"/><rect class="box app" x="560" y="148" width="210" height="52"/><text x="665" y="172" text-anchor="middle" class="t">Spring Security Filter Chain</text>
+    <path class="arrow" d="M610 200 V230"/><rect class="box app" x="520" y="230" width="120" height="44"/><text x="580" y="257" text-anchor="middle" class="t">Authentication</text>
+    <path class="arrow" d="M700 200 V230"/><rect class="box authz" x="680" y="230" width="120" height="44"/><text x="740" y="257" text-anchor="middle" class="t">Authorization</text>
+    <rect class="box crypto" x="40" y="148" width="150" height="44"/><text x="115" y="175" text-anchor="middle" class="t">JWT / OAuth2 / OIDC</text>
+    <rect class="box crypto" x="40" y="210" width="150" height="44"/><text x="115" y="237" text-anchor="middle" class="t">Service mTLS</text>
+    <rect class="box infra" x="40" y="290" width="130" height="44"/><text x="105" y="317" text-anchor="middle" class="t">Database TLS</text>
+    <rect class="box infra" x="190" y="290" width="110" height="44"/><text x="245" y="317" text-anchor="middle" class="t">Kafka</text>
+    <rect class="box crypto" x="320" y="290" width="120" height="44"/><text x="380" y="317" text-anchor="middle" class="t">AWS KMS</text>
+    <rect class="box crypto" x="460" y="290" width="160" height="44"/><text x="540" y="317" text-anchor="middle" class="t">Secrets Manager</text>
+    <rect class="box infra" x="640" y="290" width="130" height="44"/><text x="705" y="317" text-anchor="middle" class="t">Audit / SIEM</text>
+    <path class="arrow" d="M580 274 V290"/><path class="arrow" d="M665 274 V290"/>
+  </g>
+  <text x="24" y="500" class="s">Network (blue) · Auth (green) · Authz (purple) · Crypto (orange) · Infra (gray)</text>
+</svg>

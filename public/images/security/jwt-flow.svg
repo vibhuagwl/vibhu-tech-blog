@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" role="img" aria-label="JWT flow">
+  <rect width="640" height="200" fill="#fff"/>
+  <text x="320" y="28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="600" fill="#0f172a">JWT Resource Server Flow</text>
+  <rect x="20" y="60" width="90" height="40" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="65" y="85" text-anchor="middle" font-size="12">Login</text>
+  <text x="130" y="85" font-size="18" fill="#94a3b8">→</text>
+  <rect x="150" y="60" width="120" height="40" rx="8" fill="#dbeafe" stroke="#2563eb"/><text x="210" y="85" text-anchor="middle" font-size="11">Auth Server / App</text>
+  <text x="290" y="85" font-size="18" fill="#94a3b8">→</text>
+  <rect x="310" y="55" width="140" height="50" rx="8" fill="#ffedd5" stroke="#ea580c"/><text x="380" y="78" text-anchor="middle" font-size="11">JWT</text><text x="380" y="95" text-anchor="middle" font-size="10" fill="#64748b">header.payload.sig</text>
+  <text x="470" y="85" font-size="18" fill="#94a3b8">→</text>
+  <rect x="490" y="60" width="130" height="40" rx="8" fill="#f3e8ff" stroke="#9333ea"/><text x="555" y="85" text-anchor="middle" font-size="11">Resource Server</text>
+  <text x="320" y="150" text-anchor="middle" font-size="12" fill="#64748b">Signed (JWS) — verify with JWKS · validate exp, iss, aud, scope</text>
+</svg>

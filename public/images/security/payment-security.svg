@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" role="img" aria-label="Secure payment system">
+  <rect width="760" height="300" fill="#fff"/>
+  <text x="380" y="26" text-anchor="middle" font-weight="600" font-size="15" fill="#0f172a">End-to-End Secure Payment Architecture</text>
+  <rect x="20" y="50" width="70" height="32" rx="6" fill="#dbeafe" stroke="#2563eb"/><text x="55" y="70" text-anchor="middle" font-size="10">Mobile</text>
+  <text x="100" y="70" fill="#94a3b8">→</text>
+  <rect x="110" y="50" width="60" height="32" rx="6" fill="#f1f5f9" stroke="#64748b"/><text x="140" y="70" text-anchor="middle" font-size="10">WAF</text>
+  <text x="180" y="70" fill="#94a3b8">→</text>
+  <rect x="190" y="50" width="60" height="32" rx="6" fill="#f1f5f9" stroke="#64748b"/><text x="220" y="70" text-anchor="middle" font-size="10">ALB</text>
+  <text x="260" y="70" fill="#94a3b8">→</text>
+  <rect x="270" y="50" width="80" height="32" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="310" y="70" text-anchor="middle" font-size="10">Auth Svc</text>
+  <text x="360" y="70" fill="#94a3b8">→</text>
+  <rect x="370" y="50" width="100" height="32" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="420" y="70" text-anchor="middle" font-size="10">Payment Svc</text>
+  <text x="480" y="70" fill="#94a3b8">→</text>
+  <rect x="490" y="50" width="80" height="32" rx="6" fill="#ffedd5" stroke="#ea580c"/><text x="530" y="70" text-anchor="middle" font-size="10">Bank mTLS</text>
+  <rect x="370" y="110" width="80" height="28" rx="6" fill="#f1f5f9" stroke="#64748b"/><text x="410" y="128" text-anchor="middle" font-size="10">Kafka TLS</text>
+  <rect x="470" y="110" width="80" height="28" rx="6" fill="#f1f5f9" stroke="#64748b"/><text x="510" y="128" text-anchor="middle" font-size="10">PostgreSQL</text>
+  <rect x="570" y="110" width="70" height="28" rx="6" fill="#ffedd5" stroke="#ea580c"/><text x="605" y="128" text-anchor="middle" font-size="10">KMS</text>
+  <rect x="650" y="110" width="90" height="28" rx="6" fill="#ffedd5" stroke="#ea580c"/><text x="695" y="128" text-anchor="middle" font-size="10">Secrets Mgr</text>
+  <text x="380" y="200" text-anchor="middle" font-size="12" fill="#475569">OIDC at edge · JWT scopes · mTLS to bank · envelope encryption · audit to SIEM</text>
+</svg>
