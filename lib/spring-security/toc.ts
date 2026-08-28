@@ -48,7 +48,7 @@ export const SECURITY_TOC: TocItem[] = [
   {id: 'aws-secrets', label: 'AWS Secrets Manager', group: 'Cloud'},
   {id: 'aws-acm', label: 'ACM / ALB TLS', group: 'Cloud'},
 
-  {id: 'kafka-security', label: 'Kafka TLS / SASL / ACL', group: 'Messaging'},
+  {id: 'kafka-security', label: 'Kafka TLS / SASL / ACL (deep dive)', group: 'Messaging'},
   {id: 'db-security', label: 'Database TLS', group: 'Data'},
 
   {id: 'zero-trust', label: 'Zero Trust', group: 'Architecture'},
