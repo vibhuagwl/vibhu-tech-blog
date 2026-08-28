@@ -6,6 +6,7 @@ export const SECURITY_TOC: TocItem[] = [
   {id: 'stack-ladder', label: 'HTTP → AWS stack', group: 'Overview'},
   {id: 'labs', label: 'Runnable labs (existing)', group: 'Overview'},
   {id: 'interview-memory', label: 'Interview memory', group: 'Overview'},
+  {id: 'memory-diagrams', label: 'Memory diagrams (visual)', group: 'Overview'},
 
   {id: 'http-internal', label: 'HTTP internal working', group: 'Network'},
   {id: 'http-vs-https', label: 'HTTP vs HTTPS', group: 'Network'},
