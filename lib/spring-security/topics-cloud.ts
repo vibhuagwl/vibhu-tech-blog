@@ -197,47 +197,216 @@ aws acm describe-certificate --certificate-arn arn:aws:acm:...`,
   },
   {
     id: 'kafka-security',
-    title: 'Kafka TLS / SASL / ACL',
+    title: 'Kafka TLS / SASL / ACL — Production Deep Dive',
     badge: 'Kafka',
     category: 'Cloud',
-    what: 'Encrypt wire (SSL/SASL_SSL), authenticate producers/consumers (SCRAM/OAUTHBEARER), authorize with ACLs.',
+    labHref: '/spring-kafka-payments-demo',
+    what: `Kafka security is three independent layers — enable all three in production:
+
+1) TLS (wire encryption) — security.protocol=SSL or SASL_SSL. Clients trust broker certs via ssl.truststore; optional mTLS adds ssl.keystore for client cert auth.
+2) SASL (authentication) — proves identity: SCRAM-SHA-512 (username/password per service), OAUTHBEARER (OIDC), or AWS_MSK_IAM on MSK. Without SASL, TLS alone does not know which app is connecting.
+3) ACL (authorization) — after auth, StandardAuthorizer checks topic/group/cluster permissions per principal (User:payment-producer). Least privilege: producer gets WRITE on one topic, consumer gets READ + group Read on its group only.
+
+Where config lives (never commit secrets to Git):
+• Spring application.yml — bootstrap-servers, security.protocol, sasl.mechanism; passwords via \${ENV} or spring.config.import secretsmanager
+• K8s/ECS — Secrets Manager / Vault mounts for JAAS password, truststore JKS, keystore JKS
+• Broker server.properties — listeners, inter.broker.protocol, authorizer, SCRAM users in metadata
+• admin.properties — bootstrap + admin SCRAM creds for kafka-acls.sh only (not in app pods)
+
+Repo templates: spring-kafka-payments-demo/config-templates/{producer,consumer,broker}-*.properties — local lab uses PLAINTEXT:9092; prod blocks are commented at bottom.`,
     mermaid: `flowchart TB
-  P[Payment Producer] -->|SASL_SSL SCRAM| B1[Broker]
-  C[Settlement Consumer] -->|SASL_SSL SCRAM| B1
-  B1 --> ACL[ACL: payment-svc WRITE payments-v1]
-  C --> ACL2[ACL: settlement-svc READ payments-v1]`,
-    code: `# application.yml — Spring Kafka producer
+  subgraph layer1 [Layer 1 — TLS wire encryption]
+    TLS[SSL / SASL_SSL + truststore.jks]
+  end
+  subgraph layer2 [Layer 2 — SASL authentication]
+    SCRAM[SCRAM-SHA-512 User:payment-producer]
+    IAM[AWS_MSK_IAM on MSK]
+  end
+  subgraph layer3 [Layer 3 — ACL authorization]
+    ACLW[WRITE payments-v1]
+    ACLR[READ payments-v1 + group Read settlement-workers]
+  end
+  P[Payment API producer] --> TLS
+  C[Settlement consumer] --> TLS
+  TLS --> SCRAM
+  SCRAM --> ACLW
+  SCRAM --> ACLR
+  B1[(Broker SASL_SSL :9093)] --> ACLW
+  B1 --> ACLR
+  SM[Secrets Manager] -.-> P
+  SM -.-> C
+  ADM[kafka-acls.sh + admin.properties] --> B1`,
+    code: `# ─── 1) Spring Boot producer (payment-api) — application-prod.yml ───
+spring:
+  kafka:
+    bootstrap-servers: kafka1.internal:9093,kafka2.internal:9093,kafka3.internal:9093
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="payment-producer" password="\${KAFKA_SCRAM_PASSWORD}";
+      ssl.truststore.location: /etc/kafka/truststore.jks
+      ssl.truststore.password: \${KAFKA_TRUSTSTORE_PASSWORD}
+      # mTLS (optional — broker verifies client cert):
+      # ssl.keystore.location: /etc/kafka/payment-producer.jks
+      # ssl.keystore.password: \${KAFKA_KEYSTORE_PASSWORD}
+      # ssl.key.password: \${KAFKA_KEY_PASSWORD}
+    producer:
+      acks: all
+      client-id: payment-api
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        compression.type: zstd
+
+# ─── 2) Spring Boot consumer (settlement-worker) ───
 spring:
   kafka:
     bootstrap-servers: kafka1.internal:9093,kafka2.internal:9093
     properties:
       security.protocol: SASL_SSL
       sasl.mechanism: SCRAM-SHA-512
-      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="payment-producer" password="\${KAFKA_PASSWORD}";
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="settlement-worker" password="\${KAFKA_SCRAM_PASSWORD}";
       ssl.truststore.location: /etc/kafka/truststore.jks
-      ssl.truststore.password: \${KAFKA_TRUSTSTORE_PASS}
-    producer:
-      acks: all
+      ssl.truststore.password: \${KAFKA_TRUSTSTORE_PASSWORD}
+    consumer:
+      group-id: settlement-workers
+      enable-auto-commit: false
+      isolation-level: read_committed
       properties:
-        enable.idempotence: true
+        allow.auto.create.topics: false
 
-# Broker ACL (kafka-acls.sh)
-kafka-acls --bootstrap-server kafka1:9093 \\
-  --command-config admin.properties \\
+# ─── 3) Plain client.properties (console / non-Spring) ───
+bootstrap.servers=kafka1.internal:9093
+security.protocol=SASL_SSL
+sasl.mechanism=SCRAM-SHA-512
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username="payment-producer" password="\${KAFKA_SCRAM_PASSWORD}";
+ssl.truststore.location=/etc/kafka/truststore.jks
+ssl.truststore.password=\${KAFKA_TRUSTSTORE_PASSWORD}
+
+# ─── 4) Where to store what (production) ───
+# App yaml (Git): bootstrap-servers, protocol, mechanism — NO passwords
+# Secrets Manager / Vault: KAFKA_SCRAM_PASSWORD, truststore bytes, keystore bytes
+# ECS task / K8s secret volume: mount /etc/kafka/truststore.jks
+# Broker EC2/EKS: server.properties + kafka_server_jaas.conf (SCRAM users)
+# CI/CD admin only: admin.properties for kafka-acls.sh (not deployed to app)
+
+# ─── 5) Broker server.properties (KRaft / prod cluster) ───
+listeners=SASL_SSL://0.0.0.0:9093,CONTROLLER://0.0.0.0:9094
+advertised.listeners=SASL_SSL://kafka1.internal:9093
+listener.security.protocol.map=SASL_SSL:SASL_SSL,CONTROLLER:SSL
+security.inter.broker.protocol=SASL_SSL
+sasl.mechanism.inter.broker.protocol=SCRAM-SHA-512
+sasl.enabled.mechanisms=SCRAM-SHA-512
+authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+super.users=User:admin
+allow.everyone.if.no.acl.found=false
+ssl.keystore.location=/var/lib/kafka/keystore.jks
+ssl.keystore.password=\${SSL_KEYSTORE_PASSWORD}
+ssl.key.password=\${SSL_KEY_PASSWORD}
+ssl.truststore.location=/var/lib/kafka/truststore.jks
+ssl.truststore.password=\${SSL_TRUSTSTORE_PASSWORD}
+ssl.client.auth=requested   # required for strict mTLS
+
+# ─── 6) Create SCRAM users (run once per cluster) ───
+kafka-configs --bootstrap-server kafka1:9093 --command-config admin.properties \\
+  --alter --add-config 'SCRAM-SHA-512=[password=REPLACE_ME]' \\
+  --entity-type users --entity-name payment-producer
+
+kafka-configs --bootstrap-server kafka1:9093 --command-config admin.properties \\
+  --alter --add-config 'SCRAM-SHA-512=[password=REPLACE_ME]' \\
+  --entity-type users --entity-name settlement-worker
+
+# ─── 7) ACL least privilege (kafka-acls.sh) ───
+# admin.properties:
+#   bootstrap.servers=kafka1.internal:9093
+#   security.protocol=SASL_SSL
+#   sasl.mechanism=SCRAM-SHA-512
+#   sasl.jaas.config=... username="admin" password="...";
+
+# Producer — write only to payments topic
+kafka-acls --bootstrap-server kafka1:9093 --command-config admin.properties \\
   --add --allow-principal User:payment-producer \\
-  --operation WRITE --topic payments-v1
+  --operation Write --operation IdempotentWrite --topic payments-v1
 
-kafka-acls --add --allow-principal User:settlement-worker \\
-  --operation READ --group settlement-workers --topic payments-v1`,
-    verify: `kafka-console-producer.sh --bootstrap-server localhost:9093 \\
-  --producer.config client-ssl-scram.properties \\
+# Consumer — read topic + join consumer group
+kafka-acls --bootstrap-server kafka1:9093 --command-config admin.properties \\
+  --add --allow-principal User:settlement-worker \\
+  --operation Read --topic payments-v1
+
+kafka-acls --bootstrap-server kafka1:9093 --command-config admin.properties \\
+  --add --allow-principal User:settlement-worker \\
+  --operation Read --group settlement-workers
+
+# Audit — list ACLs
+kafka-acls --bootstrap-server kafka1:9093 --command-config admin.properties --list
+
+# Common ACL operations by role:
+# | Role     | Topic ops              | Group ops | Cluster ops      |
+# | Producer | Write, IdempotentWrite | —         | —                |
+# | Consumer | Read                   | Read      | —                |
+# | Admin    | Create, Delete, Alter  | Read      | Describe, Alter  |
+
+# ─── 8) AWS MSK — SCRAM vs IAM ───
+# MSK SCRAM: same Spring properties as above; create SCRAM secret in MSK console;
+#   associate secret with cluster; use AWS-provided bootstrap brokers on :9096
+# MSK IAM (no password — SigV4):
+spring:
+  kafka:
+    bootstrap-servers: \${MSK_BOOTSTRAP}
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: AWS_MSK_IAM
+      sasl.jaas.config: software.amazon.msk.auth.iam.IAMLoginModule required;
+      sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
+# IAM policy on task role: kafka-cluster:Connect, kafka:WriteData (scoped to topic ARN)
+
+# ─── 9) Production checklist ───
+# [ ] security.protocol never PLAINTEXT outside docker-compose
+# [ ] Separate SCRAM user per microservice (payment-producer ≠ settlement-worker)
+# [ ] ACL deny-by-default (allow.everyone.if.no.acl.found=false)
+# [ ] acks=all + min.insync.replicas>=2 on payment topics
+# [ ] enable.idempotence=true on producers
+# [ ] allow.auto.create.topics=false on consumers
+# [ ] Rotate SCRAM passwords via Secrets Manager; restart pods rolling
+# [ ] CloudWatch / Prometheus: failed auth rate, ACL denied metrics
+# [ ] Payload encryption for PAN/PII — TLS does not hide data from broker admins`,
+    verify: `# ─── Verify TLS + SASL + ACL end-to-end ───
+
+# 1) Console producer with client properties (should succeed)
+kafka-console-producer.sh --bootstrap-server kafka1.internal:9093 \\
+  --producer.config client-scram.properties \\
   --topic payments-v1
-# Wrong creds → SaslAuthenticationException`,
-    pitfalls: 'PLAINTEXT in prod. One shared SCRAM user for all services. ACL wildcards on *.',
-    production: 'Separate creds per service; ACL least privilege; TLS 1.2+; rotate SCRAM via Vault/Secrets Manager; audit ACL changes.',
-    interview30s: 'Kafka security: TLS for wire encryption, SASL for auth, ACLs for authz per topic/group. enable.idempotence for exactly-once producer.',
-    interview2m: 'Contrast SCRAM vs mTLS vs OAUTHBEARER. Payment events: encrypt sensitive fields even on TLS — brokers/admins see payload.',
-    traps: 'ACL authorizer disabled "because network is private" — zero-trust requires broker auth.',
+> {"paymentId":"test-1","amount":100}
+
+# 2) Wrong password → immediate failure
+# SaslAuthenticationException: Authentication failed
+
+# 3) Valid auth but missing ACL → AuthorizationException
+kafka-console-producer.sh --bootstrap-server kafka1.internal:9093 \\
+  --producer.config wrong-user-no-write-acl.properties \\
+  --topic payments-v1
+# TopicAuthorizationException: Not authorized to access topics: [payments-v1]
+
+# 4) Consumer group ACL
+kafka-console-consumer.sh --bootstrap-server kafka1.internal:9093 \\
+  --consumer.config client-scram.properties \\
+  --topic payments-v1 --group settlement-workers --from-beginning
+
+# 5) List effective ACLs for principal
+kafka-acls --bootstrap-server kafka1.internal:9093 \\
+  --command-config admin.properties \\
+  --list --principal User:payment-producer
+
+# 6) Spring Boot smoke — enable debug once
+logging.level.org.apache.kafka=DEBUG
+# Look for: successful authentication, metadata fetch, no AuthorizationException
+
+# 7) MSK IAM — aws kafka get-bootstrap-brokers + task role sts get-caller-identity`,
+    pitfalls: 'PLAINTEXT in prod (docker-compose defaults are not prod). One shared SCRAM user for all services — cannot revoke one app without breaking others. ACL wildcards (* topic or * group). Storing sasl.jaas.config password inline in Git. ssl.endpoint.identification.algorithm= (empty) disables hostname verify. Forgetting group Read ACL so consumer cannot join. Using admin SCRAM creds in application pods.',
+    production: 'Separate SCRAM/IAM identity per service; ACL least privilege per topic+group; TLS 1.2+ with valid broker certs; rotate secrets via AWS Secrets Manager / HashiCorp Vault; mount truststore as read-only volume; admin.properties only on bastion/CI; MSK: prefer IAM for ECS/EKS (no long-lived password); self-managed K8s: Strimzi or operator for cert rotation; audit ACL changes in change-management; encrypt sensitive payload fields — brokers and ops can read message bytes.',
+    interview30s: 'Kafka security = TLS (encrypt wire) + SASL (authenticate client) + ACL (authorize per topic/group). Spring: security.protocol=SASL_SSL, SCRAM-SHA-512, truststore from Secrets Manager, separate user per service. Producer needs Write + IdempotentWrite; consumer needs Read on topic + Read on group. Never PLAINTEXT in prod.',
+    interview2m: 'Walk three layers: client opens TLS to broker :9093, presents SCRAM credentials (or MSK IAM SigV4), broker maps to User:payment-producer, StandardAuthorizer checks WRITE on payments-v1. Contrast SCRAM (password per service, kafka-configs to create user) vs mTLS (client cert in keystore, broker ssl.client.auth=required) vs OAUTHBEARER (OIDC token refresh). Where secrets live: yaml has structure, Secrets Manager has passwords/JKS bytes, broker has server.properties + JAAS. Payment domain: even with TLS, encrypt PAN in payload; idempotent producer + read_committed consumer for EOS story. MSK: SCRAM on :9096 with AWS secret association, or IAM with IAMLoginModule — no password in pod.',
+    traps: 'Saying "VPC private so no Kafka auth needed" — insider/threat model requires ACL. Confusing SSL with SASL_SSL (latter adds authentication). Forgetting IdempotentWrite ACL when enable.idempotence=true. Using allow.everyone.if.no.acl.found=true in prod. Assuming TLS hides message content from Kafka admins.',
   },
   {
     id: 'db-security',
