@@ -8,9 +8,50 @@
   <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>vibhu-tech-blog</name>
-  <description>Maven aggregator so opening this repo imports spring-ai-payment-investigator as a multi-module project</description>
+  <description>
+    Maven aggregator for IntelliJ / VS Code / Cursor. Open this root pom.xml as a Maven project
+    so every lab under src/main/java is marked as a module source root (avoids
+    "Java file is located outside of the module source root").
+  </description>
   <modules>
+    <module>ai-fintech-platform</module>
+    <module>camunda-payment-platform</module>
+    <module>db-sharding-lab</module>
+    <module>distributed-locking</module>
+    <module>financial-ai-platform</module>
+    <module>hadron-cashlines-dlq</module>
+    <module>idanywhere-oidc-demo</module>
+    <module>java-comparable-comparator-demo</module>
+    <module>java-design-patterns-real-world</module>
+    <module>java-equals-hashcode-demo</module>
+    <module>java-locking-lab</module>
+    <module>java-streams-lab</module>
+    <module>load-balancer-lab</module>
+    <module>oauth-jwt-demo</module>
+    <module>react-springboot-interview/backend</module>
     <module>spring-ai-payment-investigator</module>
+    <module>spring-api-gateway-lab</module>
+    <module>spring-authn-authz-demo</module>
+    <module>spring-bloom-filter-lab</module>
+    <module>spring-cache-lab</module>
+    <module>spring-cors-demo</module>
+    <module>spring-csrf-demo</module>
+    <module>spring-distributed-cache-demo</module>
+    <module>spring-distributed-counter-demo</module>
+    <module>spring-distributed-lock-demo</module>
+    <module>spring-encryption-lab</module>
+    <module>spring-gateway-live-lab</module>
+    <module>spring-jwt-auth-demo</module>
+    <module>spring-kafka-payments-demo</module>
+    <module>spring-microservices-patterns-lab</module>
+    <module>spring-msp-platform</module>
+    <module>spring-multitenant-lab</module>
+    <module>spring-n-plus-one-demo</module>
+    <module>spring-rate-limiter-lab</module>
+    <module>spring-resilience4j-lab</module>
+    <module>spring-secrets-pii-demo</module>
+    <module>spring-web-attacks-demo</module>
+    <module>spring-whatsapp-demo</module>
   </modules>
     <dependencies>
         <dependency>

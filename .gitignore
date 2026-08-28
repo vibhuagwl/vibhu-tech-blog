@@ -22,6 +22,13 @@ oauth-jwt-demo/**/target/
 spring-whatsapp-demo/**/target/
 spring-distributed-counter-demo/**/target/
 *.class
-.idea/
-*.iml
+# IntelliJ: ignore local/user state, keep shared module source-root defs
+.idea/*
+!.idea/modules.xml
+!.idea/misc.xml
+!.idea/compiler.xml
+!.idea/vcs.xml
+!.idea/jarRepositories.xml
+# keep *.iml so every Maven lab src/main/java is a source root when opening the repo
 java-equals-hashcode-demo/out/
+java-comparable-comparator-demo/out/

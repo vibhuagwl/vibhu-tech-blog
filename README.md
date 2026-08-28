@@ -65,6 +65,10 @@ npm run dev
 npm run build
 ```
 
+## Java / Spring labs (IntelliJ warning)
+
+If every `.java` file shows **“located outside of the module source root”**, pull latest, reopen the **repo root** in IntelliJ (JDK 21), and accept **Load Maven Project**. Shared `*.iml` files mark every lab’s `src/main/java` as a Sources Root. Details: [docs/IDE_JAVA_SETUP.md](docs/IDE_JAVA_SETUP.md).
+
 ## Structure
 
 ```text

@@ -3,10 +3,10 @@
 Companion for `/java-equals-hashcode`.
 
 ```bash
-javac -d out src/*.java
-java -cp out EqHashMapLab
-java -cp out CornerCasesLab
-java -cp out MasterGapsLab
+mvn -q compile
+mvn -q exec:java -Dexec.mainClass=EqHashMapLab
+mvn -q exec:java -Dexec.mainClass=CornerCasesLab
+mvn -q exec:java -Dexec.mainClass=MasterGapsLab
 ```
 
 ## Labs
