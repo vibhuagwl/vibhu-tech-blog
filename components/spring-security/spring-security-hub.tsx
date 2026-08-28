@@ -8,6 +8,7 @@ import {CHEAT_SHEET} from '@/lib/spring-security/cheatsheet';
 import {COMPARISON_TABLES} from '@/lib/spring-security/comparison';
 import {SECURITY_TOC, VERSION_NOTE} from '@/lib/spring-security/toc';
 import {INTERVIEW_QA, TOPICS} from '@/lib/spring-security/topics';
+import {MEMORY_DIAGRAMS} from '@/lib/spring-security/memory-diagrams';
 import MemoryDiagramsSection from './memory-diagrams-section';
 import StickyToc from './sticky-toc';
 import TopicPanel from './topic-panel';
@@ -200,7 +201,7 @@ AWS ACM (edge) · KMS (data keys) · Secrets Manager (credentials)`}
           <Section
             id="memory-diagrams"
             title="Memory diagrams — visual interview recall"
-            lead="20 whiteboard diagrams with one-line hooks. Draw these from memory for Staff/Principal Spring Security interviews. Each links to the full topic below."
+            lead={`${MEMORY_DIAGRAMS.length} whiteboard diagrams across network, crypto, OAuth, identity, authorization, threats, cloud, and ops — one-line hooks for every major topic. Filter by group or scroll all.`}
           >
             <MemoryDiagramsSection />
           </Section>

@@ -1,15 +1,14 @@
-export type MemoryDiagram = {
-  id: string;
-  title: string;
-  hook: string;
-  mermaid: string;
-  anchors?: {id: string; label: string}[];
-};
+import {MEMORY_DIAGRAMS_EXTENDED} from './memory-diagrams-extended';
+export type {MemoryDiagram} from './memory-diagram-types';
+export {MEMORY_DIAGRAM_GROUPS} from './memory-diagram-types';
+
+import type {MemoryDiagram} from './memory-diagram-types';
 
 /** Whiteboard-ready diagrams — one glance each for Staff/Principal interviews. */
 export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   {
     id: 'lifecycle',
+    group: 'Overview',
     title: 'Security lifecycle (memorize this first)',
     hook: 'IDENTITY → AUTHN → TOKENS → AUTHZ → ACCESS → AUDIT → INCIDENT',
     mermaid: `flowchart TB
@@ -29,6 +28,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'filter-chain',
+    group: 'Overview',
     title: 'Spring Security filter chain (north → south)',
     hook: 'DelegatingFilterProxy → FilterChainProxy → filters → controller',
     mermaid: `flowchart TD
@@ -51,6 +51,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'authn-authz-401-403',
+    group: 'Overview',
     title: 'Authentication vs Authorization · 401 vs 403',
     hook: 'No token / bad token = 401 · Valid token, wrong permission = 403',
     mermaid: `flowchart LR
@@ -71,6 +72,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'auth-manager-flow',
+    group: 'OAuth & Tokens',
     title: 'Login → AuthenticationManager → Provider',
     hook: 'POST /login → Manager → Provider → UserDetailsService → PasswordEncoder',
     mermaid: `flowchart TD
@@ -87,6 +89,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'oauth-code-pkce',
+    group: 'OAuth & Tokens',
     title: 'OAuth2 Authorization Code + PKCE',
     hook: 'Browser → authorize + code_challenge → code → token + code_verifier',
     mermaid: `sequenceDiagram
@@ -110,6 +113,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'jwt-anatomy',
+    group: 'OAuth & Tokens',
     title: 'JWT anatomy — what to validate',
     hook: 'Header alg/kid · Payload iss/sub/aud/exp · Signature — never trust payload alone',
     mermaid: `flowchart TB
@@ -131,6 +135,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'jwt-vs-opaque',
+    group: 'OAuth & Tokens',
     title: 'JWT vs Opaque token — when to pick which',
     hook: 'JWT = fast local validate · Opaque = instant revoke via introspect',
     mermaid: `flowchart TD
@@ -149,6 +154,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'refresh-rotation',
+    group: 'OAuth & Tokens',
     title: 'Refresh token rotation + reuse detection',
     hook: 'R1 → A1 + R2 (R1 dead) · Reuse R1 → revoke entire family',
     mermaid: `flowchart TD
@@ -162,6 +168,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'jwks-rotation',
+    group: 'OAuth & Tokens',
     title: 'JWT key rotation (zero downtime)',
     hook: 'Old + New in JWKS → sign with New kid → wait TTL → remove Old',
     mermaid: `flowchart LR
@@ -174,6 +181,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'oidc-tokens',
+    group: 'OAuth & Tokens',
     title: 'OIDC — ID Token vs Access Token',
     hook: 'ID token → browser identity · Access token → API only — never swap them',
     mermaid: `flowchart LR
@@ -193,6 +201,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'object-level',
+    group: 'Authorization',
     title: 'Object-level authorization (stop BOLA / IDOR)',
     hook: 'Authenticated + scope + THIS payment.tenantId + THIS payment.ownerId',
     mermaid: `flowchart TD
@@ -213,6 +222,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'multi-tenant',
+    group: 'Authorization',
     title: 'Multi-tenant isolation',
     hook: 'JWT tenant_id → TenantContext → every query filters tenant',
     mermaid: `flowchart TD
@@ -226,6 +236,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'token-relay',
+    group: 'OAuth & Tokens',
     title: 'Token relay vs token exchange',
     hook: 'Do NOT blind-forward user JWT — exchange for narrow service token',
     mermaid: `flowchart TD
@@ -238,6 +249,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'mfa-step-up',
+    group: 'Identity & Sessions',
     title: 'MFA step-up for high-risk actions',
     hook: 'Normal read = JWT · Approve payment = JWT + fresh mfa_at claim',
     mermaid: `flowchart LR
@@ -250,6 +262,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'bff-pattern',
+    group: 'Identity & Sessions',
     title: 'BFF — tokens stay server-side',
     hook: 'Browser gets HttpOnly cookie · BFF holds OAuth tokens · JS never sees access_token',
     mermaid: `flowchart LR
@@ -261,6 +274,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'enterprise-stack',
+    group: 'Overview',
     title: 'Enterprise FinTech security stack (5-min whiteboard)',
     hook: 'IdP → Gateway → services JWT+mTLS → Kafka TLS+ACL → audit',
     mermaid: `flowchart TB
@@ -282,6 +296,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'defense-in-depth',
+    group: 'Overview',
     title: 'Defense in depth — 7 layers on one payment POST',
     hook: 'WAF → Gateway JWT → mTLS → @PreAuthorize → object check → DB tenant filter → audit',
     mermaid: `flowchart TD
@@ -295,6 +310,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'oauth-threats',
+    group: 'OAuth & Tokens',
     title: 'OAuth2 threats → Spring fix (quick map)',
     hook: 'Code theft→PKCE · Redirect→exact URI · CSRF→state · Deputy→aud/iss',
     mermaid: `flowchart LR
@@ -308,6 +324,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'session-vs-stateless',
+    group: 'Identity & Sessions',
     title: 'Stateful session vs stateless JWT',
     hook: 'Session = CSRF on + HttpOnly cookie · JWT Bearer = CSRF off + no server session',
     mermaid: `flowchart TD
@@ -329,6 +346,7 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   },
   {
     id: 'incident-playbook',
+    group: 'Operations & Testing',
     title: 'Incident response — 3 scenarios',
     hook: 'Compromised JWT → denylist jti · Key leak → rotate JWKS · API key → revoke + notify',
     mermaid: `flowchart TD
@@ -348,4 +366,5 @@ export const MEMORY_DIAGRAMS: MemoryDiagram[] = [
   end`,
     anchors: [{id: 'incident-response', label: 'Incident runbooks'}],
   },
+  ...MEMORY_DIAGRAMS_EXTENDED,
 ];
