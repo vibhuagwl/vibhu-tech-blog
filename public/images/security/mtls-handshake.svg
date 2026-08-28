@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" role="img" aria-label="TLS vs mTLS">
+  <rect width="640" height="280" fill="#fff"/>
+  <text x="320" y="28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" font-weight="600" fill="#0f172a">TLS vs mTLS</text>
+  <rect x="30" y="50" width="270" height="200" rx="10" fill="#f8fafc" stroke="#64748b"/>
+  <text x="165" y="78" text-anchor="middle" font-weight="600" fill="#334155">TLS (one-way)</text>
+  <text x="165" y="120" text-anchor="middle" font-size="13" fill="#475569">Client verifies server cert</text>
+  <text x="165" y="145" text-anchor="middle" font-size="13" fill="#475569">Browser → API</text>
+  <rect x="340" y="50" width="270" height="200" rx="10" fill="#ecfdf5" stroke="#059669"/>
+  <text x="475" y="78" text-anchor="middle" font-weight="600" fill="#065f46">mTLS (mutual)</text>
+  <text x="475" y="115" text-anchor="middle" font-size="13" fill="#334155">Both present certificates</text>
+  <text x="475" y="140" text-anchor="middle" font-size="13" fill="#334155">Service A ↔ Service B</text>
+  <text x="475" y="165" text-anchor="middle" font-size="13" fill="#334155">Payment → Bank adapter</text>
+  <text x="320" y="265" text-anchor="middle" font-size="12" fill="#64748b">Spring: client-auth: none | want | need</text>
+</svg>

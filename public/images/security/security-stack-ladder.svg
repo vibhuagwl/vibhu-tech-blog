@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 640" role="img" aria-label="Security stack ladder">
+  <defs>
+    <style>
+      .t{font:600 14px system-ui,sans-serif;fill:#0f172a}
+      .s{font:500 11px system-ui,sans-serif;fill:#475569}
+      .step{rx:8;stroke-width:2;fill:#ecfdf5;stroke:#059669}
+      .arrow{stroke:#059669;stroke-width:2;fill:none}
+    </style>
+  </defs>
+  <rect width="480" height="640" fill="#fff"/>
+  <text x="240" y="36" text-anchor="middle" class="t" font-size="16">Security Stack Ladder</text>
+  <g transform="translate(90,60)">
+    <rect class="step" x="0" y="0" width="300" height="48"/><text x="150" y="30" text-anchor="middle" class="t">HTTP  port 8080 plaintext</text>
+    <path class="arrow" d="M150 48 V68"/>
+    <rect class="step" x="0" y="68" width="300" height="48"/><text x="150" y="98" text-anchor="middle" class="t">HTTPS  server.ssl.enabled</text>
+    <path class="arrow" d="M150 116 V136"/>
+    <rect class="step" x="0" y="136" width="300" height="48"/><text x="150" y="166" text-anchor="middle" class="t">TLS 1.3  cert + truststore</text>
+    <path class="arrow" d="M150 184 V204"/>
+    <rect class="step" x="0" y="204" width="300" height="48"/><text x="150" y="234" text-anchor="middle" class="t">Certificate / X.509 chain</text>
+    <path class="arrow" d="M150 252 V272"/>
+    <rect class="step" x="0" y="272" width="300" height="48"/><text x="150" y="302" text-anchor="middle" class="t">Public / Private key pair</text>
+    <path class="arrow" d="M150 320 V340"/>
+    <rect class="step" x="0" y="340" width="300" height="48"/><text x="150" y="370" text-anchor="middle" class="t">Keystore / Truststore</text>
+    <path class="arrow" d="M150 388 V408"/>
+    <rect class="step" x="0" y="408" width="300" height="48"/><text x="150" y="438" text-anchor="middle" class="t">mTLS  client-auth: need</text>
+    <path class="arrow" d="M150 456 V476"/>
+    <rect class="step" x="0" y="476" width="300" height="48"/><text x="150" y="506" text-anchor="middle" class="t">Spring Security filters</text>
+    <path class="arrow" d="M150 524 V544"/>
+    <rect class="step" x="0" y="544" width="300" height="48"/><text x="150" y="574" text-anchor="middle" class="t">JWT / OAuth2 / OIDC / SAML</text>
+  </g>
+  <text x="240" y="628" text-anchor="middle" class="s">’ AWS ACM · KMS · Secrets Manager at production edge</text>
+</svg>
