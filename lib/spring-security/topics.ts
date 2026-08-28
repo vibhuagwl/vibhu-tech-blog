@@ -1,3 +1,4 @@
+import {TOPICS_ADVANCED} from './topics-advanced';
 import {TOPICS_APP} from './topics-app';
 import {TOPICS_ARCH} from './topics-arch';
 import {TOPICS_CLOUD} from './topics-cloud';
@@ -9,6 +10,7 @@ export const TOPICS: SecTopic[] = [
   ...TOPICS_NETWORK,
   ...TOPICS_CRYPTO,
   ...TOPICS_APP,
+  ...TOPICS_ADVANCED,
   ...TOPICS_CLOUD,
   ...TOPICS_ARCH,
 ];
@@ -149,14 +151,32 @@ export const INTERVIEW_QA: InterviewQ[] = [
     traps: 'hasRole("ROLE_ADMIN") — double ROLE_ prefix.',
   },
   {
-    id: 'sec-q15',
-    topic: 'DDoS',
-    question: 'Rate limiting vs scaling — payment API under flood?',
-    answer30s: 'Rate limit first (429 Retry-After) — scaling alone lets attack exhaust DB. Edge WAF/Shield for volumetric; app Resilience4j for login/payment endpoints.',
-    answer2m: 'spring-jwt AuthRateLimitFilter on /api/auth/login. Gateway distributed RL + WAF rate rules. Distinguish volumetric (CDN) vs app-layer (credential stuffing). Protect pools — CB when downstream saturated. spring-ddos-demo defense layers.',
-    followUps: ['Token bucket vs fixed window?', 'Captcha placement?'],
-    traps: 'Autoscaling gateways while DB connection pool dies.',
-    labHref: '/spring-ddos-demo',
+    id: 'sec-q16',
+    topic: 'OAuth AS',
+    question: 'When use JWT vs opaque token + introspection?',
+    answer30s: 'JWT: self-contained, fast local validation, good for high throughput. Opaque: central revocation, immediate logout, better for high-security or when token state must be server-side.',
+    answer2m: 'JWT validate sig+iss+aud locally; revocation needs jti denylist or wait for exp. Opaque POST /introspect returns active=true/false — instant revoke but latency + cache tradeoff. Spring: oauth2ResourceServer().jwt() vs opaqueToken(). FinTech high-value: opaque or short JWT + introspection cache 30s.',
+    followUps: ['How to cache introspection safely?', 'JWT key rotation with kid?'],
+    traps: 'Opaque token without cache — AS becomes single point of failure under load.',
+  },
+  {
+    id: 'sec-q17',
+    topic: 'AuthZ',
+    question: 'What is object-level authorization and why is scope alone insufficient?',
+    answer30s: 'Scope says "can read payments"; object-level says "can read THIS payment". Without it, BOLA/IDOR: change ID in URL to access another user\'s payment.',
+    answer2m: 'GET /payments/123 needs: authenticated + SCOPE_payment:read + payment.tenantId == jwt.tenant_id + payment.ownerId == sub. Implement via @PreAuthorize("@paymentSecurity.canRead(auth,#id)") and service-layer re-check. Gateway scope check is necessary not sufficient.',
+    followUps: ['AuthorizationManager vs @PreAuthorize?', 'Multi-tenant row filter?'],
+    traps: 'hasAuthority("SCOPE_payment:read") only — classic OWASP API #1 vulnerability.',
+  },
+  {
+    id: 'sec-q18',
+    topic: 'Tokens',
+    question: 'Explain refresh token rotation and reuse detection.',
+    answer30s: 'Each refresh returns new refresh token and invalidates old one. If old refresh presented again — token theft — revoke entire token family.',
+    answer2m: 'R1 → A1 + R2 (R1 dead). Attacker steals R1, legitimate user has R2. Attacker uses R1 → REUSE DETECTED → revoke family, force re-login. Store refresh token hash, not raw. Absolute lifetime 30d + idle 7d. spring-jwt-demo opaque refresh pattern.',
+    followUps: ['Concurrent refresh from two tabs?', 'Where store token family?'],
+    traps: 'Non-rotating refresh valid 90 days — stolen token window too long.',
+    labHref: '/spring-jwt-demo',
   },
 ];
 

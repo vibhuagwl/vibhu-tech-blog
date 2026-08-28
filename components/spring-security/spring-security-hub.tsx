@@ -193,7 +193,7 @@ AWS ACM (edge) · KMS (data keys) · Secrets Manager (credentials)`}
             <SpringSecurityInterviewMemory />
           </div>
 
-          <Section id="topics" title="All security topics" lead="Click + to expand. Default tab is Code / config. 41 topics across network, crypto, app, cloud, and architecture.">
+          <Section id="topics" title="All security topics" lead="Click + to expand. Default tab is Code / config. 75+ topics across network, crypto, app, OAuth/tokens, authorization, cloud, and architecture — gap-filled for Staff/Principal interviews.">
             <div className="space-y-4">
               {TOPICS.map((t) => (
                 <TopicPanel key={t.id} t={t} />
