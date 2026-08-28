@@ -228,31 +228,52 @@ export const DECISION_TREES: DecisionTree[] = [
 export const CHEAT_SHEET = `
 # Microservices Patterns — One-Page Cheat Sheet
 
+## Communication (REST vs gRPC vs Kafka)
+| Protocol | Use when | Avoid when |
+|----------|----------|------------|
+| REST/JSON | Browser, public API, CRUD, OpenAPI | Internal 50k RPS RPC |
+| gRPC | Internal high-throughput, deadlines, streaming | Browser clients |
+| Kafka | Async, saga, fan-out, replay, decouple | Need sync answer in same request |
+
 ## Decompose
 | Pattern | Use when |
 |---------|----------|
 | By business capability | Clear domain ownership |
+| DDD bounded context | Complex domain, ubiquitous language |
+| Service per team | Conway's Law alignment |
 | Strangler fig | Incremental legacy migration |
 | Anti-corruption layer | Legacy model ≠ new domain |
 
-## Edge
-| Pattern | Use when |
-|---------|----------|
-| API Gateway | Single entry, cross-cutting concerns |
-| BFF | Different client shapes (mobile vs web) |
+## Edge (Gateway vs BFF vs Composition)
+| Pattern | Role |
+|---------|------|
+| API Gateway | Single entry: auth, routing, rate limit, TLS |
+| BFF | Client-specific API shape (mobile vs web) |
+| API Composition | Merge multiple services in one response |
 
-## Resilience (always combine)
-**Timeout** → **Retry** (idempotent only) → **Circuit Breaker** → **Bulkhead**
-Propagate deadlines. Never retry without idempotency.
+## Resilience (always combine — apply in this order)
+**Timeout** (mandatory) → **Bulkhead** (isolate) → **Circuit Breaker** (fail fast) → **Retry** (idempotent + jitter) → **Rate Limit** (edge) → **DLQ** (terminal failure)
+
+## Distributed transactions
+Saga = compensating transactions — NOT database ROLLBACK across services.
+| Style | When |
+|-------|------|
+| Choreography | Event-native, many teams, Kafka |
+| Orchestration | Clear owner, complex state machine |
+| Outbox | DB + Kafka atomic publish |
 
 ## Data
 | Pattern | Guarantees |
 |---------|------------|
 | Database per service | Loose coupling |
 | Outbox | Reliable publish after DB commit |
-| Inbox | Dedupe at-least-once consume |
-| Saga | Cross-service eventual consistency |
+| Inbox / dedupe table | At-least-once → effectively-once |
+| Saga + compensation | Cross-service eventual consistency |
 | CQRS | Scale reads, accept projection lag |
+| Event Sourcing | Audit + temporal queries (heavy ops) |
+
+## Idempotency stack
+Idempotency-Key (API) + UNIQUE constraint + Kafka idempotent producer + consumer dedupe table
 
 ## Messaging
 Partition by business key · Manual ack · DLT for poison · Idempotent handlers
@@ -260,14 +281,11 @@ Partition by business key · Manual ack · DLT for poison · Idempotent handlers
 ## Caching
 Cache-aside + TTL · Stampede lock · Invalidate on write event
 
-## Distributed primitives
-Leader election (single writer) · Fencing token (stale leader) · Snowflake ID (ordered unique)
-
 ## Anti-patterns to avoid
-Shared DB · Distributed monolith · Chatty sync chain · Retry storm · Event-driven everything
+Shared DB · Distributed monolith · Chatty sync chain · Retry storm · Event-driven everything · No timeout · No idempotency
 
 ## Interview opener
-"Decompose by capability, own your data, communicate async with outbox/inbox, isolate failures with timeout/retry/CB/bulkhead, prove correctness with idempotency + tests."
+"Decompose by capability, own your data, communicate async with outbox/inbox, isolate failures with timeout/retry/CB/bulkhead, prove correctness with idempotency + tests. Saga compensates — never expect XA rollback."
 `;
 
 export const PATTERN_MATRIX: MatrixRow[] = [

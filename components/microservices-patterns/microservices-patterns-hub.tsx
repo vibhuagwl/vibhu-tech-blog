@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type {PatternCard} from '@/lib/microservices-patterns/types';
 import {MSP_TOC, MEMORY_SENTENCE, VERSION_NOTE} from '@/lib/microservices-patterns/toc';
 import {PATTERN_GROUPS, ALL_PATTERNS, DECOMPOSE_ASCII, GATEWAY_ASCII} from '@/lib/microservices-patterns/catalog';
+import {COMMUNICATION_ASCII, FINTECH_E2E, RESILIENCE_MASTER_ASCII, DECISION_GUIDE, GATEWAY_COMPARISON, CQRS_ES_EDA_COMPARISON} from '@/lib/microservices-patterns/parts-fintech-resilience-guide';
 import {
   PRODUCTION_PROJECT,
   TESTING_STRATEGY,
@@ -498,12 +499,15 @@ export default function MicroservicesPatternsHub({
               <Pre>{GATEWAY_ASCII}</Pre>
             </div>
             <div className="mt-4">
+              <Pre>{COMMUNICATION_ASCII}</Pre>
+            </div>
+            <div className="mt-4">
               <MiniTable
                 headers={['Layer', 'Artifact', 'What you get']}
                 rows={[
                   [
                     'Catalog',
-                    '154 PatternCards',
+                    `${ALL_PATTERNS.length} PatternCards`,
                     'Java + Spring + IT/failure tests; Kafka/DB/Redis when the pattern needs them',
                   ],
                   [
@@ -528,7 +532,7 @@ export default function MicroservicesPatternsHub({
             </Section>
           ))}
 
-          <Section id="project" title="22. Production project · e2e platform" lead={PRODUCTION_PROJECT.title}>
+          <Section id="project" title="23. Production project · e2e platform" lead={PRODUCTION_PROJECT.title}>
             <Pre>{PRODUCTION_PROJECT.ascii}</Pre>
             <div className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-600 dark:text-slate-300">
               {PRODUCTION_PROJECT.description}
@@ -582,7 +586,7 @@ export default function MicroservicesPatternsHub({
             </ul>
             <div className="mt-6">
               <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">
-                E2E field coverage (all 154)
+                E2E field coverage (all {ALL_PATTERNS.length})
               </h3>
               <MiniTable
                 headers={['Pattern', 'Java', 'Spring', 'Kafka', 'DB', 'Redis', 'Unit', 'IT', 'Fail', 'Conc', 'Status']}
@@ -591,7 +595,7 @@ export default function MicroservicesPatternsHub({
             </div>
           </Section>
 
-          <Section id="testing" title="23. Testing strategy" lead={TESTING_STRATEGY.overview}>
+          <Section id="testing" title="24. Testing strategy" lead={TESTING_STRATEGY.overview}>
             {TESTING_STRATEGY.layers.map((layer) => (
               <div key={layer.name} className="mt-4">
                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{layer.name}</h3>
@@ -608,7 +612,7 @@ export default function MicroservicesPatternsHub({
             </ul>
           </Section>
 
-          <Section id="performance" title="24. Performance at scale" lead="What breaks at 100 → 100k RPS.">
+          <Section id="performance" title="25. Performance at scale" lead="What breaks at 100 → 100k RPS.">
             <MiniTable
               headers={['Pattern', '100 rps', '1k', '10k', '100k', 'Mitigation']}
               rows={PERFORMANCE_ROWS}
@@ -620,13 +624,13 @@ export default function MicroservicesPatternsHub({
 
           <Section
             id="interview"
-            title="25. Interview master bank"
+            title="26. Interview master bank"
             lead="100 basic · 100 intermediate · 100 senior · 100 lead/architect · 100 scenario — with wrong answers."
           >
             <InterviewBank />
           </Section>
 
-          <Section id="decisions" title="26. Decision trees" lead="Pick the pattern from the symptom, not the buzzword.">
+          <Section id="decisions" title="27. Decision trees" lead="Pick the pattern from the symptom, not the buzzword.">
             <div className="grid gap-4 lg:grid-cols-2">
               {DECISION_TREES.map((t) => (
                 <div key={t.id}>
@@ -639,7 +643,7 @@ export default function MicroservicesPatternsHub({
 
           <Section
             id="cheatsheet"
-            title="27. Cheat sheet · matrix"
+            title="28. Cheat sheet · matrix"
             lead="One-page recall + Pattern → Problem → Solution → Trade-off → Interview Q."
           >
             <Pre>{CHEAT_SHEET}</Pre>
@@ -649,6 +653,47 @@ export default function MicroservicesPatternsHub({
                 rows={PATTERN_MATRIX.map((r) => [r.pattern, r.problem, r.solution, r.tradeoff, r.interviewQ])}
               />
             </div>
+          </Section>
+
+          <Section id="fintech-e2e" title="29. FinTech end-to-end example" lead={FINTECH_E2E.description}>
+            <Pre>{FINTECH_E2E.ascii}</Pre>
+            <div className="mt-4">
+              <CodePanel title="Order + outbox + payment consumer" code={FINTECH_E2E.code} />
+            </div>
+            <div className="mt-6">
+              <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">
+                Failure scenarios → which pattern handles it
+              </h3>
+              <MiniTable
+                headers={['Failure', 'Pattern(s) that handle it']}
+                rows={FINTECH_E2E.failureScenarios.map((f) => [f.failure, f.pattern])}
+              />
+            </div>
+          </Section>
+
+          <Section id="resilience-master" title="30. Resilience master pattern" lead="How timeout, bulkhead, circuit breaker, retry, rate limit, and DLQ work together.">
+            <Pre>{RESILIENCE_MASTER_ASCII}</Pre>
+            <div className="mt-4">
+              <MiniTable
+                headers={GATEWAY_COMPARISON.headers}
+                rows={GATEWAY_COMPARISON.rows}
+              />
+            </div>
+            <div className="mt-4">
+              <h3 className="mb-2 text-sm font-bold uppercase tracking-[.12em] text-slate-500">
+                CQRS vs Event Sourcing vs Event-Driven Architecture
+              </h3>
+              <MiniTable headers={CQRS_ES_EDA_COMPARISON.headers} rows={CQRS_ES_EDA_COMPARISON.rows} />
+            </div>
+          </Section>
+
+          <Section id="decision-guide" title="31. Patterns decision guide" lead="Start from the problem — not the pattern name.">
+            <Pre>{DECISION_GUIDE.ascii}</Pre>
+            <ul className="mt-4 list-disc pl-5 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              {DECISION_GUIDE.principles.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
           </Section>
         </div>
       </div>
