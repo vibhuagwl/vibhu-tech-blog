@@ -8,6 +8,8 @@ import {CHEAT_SHEET} from '@/lib/spring-security/cheatsheet';
 import {COMPARISON_TABLES} from '@/lib/spring-security/comparison';
 import {SECURITY_TOC, VERSION_NOTE} from '@/lib/spring-security/toc';
 import {INTERVIEW_QA, TOPICS} from '@/lib/spring-security/topics';
+import {MEMORY_DIAGRAMS} from '@/lib/spring-security/memory-diagrams';
+import MemoryDiagramsSection from './memory-diagrams-section';
 import StickyToc from './sticky-toc';
 import TopicPanel from './topic-panel';
 
@@ -108,6 +110,9 @@ export default function SpringSecurityHub() {
           <a href="#labs" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-400">
             Labs →
           </a>
+          <a href="#memory-diagrams" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-400">
+            Memory diagrams →
+          </a>
           <a href="#interview-memory" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-400">
             Interview memory →
           </a>
@@ -193,7 +198,15 @@ AWS ACM (edge) · KMS (data keys) · Secrets Manager (credentials)`}
             <SpringSecurityInterviewMemory />
           </div>
 
-          <Section id="topics" title="All security topics" lead="Click + to expand. Default tab is Code / config. 41 topics across network, crypto, app, cloud, and architecture.">
+          <Section
+            id="memory-diagrams"
+            title="Memory diagrams — visual interview recall"
+            lead={`${MEMORY_DIAGRAMS.length} whiteboard diagrams across network, crypto, OAuth, identity, authorization, threats, cloud, and ops — one-line hooks for every major topic. Filter by group or scroll all.`}
+          >
+            <MemoryDiagramsSection />
+          </Section>
+
+          <Section id="topics" title="All security topics" lead="Click + to expand. Default tab is Code / config. 75+ topics across network, crypto, app, OAuth/tokens, authorization, cloud, and architecture — gap-filled for Staff/Principal interviews.">
             <div className="space-y-4">
               {TOPICS.map((t) => (
                 <TopicPanel key={t.id} t={t} />

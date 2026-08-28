@@ -6,6 +6,7 @@ export const SECURITY_TOC: TocItem[] = [
   {id: 'stack-ladder', label: 'HTTP → AWS stack', group: 'Overview'},
   {id: 'labs', label: 'Runnable labs (existing)', group: 'Overview'},
   {id: 'interview-memory', label: 'Interview memory', group: 'Overview'},
+  {id: 'memory-diagrams', label: 'Memory diagrams (visual)', group: 'Overview'},
 
   {id: 'http-internal', label: 'HTTP internal working', group: 'Network'},
   {id: 'http-vs-https', label: 'HTTP vs HTTPS', group: 'Network'},
@@ -40,6 +41,42 @@ export const SECURITY_TOC: TocItem[] = [
   {id: 'mitm', label: 'MITM', group: 'Application'},
   {id: 'security-headers', label: 'Security headers', group: 'Application'},
 
+  {id: 'security-internals', label: 'Security internals (deep)', group: 'OAuth & Tokens'},
+  {id: 'auth-manager-provider', label: 'AuthenticationManager / Provider', group: 'OAuth & Tokens'},
+  {id: 'custom-filters', label: 'Custom filters & ordering', group: 'OAuth & Tokens'},
+  {id: 'jwt-production', label: 'JWT production validation', group: 'OAuth & Tokens'},
+  {id: 'jwt-key-rotation', label: 'JWT key rotation / JWKS', group: 'OAuth & Tokens'},
+  {id: 'opaque-token-introspection', label: 'Opaque token introspection', group: 'OAuth & Tokens'},
+  {id: 'token-revocation', label: 'Token revocation', group: 'OAuth & Tokens'},
+  {id: 'refresh-token-security', label: 'Refresh token rotation', group: 'OAuth & Tokens'},
+  {id: 'oauth2-auth-server', label: 'OAuth 2.1 Authorization Server', group: 'OAuth & Tokens'},
+  {id: 'oauth2-client', label: 'OAuth2 Client (M2M + login)', group: 'OAuth & Tokens'},
+  {id: 'token-relay-propagation', label: 'Token relay / propagation', group: 'OAuth & Tokens'},
+  {id: 'oauth2-threat-model', label: 'OAuth2 threat model', group: 'OAuth & Tokens'},
+  {id: 'oidc-deep-dive', label: 'OIDC deep dive', group: 'OAuth & Tokens'},
+  {id: 'mfa-step-up', label: 'MFA & step-up auth', group: 'Identity'},
+  {id: 'webauthn-passkeys', label: 'WebAuthn / Passkeys', group: 'Identity'},
+  {id: 'api-key-security', label: 'API key security', group: 'Identity'},
+  {id: 'password-hardening', label: 'Password hardening', group: 'Identity'},
+  {id: 'session-management', label: 'Session management', group: 'Identity'},
+  {id: 'bff-pattern', label: 'BFF security pattern', group: 'Identity'},
+  {id: 'object-level-authz', label: 'Object-level authorization', group: 'Authorization'},
+  {id: 'method-security', label: 'Method security deep dive', group: 'Authorization'},
+  {id: 'multi-tenant-security', label: 'Multi-tenant security', group: 'Authorization'},
+  {id: 'policy-authz', label: 'Policy auth (RBAC/ABAC/OPA)', group: 'Authorization'},
+  {id: 'actuator-security', label: 'Actuator security', group: 'Operations'},
+  {id: 'security-context-propagation', label: 'SecurityContext propagation', group: 'Operations'},
+  {id: 'webflux-security', label: 'WebFlux security', group: 'Operations'},
+  {id: 'microservice-security', label: 'Microservice security arch', group: 'Operations'},
+  {id: 'security-testing', label: 'Security testing', group: 'Testing & Ops'},
+  {id: 'security-integration-testing', label: 'Security integration tests', group: 'Testing & Ops'},
+  {id: 'security-audit', label: 'Security audit events', group: 'Testing & Ops'},
+  {id: 'incident-response', label: 'Incident response', group: 'Testing & Ops'},
+  {id: 'security-patterns', label: 'Security design patterns', group: 'Testing & Ops'},
+  {id: 'common-mistakes', label: 'Common mistakes', group: 'Testing & Ops'},
+  {id: 'production-checklist', label: 'Production checklist', group: 'Testing & Ops'},
+  {id: 'enterprise-architecture', label: 'Enterprise architecture capstone', group: 'Testing & Ops'},
+
   {id: 'api-security', label: 'API security layers', group: 'API'},
   {id: 'rate-limit-ddos', label: 'Rate limit / DDoS', group: 'API'},
 
@@ -60,4 +97,4 @@ export const SECURITY_TOC: TocItem[] = [
 ];
 
 export const VERSION_NOTE =
-  'Spring Boot 3.4 · Spring Security 6.4 · Java 21. ~90% code/config/commands · ~10% theory. Labs: /spring-jwt-demo · /oauth-jwt-demo · /encryption · sibling: /api-gateway · /resilience4j';
+  'Spring Boot 3.4 · Spring Security 6.4 · Java 21. ~90% code/config/commands · ~10% theory. 75+ topics incl. OAuth 2.1 AS, introspection, JWT rotation, MFA, object-level authz. Labs: /spring-jwt-demo · /oauth-jwt-demo · /encryption · sibling: /api-gateway · /resilience4j';
