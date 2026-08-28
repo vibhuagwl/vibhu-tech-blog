@@ -86,5 +86,6 @@ export const SECTION_CATEGORIES={
   'realtime-issues':['Real-Time Issues'],
   'jpmc-experience':['JPMC Experience'],
   performance:['Performance'],
+  visuals:['Visual Story'],
 } as const;
 

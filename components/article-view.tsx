@@ -34,6 +34,7 @@ const SECTION_LABEL:Record<Section,string>={
   'realtime-issues':'Real-Time Issues',
   performance:'Performance',
   'jpmc-experience':'JPMC Experience',
+  visuals:'Visual Stories',
 };
 
 function sortSectionPosts<T extends {slug:string;title:string}>(posts:T[],section:Section){
