@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const BASE = "https://vibhutechblog.github.io/vibhu-tech-blog";
+const BASE = "https://vibhuagwl.github.io/vibhu-tech-blog";
 
 export const dynamic = "force-static";
 

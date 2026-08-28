@@ -1,5 +1,8 @@
 # Vibhu Architect
 
+**Live site:** https://vibhuagwl.github.io/vibhu-tech-blog/  
+(Use this URL — not the repo README view on GitHub, and not https://vibhuagwl.github.io/ which is a separate portfolio page.)
+
 Production-oriented system design interview preparation by Vibhu Agarwal — built for **Senior → Staff/Principal** interviews (FAANG, high-scale tech, FinTech).
 
 Learn through real-world stories, architecture diagrams, capacity estimates, failure scenarios, trade-offs, and follow-ups — not technology name-dropping.

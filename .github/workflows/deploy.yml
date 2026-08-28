@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  administration: write
 
 concurrency:
   group: pages
@@ -41,6 +42,12 @@ jobs:
         with:
           # Stop "Deploy from branch" / Jekyll from overwriting the Next.js export.
           enablement: true
+      - name: Switch Pages source to GitHub Actions only
+        run: |
+          gh api --method PUT "repos/${{ github.repository }}/pages" \
+            -f build_type=workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
