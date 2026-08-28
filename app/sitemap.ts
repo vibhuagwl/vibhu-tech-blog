@@ -201,6 +201,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: `${BASE}/aws-interview/`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
       url: `${BASE}/kafka-interview/`,
       lastModified: now,
       changeFrequency: "weekly",

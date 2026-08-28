@@ -187,6 +187,8 @@ export const TOPIC_GROUPS:NavGroup[]=[
       {href:'/dsa',label:'DSA Patterns',blurb:'Islands · sliding window · Java'},
       {href:'/complexity',label:'Time & Space Complexity',blurb:'Big-O from production code'},
       {href:'/git-guide',label:'Git Mastery',blurb:'Rebase · hotfix · reflog'},
+      {href:'/aws-interview',label:'AWS Interview Prep',blurb:'VPC · IAM · ECS · RDS · MSK · 50+ diagrams'},
+      {href:'/cost-optimization',label:'Cloud Cost / FinOps',blurb:'NAT · right-sizing · TCO'},
     ],
   },
 ];
