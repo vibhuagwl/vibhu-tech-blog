@@ -688,6 +688,80 @@ CREATE TABLE payment_holds (
       'Design TCC for multi-currency with FX hold.',
     ],
   },
+  {
+    id: 'compensating-transaction',
+    part: 6,
+    name: 'Compensating Transaction',
+    frequency: 'Frequently used',
+    definition:
+      'Semantic undo of a completed step in a saga — NOT a database ROLLBACK across services. Each service publishes a compensating action (CancelOrder, RefundPayment) when a later step fails.',
+    problem:
+      'Payment succeeded but inventory reservation failed — you cannot ROLLBACK Payment\'s committed DB row from Order service. Need business-level undo.',
+    realWorld:
+      'OrderCreated → PaymentCaptured → Inventory FAILED → publish RefundPayment + CancelOrder events.',
+    whyExists:
+      'Distributed transactions have no shared transaction manager; compensation is the only safe undo in microservices.',
+    ascii: `
+Order Service          Payment Service
+   │                        │
+   │ OrderCreated           │
+   ├───────────────────────►│ PaymentCaptured ✓
+   │                        │
+   │ Inventory FAILED       │
+   │◀── PaymentFailed ──────┤ (compensating trigger)
+   │                        │
+   │ CancelOrder            │ RefundPayment
+   │ (local TX)             │ (local TX)
+   
+NOTE: Saga does NOT rollback remote DB — each service runs its own compensating TX
+`,
+    flow: 'Forward step commits locally → later failure → compensating event → each service runs idempotent undo in its own DB.',
+    components: [
+      {name: 'Forward transaction', responsibility: 'Local commit in one service'},
+      {name: 'Compensating transaction', responsibility: 'Semantic undo — refund, cancel, release stock'},
+      {name: 'Saga log', responsibility: 'Track completed steps for compensation order'},
+    ],
+    javaCode: `@Service
+public class OrderCompensationHandler {
+  private final OrderRepository orders;
+
+  @KafkaListener(topics = "payment.events.v1", groupId = "order-saga")
+  @Transactional
+  public void onPaymentFailed(ConsumerRecord<String, String> rec) {
+    PaymentFailedEvent evt = Json.read(rec.value(), PaymentFailedEvent.class);
+    Order order = orders.findById(evt.orderId()).orElseThrow();
+    if (order.getStatus() == OrderStatus.CANCELLED) return; // idempotent compensate
+    order.cancel("Payment failed: " + evt.reason());
+    orders.save(order);
+    // NO remote ROLLBACK — Payment service handles RefundPayment separately
+  }
+}`,
+    kafkaCode: `PaymentFailed → triggers OrderCancelled + InventoryReleased compensations
+Each compensation handler is idempotent`,
+    dbCode: `UPDATE orders SET status='CANCELLED' WHERE order_id=? AND status <> 'CANCELLED'`,
+    unitTest: `@Test void compensate_idempotent_secondPaymentFailedIgnored() {
+  handler.onPaymentFailed(failedEvent("ord-1"));
+  handler.onPaymentFailed(failedEvent("ord-1"));
+  assertEquals(1, orders.countCancelled("ord-1"));
+}`,
+    edgeCases: ['Compensating a non-composable step (email sent) — use compensating notification or accept irreversibility'],
+    failureScenarios: ['Compensation fails — manual reconciliation queue'],
+    retry: 'Retry compensation with idempotency',
+    idempotency: 'Compensation MUST be idempotent — PaymentFailed delivered twice',
+    timeout: 'Saga timeout job triggers compensation if stuck in PENDING',
+    observability: 'Log compensation with correlationId; alert on failed compensation',
+    security: 'Only saga consumer can trigger compensation',
+    performance: 'Compensation is async — user sees PENDING then FAILED',
+    scalability: 'Each service compensates independently',
+    production: 'Design compensations BEFORE forward steps in saga design',
+    mistakes: ['Expecting XA rollback across HTTP', 'Non-idempotent refund'],
+    antiPatterns: ['Distributed 2PC instead of compensation'],
+    alternatives: ['Orchestrator drives compensate commands'],
+    tradeoffs: 'Pros: works across services. Cons: complex; not all steps reversible.',
+    interviewQs: ['Saga compensation vs DB rollback?', 'Payment captured — how compensate?'],
+    trickyQs: ['Compensate after email sent — what pattern?'],
+    seniorFollowUps: ['Draw choreography compensation flow for checkout'],
+  },
 ];
 
 export const DATA_PATTERNS: PatternCard[] = [
@@ -2495,6 +2569,65 @@ public Map<TopicPartition, Long> computeLag(String groupId) {
     interviewQs: ['Lag vs processing time?', 'Lag exceeds retention?'],
     trickyQs: ['Lag during static membership?'],
     seniorFollowUps: ['HPA custom metrics on lag.'],
+  },
+  {
+    id: 'kafka-backpressure',
+    part: 9,
+    name: 'Kafka Backpressure',
+    frequency: 'Occasionally used',
+    definition:
+      'Slow consumers signal upstream to reduce publish rate or buffer — prevent unbounded memory growth and consumer crash loops.',
+    problem:
+      'Settlement consumer processes 100ms/msg but producer sends 10k/s — lag grows until OOM or max.poll.interval exceeded.',
+    realWorld:
+      'Pause consumption, scale consumers, reduce max.poll.records; reactive producer rate limit when lag alert fires.',
+    whyExists:
+      'Async systems need flow control — faster producer + slower consumer = unbounded queue (Kafka retention is not infinite buffer).',
+    ascii: `
+Producer (fast) ──► Kafka topic (buffer)
+                         │
+Consumer (slow) ◄────────┘
+     │
+     ├── lag grows → alert → scale consumers OR pause non-critical producers
+     └── max.poll.interval exceeded → rebalance storm (worse)
+`,
+    flow: 'Monitor lag → threshold exceeded → scale consumer group OR throttle producer OR increase partitions → stabilize lag.',
+    components: [
+      {name: 'Lag monitor', responsibility: 'Alert on positive lag derivative'},
+      {name: 'Consumer tuning', responsibility: 'max.poll.records, concurrency'},
+      {name: 'Producer throttle', responsibility: 'Optional rate limit on non-critical topics'},
+    ],
+    javaCode: `// Reduce batch size when handler is slow
+spring.kafka.consumer.max-poll-records=50
+spring.kafka.listener.concurrency=12
+// Pause/resume programmatically:
+container.pause();
+// ... scale up consumers ...
+container.resume();`,
+    config: `spring.kafka.consumer.max-poll-records=50
+spring.kafka.consumer.max-poll-interval-ms=300000
+spring.kafka.listener.concurrency=12`,
+    kafkaCode: `Monitor: kafka.consumer:type=consumer-fetch-manager-metrics,client-id=*,attribute=records-lag-max`,
+    unitTest: `@Test void maxPollRecords_tunedForHandlerDuration() {
+  assertTrue(handlerP99Ms * maxPollRecords < maxPollIntervalMs);
+}`,
+    edgeCases: ['Rebalance during scale — use cooperative sticky assignor'],
+    failureScenarios: ['Rebalance storm from slow handler + small max.poll.interval'],
+    retry: 'N/A',
+    idempotency: 'N/A',
+    timeout: 'max.poll.interval.ms must exceed worst-case batch processing time',
+    observability: 'Lag derivative alert; consumer processing time histogram',
+    security: 'N/A',
+    performance: 'Right-size max.poll.records vs handler duration',
+    scalability: 'Scale consumers to partition count max',
+    production: 'Autoscale on lag custom metric (KEDA)',
+    mistakes: ['max.poll.interval too small for handler', 'Ignore lag until retention loss'],
+    antiPatterns: ['Unbounded in-memory queue before Kafka'],
+    alternatives: ['Separate priority topics', 'Load shed at gateway'],
+    tradeoffs: 'Pros: system stability. Cons: added latency during overload.',
+    interviewQs: ['Backpressure in Kafka vs reactive streams?', 'max.poll.interval exceeded — cause?'],
+    trickyQs: ['Pause consumer — what happens to producer?'],
+    seniorFollowUps: ['Design autoscaling on consumer lag'],
   },
 ];
 

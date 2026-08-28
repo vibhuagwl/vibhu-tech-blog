@@ -912,6 +912,128 @@ export const OBSERVABILITY_PATTERNS: PatternCard[] = [
       "Design compromise recovery for Distributed Tracing (OpenTelemetry).",
     ],
   },
+  {
+    id: 'correlation-id',
+    part: 15,
+    name: 'Correlation ID Propagation',
+    frequency: 'Frequently used',
+    definition:
+      'Unique ID (X-Correlation-Id) generated at edge and propagated through every HTTP call, Kafka message header, and log line — ties one business transaction across services.',
+    problem:
+      'Payment failed in production — logs scattered across 5 services with no way to find all lines for one checkout attempt.',
+    realWorld:
+      'Gateway generates UUID → Order → Payment → Kafka headers → Settlement; grep correlationId=abc123 finds entire flow.',
+    whyExists:
+      'Distributed systems lose single-process stack traces; correlation ID is minimum viable distributed debugging.',
+    ascii: `
+Client traceId=abc123
+   │
+Gateway [correlationId=abc123]
+   │
+Order Service [correlationId=abc123] MDC
+   │
+Kafka header: correlationId=abc123
+   │
+Payment Service [correlationId=abc123] MDC
+`,
+    flow: 'Gateway creates or forwards correlationId → MDC.put in each service → propagate in WebClient/Kafka headers → structured JSON logs include field.',
+    components: [
+      {name: 'CorrelationIdFilter', responsibility: 'Gateway global filter'},
+      {name: 'MDC propagator', responsibility: 'Log every line with correlationId'},
+      {name: 'Kafka header', responsibility: 'correlationId on every message'},
+    ],
+    javaCode: `@Component
+public class CorrelationIdFilter implements GlobalFilter, Ordered {
+  public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    String cid = Optional.ofNullable(exchange.getRequest().getHeaders().getFirst("X-Correlation-Id"))
+        .filter(s -> !s.isBlank()).orElse(UUID.randomUUID().toString());
+    MDC.put("correlationId", cid);
+    return chain.filter(exchange.mutate()
+        .request(b -> b.header("X-Correlation-Id", cid)).build());
+  }
+}`,
+    config: `logging.pattern.console=%d [%X{correlationId},%X{traceId}] %msg%n`,
+    kafkaCode: `rec.headers().add("correlationId", cid.getBytes(UTF_8));`,
+    unitTest: `@Test void missingHeader_generatesNewCorrelationId() {
+  String cid = filter.resolveCorrelationId(emptyHeaders());
+  assertNotNull(cid);
+}`,
+    edgeCases: ['Async @Async — copy MDC to child thread', 'Reactive — use Context propagation'],
+    failureScenarios: ['Lost correlationId at one hop — chain broken'],
+    retry: 'Same correlationId on retry',
+    idempotency: 'N/A',
+    timeout: 'N/A',
+    observability: 'This IS observability foundation',
+    security: 'Do not embed PII in correlationId',
+    performance: 'Negligible overhead',
+    scalability: 'Stateless — ID in headers only',
+    production: 'Require correlationId in all internal APIs; reject missing in prod strict mode',
+    mistakes: ['New UUID per internal hop', 'Not propagating to Kafka'],
+    antiPatterns: ['Only traceId without business correlationId'],
+    alternatives: ['OpenTelemetry traceId spans (use both)'],
+    tradeoffs: 'Pros: simple, universal. Cons: not a full trace without spans.',
+    interviewQs: ['correlationId vs traceId vs spanId?', 'How propagate in Kafka?'],
+    trickyQs: ['Async thread loses MDC — fix?'],
+    seniorFollowUps: ['Design log query for one checkout failure'],
+  },
+  {
+    id: 'health-check-api',
+    part: 15,
+    name: 'Health Check API (Liveness / Readiness)',
+    frequency: 'Frequently used',
+    definition:
+      'Liveness: is process alive? Readiness: can it accept traffic? Kubernetes uses /actuator/health/liveness and /readiness to route traffic.',
+    problem:
+      'Payment pod starts but Kafka consumer not connected — LB sends traffic → 500 errors until consumer ready.',
+    realWorld:
+      'Spring Boot Actuator; readiness fails until DB migration + Kafka connection OK; liveness restarts hung JVM.',
+    whyExists:
+      'Orchestrators need automated signals to restart crashed pods and withhold traffic from warming pods.',
+    ascii: `
+K8s probe ──GET /actuator/health/readiness──► Payment Pod
+                    │
+                    ├── DB UP + Kafka UP → 200 READY
+                    └── Kafka DOWN → 503 NOT READY (removed from Service)
+`,
+    flow: 'Pod starts → readiness fails → no traffic → Kafka connects → readiness OK → LB adds endpoint → liveness monitors hang.',
+    components: [
+      {name: 'Liveness probe', responsibility: 'Restart if deadlocked'},
+      {name: 'Readiness probe', responsibility: 'Check DB, Kafka, cache dependencies'},
+      {name: 'HealthIndicator', responsibility: 'Custom checks per dependency'},
+    ],
+    javaCode: `@Component
+public class KafkaHealthIndicator implements HealthIndicator {
+  private final KafkaAdmin admin;
+  public Health health() {
+    try { admin.describeCluster().nodes().get(3, TimeUnit.SECONDS); return Health.up().build(); }
+    catch (Exception e) { return Health.down().withException(e).build(); }
+  }
+}`,
+    config: `management.endpoint.health.probes.enabled=true
+management.health.livenessState.enabled=true
+management.health.readinessState.enabled=true`,
+    unitTest: `@Test void kafkaDown_readinessDown() {
+  when(kafkaAdmin.describeCluster()).thenThrow(new RuntimeException());
+  assertEquals(Status.DOWN, indicator.health().getStatus());
+}`,
+    edgeCases: ['Deep health check slow — keep readiness fast (<1s)', 'Liveness too aggressive — restart during GC'],
+    failureScenarios: ['All pods not ready — total outage; use startup probe'],
+    retry: 'K8s retries probe',
+    idempotency: 'N/A',
+    timeout: 'Probe timeoutSeconds: 3',
+    observability: 'Alert on readiness flapping',
+    security: 'Do not expose detailed health publicly',
+    performance: 'Lightweight checks only on readiness',
+    scalability: 'Per-pod independent',
+    production: 'Separate liveness (cheap) from readiness (deps); startupProbe for slow JVM',
+    mistakes: ['Heavy query in liveness', 'Readiness checks external payment API'],
+    antiPatterns: ['No health check — black hole pods'],
+    alternatives: ['Service mesh outlier detection'],
+    tradeoffs: 'Pros: safe rollouts. Cons: misconfigured probes cause flapping.',
+    interviewQs: ['Liveness vs readiness?', 'Health check during canary?'],
+    trickyQs: ['Kafka rebalance — readiness should fail?'],
+    seniorFollowUps: ['Design health checks for Kafka consumer pod'],
+  },
 ];
 
 

@@ -987,9 +987,124 @@ class BranchingPaymentGatewayTest {
   ],
 };
 
+const domainDrivenDesign: PatternCard = {
+  id: 'domain-driven-design',
+  part: 1,
+  name: 'Domain-Driven Design (DDD)',
+  frequency: 'Frequently used',
+  definition:
+    'Model software around the business domain: bounded contexts, aggregates, entities, value objects, domain events. Each microservice aligns with one bounded context.',
+  problem:
+    'Technical layering (controller/service/dao) mirrors nothing in the business — Order and Payment teams speak different languages for the same concepts.',
+  realWorld:
+    'Payment bounded context: Payment aggregate, Money value object, PaymentCaptured domain event. Order context has its own Order aggregate — integrate via events not shared entities.',
+  whyExists:
+    'Ubiquitous language reduces bugs; bounded contexts define service boundaries; aggregates enforce consistency within one TX boundary.',
+  ascii: `
+┌─────────────────┐     ┌─────────────────┐
+│ Order Context   │     │ Payment Context │
+│ Aggregate: Order│     │ Aggregate: Pay  │
+│ Events: Placed  │────►│ Events: Captured│
+└─────────────────┘     └─────────────────┘
+        │ no shared Order entity in Payment
+        └── integration via PaymentCaptured event + ACL if needed
+`,
+  flow: 'Event storming → identify bounded contexts → define aggregates + invariants → one context = one service → publish domain events at aggregate boundaries.',
+  components: [
+    {name: 'Bounded context', responsibility: 'Linguistic and model boundary; maps to service'},
+    {name: 'Aggregate', responsibility: 'Consistency boundary; one TX per aggregate'},
+    {name: 'Domain event', responsibility: 'Past-tense fact crossing context boundary'},
+    {name: 'ACL', responsibility: 'Translate foreign model at boundary'},
+  ],
+  javaCode: `// Payment aggregate — enforces invariants inside one boundary
+public final class Payment {
+  private PaymentId id;
+  private PaymentStatus status;
+  private Money amount;
+
+  public PaymentCaptured capture() {
+    if (status != PaymentStatus.AUTHORIZED)
+      throw new DomainException("Cannot capture in " + status);
+    this.status = PaymentStatus.CAPTURED;
+    return new PaymentCaptured(id, amount, Instant.now());
+  }
+}`,
+  unitTest: `@Test void capture_whenNotAuthorized_throws() {
+  Payment p = Payment.authorized("pay-1", Money.ofCents(100));
+  p.markFailed();
+  assertThrows(DomainException.class, p::capture);
+}`,
+  edgeCases: ['Shared kernel between contexts — minimize; prefer ACL', 'Large aggregate — split by invariant scope'],
+  failureScenarios: ['Cross-context FK — violation of bounded context'],
+  retry: 'N/A at domain layer',
+  idempotency: 'Domain commands idempotent by business key',
+  timeout: 'N/A',
+  observability: 'Log aggregateId + command type',
+  security: 'Context owns its authorization rules',
+  performance: 'Small aggregates; avoid distributed aggregate',
+  scalability: 'One aggregate instance per shard key',
+  production: 'ArchUnit tests enforce package boundaries per context',
+  mistakes: ['Anemic domain model — logic in services', 'One giant bounded context'],
+  antiPatterns: ['Shared entity classes across services'],
+  alternatives: ['Transaction script for simple CRUD'],
+  tradeoffs: 'Pros: alignment with business, clear boundaries. Cons: learning curve, over-modeling simple CRUD.',
+  interviewQs: ['Bounded context vs microservice?', 'Aggregate vs entity?'],
+  trickyQs: ['Order needs Payment status — sync call or event?'],
+  seniorFollowUps: ['Map e-commerce checkout to bounded contexts'],
+};
+
+const servicePerTeam: PatternCard = {
+  id: 'service-per-team',
+  part: 1,
+  name: 'Service per Team',
+  frequency: 'Frequently used',
+  definition:
+    'Conway\'s Law applied: each stream-aligned team owns one or few services end-to-end (build, deploy, operate, on-call).',
+  problem:
+    'Platform team owns all 40 services — bottleneck on every deploy; domain teams cannot move at their pace.',
+  realWorld:
+    'Payment team owns payment-service + payment-db + payment Kafka topics; Order team owns order-service; platform team owns gateway + Kafka cluster.',
+  whyExists:
+    'Autonomous teams need autonomous deployables; cognitive load limit (~2 services per team per Team Topologies).',
+  ascii: `
+Team Payment ──owns──► payment-service + payment-db + on-call
+Team Order   ──owns──► order-service + order-db + on-call
+Platform     ──owns──► gateway, Kafka, observability stack
+`,
+  flow: 'Organize teams by business stream → assign service ownership → team owns SLI/SLO → platform provides paved road.',
+  components: [
+    {name: 'Stream-aligned team', responsibility: 'Feature delivery for one capability'},
+    {name: 'Platform team', responsibility: 'Internal developer platform (IDP)'},
+    {name: 'Enabling team', responsibility: 'Consult on hard problems (saga, security)'},
+  ],
+  javaCode: `// CODEOWNERS — payment team owns payment service
+// /payment-service/  @payment-team
+// /order-service/    @order-team`,
+  unitTest: `// Organizational test: can Payment team deploy Friday without Order team sign-off?`,
+  edgeCases: ['Shared library owned by whom?', 'Cross-team API changes — consumer-driven contracts'],
+  failureScenarios: ['No owner service — orphaned on-call'],
+  retry: 'N/A',
+  idempotency: 'N/A',
+  timeout: 'Team SLA defines downstream timeout budgets',
+  observability: 'Team dashboard per service RED metrics',
+  security: 'Team rotates service credentials',
+  performance: 'Team scales own service independently',
+  scalability: 'Add teams + services for new capabilities',
+  production: 'Runbooks per team; blameless postmortems',
+  mistakes: ['Team per service (nano-teams)', 'No platform team — every team builds CI/Kafka from scratch'],
+  antiPatterns: ['Feature team + component team mismatch'],
+  alternatives: ['Internal open source with maintainer rotation'],
+  tradeoffs: 'Pros: autonomy, speed. Cons: duplication risk, integration coordination.',
+  interviewQs: ['Conway\'s Law example?', 'Team Topologies — stream vs platform?'],
+  trickyQs: ['Two teams need same schema change — who leads?'],
+  seniorFollowUps: ['Design team topology for 50-engineer fintech'],
+};
+
 export const DECOMPOSE_PATTERNS: PatternCard[] = [
   decomposeByBusinessCapability,
   decomposeBySubdomain,
+  domainDrivenDesign,
+  servicePerTeam,
   stranglerFig,
   antiCorruptionLayer,
   branchByAbstraction,
@@ -1696,8 +1811,267 @@ class AccountSummaryAggregatorTest {
   ],
 };
 
+const gatewayRouting: PatternCard = {
+  id: 'gateway-routing',
+  part: 2,
+  name: 'Gateway Routing',
+  frequency: 'Frequently used',
+  definition: 'Route requests to downstream services by path, host, header, or weight — central routing table at the edge.',
+  problem: 'Clients hard-code service URLs; routing changes require app store releases.',
+  realWorld: 'Spring Cloud Gateway: /api/orders/** → lb://order-service, /api/payments/** → lb://payment-service.',
+  whyExists: 'Single routing configuration; enables blue-green/canary via weight predicates.',
+  ascii: `Gateway routes:
+  /api/orders/**    → order-service
+  /api/payments/**  → payment-service
+  /api/customers/** → customer-service`,
+  flow: 'Request arrives → predicate match (path/host) → filter chain → forward to URI from service discovery.',
+  components: [
+    {name: 'RouteDefinition', responsibility: 'id, uri, predicates, filters'},
+    {name: 'Discovery locator', responsibility: 'lb://service-name from Eureka/K8s DNS'},
+  ],
+  javaCode: `@Bean
+RouteLocator routes(RouteLocatorBuilder builder) {
+  return builder.routes()
+      .route("orders", r -> r.path("/api/orders/**").uri("lb://order-service"))
+      .route("payments", r -> r.path("/api/payments/**").uri("lb://payment-service"))
+      .build();
+}`,
+  config: `spring.cloud.gateway.routes[0].id=orders
+spring.cloud.gateway.routes[0].uri=lb://order-service
+spring.cloud.gateway.routes[0].predicates[0]=Path=/api/orders/**`,
+  unitTest: `@Test void orderPath_routesToOrderService() {
+  assertRoute("/api/orders/123", "lb://order-service");
+}`,
+  edgeCases: ['Path overlap — most specific wins', 'WebSocket upgrade routing'],
+  failureScenarios: ['Unknown route → 404', 'Discovery empty → 503'],
+  retry: 'Gateway retry only for idempotent GET',
+  idempotency: 'N/A at routing layer',
+  timeout: 'Global response-timeout on routes',
+  observability: 'Log routeId + downstream status',
+  security: 'Route-level auth filters',
+  performance: 'Reactive Netty — non-blocking forward',
+  scalability: 'Gateway pods scale independently',
+  production: 'Route config in Git; canary via WeightRoutePredicateFactory',
+  mistakes: ['Routing logic in client apps'],
+  antiPatterns: ['God gateway with business rules'],
+  alternatives: ['Service mesh routing'],
+  tradeoffs: 'Pros: centralized routing. Cons: gateway config becomes critical path.',
+  interviewQs: ['Canary routing at gateway?', 'Gateway vs mesh routing?'],
+  trickyQs: ['Route change without downtime?'],
+  seniorFollowUps: ['Design weighted canary routes'],
+  deepLabHref: '/api-gateway',
+};
+
+const gatewayOffloading: PatternCard = {
+  id: 'gateway-offloading',
+  part: 2,
+  name: 'Gateway Offloading',
+  frequency: 'Frequently used',
+  definition: 'Move cross-cutting concerns from microservices to gateway: SSL termination, auth, rate limiting, CORS, logging, compression.',
+  problem: 'Every service implements JWT validation, rate limits, and TLS — duplicated code and inconsistent policy.',
+  realWorld: 'ACM cert on ALB; JWT validated once at Spring Cloud Gateway; services trust internal network or mTLS.',
+  whyExists: 'DRY for edge concerns; domain services stay focused on business logic.',
+  ascii: `Client ──TLS──► Gateway (auth, RL, CORS, gzip)
+                      │
+                      └── plain HTTP/mTLS ──► internal services`,
+  flow: 'Terminate TLS → validate JWT → rate limit → add headers → forward to service (auth already done).',
+  components: [
+    {name: 'SSL termination', responsibility: 'Public cert at edge'},
+    {name: 'Auth filter', responsibility: 'OAuth2 Resource Server JWT'},
+    {name: 'Rate limiter filter', responsibility: 'Redis token bucket'},
+  ],
+  javaCode: `@Bean
+SecurityWebFilterChain springSecurity(ServerHttpSecurity http) {
+  return http.oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()))
+      .authorizeExchange(ex -> ex.pathMatchers("/actuator/health").permitAll().anyExchange().authenticated())
+      .build();
+}`,
+  config: `spring.cloud.gateway.default-filters[0]=TokenRelay
+spring.cloud.gateway.httpclient.compression=true`,
+  unitTest: `@Test void unauthenticatedRequest_401() {
+  webTestClient.get().uri("/api/orders").exchange().expectStatus().isUnauthorized();
+}`,
+  edgeCases: ['Internal service-to-service — skip JWT, use mTLS'],
+  failureScenarios: ['JWT issuer down — cache JWKS'],
+  retry: 'N/A',
+  idempotency: 'N/A',
+  timeout: 'Auth validation timeout 2s',
+  observability: 'Access log at gateway only',
+  security: 'Offload auth; never log tokens',
+  performance: 'Compression at edge reduces bandwidth',
+  scalability: 'Edge scales horizontally',
+  production: 'WAF + Shield in front of gateway on AWS',
+  mistakes: ['Business validation in gateway', 'Trusting X-User-Id header without auth'],
+  antiPatterns: ['Gateway calls DB for business rules'],
+  alternatives: ['Service mesh policy'],
+  tradeoffs: 'Pros: consistent edge policy. Cons: gateway blast radius; keep thin.',
+  interviewQs: ['What to offload vs keep in service?', 'Token relay to downstream?'],
+  trickyQs: ['Gateway compromised — impact?'],
+  seniorFollowUps: ['Zero-trust: mTLS behind gateway too?'],
+  deepLabHref: '/api-gateway',
+};
+
+const apiComposition: PatternCard = {
+  id: 'api-composition',
+  part: 2,
+  name: 'API Composition',
+  frequency: 'Occasionally used',
+  definition: 'Compose data from multiple services into one API response — orchestrator fetches Order + Customer + Payment in parallel.',
+  problem: 'Dashboard needs order header, customer name, and payment status — three separate REST calls from UI.',
+  realWorld: 'Order detail page API: GET /api/order-details/{id} returns merged JSON from order, customer, payment services.',
+  whyExists: 'Reduce client chattiness; server-side parallel fetch with timeout per dependency.',
+  ascii: `GET /order-details/ord-1
+        │
+        ├──► Order Service
+        ├──► Customer Service  ──► merge response
+        └──► Payment Service`,
+  flow: 'Receive request → parallel WebClient calls with individual timeouts → merge partial results → return 200 or 207 partial.',
+  components: [
+    {name: 'Composer service', responsibility: 'Orchestrates parallel fetches'},
+    {name: 'WebClient pool', responsibility: 'Bulkhead per downstream'},
+  ],
+  javaCode: `@GetMapping("/api/order-details/{orderId}")
+public Mono<OrderDetailView> compose(@PathVariable String orderId) {
+  Mono<OrderDto> order = orderClient.get(orderId).timeout(Duration.ofSeconds(2));
+  Mono<CustomerDto> customer = order.flatMap(o -> customerClient.get(o.customerId())).timeout(Duration.ofSeconds(2));
+  Mono<PaymentDto> payment = paymentClient.getByOrder(orderId).timeout(Duration.ofSeconds(2));
+  return Mono.zip(order, customer, payment).map(t -> OrderDetailView.merge(t.getT1(), t.getT2(), t.getT3()));
+}`,
+  unitTest: `@Test void paymentDown_returnsPartialWithFlag() {
+  when(paymentClient.getByOrder(any())).thenReturn(Mono.error(new TimeoutException()));
+  var view = composer.compose("ord-1").block();
+  assertTrue(view.paymentUnavailable());
+}`,
+  edgeCases: ['One downstream slow — overall deadline', 'Stale customer name acceptable?'],
+  failureScenarios: ['Payment down — return order+customer with paymentStatus=UNKNOWN'],
+  retry: 'Retry individual fetch if idempotent GET',
+  idempotency: 'Read-only composition — safe to retry',
+  timeout: '2s per downstream; 5s overall',
+  observability: 'Span per downstream; metric compose.partial',
+  security: 'Propagate JWT to each downstream',
+  performance: 'Parallel not serial — latency = max not sum',
+  scalability: 'Composer scales; watch downstream fan-out',
+  production: 'Prefer CQRS read model over live composition at scale',
+  mistakes: ['Serial 3-call chain inside composer', 'No partial failure handling'],
+  antiPatterns: ['Composition in gateway for complex domain logic'],
+  alternatives: ['BFF', 'CQRS materialized view', 'GraphQL'],
+  tradeoffs: 'Pros: one round-trip for client. Cons: coupling, latency = slowest dep.',
+  interviewQs: ['Composition vs BFF vs CQRS?', 'Partial failure UX?'],
+  trickyQs: ['Composer becomes god service — when stop?'],
+  seniorFollowUps: ['Migrate composition to CQRS projection'],
+};
+
+const gatewayRateLimiting: PatternCard = {
+  id: 'gateway-rate-limiting',
+  part: 2,
+  name: 'Gateway Rate Limiting',
+  frequency: 'Frequently used',
+  definition: 'Limit requests per client/API key/IP at gateway using token bucket or sliding window — protect backends from abuse.',
+  problem: 'Partner API integration sends 10k req/s — Payment service collapses; all customers affected.',
+  realWorld: 'Spring Cloud Gateway RequestRateLimiter filter with Redis; 100 req/s per API key.',
+  whyExists: 'Edge enforcement before traffic hits expensive domain services.',
+  ascii: `Client ──► Gateway [Token Bucket: 100/s]
+                  │
+                  ├── tokens available → forward
+                  └── exhausted → 429 Too Many Requests`,
+  flow: 'Extract key (API key / JWT sub / IP) → Redis INCR sliding window → allow or 429 with Retry-After.',
+  components: [
+    {name: 'KeyResolver', responsibility: 'Identify rate limit bucket'},
+    {name: 'Redis rate limiter', responsibility: 'Distributed token state'},
+  ],
+  javaCode: `@Bean
+KeyResolver apiKeyResolver() {
+  return exchange -> Mono.just(
+      exchange.getRequest().getHeaders().getFirst("X-Api-Key") != null
+          ? exchange.getRequest().getHeaders().getFirst("X-Api-Key")
+          : exchange.getRequest().getRemoteAddress().getAddress().getHostAddress());
+}`,
+  config: `spring.cloud.gateway.routes[0].filters[0]=RequestRateLimiter=100,1s,#{@apiKeyResolver}`,
+  redisCode: `Redis sliding window: ZADD rate:{key} {timestamp} {uuid}; ZREMRANGEBYSCORE ...`,
+  unitTest: `@Test void exceedsLimit_returns429() {
+  for (int i = 0; i < 101; i++) client.get("/api/payments");
+  assertEquals(429, lastStatus());
+}`,
+  edgeCases: ['Burst vs sustained rate', 'Distributed Redis failure — fail open or closed?'],
+  failureScenarios: ['Redis down — policy: fail open with alert vs fail closed'],
+  retry: 'Client honors Retry-After header',
+  idempotency: 'N/A',
+  timeout: 'Redis lookup < 10ms',
+  observability: 'Metric gateway.rate_limit.exceeded',
+  security: 'Per-tenant limits; prevent credential sharing',
+  performance: 'Redis local to gateway region',
+  scalability: 'Horizontal gateway + shared Redis',
+  production: 'Different tiers: free 10/s, partner 1000/s',
+  mistakes: ['Rate limit only at service not edge', 'IP-based behind NAT — unfair'],
+  antiPatterns: ['Unlimited internal traffic — noisy neighbor'],
+  alternatives: ['Service mesh local rate limit', 'WAF AWS'],
+  tradeoffs: 'Pros: protects core. Cons: Redis dependency; tuning per client.',
+  interviewQs: ['Fixed vs sliding window?', 'Rate limit vs throttle vs quota?'],
+  trickyQs: ['429 storm from retried clients?'],
+  seniorFollowUps: ['Design tiered API product limits'],
+  deepLabHref: '/rate-limiter',
+};
+
+const gatewayAuthentication: PatternCard = {
+  id: 'gateway-authentication',
+  part: 2,
+  name: 'Gateway Authentication & Authorization',
+  frequency: 'Frequently used',
+  definition: 'Validate OAuth2/JWT at gateway; enforce scopes/roles before routing. Downstream receives authenticated principal.',
+  problem: 'Payment endpoint exposed without consistent auth — some services check JWT, some trust network.',
+  realWorld: 'Spring Security OAuth2 Resource Server on gateway; route filters check SCOPE_payment.write.',
+  whyExists: 'Single auth enforcement point; services can focus on fine-grained authz.',
+  ascii: `Client ──Bearer JWT──► Gateway
+                            │
+                            ├─ invalid → 401
+                            ├─ valid, wrong scope → 403
+                            └─ valid → forward + X-User-Id header`,
+  flow: 'Extract Bearer token → validate signature + expiry via JWKS → check scopes for route → forward with claims.',
+  components: [
+    {name: 'JwtDecoder', responsibility: 'Validate signature from issuer JWKS'},
+    {name: 'AuthorizationManager', responsibility: 'Scope/role check per route'},
+  ],
+  javaCode: `@Bean
+SecurityWebFilterChain api(HttpSecurity http) {
+  return http.authorizeExchange(ex -> ex
+      .pathMatchers(HttpMethod.POST, "/api/payments/**").hasAuthority("SCOPE_payment.write")
+      .pathMatchers(HttpMethod.GET, "/api/payments/**").hasAuthority("SCOPE_payment.read")
+      .anyExchange().authenticated())
+    .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()))
+    .build();
+}`,
+  config: `spring.security.oauth2.resourceserver.jwt.issuer-uri=https://auth.example.com`,
+  unitTest: `@Test void missingScope_403() {
+  webTestClient.post().uri("/api/payments").headers(h -> h.setBearerAuth(tokenWithoutWriteScope()))
+      .exchange().expectStatus().isForbidden();
+}`,
+  edgeCases: ['Token expiry mid-request', 'Clock skew on exp claim'],
+  failureScenarios: ['Auth server down — cached JWKS TTL'],
+  retry: 'Client refreshes token on 401',
+  idempotency: 'N/A',
+  timeout: 'JWKS fetch timeout 2s',
+  observability: 'Audit auth failures; never log token',
+  security: 'TLS + short-lived JWT; mTLS service-to-service behind gateway',
+  performance: 'Cache JWKS keys',
+  scalability: 'Stateless gateway pods',
+  production: 'Link to /oauth-jwt-demo and /spring-security hub',
+  mistakes: ['Trust X-User-Id without validating JWT at each hop in zero-trust'],
+  antiPatterns: ['Long-lived JWT without rotation'],
+  alternatives: ['Service mesh JWT policy'],
+  tradeoffs: 'Pros: consistent auth. Cons: gateway must know all route policies.',
+  interviewQs: ['Auth at gateway vs each service?', 'JWT vs opaque token?'],
+  trickyQs: ['Revoke compromised token before expiry?'],
+  seniorFollowUps: ['Design scope model for payment APIs'],
+  deepLabHref: '/oauth-jwt-demo',
+};
+
 export const GATEWAY_PATTERNS: PatternCard[] = [
   apiGateway,
+  gatewayRouting,
+  gatewayOffloading,
+  gatewayRateLimiting,
+  gatewayAuthentication,
   backendForFrontend,
   gatewayAggregation,
+  apiComposition,
 ];
