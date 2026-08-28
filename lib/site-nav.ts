@@ -210,6 +210,7 @@ const KAFKA_FAMILY_PREFIXES=[
   '/kafka-cluster',
   '/kafka-dlq',
   '/kafka-infra',
+  '/kafka-production',
   '/kafka-properties',
   '/kafka-internals',
   '/hadron-dlq',

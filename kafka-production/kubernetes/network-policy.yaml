@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kafka-deny-external
+  namespace: kafka-production
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka-broker
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only app namespace and monitoring may reach Kafka CLIENT port
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: payment-platform
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9093
+    # Inter-broker replication within kafka namespace
+    - from:
+        - podSelector:
+            matchLabels:
+              app: kafka-broker
+      ports:
+        - protocol: TCP
+          port: 9094
+        - protocol: TCP
+          port: 9095

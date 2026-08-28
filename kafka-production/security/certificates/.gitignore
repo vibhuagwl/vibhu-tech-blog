@@ -1,0 +1,9 @@
+# Generated certificates and private keys — NEVER commit
+*.key
+*.p12
+*.jks
+*.crt
+*.csr
+*.srl
+ca.*
+secrets/

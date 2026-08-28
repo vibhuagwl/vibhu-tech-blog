@@ -1,0 +1,31 @@
+# Payment Consumer — production Spring Boot
+spring:
+  kafka:
+    bootstrap-servers:
+      - kafka1.internal:9093
+      - kafka2.internal:9093
+      - kafka3.internal:9093
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="payment-consumer" password="${KAFKA_SCRAM_PASSWORD}";
+      ssl.truststore.location: /etc/kafka/secrets/truststore.jks
+      ssl.truststore.password: ${KAFKA_TRUSTSTORE_PASSWORD}
+    consumer:
+      group-id: payment-group
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      isolation-level: read_committed
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        max.poll.records: 200
+        max.poll.interval.ms: 300000
+        session.timeout.ms: 45000
+        heartbeat.interval.ms: 15000
+        fetch.min.bytes: 1
+        fetch.max.bytes: 52428800
+        allow.auto.create.topics: false
+    listener:
+      ack-mode: manual
+      concurrency: 3

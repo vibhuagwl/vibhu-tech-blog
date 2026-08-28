@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka-production
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kafka-broker-pdb
+  namespace: kafka-production
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: kafka-broker
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka-broker
+  namespace: kafka-production
+spec:
+  serviceName: kafka-broker-headless
+  replicas: 3
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app: kafka-broker
+  template:
+    metadata:
+      labels:
+        app: kafka-broker
+    spec:
+      serviceAccountName: kafka-broker
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: kafka-broker
+              topologyKey: topology.kubernetes.io/zone
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: kafka-broker
+      containers:
+        - name: kafka
+          image: apache/kafka:3.7.0
+          ports:
+            - containerPort: 9093
+              name: client
+            - containerPort: 9094
+              name: broker
+            - containerPort: 9095
+              name: controller
+          env:
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xms6g -Xmx6g"
+            - name: KAFKA_KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-tls
+                  key: keystore-password
+            - name: KAFKA_TRUSTSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-tls
+                  key: truststore-password
+            - name: KAFKA_KEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-tls
+                  key: key-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka/data
+            - name: secrets
+              mountPath: /var/lib/kafka/secrets
+              readOnly: true
+            - name: config
+              mountPath: /opt/kafka/config/broker.properties
+              subPath: broker.properties
+          resources:
+            requests:
+              cpu: "4"
+              memory: 8Gi
+            limits:
+              cpu: "8"
+              memory: 16Gi
+          livenessProbe:
+            tcpSocket:
+              port: 9093
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          readinessProbe:
+            exec:
+              command: ["bash", "-c", "kafka-broker-api-versions.sh --bootstrap-server localhost:9093 || exit 1"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+      volumes:
+        - name: secrets
+          secret:
+            secretName: kafka-tls
+        - name: config
+          configMap:
+            name: kafka-broker-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3-encrypted
+        resources:
+          requests:
+            storage: 500Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-bootstrap
+  namespace: kafka-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9093
+      name: client
+  selector:
+    app: kafka-broker
