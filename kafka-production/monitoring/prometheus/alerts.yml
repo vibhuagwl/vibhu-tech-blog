@@ -1,0 +1,66 @@
+groups:
+  - name: kafka-production-alerts
+    rules:
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_server_replicamanager_underreplicatedpartitions > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka URP > 0 on {{ $labels.instance }}"
+          description: "Under-replicated partitions indicate broker or network issues."
+
+      - alert: KafkaOfflinePartitions
+        expr: kafka_controller_kafkacontroller_offlinepartitionscount > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Offline partitions detected"
+
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumergroup_lag > 10000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer group {{ $labels.consumergroup }} lag > 10k"
+
+      - alert: KafkaBrokerDiskUsageHigh
+        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/kafka/data"} / node_filesystem_size_bytes{mountpoint="/var/lib/kafka/data"}) < 0.2
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka broker disk > 80%"
+
+      - alert: KafkaCertificateExpirySoon
+        expr: (kafka_ssl_certificate_expiry_seconds / 86400) < 30
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka TLS cert expires in < 30 days"
+
+      - alert: KafkaAuthenticationFailures
+        expr: rate(kafka_server_socket_server_metrics_failed_authentication_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka authentication failures detected"
+
+      - alert: KafkaAuthorizationFailures
+        expr: rate(kafka_authorizer_authorization_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka ACL denials — check deploy typo or attack"
+
+      - alert: KafkaActiveControllerCount
+        expr: sum(kafka_controller_kafkacontroller_activecontrollercount) != 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Expected exactly 1 active Kafka controller"

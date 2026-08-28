@@ -57,8 +57,14 @@ const CURRICULUM=[
     blurb:'Complete Kafka 4.0 producer, consumer, broker, cluster, and controller configs — plus payment must-set GO/NO-GO.',
   },
   {
+    href:'/kafka-production',
+    number:'09',
+    title:'Production Deploy & Security',
+    blurb:'KRaft · TLS/mTLS · SASL/SCRAM · ACLs · secrets · K8s · monitoring · DR — full Producer→Broker→Consumer reference.',
+  },
+  {
     href:'/spring-kafka-payments-demo',
-    number:'08',
+    number:'10',
     title:'Kafka Code',
     blurb:'Spring payment-api producer + settlement-worker consumer source explorer.',
   },

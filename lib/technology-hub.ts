@@ -109,6 +109,14 @@ export const KAFKA_HUB={
       mode:'learn' as const,
     },
     {
+      id:'production',
+      number:'P2',
+      title:'Production Deploy & Security',
+      blurb:'KRaft · TLS/SASL · ACLs · secrets · K8s · monitoring · DR — kafka-production/ repo.',
+      href:'/kafka-production',
+      mode:'learn' as const,
+    },
+    {
       id:'code',
       number:'01',
       title:'Kafka Code',

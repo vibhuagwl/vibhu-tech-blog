@@ -1,0 +1,32 @@
+# Payment Producer — production Spring Boot (secrets via env / Secrets Manager)
+spring:
+  kafka:
+    bootstrap-servers:
+      - kafka1.internal:9093
+      - kafka2.internal:9093
+      - kafka3.internal:9093
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: SCRAM-SHA-512
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="payment-producer" password="${KAFKA_SCRAM_PASSWORD}";
+      ssl.truststore.location: /etc/kafka/secrets/truststore.jks
+      ssl.truststore.password: ${KAFKA_TRUSTSTORE_PASSWORD}
+      # mTLS (optional — set ssl.client.auth=required on broker):
+      # ssl.keystore.location: /etc/kafka/secrets/payment-producer.keystore.jks
+      # ssl.keystore.password: ${KAFKA_KEYSTORE_PASSWORD}
+      # ssl.key.password: ${KAFKA_KEY_PASSWORD}
+    producer:
+      client-id: payment-producer
+      acks: all
+      retries: 10
+      enable-idempotence: true
+      compression-type: lz4
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        max.in.flight.requests.per.connection: 5
+        delivery.timeout.ms: 120000
+        request.timeout.ms: 30000
+        linger.ms: 10
+        batch.size: 65536
+        buffer.memory: 67108864
