@@ -1,0 +1,75 @@
+server:
+  port: ${SERVER_PORT:8085}
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: ${PAYMENTS_DB_URL:jdbc:postgresql://localhost:5432/payments}
+    username: ${DB_USER:flash}
+    password: ${DB_PASSWORD:flash}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      minimum-idle: 5
+      connection-timeout: 2000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      enable-auto-commit: false
+    listener:
+      ack-mode: MANUAL
+resilience4j:
+  circuitbreaker:
+    instances:
+      payment:
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 2s
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 10
+        sliding-window-size: 50
+        automatic-transition-from-open-to-half-open-enabled: true
+  retry:
+    instances:
+      payment:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.ResourceAccessException
+        ignore-exceptions:
+          - com.example.flashsale.common.error.PermanentException
+          - com.example.flashsale.common.error.FlashSaleException
+  timelimiter:
+    instances:
+      payment:
+        timeout-duration: 3s
+        cancel-running-future: true
+  bulkhead:
+    instances:
+      payment:
+        max-concurrent-calls: 40
+        max-wait-duration: 100ms
+  ratelimiter:
+    instances:
+      payment:
+        limit-for-period: 200
+        limit-refresh-period: 1s
+        timeout-duration: 0s
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics

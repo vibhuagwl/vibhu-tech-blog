@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: Flash Sale API
+  version: 1.0.0
+paths:
+  /api/v1/flash-sales/{saleId}:
+    get:
+      summary: Sale metadata
+      parameters:
+        - in: path
+          name: saleId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Sale }
+  /api/v1/flash-sales/{saleId}/orders:
+    post:
+      summary: Enqueue a purchase (202 PENDING)
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema: { type: string }
+        - in: header
+          name: X-User-Id
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ productId, quantity, idempotencyKey ]
+              properties:
+                productId: { type: string }
+                quantity: { type: integer }
+                idempotencyKey: { type: string }
+      responses:
+        '202': { description: Accepted }
+        '409': { description: Sold out or duplicate }
+        '429': { description: Rate limited }
+  /api/v1/orders/{orderId}:
+    get:
+      summary: Order status
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Order }
+  /api/v1/inventory/{productId}:
+    get:
+      summary: Authoritative stock
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Stock }

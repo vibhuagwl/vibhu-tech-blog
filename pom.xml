@@ -19,6 +19,7 @@
     <module>db-sharding-lab</module>
     <module>distributed-locking</module>
     <module>financial-ai-platform</module>
+      <module>flash-sale-system</module>
     <module>hadron-cashlines-dlq</module>
     <module>idanywhere-oidc-demo</module>
     <module>java-comparable-comparator-demo</module>

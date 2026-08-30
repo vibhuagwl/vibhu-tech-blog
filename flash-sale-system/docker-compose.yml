@@ -1,0 +1,172 @@
+name: flash-sale-system
+
+x-app-env: &app-env
+  SPRING_PROFILES_ACTIVE: local
+  DB_USER: flash
+  DB_PASSWORD: flash
+  KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  REDIS_HOST: redis
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: flash
+      POSTGRES_PASSWORD: flash
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U flash" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  kafka:
+    image: apache/kafka:3.9.0
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: EXTERNAL://0.0.0.0:9092,INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:9092,INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8089:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      - kafka
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+
+  api-gateway:
+    profiles: [ "full" ]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args: { MODULE: api-gateway }
+    environment:
+      FLASH_SALE_URI: http://flash-sale-service:8082
+      ORDER_URI: http://order-service:8084
+      INVENTORY_URI: http://inventory-service:8083
+    ports:
+      - "8080:8080"
+    depends_on:
+      - flash-sale-service
+      - order-service
+      - inventory-service
+
+  flash-sale-service:
+    profiles: [ "full" ]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args: { MODULE: flash-sale-service }
+    environment:
+      <<: *app-env
+      FLASHSALE_DB_URL: jdbc:postgresql://postgres:5432/flashsale
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+
+  inventory-service:
+    profiles: [ "full" ]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args: { MODULE: inventory-service }
+    environment:
+      <<: *app-env
+      INVENTORY_DB_URL: jdbc:postgresql://postgres:5432/inventory
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  order-service:
+    profiles: [ "full" ]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args: { MODULE: order-service }
+    environment:
+      <<: *app-env
+      ORDERS_DB_URL: jdbc:postgresql://postgres:5432/orders
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  payment-service:
+    profiles: [ "full" ]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args: { MODULE: payment-service }
+    environment:
+      <<: *app-env
+      PAYMENTS_DB_URL: jdbc:postgresql://postgres:5432/payments
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  notification-service:
+    profiles: [ "full" ]
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args: { MODULE: notification-service }
+    environment:
+      <<: *app-env
+    ports:
+      - "8086:8086"
+    depends_on:
+      - kafka

@@ -1,0 +1,69 @@
+server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  application:
+    name: secure-kafka
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OAUTH_ISSUER_URI}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    listener:
+      ack-mode: record
+    producer:
+      acks: all
+    consumer:
+      group-id: ${app.kafka.consumer-group}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+app:
+  audience: ${OAUTH_API_AUDIENCE:payment-api}
+  kafka:
+    security-enabled: true
+    payments-topic: payments
+    dlt-topic: payments.DLT
+    consumer-group: payment-service
+    security:
+      protocol: SASL_SSL
+      sasl-mechanism: OAUTHBEARER
+      # Kafka-instantiated. Not a Spring Security filter.
+      login-callback-handler-class: org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler
+      token-endpoint: ${KAFKA_OAUTH_TOKEN_ENDPOINT}
+      producer-client-id: ${KAFKA_PRODUCER_CLIENT_ID}
+      producer-client-secret: ${KAFKA_PRODUCER_CLIENT_SECRET}
+      consumer-client-id: ${KAFKA_CONSUMER_CLIENT_ID}
+      consumer-client-secret: ${KAFKA_CONSUMER_CLIENT_SECRET}
+      scope: kafka
+      truststore-location: ${KAFKA_TRUSTSTORE_LOCATION}
+      truststore-password: ${KAFKA_TRUSTSTORE_PASSWORD}
+      keystore-location: ${KAFKA_KEYSTORE_LOCATION:}
+      keystore-password: ${KAFKA_KEYSTORE_PASSWORD:}
+      key-password: ${KAFKA_KEY_PASSWORD:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  pattern:
+    console: "%d{ISO8601} %-5level [%thread] %logger{36} - %msg%n"
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+app:
+  kafka:
+    security:
+      protocol: SASL_SSL

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flash-sale-config
+data:
+  SPRING_PROFILES_ACTIVE: prod
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  REDIS_HOST: redis
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: flash-sale-secrets
+type: Opaque
+stringData:
+  DB_USER: changeme
+  DB_PASSWORD: changeme
+  OAUTH_ISSUER_URI: https://issuer.example/oauth2/default

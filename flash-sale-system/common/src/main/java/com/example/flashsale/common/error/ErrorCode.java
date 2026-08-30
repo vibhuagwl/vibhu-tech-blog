@@ -1,0 +1,15 @@
+package com.example.flashsale.common.error;
+
+public enum ErrorCode {
+    SALE_NOT_ACTIVE,
+    SALE_ENDED,
+    PRODUCT_SOLD_OUT,
+    DUPLICATE_PURCHASE,
+    RATE_LIMITED,
+    PAYMENT_FAILED,
+    INVENTORY_RESERVATION_FAILED,
+    SERVICE_UNAVAILABLE,
+    INVALID_REQUEST,
+    UNAUTHORIZED,
+    FORBIDDEN
+}

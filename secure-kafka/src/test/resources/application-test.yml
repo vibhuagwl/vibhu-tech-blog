@@ -1,0 +1,27 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://dev-example.okta.com/oauth2/auspayment
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      auto-startup: false
+
+app:
+  audience: payment-api
+  kafka:
+    security-enabled: false
+    security:
+      protocol: PLAINTEXT
+      token-endpoint: https://dev-example.okta.com/oauth2/auskafka/v1/token
+      producer-client-id: payment-producer
+      producer-client-secret: test
+      consumer-client-id: payment-consumer
+      consumer-client-secret: test
+      truststore-location:
+      truststore-password:
+      keystore-location:
+      keystore-password:
+      key-password:

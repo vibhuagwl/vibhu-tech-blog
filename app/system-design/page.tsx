@@ -19,6 +19,11 @@ const FEATURED_HLD=[
     title:'Design Distributed Counter — HLD + LLD',
     blurb:'Viral likes/views: sharded INCR, Kafka aggregate, idempotency, exact vs approximate, class design, REST APIs, Spring Boot demo, memory sheet.',
   },
+  {
+    href:'/flash-sale-demo',
+    title:'Flash Sale — runnable Java LLD',
+    blurb:'Six microservices: Redis Lua gate, PostgreSQL atomic reserve, Kafka outbox, saga compensation. Browse the full Java source in the browser.',
+  },
 ];
 
 export default function SystemDesign(){

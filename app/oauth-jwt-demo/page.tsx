@@ -41,6 +41,10 @@ export default function OAuthJwtDemoPage(){
             First-party JWT (no OAuth) →
           </Link>
           <span className="text-slate-300">·</span>
+          <Link href="/secure-kafka" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
+            Secure Kafka (SASL + ACL) →
+          </Link>
+          <span className="text-slate-300">·</span>
           <a href="#endpoints" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             API endpoints →
           </a>

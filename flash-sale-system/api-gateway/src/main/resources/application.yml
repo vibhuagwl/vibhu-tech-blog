@@ -1,0 +1,35 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    gateway:
+      routes:
+        - id: flash-sale
+          uri: ${FLASH_SALE_URI:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/flash-sales/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@userKeyResolver}"
+        - id: orders
+          uri: ${ORDER_URI:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/orders/**
+        - id: inventory
+          uri: ${INVENTORY_URI:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/inventory/**
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,gateway

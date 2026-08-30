@@ -1,0 +1,23 @@
+name: secure-kafka
+
+services:
+  kafka:
+    image: apache/kafka:3.9.0
+    ports:
+      - "9093:9093"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_KEYSTORE_PASSWORD: ${KAFKA_KEYSTORE_PASSWORD}
+      KAFKA_KEY_PASSWORD: ${KAFKA_KEY_PASSWORD:-${KAFKA_KEYSTORE_PASSWORD}}
+      KAFKA_TRUSTSTORE_PASSWORD: ${KAFKA_TRUSTSTORE_PASSWORD}
+      KAFKA_BROKER_CLIENT_ID: ${KAFKA_BROKER_CLIENT_ID}
+      KAFKA_BROKER_CLIENT_SECRET: ${KAFKA_BROKER_CLIENT_SECRET}
+      OAUTH_TOKEN_ENDPOINT: ${KAFKA_OAUTH_TOKEN_ENDPOINT}
+      OAUTH_JWKS_ENDPOINT: ${KAFKA_OAUTH_JWKS_ENDPOINT}
+      OAUTH_ISSUER_URI: ${KAFKA_OAUTH_ISSUER_URI}
+      OAUTH_PRINCIPAL_CLAIM: ${OAUTH_PRINCIPAL_CLAIM:-azp}
+    volumes:
+      - ./kafka/server.properties:/mnt/shared/config/server.properties:ro
+      - ./kafka/docker-entrypoint.sh:/mnt/shared/config/docker-entrypoint.sh:ro
+      - ../certificates:/etc/kafka/certs:ro
+    command: [ "/bin/sh", "/mnt/shared/config/docker-entrypoint.sh" ]

@@ -38,6 +38,18 @@ const labs = [
     say: 'Authorization Code gets JWT; resource server trusts JWKS, not the password.',
   },
   {
+    href: '/secure-kafka',
+    title: 'Secure Kafka',
+    oneLiner: 'ACT1 API JWT → ACT2 produce TLS+SASL+WRITE → ACT3 consume READ topic+group',
+    glue: 'Two tokens. Kafka is not a resource server.',
+    remember: [
+      'ACT1 Who may call the API? Token A aud=payment-api + payment:write',
+      'ACT2 Who may write? Token B aud=kafka · TLS · SASL · ACL WRITE',
+      'ACT3 Who may read? Token C · ACL READ topic AND group. Bad JWT=401 ACL=403 no DLT',
+    ],
+    say: 'Caller gets an HTTP JWT. API gets a different Kafka JWT. TLS, then SASL, then ACL. Producer WRITE. Consumer READ topic and group.',
+  },
+  {
     href: '/spring-auth-demo',
     title: 'Authn + Authz',
     oneLiner: 'Browser → Portal :8080 (form+session). Tools → API :8081 (Basic).',

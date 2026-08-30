@@ -2,89 +2,60 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/ai-assistant/ai-assistant.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/ai-assistant/ai-assistant.iml" />
-      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/ai-harness/ai-harness.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/ai-harness/ai-harness.iml" />
-      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/common-model/common-model.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/common-model/common-model.iml" />
-      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/customer-mcp-server/customer-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/customer-mcp-server/customer-mcp-server.iml" />
-      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/domain-services/domain-services.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/domain-services/domain-services.iml" />
-      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/kafka-mcp-server/kafka-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/kafka-mcp-server/kafka-mcp-server.iml" />
-      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/payment-mcp-server/payment-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/payment-mcp-server/payment-mcp-server.iml" />
-      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/rag-service/rag-service.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/rag-service/rag-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/reporting-mcp-server/reporting-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/reporting-mcp-server/reporting-mcp-server.iml" />
-      <module fileurl="file://$PROJECT_DIR$/camunda-payment-platform/camunda-payment-platform.iml" filepath="$PROJECT_DIR$/camunda-payment-platform/camunda-payment-platform.iml" />
-      <module fileurl="file://$PROJECT_DIR$/db-sharding-lab/db-sharding-lab.iml" filepath="$PROJECT_DIR$/db-sharding-lab/db-sharding-lab.iml" />
       <module fileurl="file://$PROJECT_DIR$/distributed-locking/account-service/account-service.iml" filepath="$PROJECT_DIR$/distributed-locking/account-service/account-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/distributed-locking/api-gateway/api-gateway.iml" filepath="$PROJECT_DIR$/distributed-locking/api-gateway/api-gateway.iml" />
-      <module fileurl="file://$PROJECT_DIR$/distributed-locking/common/common.iml" filepath="$PROJECT_DIR$/distributed-locking/common/common.iml" />
-      <module fileurl="file://$PROJECT_DIR$/distributed-locking/lock-service/lock-service.iml" filepath="$PROJECT_DIR$/distributed-locking/lock-service/lock-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/distributed-locking/recovery-service/recovery-service.iml" filepath="$PROJECT_DIR$/distributed-locking/recovery-service/recovery-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/distributed-locking/transaction-service/transaction-service.iml" filepath="$PROJECT_DIR$/distributed-locking/transaction-service/transaction-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/financial-ai-platform/ai-orchestrator/ai-orchestrator.iml" filepath="$PROJECT_DIR$/financial-ai-platform/ai-orchestrator/ai-orchestrator.iml" />
-      <module fileurl="file://$PROJECT_DIR$/financial-ai-platform/common/common.iml" filepath="$PROJECT_DIR$/financial-ai-platform/common/common.iml" />
-      <module fileurl="file://$PROJECT_DIR$/financial-ai-platform/mcp-financial-server/mcp-financial-server.iml" filepath="$PROJECT_DIR$/financial-ai-platform/mcp-financial-server/mcp-financial-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/ai-assistant/ai-assistant.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/ai-assistant/ai-assistant.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/ai-orchestrator/ai-orchestrator.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/ai-orchestrator/ai-orchestrator.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-authn-authz-demo/api-service/api-service.iml" filepath="$PROJECT_DIR$/spring-authn-authz-demo/api-service/api-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-secrets-pii-demo/audit-service/audit-service.iml" filepath="$PROJECT_DIR$/spring-secrets-pii-demo/audit-service/audit-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/oauth-jwt-demo/authorization-server/authorization-server.iml" filepath="$PROJECT_DIR$/oauth-jwt-demo/authorization-server/authorization-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/camunda-payment-platform/camunda-payment-platform.iml" filepath="$PROJECT_DIR$/camunda-payment-platform/camunda-payment-platform.iml" />
+      <module fileurl="file://$PROJECT_DIR$/oauth-jwt-demo/client-app/client-app.iml" filepath="$PROJECT_DIR$/oauth-jwt-demo/client-app/client-app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/common/common.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/common/common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-distributed-counter-demo/counter-aggregator/counter-aggregator.iml" filepath="$PROJECT_DIR$/spring-distributed-counter-demo/counter-aggregator/counter-aggregator.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-distributed-counter-demo/counter-api/counter-api.iml" filepath="$PROJECT_DIR$/spring-distributed-counter-demo/counter-api/counter-api.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/customer-mcp-server/customer-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/customer-mcp-server/customer-mcp-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-whatsapp-demo/delivery-worker/delivery-worker.iml" filepath="$PROJECT_DIR$/spring-whatsapp-demo/delivery-worker/delivery-worker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-gateway-live-lab/eureka-server/eureka-server.iml" filepath="$PROJECT_DIR$/spring-gateway-live-lab/eureka-server/eureka-server.iml" />
       <module fileurl="file://$PROJECT_DIR$/hadron-cashlines-dlq/hadron-cashlines-dlq.iml" filepath="$PROJECT_DIR$/hadron-cashlines-dlq/hadron-cashlines-dlq.iml" />
       <module fileurl="file://$PROJECT_DIR$/idanywhere-oidc-demo/idp-standin/idp-standin.iml" filepath="$PROJECT_DIR$/idanywhere-oidc-demo/idp-standin/idp-standin.iml" />
-      <module fileurl="file://$PROJECT_DIR$/idanywhere-oidc-demo/resource-api/resource-api.iml" filepath="$PROJECT_DIR$/idanywhere-oidc-demo/resource-api/resource-api.iml" />
-      <module fileurl="file://$PROJECT_DIR$/idanywhere-oidc-demo/web-app/web-app.iml" filepath="$PROJECT_DIR$/idanywhere-oidc-demo/web-app/web-app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/java-comparable-comparator-demo/java-comparable-comparator-demo.iml" filepath="$PROJECT_DIR$/java-comparable-comparator-demo/java-comparable-comparator-demo.iml" />
-      <module fileurl="file://$PROJECT_DIR$/java-design-patterns-real-world/java-design-patterns-real-world.iml" filepath="$PROJECT_DIR$/java-design-patterns-real-world/java-design-patterns-real-world.iml" />
-      <module fileurl="file://$PROJECT_DIR$/java-equals-hashcode-demo/java-equals-hashcode-demo.iml" filepath="$PROJECT_DIR$/java-equals-hashcode-demo/java-equals-hashcode-demo.iml" />
-      <module fileurl="file://$PROJECT_DIR$/java-locking-lab/java-locking-lab.iml" filepath="$PROJECT_DIR$/java-locking-lab/java-locking-lab.iml" />
-      <module fileurl="file://$PROJECT_DIR$/java-streams-lab/java-streams-lab.iml" filepath="$PROJECT_DIR$/java-streams-lab/java-streams-lab.iml" />
-      <module fileurl="file://$PROJECT_DIR$/load-balancer-lab/load-balancer-lab.iml" filepath="$PROJECT_DIR$/load-balancer-lab/load-balancer-lab.iml" />
-      <module fileurl="file://$PROJECT_DIR$/oauth-jwt-demo/api-gateway/api-gateway.iml" filepath="$PROJECT_DIR$/oauth-jwt-demo/api-gateway/api-gateway.iml" />
-      <module fileurl="file://$PROJECT_DIR$/oauth-jwt-demo/authorization-server/authorization-server.iml" filepath="$PROJECT_DIR$/oauth-jwt-demo/authorization-server/authorization-server.iml" />
-      <module fileurl="file://$PROJECT_DIR$/oauth-jwt-demo/client-app/client-app.iml" filepath="$PROJECT_DIR$/oauth-jwt-demo/client-app/client-app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/oauth-jwt-demo/resource-server/resource-server.iml" filepath="$PROJECT_DIR$/oauth-jwt-demo/resource-server/resource-server.iml" />
-      <module fileurl="file://$PROJECT_DIR$/react-springboot-interview/backend/payment-ops.iml" filepath="$PROJECT_DIR$/react-springboot-interview/backend/payment-ops.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/ai-orchestrator/ai-orchestrator.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/ai-orchestrator/ai-orchestrator.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/common/common.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/common/common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/inventory-service/inventory-service.iml" filepath="$PROJECT_DIR$/spring-msp-platform/inventory-service/inventory-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/kafka-mcp-server/kafka-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/kafka-mcp-server/kafka-mcp-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/distributed-locking/lock-service/lock-service.iml" filepath="$PROJECT_DIR$/distributed-locking/lock-service/lock-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/mcp-server/mcp-server.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/mcp-server/mcp-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-whatsapp-demo/message-service/message-service.iml" filepath="$PROJECT_DIR$/spring-whatsapp-demo/message-service/message-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/msp-common/msp-common.iml" filepath="$PROJECT_DIR$/spring-msp-platform/msp-common/msp-common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/notification-service/notification-service.iml" filepath="$PROJECT_DIR$/spring-msp-platform/notification-service/notification-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-kafka-payments-demo/payment-api/payment-api.iml" filepath="$PROJECT_DIR$/spring-kafka-payments-demo/payment-api/payment-api.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/payment-mcp-server/payment-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/payment-mcp-server/payment-mcp-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/react-springboot-interview/backend/payment-ops.iml" filepath="$PROJECT_DIR$/react-springboot-interview/backend/payment-ops.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/payment-service/payment-service.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/payment-service/payment-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/rag-service/rag-service.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/rag-service/rag-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/tool-gateway/tool-gateway.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/tool-gateway/tool-gateway.iml" />
+      <module fileurl="file://$PROJECT_DIR$/distributed-locking/recovery-service/recovery-service.iml" filepath="$PROJECT_DIR$/distributed-locking/recovery-service/recovery-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/reporting-mcp-server/reporting-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/reporting-mcp-server/reporting-mcp-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/idanywhere-oidc-demo/resource-api/resource-api.iml" filepath="$PROJECT_DIR$/idanywhere-oidc-demo/resource-api/resource-api.iml" />
+      <module fileurl="file://$PROJECT_DIR$/oauth-jwt-demo/resource-server/resource-server.iml" filepath="$PROJECT_DIR$/oauth-jwt-demo/resource-server/resource-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-kafka-payments-demo/settlement-worker/settlement-worker.iml" filepath="$PROJECT_DIR$/spring-kafka-payments-demo/settlement-worker/settlement-worker.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-api-gateway-lab/spring-api-gateway-lab.iml" filepath="$PROJECT_DIR$/spring-api-gateway-lab/spring-api-gateway-lab.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-authn-authz-demo/api-service/api-service.iml" filepath="$PROJECT_DIR$/spring-authn-authz-demo/api-service/api-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-authn-authz-demo/web-portal/web-portal.iml" filepath="$PROJECT_DIR$/spring-authn-authz-demo/web-portal/web-portal.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-bloom-filter-lab/spring-bloom-filter-lab.iml" filepath="$PROJECT_DIR$/spring-bloom-filter-lab/spring-bloom-filter-lab.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-cache-lab/spring-cache-lab.iml" filepath="$PROJECT_DIR$/spring-cache-lab/spring-cache-lab.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-cors-demo/spring-cors-demo.iml" filepath="$PROJECT_DIR$/spring-cors-demo/spring-cors-demo.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-csrf-demo/spring-csrf-demo.iml" filepath="$PROJECT_DIR$/spring-csrf-demo/spring-csrf-demo.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-distributed-cache-demo/spring-distributed-cache-demo.iml" filepath="$PROJECT_DIR$/spring-distributed-cache-demo/spring-distributed-cache-demo.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-distributed-counter-demo/counter-aggregator/counter-aggregator.iml" filepath="$PROJECT_DIR$/spring-distributed-counter-demo/counter-aggregator/counter-aggregator.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-distributed-counter-demo/counter-api/counter-api.iml" filepath="$PROJECT_DIR$/spring-distributed-counter-demo/counter-api/counter-api.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-distributed-counter-demo/counter-common/counter-common.iml" filepath="$PROJECT_DIR$/spring-distributed-counter-demo/counter-common/counter-common.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-distributed-lock-demo/spring-distributed-lock-demo.iml" filepath="$PROJECT_DIR$/spring-distributed-lock-demo/spring-distributed-lock-demo.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-encryption-lab/spring-encryption-lab.iml" filepath="$PROJECT_DIR$/spring-encryption-lab/spring-encryption-lab.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-gateway-live-lab/api-gateway/api-gateway.iml" filepath="$PROJECT_DIR$/spring-gateway-live-lab/api-gateway/api-gateway.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-gateway-live-lab/eureka-server/eureka-server.iml" filepath="$PROJECT_DIR$/spring-gateway-live-lab/eureka-server/eureka-server.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-gateway-live-lab/order-service/order-service.iml" filepath="$PROJECT_DIR$/spring-gateway-live-lab/order-service/order-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-gateway-live-lab/payment-service/payment-service.iml" filepath="$PROJECT_DIR$/spring-gateway-live-lab/payment-service/payment-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-gateway-live-lab/user-service/user-service.iml" filepath="$PROJECT_DIR$/spring-gateway-live-lab/user-service/user-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-jwt-auth-demo/spring-jwt-auth-demo.iml" filepath="$PROJECT_DIR$/spring-jwt-auth-demo/spring-jwt-auth-demo.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-kafka-payments-demo/kafka-common/kafka-common.iml" filepath="$PROJECT_DIR$/spring-kafka-payments-demo/kafka-common/kafka-common.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-kafka-payments-demo/payment-api/payment-api.iml" filepath="$PROJECT_DIR$/spring-kafka-payments-demo/payment-api/payment-api.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-kafka-payments-demo/settlement-worker/settlement-worker.iml" filepath="$PROJECT_DIR$/spring-kafka-payments-demo/settlement-worker/settlement-worker.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-microservices-patterns-lab/spring-microservices-patterns-lab.iml" filepath="$PROJECT_DIR$/spring-microservices-patterns-lab/spring-microservices-patterns-lab.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/api-gateway/api-gateway.iml" filepath="$PROJECT_DIR$/spring-msp-platform/api-gateway/api-gateway.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/customer-service/customer-service.iml" filepath="$PROJECT_DIR$/spring-msp-platform/customer-service/customer-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/inventory-service/inventory-service.iml" filepath="$PROJECT_DIR$/spring-msp-platform/inventory-service/inventory-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/msp-common/msp-common.iml" filepath="$PROJECT_DIR$/spring-msp-platform/msp-common/msp-common.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/notification-service/notification-service.iml" filepath="$PROJECT_DIR$/spring-msp-platform/notification-service/notification-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/order-service/order-service.iml" filepath="$PROJECT_DIR$/spring-msp-platform/order-service/order-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/payment-service/payment-service.iml" filepath="$PROJECT_DIR$/spring-msp-platform/payment-service/payment-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-multitenant-lab/spring-multitenant-lab.iml" filepath="$PROJECT_DIR$/spring-multitenant-lab/spring-multitenant-lab.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-n-plus-one-demo/spring-n-plus-one-demo.iml" filepath="$PROJECT_DIR$/spring-n-plus-one-demo/spring-n-plus-one-demo.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-rate-limiter-lab/spring-rate-limiter-lab.iml" filepath="$PROJECT_DIR$/spring-rate-limiter-lab/spring-rate-limiter-lab.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-resilience4j-lab/spring-resilience4j-lab.iml" filepath="$PROJECT_DIR$/spring-resilience4j-lab/spring-resilience4j-lab.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-secrets-pii-demo/audit-service/audit-service.iml" filepath="$PROJECT_DIR$/spring-secrets-pii-demo/audit-service/audit-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-secrets-pii-demo/customer-service/customer-service.iml" filepath="$PROJECT_DIR$/spring-secrets-pii-demo/customer-service/customer-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-secrets-pii-demo/pii-common/pii-common.iml" filepath="$PROJECT_DIR$/spring-secrets-pii-demo/pii-common/pii-common.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-secrets-pii-demo/support-api/support-api.iml" filepath="$PROJECT_DIR$/spring-secrets-pii-demo/support-api/support-api.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-web-attacks-demo/spring-web-attacks-demo.iml" filepath="$PROJECT_DIR$/spring-web-attacks-demo/spring-web-attacks-demo.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-whatsapp-demo/delivery-worker/delivery-worker.iml" filepath="$PROJECT_DIR$/spring-whatsapp-demo/delivery-worker/delivery-worker.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-whatsapp-demo/message-service/message-service.iml" filepath="$PROJECT_DIR$/spring-whatsapp-demo/message-service/message-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/spring-whatsapp-demo/whatsapp-common/whatsapp-common.iml" filepath="$PROJECT_DIR$/spring-whatsapp-demo/whatsapp-common/whatsapp-common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-secrets-pii-demo/support-api/support-api.iml" filepath="$PROJECT_DIR$/spring-secrets-pii-demo/support-api/support-api.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/tool-gateway/tool-gateway.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/tool-gateway/tool-gateway.iml" />
+      <module fileurl="file://$PROJECT_DIR$/distributed-locking/transaction-service/transaction-service.iml" filepath="$PROJECT_DIR$/distributed-locking/transaction-service/transaction-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-gateway-live-lab/user-service/user-service.iml" filepath="$PROJECT_DIR$/spring-gateway-live-lab/user-service/user-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/idanywhere-oidc-demo/web-app/web-app.iml" filepath="$PROJECT_DIR$/idanywhere-oidc-demo/web-app/web-app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/spring-authn-authz-demo/web-portal/web-portal.iml" filepath="$PROJECT_DIR$/spring-authn-authz-demo/web-portal/web-portal.iml" />
     </modules>
   </component>
 </project>

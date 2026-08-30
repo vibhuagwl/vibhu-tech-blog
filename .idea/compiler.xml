@@ -1,6 +1,189 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="api-gateway (2) (com.vibhu.security)" />
+        <module name="api-gateway (1) (com.vibhu.lock)" />
+        <module name="reporting-mcp-server" />
+        <module name="spring-csrf-demo" />
+        <module name="counter-aggregator" />
+        <module name="support-api" />
+        <module name="notification-service (1) (com.example.flashsale)" />
+        <module name="customer-service (1) (com.vibhu.msp)" />
+        <module name="spring-rate-limiter-lab" />
+        <module name="user-service" />
+        <module name="rag-service" />
+        <module name="common (2) (com.vibhu.fai)" />
+        <module name="mcp-financial-server" />
+        <module name="spring-cors-demo" />
+        <module name="eureka-server" />
+        <module name="pii-common" />
+        <module name="idp-standin" />
+        <module name="java-design-patterns-real-world" />
+        <module name="counter-api" />
+        <module name="counter-common" />
+        <module name="inventory-service" />
+        <module name="common-model" />
+        <module name="java-streams-lab" />
+        <module name="load-balancer-lab" />
+        <module name="transaction-service" />
+        <module name="api-gateway (4) (com.vibhu.msp)" />
+        <module name="account-service" />
+        <module name="java-locking-lab" />
+        <module name="spring-n-plus-one-demo" />
+        <module name="rag-service (1) (com.vibhu.aifp)" />
+        <module name="tool-gateway" />
+        <module name="spring-bloom-filter-lab" />
+        <module name="kafka-mcp-server" />
+        <module name="order-service (2) (com.vibhu.msp)" />
+        <module name="spring-api-gateway-lab" />
+        <module name="ai-orchestrator (1) (com.vibhu.fai)" />
+        <module name="msp-common" />
+        <module name="api-service" />
+        <module name="payment-mcp-server" />
+        <module name="authorization-server" />
+        <module name="spring-cache-lab" />
+        <module name="payment-service (1) (com.example.flashsale)" />
+        <module name="inventory-service (1) (com.example.flashsale)" />
+        <module name="api-gateway" />
+        <module name="web-portal" />
+        <module name="flash-sale-common" />
+        <module name="client-app" />
+        <module name="order-service" />
+        <module name="kafka-common" />
+        <module name="java-comparable-comparator-demo" />
+        <module name="payment-service (1) (com.vibhu.gateway.live)" />
+        <module name="ai-assistant" />
+        <module name="api-gateway (3) (com.vibhu.gateway.live)" />
+        <module name="ai-harness" />
+        <module name="hadron-cashlines-dlq" />
+        <module name="message-service" />
+        <module name="payment-api" />
+        <module name="notification-service" />
+        <module name="spring-multitenant-lab" />
+        <module name="ai-orchestrator" />
+        <module name="customer-service (2) (com.vibhu.security)" />
+        <module name="common (1) (com.vibhu.lock)" />
+        <module name="payment-service" />
+        <module name="common" />
+        <module name="order-service (1) (com.vibhu.gateway.live)" />
+        <module name="domain-services" />
+        <module name="spring-jwt-auth-demo" />
+        <module name="resource-api" />
+        <module name="customer-mcp-server" />
+        <module name="recovery-service" />
+        <module name="payment-service (2) (com.vibhu.msp)" />
+        <module name="spring-resilience4j-lab" />
+        <module name="audit-service" />
+        <module name="lock-service" />
+        <module name="flash-sale-service" />
+        <module name="settlement-worker" />
+        <module name="java-equals-hashcode-demo" />
+        <module name="spring-web-attacks-demo" />
+        <module name="mcp-server" />
+        <module name="camunda-payment-platform" />
+        <module name="db-sharding-lab" />
+        <module name="web-app" />
+        <module name="spring-distributed-cache-demo" />
+        <module name="payment-ops" />
+        <module name="spring-distributed-lock-demo" />
+        <module name="delivery-worker" />
+        <module name="resource-server" />
+        <module name="spring-microservices-patterns-lab" />
+        <module name="whatsapp-common" />
+        <module name="spring-encryption-lab" />
+      </profile>
+    </annotationProcessing>
     <bytecodeTargetLevel target="21" />
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="account-service" options="-parameters" />
+      <module name="ai-assistant" options="-parameters" />
+      <module name="ai-harness" options="-parameters" />
+      <module name="ai-orchestrator" options="-parameters" />
+      <module name="ai-orchestrator (1) (com.vibhu.fai)" options="-parameters" />
+      <module name="api-gateway" options="-parameters" />
+      <module name="api-gateway (1) (com.vibhu.lock)" options="-parameters" />
+      <module name="api-gateway (2) (com.vibhu.security)" options="-parameters" />
+      <module name="api-gateway (3) (com.vibhu.gateway.live)" options="-parameters" />
+      <module name="api-gateway (4) (com.vibhu.msp)" options="-parameters" />
+      <module name="api-service" options="-parameters" />
+      <module name="audit-service" options="-parameters" />
+      <module name="authorization-server" options="-parameters" />
+      <module name="camunda-payment-platform" options="-parameters" />
+      <module name="client-app" options="-parameters" />
+      <module name="common" options="-parameters" />
+      <module name="common (1) (com.vibhu.lock)" options="-parameters" />
+      <module name="common (2) (com.vibhu.fai)" options="-parameters" />
+      <module name="common-model" options="-parameters" />
+      <module name="counter-aggregator" options="-parameters" />
+      <module name="counter-api" options="-parameters" />
+      <module name="counter-common" options="-parameters" />
+      <module name="customer-mcp-server" options="-parameters" />
+      <module name="customer-service (1) (com.vibhu.msp)" options="-parameters" />
+      <module name="customer-service (2) (com.vibhu.security)" options="-parameters" />
+      <module name="delivery-worker" options="-parameters" />
+      <module name="domain-services" options="-parameters" />
+      <module name="eureka-server" options="-parameters" />
+      <module name="flash-sale-common" options="-parameters" />
+      <module name="flash-sale-service" options="-parameters" />
+      <module name="hadron-cashlines-dlq" options="-parameters" />
+      <module name="idp-standin" options="-parameters" />
+      <module name="inventory-service" options="-parameters" />
+      <module name="inventory-service (1) (com.example.flashsale)" options="-parameters" />
+      <module name="kafka-common" options="-parameters" />
+      <module name="kafka-mcp-server" options="-parameters" />
+      <module name="lock-service" options="-parameters" />
+      <module name="mcp-financial-server" options="-parameters" />
+      <module name="mcp-server" options="-parameters" />
+      <module name="message-service" options="-parameters" />
+      <module name="msp-common" options="-parameters" />
+      <module name="notification-service" options="-parameters" />
+      <module name="notification-service (1) (com.example.flashsale)" options="-parameters" />
+      <module name="order-service" options="-parameters" />
+      <module name="order-service (1) (com.vibhu.gateway.live)" options="-parameters" />
+      <module name="order-service (2) (com.vibhu.msp)" options="-parameters" />
+      <module name="payment-api" options="-parameters" />
+      <module name="payment-mcp-server" options="-parameters" />
+      <module name="payment-ops" options="-parameters" />
+      <module name="payment-service" options="-parameters" />
+      <module name="payment-service (1) (com.example.flashsale)" options="-parameters" />
+      <module name="payment-service (1) (com.vibhu.gateway.live)" options="-parameters" />
+      <module name="payment-service (2) (com.vibhu.msp)" options="-parameters" />
+      <module name="pii-common" options="-parameters" />
+      <module name="rag-service" options="-parameters" />
+      <module name="rag-service (1) (com.vibhu.aifp)" options="-parameters" />
+      <module name="recovery-service" options="-parameters" />
+      <module name="reporting-mcp-server" options="-parameters" />
+      <module name="resource-api" options="-parameters" />
+      <module name="resource-server" options="-parameters" />
+      <module name="settlement-worker" options="-parameters" />
+      <module name="spring-bloom-filter-lab" options="-parameters" />
+      <module name="spring-cache-lab" options="-parameters" />
+      <module name="spring-cors-demo" options="-parameters" />
+      <module name="spring-csrf-demo" options="-parameters" />
+      <module name="spring-distributed-cache-demo" options="-parameters" />
+      <module name="spring-distributed-lock-demo" options="-parameters" />
+      <module name="spring-encryption-lab" options="-parameters" />
+      <module name="spring-jwt-auth-demo" options="-parameters" />
+      <module name="spring-microservices-patterns-lab" options="-parameters" />
+      <module name="spring-multitenant-lab" options="-parameters" />
+      <module name="spring-n-plus-one-demo" options="-parameters" />
+      <module name="spring-rate-limiter-lab" options="-parameters" />
+      <module name="spring-resilience4j-lab" options="-parameters" />
+      <module name="spring-web-attacks-demo" options="-parameters" />
+      <module name="support-api" options="-parameters" />
+      <module name="tool-gateway" options="-parameters" />
+      <module name="transaction-service" options="-parameters" />
+      <module name="user-service" options="-parameters" />
+      <module name="web-app" options="-parameters" />
+      <module name="web-portal" options="-parameters" />
+      <module name="whatsapp-common" options="-parameters" />
+    </option>
   </component>
 </project>

@@ -1,0 +1,10 @@
+target/
+.idea/
+*.iml
+certificates/*.p12
+certificates/*.key
+certificates/*.crt
+certificates/*.csr
+certificates/*.srl
+.env
+scripts/admin.properties

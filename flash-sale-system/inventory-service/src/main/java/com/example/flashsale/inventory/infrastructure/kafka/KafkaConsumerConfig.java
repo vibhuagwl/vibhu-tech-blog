@@ -1,0 +1,32 @@
+package com.example.flashsale.inventory.infrastructure.kafka;
+
+import com.example.flashsale.common.error.FlashSaleException;
+import com.example.flashsale.common.error.PermanentException;
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.ExponentialBackOff;
+
+/**
+ * WHY: ack only after the business TX. Transient failures retry with backoff; poison / permanent
+ * land on {@code *.dlq} so the partition is not stalled. If removed, one bad JSON blocks the SKU.
+ */
+@Configuration
+@Profile("!test")
+public class KafkaConsumerConfig {
+
+    @Bean
+    DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> kafkaTemplate) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate, (record, ex) -> new TopicPartition(record.topic() + ".dlq", record.partition()));
+        ExponentialBackOff backOff = new ExponentialBackOff(200L, 2.0);
+        backOff.setMaxElapsedTime(4_000);
+        DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, backOff);
+        handler.addNotRetryableExceptions(PermanentException.class, FlashSaleException.class);
+        return handler;
+    }
+}

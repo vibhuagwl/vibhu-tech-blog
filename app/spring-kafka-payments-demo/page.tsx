@@ -37,6 +37,10 @@ export default function SpringKafkaPaymentsDemoPage(){
           <Link href="/realtime-issues/stuck-thread-spring-kafka-locks" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
             Kafka incident page →
           </Link>
+          <span className="text-slate-300">·</span>
+          <Link href="/secure-kafka" className="font-semibold text-slate-700 hover:underline dark:text-blue-400">
+            Secure Kafka (TLS + SASL + ACL) →
+          </Link>
         </div>
       </header>
 
