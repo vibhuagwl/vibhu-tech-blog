@@ -86,6 +86,7 @@ Expand next: ledger, wallet, reconciliation, fraud, settlement (roadmap).
 |---|---|
 | LRU Cache LLD | HashMap + DLL, concurrency |
 | Rate Limiter LLD | Strategy, token bucket |
+| [Connection Pool LLD](/system-design/lld-connection-pool) | ReentrantLock, Semaphore, lifecycle, leaks, shutdown, Staff attack Qs |
 
 LLD must always connect to HLD: *this class becomes that service boundary*.
 
