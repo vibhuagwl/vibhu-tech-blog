@@ -1,20 +1,17 @@
 package com.vibhu.fai.model;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.MessageType;
-import org.springframework.ai.chat.messages.ToolResponseMessage;
-import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.messages.*;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * ============================================================
@@ -39,7 +36,7 @@ public class FintechScriptedChatModel implements ChatModel {
     List<Message> messages = prompt.getInstructions();
     boolean hasToolResponses =
         messages.stream().anyMatch(m -> m.getMessageType() == MessageType.TOOL);
-    String userText = lastUser(messages);
+      String userText = originalQuestion(lastUser(messages));
 
     if (hasToolResponses) {
       return finalAnswer(userText, messages);
@@ -154,6 +151,12 @@ public class FintechScriptedChatModel implements ChatModel {
     }
     return "";
   }
+
+    static String originalQuestion(String userText) {
+        int cut = userText.indexOf("Retrieved policies:");
+        return cut > 0 ? userText.substring(0, cut)
+                .trim() : userText;
+    }
 
   private static String extract(Pattern p, String text, String fallback) {
     Matcher m = p.matcher(text);

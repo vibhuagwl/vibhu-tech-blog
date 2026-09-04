@@ -1,8 +1,9 @@
 package com.example.flashsale.flash.infrastructure.outbox;
 
-import com.example.flashsale.common.event.EventEnvelope;
-import com.example.flashsale.common.event.JsonEvents;
-import com.example.flashsale.common.kafka.Topics;
+import com.example.flashsale.common.error.PermanentException;
+import com.example.flashsale.common.event.EventPayloads;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -10,10 +11,18 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * The mailbox after the promise. Wait for Kafka to ack, then mark PUBLISHED. A crash before
+ * the ack leaves the row NEW — we send again. Consumers key on eventId, so a duplicate send
+ * is a re-read, not a second sale. Poison JSON is FAILED so one bad row cannot stall the SKU.
+ */
 @Component
 @Profile("!test")
 public class OutboxPublisher {
+    private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
+
     private final OutboxEventRepository repository;
     private final KafkaTemplate<String, String> kafkaTemplate;
 
@@ -27,11 +36,26 @@ public class OutboxPublisher {
     public void publishBatch() {
         List<OutboxEvent> batch = repository.lockNextBatch(500);
         for (OutboxEvent event : batch) {
-            EventEnvelope env = JsonEvents.read(event.getPayload());
-            String topic = String.valueOf(env.payload()
-                    .getOrDefault("topic", Topics.ORDER_REQUESTED));
-            kafkaTemplate.send(topic, event.getPartitionKey(), event.getPayload());
+            publishOne(event);
+        }
+    }
+
+    private void publishOne(OutboxEvent event) {
+        try {
+            String topic = EventPayloads.requireTopic(event.getPayload());
+            kafkaTemplate.send(topic, event.getPartitionKey(), event.getPayload())
+                    .get(5, TimeUnit.SECONDS);
             event.markPublished();
+        } catch (PermanentException | IllegalArgumentException poison) {
+            log.error("poison outbox eventId={}", event.getEventId(), poison);
+            event.markFailed();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread()
+                    .interrupt();
+            throw new IllegalStateException("outbox send interrupted", interrupted);
+        } catch (Exception sendFailed) {
+            log.warn("outbox send failed eventId={}", event.getEventId(), sendFailed);
+            throw new IllegalStateException("outbox kafka send failed", sendFailed);
         }
     }
 }

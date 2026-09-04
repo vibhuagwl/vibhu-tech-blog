@@ -8,7 +8,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @SpringBootApplication
 @EnableConfigurationProperties(KafkaAppProperties.class)
 public class SecureKafkaApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(SecureKafkaApplication.class, args);
     }

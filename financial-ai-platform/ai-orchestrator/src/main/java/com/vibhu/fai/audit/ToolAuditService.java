@@ -1,19 +1,22 @@
 package com.vibhu.fai.audit;
 
 import com.vibhu.fai.web.RequestAuthHolder;
+import org.springframework.stereotype.Service;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
-import org.springframework.stereotype.Service;
 
 @Service
 public class ToolAuditService {
   private final ToolAuditRepository repo;
+    private final com.vibhu.fai.obs.AiMetrics metrics;
 
-  public ToolAuditService(ToolAuditRepository repo) {
+    public ToolAuditService(ToolAuditRepository repo, com.vibhu.fai.obs.AiMetrics metrics) {
     this.repo = repo;
+        this.metrics = metrics;
   }
 
   public void record(String toolName, Map<String, ?> args, boolean success) {
@@ -27,6 +30,7 @@ public class ToolAuditService {
     a.setSuccess(success);
     a.setCreatedAt(Instant.now());
     repo.save(a);
+      metrics.toolCall(toolName, success);
   }
 
   private static String sha256(String s) {

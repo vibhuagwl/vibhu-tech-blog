@@ -2,3 +2,4 @@ CREATE DATABASE flashsale;
 CREATE DATABASE inventory;
 CREATE DATABASE orders;
 CREATE DATABASE payments;
+CREATE DATABASE flashsale_api;

@@ -6,10 +6,13 @@ Java 21 · Spring Boot 3.4 · Kafka · Redis · PostgreSQL.
 
 Start here:
 
-1. [5-minute talk](docs/5-minute-interview-explanation.md)
-2. [Architecture](docs/architecture.md)
-3. [Concurrency](docs/concurrency.md)
-4. [50 questions](docs/interview-guide.md)
+1. **Duplicate requests** — module `flash-sale-api` (`POST /api/orders` + Redis SET NX + Postgres UNIQUE + outbox). Read
+   `flash-sale-api/docs/DUPLICATE-PREVENTION.md`.
+2. **Code as a story** — `common/src/main/java/com/example/flashsale/common/event/PurchaseStory.java`
+3. [5-minute talk](docs/5-minute-interview-explanation.md)
+4. [Architecture](docs/architecture.md)
+5. [Concurrency](docs/concurrency.md)
+6. [50 questions](docs/interview-guide.md)
 
 ## Problem
 
@@ -32,6 +35,7 @@ OrderRequested → atomic SQL reserve → Order + saga → Payment → confirm |
 
 | Module               | Port | Owns                                   |
 |----------------------|------|----------------------------------------|
+| flash-sale-api       | 8090 | Idempotency + inventory + outbox lab   |
 | api-gateway          | 8080 | Routing, correlation id                |
 | flash-sale-service   | 8082 | Sale catalog, gate, intent idempotency |
 | inventory-service    | 8083 | Stock, reservations                    |

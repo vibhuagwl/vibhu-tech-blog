@@ -1,6 +1,5 @@
 target/
 .idea/
-*.iml
 certificates/*.p12
 certificates/*.key
 certificates/*.crt

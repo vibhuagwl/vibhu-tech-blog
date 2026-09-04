@@ -22,6 +22,16 @@ spring:
     chat:
       client:
         enabled: false
+    mcp:
+      client:
+        enabled: false
+        name: financial-ai-orchestrator
+        version: 1.0.0
+        request-timeout: 20s
+        sse:
+          connections:
+            financial:
+              url: http://localhost:8091
 
 app:
   ai:

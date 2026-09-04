@@ -16,6 +16,8 @@
       <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/customer-mcp-server/customer-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/customer-mcp-server/customer-mcp-server.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-whatsapp-demo/delivery-worker/delivery-worker.iml" filepath="$PROJECT_DIR$/spring-whatsapp-demo/delivery-worker/delivery-worker.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-gateway-live-lab/eureka-server/eureka-server.iml" filepath="$PROJECT_DIR$/spring-gateway-live-lab/eureka-server/eureka-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/flash-sale-system/common/flash-sale-common.iml" filepath="$PROJECT_DIR$/flash-sale-system/common/flash-sale-common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/flash-sale-system/flash-sale-service/flash-sale-service.iml" filepath="$PROJECT_DIR$/flash-sale-system/flash-sale-service/flash-sale-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/hadron-cashlines-dlq/hadron-cashlines-dlq.iml" filepath="$PROJECT_DIR$/hadron-cashlines-dlq/hadron-cashlines-dlq.iml" />
       <module fileurl="file://$PROJECT_DIR$/idanywhere-oidc-demo/idp-standin/idp-standin.iml" filepath="$PROJECT_DIR$/idanywhere-oidc-demo/idp-standin/idp-standin.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-msp-platform/inventory-service/inventory-service.iml" filepath="$PROJECT_DIR$/spring-msp-platform/inventory-service/inventory-service.iml" />
@@ -34,6 +36,7 @@
       <module fileurl="file://$PROJECT_DIR$/ai-fintech-platform/reporting-mcp-server/reporting-mcp-server.iml" filepath="$PROJECT_DIR$/ai-fintech-platform/reporting-mcp-server/reporting-mcp-server.iml" />
       <module fileurl="file://$PROJECT_DIR$/idanywhere-oidc-demo/resource-api/resource-api.iml" filepath="$PROJECT_DIR$/idanywhere-oidc-demo/resource-api/resource-api.iml" />
       <module fileurl="file://$PROJECT_DIR$/oauth-jwt-demo/resource-server/resource-server.iml" filepath="$PROJECT_DIR$/oauth-jwt-demo/resource-server/resource-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/secure-kafka/secure-kafka.iml" filepath="$PROJECT_DIR$/secure-kafka/secure-kafka.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-kafka-payments-demo/settlement-worker/settlement-worker.iml" filepath="$PROJECT_DIR$/spring-kafka-payments-demo/settlement-worker/settlement-worker.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-api-gateway-lab/spring-api-gateway-lab.iml" filepath="$PROJECT_DIR$/spring-api-gateway-lab/spring-api-gateway-lab.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-bloom-filter-lab/spring-bloom-filter-lab.iml" filepath="$PROJECT_DIR$/spring-bloom-filter-lab/spring-bloom-filter-lab.iml" />
@@ -54,6 +57,7 @@
       <module fileurl="file://$PROJECT_DIR$/spring-ai-payment-investigator/tool-gateway/tool-gateway.iml" filepath="$PROJECT_DIR$/spring-ai-payment-investigator/tool-gateway/tool-gateway.iml" />
       <module fileurl="file://$PROJECT_DIR$/distributed-locking/transaction-service/transaction-service.iml" filepath="$PROJECT_DIR$/distributed-locking/transaction-service/transaction-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-gateway-live-lab/user-service/user-service.iml" filepath="$PROJECT_DIR$/spring-gateway-live-lab/user-service/user-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/vibhu-tech-blog.iml" filepath="$PROJECT_DIR$/.idea/vibhu-tech-blog.iml" />
       <module fileurl="file://$PROJECT_DIR$/idanywhere-oidc-demo/web-app/web-app.iml" filepath="$PROJECT_DIR$/idanywhere-oidc-demo/web-app/web-app.iml" />
       <module fileurl="file://$PROJECT_DIR$/spring-authn-authz-demo/web-portal/web-portal.iml" filepath="$PROJECT_DIR$/spring-authn-authz-demo/web-portal/web-portal.iml" />
     </modules>

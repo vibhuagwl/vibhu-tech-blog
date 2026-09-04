@@ -8,7 +8,7 @@ package com.example.kafka.security;
  * (see {@link OAuthBearerTokenCallbackHandler} and Kafka's
  * {@code OAuthBearerLoginCallbackHandler}).
  */
-public interface KafkaOAuthTokenProvider {
+interface KafkaOAuthTokenProvider {
 
     String getAccessToken();
 }

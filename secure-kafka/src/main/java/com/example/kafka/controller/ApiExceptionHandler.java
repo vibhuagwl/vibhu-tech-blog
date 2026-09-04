@@ -1,9 +1,5 @@
 package com.example.kafka.controller;
 
-import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.concurrent.CompletionException;
 import org.apache.kafka.common.errors.GroupAuthorizationException;
 import org.apache.kafka.common.errors.SaslAuthenticationException;
 import org.apache.kafka.common.errors.SslAuthenticationException;
@@ -14,8 +10,26 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.CompletionException;
+
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    private static ResponseEntity<Map<String, Object>> error(HttpStatus status, String message, Exception ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp",
+                Instant.now()
+                        .toString());
+        body.put("status", status.value());
+        body.put("error", status.getReasonPhrase());
+        body.put("message", message);
+        body.put("detail", ex.getMessage());
+        return ResponseEntity.status(status)
+                .body(body);
+    }
 
     @ExceptionHandler(CompletionException.class)
     public ResponseEntity<Map<String, Object>> asyncFailure(CompletionException ex) {
@@ -50,15 +64,5 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> invalidBody(MethodArgumentNotValidException ex) {
         return error(HttpStatus.BAD_REQUEST, "Validation failed", ex);
-    }
-
-    private static ResponseEntity<Map<String, Object>> error(HttpStatus status, String message, Exception ex) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", Instant.now().toString());
-        body.put("status", status.value());
-        body.put("error", status.getReasonPhrase());
-        body.put("message", message);
-        body.put("detail", ex.getMessage());
-        return ResponseEntity.status(status).body(body);
     }
 }

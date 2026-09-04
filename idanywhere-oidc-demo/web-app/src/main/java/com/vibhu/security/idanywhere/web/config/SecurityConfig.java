@@ -9,16 +9,15 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
 
-  @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    http.authorizeHttpRequests(
-            auth ->
-                auth.requestMatchers("/", "/css/**", "/error")
-                    .permitAll()
-                    .anyRequest()
-                    .authenticated())
-        .oauth2Login(Customizer.withDefaults())
-        .logout(logout -> logout.logoutSuccessUrl("/").permitAll());
-    return http.build();
-  }
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.authorizeHttpRequests(auth -> auth.requestMatchers("/", "/css/**", "/error")
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated())
+                .oauth2Login(Customizer.withDefaults())
+                .logout(logout -> logout.logoutSuccessUrl("/")
+                        .permitAll());
+        return http.build();
+    }
 }

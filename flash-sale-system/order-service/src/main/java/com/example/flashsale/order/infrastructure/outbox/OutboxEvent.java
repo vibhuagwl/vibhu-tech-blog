@@ -48,6 +48,10 @@ public class OutboxEvent {
         return eventId;
     }
 
+    public String getEventType() {
+        return eventType;
+    }
+
     public String getPartitionKey() {
         return partitionKey;
     }
@@ -58,6 +62,11 @@ public class OutboxEvent {
 
     public void markPublished() {
         this.status = "PUBLISHED";
+        this.publishedAt = Instant.now();
+    }
+
+    public void markFailed() {
+        this.status = "FAILED";
         this.publishedAt = Instant.now();
     }
 }

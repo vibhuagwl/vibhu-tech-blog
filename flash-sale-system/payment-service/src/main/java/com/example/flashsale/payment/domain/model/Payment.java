@@ -43,11 +43,37 @@ public class Payment {
         return orderId;
     }
 
+    public String getStatus() {
+        return status;
+    }
+
+    public void markProcessing() {
+        if (isTerminal()) {
+            return;
+        }
+        this.status = "PROCESSING";
+    }
+
     public void succeed() {
         this.status = "SUCCESS";
     }
 
     public void fail() {
+        if (isSuccess()) {
+            return;
+        }
         this.status = "FAILED";
+    }
+
+    public boolean isSuccess() {
+        return "SUCCESS".equals(status);
+    }
+
+    public boolean isFailed() {
+        return "FAILED".equals(status);
+    }
+
+    public boolean isTerminal() {
+        return isSuccess() || isFailed();
     }
 }

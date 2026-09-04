@@ -30,105 +30,92 @@ import java.util.Map;
  * constructor is clearer).
  */
 public class PaymentTransactionBuilderDemo {
-  public record PaymentTransaction(
-      String transactionId,
-      String customerId,
-      BigDecimal amount,
-      String currency,
-      Map<String, String> metadata,
-      String retryPolicy,
-      boolean fraudCheck,
-      String callbackUrl) {}
-
-  public static final class Builder {
-    private String transactionId;
-    private String customerId;
-    private BigDecimal amount;
-    private String currency;
-    private final Map<String, String> metadata = new HashMap<>();
-    private String retryPolicy = "NONE";
-    private boolean fraudCheck = true;
-    private String callbackUrl = "";
-
-    public Builder transactionId(String v) {
-      transactionId = v;
-      return this;
+    public record PaymentTransaction(String transactionId, String customerId, BigDecimal amount, String currency,
+                                     Map<String, String> metadata, String retryPolicy, boolean fraudCheck,
+                                     String callbackUrl) {
     }
 
-    public Builder customerId(String v) {
-      customerId = v;
-      return this;
+    public static final class Builder {
+        private String transactionId;
+        private String customerId;
+        private BigDecimal amount;
+        private String currency;
+        private final Map<String, String> metadata = new HashMap<>();
+        private String retryPolicy = "NONE";
+        private boolean fraudCheck = true;
+        private String callbackUrl = "";
+
+        public Builder transactionId(String v) {
+            transactionId = v;
+            return this;
+        }
+
+        public Builder customerId(String v) {
+            customerId = v;
+            return this;
+        }
+
+        public Builder amount(BigDecimal v) {
+            amount = v;
+            return this;
+        }
+
+        public Builder currency(String v) {
+            currency = v;
+            return this;
+        }
+
+        public Builder metadata(String k, String v) {
+            metadata.put(k, v);
+            return this;
+        }
+
+        public Builder retryPolicy(String v) {
+            retryPolicy = v;
+            return this;
+        }
+
+        public Builder fraudCheck(boolean v) {
+            fraudCheck = v;
+            return this;
+        }
+
+        public Builder callbackUrl(String v) {
+            callbackUrl = v;
+            return this;
+        }
+
+        public PaymentTransaction build() {
+            return new PaymentTransaction(transactionId,
+                    customerId,
+                    amount,
+                    currency,
+                    Map.copyOf(metadata),
+                    retryPolicy,
+                    fraudCheck,
+                    callbackUrl);
+        }
     }
 
-    public Builder amount(BigDecimal v) {
-      amount = v;
-      return this;
+    public static void run() {
+        System.out.println("=== Builder — PaymentTransactionBuilderDemo ===");
+        System.out.println("PROBLEM: Telescoping constructors and half-filled PaymentTransaction objects let optional" + " fields like retryPolicy or fraudCheck slip through to the gateway.");
+        System.out.println("SOLUTION: Fluent Builder sets required and optional fields step-by-step; build() returns" + " one immutable, fully specified PaymentTransaction.");
+        System.out.println("STEP 1: Start fluent Builder for a payment transaction");
+        System.out.println("STEP 2: Set required fields and optional metadata step-by-step");
+        var tx = new Builder().transactionId("tx-demo-1")
+                .customerId("cust-42")
+                .amount(new BigDecimal("250.00"))
+                .currency("USD")
+                .metadata("flow", "api")
+                .retryPolicy("EXPONENTIAL")
+                .build();
+        System.out.println("STEP 3: build() returns immutable PaymentTransaction");
+        System.out.println("  id=" + tx.transactionId() + ", amount=" + tx.amount() + " " + tx.currency());
+        System.out.println("  metadata=" + tx.metadata() + ", retryPolicy=" + tx.retryPolicy());
     }
 
-    public Builder currency(String v) {
-      currency = v;
-      return this;
+    public static void main(String[] args) {
+        run();
     }
-
-    public Builder metadata(String k, String v) {
-      metadata.put(k, v);
-      return this;
-    }
-
-    public Builder retryPolicy(String v) {
-      retryPolicy = v;
-      return this;
-    }
-
-    public Builder fraudCheck(boolean v) {
-      fraudCheck = v;
-      return this;
-    }
-
-    public Builder callbackUrl(String v) {
-      callbackUrl = v;
-      return this;
-    }
-
-    public PaymentTransaction build() {
-      return new PaymentTransaction(
-          transactionId,
-          customerId,
-          amount,
-          currency,
-          Map.copyOf(metadata),
-          retryPolicy,
-          fraudCheck,
-          callbackUrl);
-    }
-  }
-
-  public static void run() {
-    System.out.println("=== Builder — PaymentTransactionBuilderDemo ===");
-    System.out.println(
-        "PROBLEM: Telescoping constructors and half-filled PaymentTransaction objects let optional"
-            + " fields like retryPolicy or fraudCheck slip through to the gateway.");
-    System.out.println(
-        "SOLUTION: Fluent Builder sets required and optional fields step-by-step; build() returns"
-            + " one immutable, fully specified PaymentTransaction.");
-    System.out.println("STEP 1: Start fluent Builder for a payment transaction");
-    System.out.println("STEP 2: Set required fields and optional metadata step-by-step");
-    var tx =
-        new Builder()
-            .transactionId("tx-demo-1")
-            .customerId("cust-42")
-            .amount(new BigDecimal("250.00"))
-            .currency("USD")
-            .metadata("flow", "api")
-            .retryPolicy("EXPONENTIAL")
-            .build();
-    System.out.println("STEP 3: build() returns immutable PaymentTransaction");
-    System.out.println(
-        "  id=" + tx.transactionId() + ", amount=" + tx.amount() + " " + tx.currency());
-    System.out.println("  metadata=" + tx.metadata() + ", retryPolicy=" + tx.retryPolicy());
-  }
-
-  public static void main(String[] args) {
-    run();
-  }
 }

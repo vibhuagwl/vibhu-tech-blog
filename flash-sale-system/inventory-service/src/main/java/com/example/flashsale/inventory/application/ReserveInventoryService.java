@@ -1,7 +1,12 @@
 package com.example.flashsale.inventory.application;
 
+import com.example.flashsale.common.error.ErrorCode;
+import com.example.flashsale.common.error.PermanentException;
+import com.example.flashsale.common.error.TransientException;
 import com.example.flashsale.common.event.EventEnvelope;
 import com.example.flashsale.common.event.JsonEvents;
+import com.example.flashsale.common.event.OrderFacts;
+import com.example.flashsale.common.event.PurchaseStory;
 import com.example.flashsale.common.kafka.Topics;
 import com.example.flashsale.inventory.domain.model.InventoryReservation;
 import com.example.flashsale.inventory.domain.model.ReservationStatus;
@@ -20,8 +25,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
 
+/**
+ * Chapter 2 of {@link PurchaseStory}.
+ * <p>
+ * One transaction owns the shelf move, the reservation row, the outbox promise, and the
+ * "I already did this event" memory. Publishing Kafka here would be a dual-write: crash after
+ * send and we reserved twice; crash before send and the saga never hears.
+ */
 @Service
 public class ReserveInventoryService {
 
@@ -34,9 +45,12 @@ public class ReserveInventoryService {
     private final ProcessedEventRepository processedEventRepository;
     private final Duration ttl;
 
-    public ReserveInventoryService(InventoryRepository inventoryRepository,
-            InventoryReservationRepository reservationRepository, ReservationStrategy reservationStrategy,
-            OutboxEventRepository outboxEventRepository, ProcessedEventRepository processedEventRepository,
+    public ReserveInventoryService(
+            InventoryRepository inventoryRepository,
+            InventoryReservationRepository reservationRepository,
+            ReservationStrategy reservationStrategy,
+            OutboxEventRepository outboxEventRepository,
+            ProcessedEventRepository processedEventRepository,
             @Value("${app.reservation-ttl:5m}") Duration ttl) {
         this.inventoryRepository = inventoryRepository;
         this.reservationRepository = reservationRepository;
@@ -46,121 +60,150 @@ public class ReserveInventoryService {
         this.ttl = ttl;
     }
 
-    /**
-     * WHY one TX: inventory row + reservation + outbox + processed_event commit together.
-     * If Kafka publish were in this method, a crash after commit/before send loses the event
-     * OR a crash after send/before commit double-delivers without an outbox.
-     */
     @Transactional
     public boolean reserve(EventEnvelope incoming) {
-        if (processedEventRepository.existsById(incoming.eventId())) {
-            log.info("eventId={} already processed — idempotent no-op", incoming.eventId());
-            return reservationRepository.findByOrderId(String.valueOf(incoming.payload()
-                            .get("orderId")))
+        if (alreadyHeard(incoming.eventId())) {
+            return reservationRepository.findByOrderId(OrderFacts.stock(incoming)
+                            .orderId())
                     .isPresent();
         }
-        String orderId = String.valueOf(incoming.payload()
-                .get("orderId"));
-        String productId = String.valueOf(incoming.payload()
-                .get("productId"));
-        int qty = ((Number) incoming.payload()
-                .getOrDefault("quantity", 1)).intValue();
-        String correlationId = incoming.correlationId();
 
-        if (reservationRepository.findByOrderId(orderId)
+        OrderFacts facts = OrderFacts.stock(incoming);
+        if (facts.quantity() != 1) {
+            throw new PermanentException(ErrorCode.INVALID_REQUEST, "Flash SKU quantity must be 1");
+        }
+
+        if (reservationRepository.findByOrderId(facts.orderId())
                 .isPresent()) {
-            processedEventRepository.save(new ProcessedEvent(incoming.eventId()));
+            remember(incoming.eventId());
             return true;
         }
 
-        if (!reservationStrategy.tryReserve(productId, qty)) {
-            enqueue(incoming, Topics.INVENTORY_REJECTED, "InventoryRejected", orderId, productId, qty);
-            processedEventRepository.save(new ProcessedEvent(incoming.eventId()));
+        if (!reservationStrategy.tryReserve(facts.productId(), facts.quantity())) {
+            tell(PurchaseStory.inventoryDecision(incoming, "InventoryRejected", Topics.INVENTORY_REJECTED, facts));
+            remember(incoming.eventId());
             return false;
         }
-        reservationRepository.save(InventoryReservation.reserve(orderId,
-                productId,
-                qty,
+
+        reservationRepository.save(InventoryReservation.reserve(
+                facts.orderId(),
+                facts.productId(),
+                facts.quantity(),
                 Instant.now()
                         .plus(ttl)));
-        enqueue(incoming, Topics.INVENTORY_RESERVED, "InventoryReserved", orderId, productId, qty);
-        processedEventRepository.save(new ProcessedEvent(incoming.eventId()));
+        tell(PurchaseStory.inventoryDecision(incoming, "InventoryReserved", Topics.INVENTORY_RESERVED, facts));
+        remember(incoming.eventId());
         return true;
     }
 
     @Transactional
     public void release(String orderId, String incomingEventId) {
-        if (incomingEventId != null && processedEventRepository.existsById(incomingEventId)) {
-            return;
-        }
-        reservationRepository.findByOrderId(orderId)
-                .ifPresent(reservation -> {
-                    if (reservation.getStatus() == ReservationStatus.RESERVED) {
-                        reservation.release();
-                        inventoryRepository.incrementOnRelease(reservation.getProductId(), reservation.getQuantity());
-                    }
-                });
-        if (incomingEventId != null) {
-            processedEventRepository.save(new ProcessedEvent(incomingEventId));
-        }
+        putBack(orderId, incomingEventId, ReservationStatus.RELEASED, "RELEASED");
     }
 
-    /**
-     * Payment never arrived. Distinct from compensation RELEASED so ops can tell the two apart.
-     */
+    /** Payment never answered. Same shelf math as release; a different status so ops can tell them apart. */
     @Transactional
     public void expire(String orderId, String incomingEventId) {
-        if (incomingEventId != null && processedEventRepository.existsById(incomingEventId)) {
-            return;
-        }
-        reservationRepository.findByOrderId(orderId)
-                .ifPresent(reservation -> {
-                    if (reservation.getStatus() == ReservationStatus.RESERVED) {
-                        reservation.expire();
-                        inventoryRepository.incrementOnRelease(reservation.getProductId(), reservation.getQuantity());
-                    }
-                });
-        if (incomingEventId != null) {
-            processedEventRepository.save(new ProcessedEvent(incomingEventId));
-        }
+        putBack(orderId, incomingEventId, ReservationStatus.EXPIRED, "EXPIRED");
     }
 
     @Transactional
     public void confirm(String orderId, String incomingEventId) {
-        if (incomingEventId != null && processedEventRepository.existsById(incomingEventId)) {
+        if (alreadyHeard(incomingEventId)) {
             return;
         }
-        reservationRepository.findByOrderId(orderId)
-                .ifPresent(reservation -> {
-                    if (reservation.getStatus() == ReservationStatus.RESERVED) {
-                        reservation.confirm();
-                        inventoryRepository.confirmSold(reservation.getProductId(), reservation.getQuantity());
-                    }
-                });
-        if (incomingEventId != null) {
-            processedEventRepository.save(new ProcessedEvent(incomingEventId));
+        InventoryReservation reservation = mustBeVisible(orderId);
+
+        if (move(reservation, ReservationStatus.RESERVED, ReservationStatus.CONFIRMED)) {
+            markSold(reservation);
+            remember(incomingEventId);
+            return;
+        }
+
+        InventoryReservation current = mustBeVisible(orderId);
+        if (current.getStatus() == ReservationStatus.CONFIRMED) {
+            remember(incomingEventId);
+            return;
+        }
+        if (current.getStatus() == ReservationStatus.EXPIRED || current.getStatus() == ReservationStatus.RELEASED) {
+            takeBackFromTheShelf(current);
+        }
+        remember(incomingEventId);
+    }
+
+    private void putBack(String orderId, String incomingEventId, ReservationStatus to, String reason) {
+        if (alreadyHeard(incomingEventId)) {
+            return;
+        }
+        InventoryReservation reservation = mustBeVisible(orderId);
+        if (move(reservation, ReservationStatus.RESERVED, to)) {
+            returnToAvailable(reservation);
+            tell(PurchaseStory.inventoryReleased(factsOf(reservation), reason));
+        }
+        remember(incomingEventId);
+    }
+
+    /**
+     * Payment succeeded after TTL already put the unit back. Steal it from available again if
+     * nobody else bought it; otherwise the order is already CONFIRMED and ops has a drift to chase.
+     */
+    private void takeBackFromTheShelf(InventoryReservation reservation) {
+        if (!reservationStrategy.tryReserve(reservation.getProductId(), reservation.getQuantity())) {
+            log.error("late confirm cannot reacquire stock orderId={}", reservation.getOrderId());
+            return;
+        }
+        if (move(reservation, reservation.getStatus(), ReservationStatus.CONFIRMED)) {
+            markSold(reservation);
+            return;
+        }
+        returnToAvailable(reservation);
+        log.warn("late confirm lost CAS after re-reserve orderId={}", reservation.getOrderId());
+    }
+
+    private boolean move(InventoryReservation reservation, ReservationStatus from, ReservationStatus to) {
+        return reservationRepository.casStatus(reservation.getOrderId(), from.name(), to.name()) == 1;
+    }
+
+    private boolean markSold(InventoryReservation reservation) {
+        int rows = inventoryRepository.confirmSold(reservation.getProductId(), reservation.getQuantity());
+        if (rows != 1) {
+            log.error("confirmSold rows={} orderId={}", rows, reservation.getOrderId());
+        }
+        return rows == 1;
+    }
+
+    private boolean returnToAvailable(InventoryReservation reservation) {
+        int rows = inventoryRepository.incrementOnRelease(reservation.getProductId(), reservation.getQuantity());
+        if (rows != 1) {
+            log.error("incrementOnRelease rows={} orderId={}", rows, reservation.getOrderId());
+        }
+        return rows == 1;
+    }
+
+    private InventoryReservation mustBeVisible(String orderId) {
+        return reservationRepository
+                .findByOrderId(orderId)
+                .orElseThrow(() -> new TransientException(
+                        ErrorCode.INVENTORY_RESERVATION_FAILED, "reservation not visible yet orderId=" + orderId));
+    }
+
+    private boolean alreadyHeard(String eventId) {
+        return eventId != null && processedEventRepository.existsById(eventId);
+    }
+
+    private void remember(String eventId) {
+        if (eventId != null) {
+            processedEventRepository.save(new ProcessedEvent(eventId));
         }
     }
 
-    private void enqueue(EventEnvelope incoming, String topic, String type, String orderId, String productId, int qty) {
-        EventEnvelope env = EventEnvelope.of(type,
-                incoming.correlationId(),
-                orderId,
-                orderId,
-                Map.of("orderId",
-                        orderId,
-                        "productId",
-                        productId,
-                        "quantity",
-                        qty,
-                        "userId",
-                        String.valueOf(incoming.payload()
-                                .getOrDefault("userId", "")),
-                        "saleId",
-                        String.valueOf(incoming.payload()
-                                .getOrDefault("saleId", "")),
-                        "topic",
-                        topic));
-        outboxEventRepository.save(OutboxEvent.pending(env.eventId(), type, env.partitionKey(), JsonEvents.write(env)));
+    private void tell(EventEnvelope env) {
+        outboxEventRepository.save(
+                OutboxEvent.pending(env.eventId(), env.eventType(), env.partitionKey(), JsonEvents.write(env)));
+    }
+
+    private static OrderFacts factsOf(InventoryReservation reservation) {
+        return OrderFacts.of(
+                reservation.getOrderId(), "", "", reservation.getProductId(), reservation.getQuantity());
     }
 }

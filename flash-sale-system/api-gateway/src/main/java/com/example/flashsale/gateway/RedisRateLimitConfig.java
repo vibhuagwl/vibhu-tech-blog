@@ -25,9 +25,7 @@ public class RedisRateLimitConfig {
                     .getFirst("X-Forwarded-For");
             if (ip == null || ip.isBlank()) {
                 ip = exchange.getRequest()
-                        .getRemoteAddress() == null
-                        ? "unknown"
-                        : exchange.getRequest()
+                        .getRemoteAddress() == null ? "unknown" : exchange.getRequest()
                         .getRemoteAddress()
                         .getAddress()
                         .getHostAddress();

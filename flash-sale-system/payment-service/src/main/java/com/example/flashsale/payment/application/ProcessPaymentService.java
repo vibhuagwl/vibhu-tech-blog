@@ -1,7 +1,9 @@
 package com.example.flashsale.payment.application;
 
 import com.example.flashsale.common.event.EventEnvelope;
+import com.example.flashsale.common.event.EventPayloads;
 import com.example.flashsale.common.event.JsonEvents;
+import com.example.flashsale.common.event.PurchaseStory;
 import com.example.flashsale.common.kafka.Topics;
 import com.example.flashsale.payment.domain.model.Payment;
 import com.example.flashsale.payment.domain.model.PaymentRepository;
@@ -16,14 +18,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.Map;
-
 /**
- * Provider call is outside the DB transaction. WHY: a 2s Stripe timeout must not hold a
- * connection. Dual-write is still outbox after the provider returns.
+ * Chapter 4 of {@link PurchaseStory}.
+ *
+ * Decide (short TX) → charge the PSP (no connection held) → write the ending (short TX).
+ * A second PaymentRequested with a new eventId still keys the charge on orderId, so the
+ * card is not hit twice.
  */
 @Service
 public class ProcessPaymentService {
+
     private final PaymentRepository payments;
     private final ResilientPaymentClient paymentClient;
     private final OutboxEventRepository outbox;
@@ -44,39 +48,57 @@ public class ProcessPaymentService {
     }
 
     public void handle(EventEnvelope env) {
-        Boolean skip = transactions.execute(status -> processed.existsById(env.eventId()));
-        if (Boolean.TRUE.equals(skip)) {
+        String orderId = EventPayloads.requireText(env, "orderId");
+        ChargePlan plan = transactions.execute(status -> shouldCharge(env, orderId));
+        if (plan != ChargePlan.CHARGE) {
             return;
         }
-        String orderId = String.valueOf(env.payload()
-                .get("orderId"));
-        transactions.executeWithoutResult(status -> payments
-                .findByOrderId(orderId)
-                .orElseGet(() -> payments.save(Payment.initiated(orderId))));
         PaymentResult result = paymentClient.charge(new PaymentRequest(orderId, orderId));
-        transactions.executeWithoutResult(status -> persistOutcome(env, orderId, result));
+        transactions.executeWithoutResult(status -> writeEnding(env, orderId, result));
     }
 
-    private void persistOutcome(EventEnvelope env, String orderId, PaymentResult result) {
+    private ChargePlan shouldCharge(EventEnvelope env, String orderId) {
+        if (processed.existsById(env.eventId())) {
+            return ChargePlan.SKIP;
+        }
+        Payment payment = payments.findByOrderId(orderId)
+                .orElseGet(() -> payments.save(Payment.initiated(orderId)));
+        if (payment.isTerminal()) {
+            processed.save(new ProcessedEvent(env.eventId()));
+            return ChargePlan.SKIP;
+        }
+        payment.markProcessing();
+        return ChargePlan.CHARGE;
+    }
+
+    private void writeEnding(EventEnvelope env, String orderId, PaymentResult result) {
         if (processed.existsById(env.eventId())) {
             return;
         }
         Payment payment = payments.findByOrderId(orderId)
                 .orElseGet(() -> payments.save(Payment.initiated(orderId)));
-        String topic = result.success() ? Topics.PAYMENT_SUCCEEDED : Topics.PAYMENT_FAILED;
-        String type = result.success() ? "PaymentSucceeded" : "PaymentFailed";
+        if (payment.isSuccess()) {
+            processed.save(new ProcessedEvent(env.eventId()));
+            return;
+        }
         if (result.success()) {
             payment.succeed();
         } else {
             payment.fail();
         }
-        EventEnvelope out = EventEnvelope.of(
-                type,
+        String topic = result.success() ? Topics.PAYMENT_SUCCEEDED : Topics.PAYMENT_FAILED;
+        String type = result.success() ? "PaymentSucceeded" : "PaymentFailed";
+        EventEnvelope out = PurchaseStory.paymentEnded(type,
+                topic,
+                orderId,
                 env.correlationId(),
-                orderId,
-                orderId,
-                Map.of("orderId", orderId, "topic", topic, "provider", result.providerReference()));
+                result.providerReference());
         outbox.save(OutboxEvent.pending(out.eventId(), type, orderId, JsonEvents.write(out)));
         processed.save(new ProcessedEvent(env.eventId()));
+    }
+
+    private enum ChargePlan {
+        SKIP,
+        CHARGE
     }
 }

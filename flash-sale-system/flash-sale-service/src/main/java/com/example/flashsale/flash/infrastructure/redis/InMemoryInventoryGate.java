@@ -35,6 +35,11 @@ public class InMemoryInventoryGate implements InventoryGate {
                 .addAndGet(quantity);
     }
 
+    public int remaining(String productId) {
+        AtomicInteger s = stock.get(productId);
+        return s == null ? 0 : s.get();
+    }
+
     public void reset(String productId, int quantity) {
         stock.put(productId, new AtomicInteger(quantity));
     }

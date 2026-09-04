@@ -3,9 +3,10 @@ package com.example.payment.service;
 import com.example.payment.entity.Payment;
 import com.example.payment.entity.PaymentStatus;
 import com.example.payment.repository.PaymentRepository;
-import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
 
 @Service
 public class PaymentRetryCompletionService {
@@ -26,7 +27,8 @@ public class PaymentRetryCompletionService {
 
     @Transactional
     public void complete(Long paymentId) {
-        Payment payment = paymentRepository.findByIdWithCustomer(paymentId).orElse(null);
+        Payment payment = paymentRepository.findByIdWithCustomer(paymentId)
+                .orElse(null);
         if (payment == null || payment.getStatus() != PaymentStatus.PROCESSING) {
             return;
         }

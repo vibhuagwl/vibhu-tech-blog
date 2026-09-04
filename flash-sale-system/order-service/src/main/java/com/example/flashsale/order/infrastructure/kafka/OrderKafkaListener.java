@@ -1,5 +1,8 @@
 package com.example.flashsale.order.infrastructure.kafka;
 
+import com.example.flashsale.common.error.ErrorCode;
+import com.example.flashsale.common.error.PermanentException;
+import com.example.flashsale.common.event.EventEnvelope;
 import com.example.flashsale.common.event.JsonEvents;
 import com.example.flashsale.common.kafka.Topics;
 import com.example.flashsale.order.application.saga.SagaOrchestrator;
@@ -19,19 +22,27 @@ public class OrderKafkaListener {
 
     @KafkaListener(topics = Topics.INVENTORY_RESERVED, groupId = "order-service")
     public void reserved(String json, Acknowledgment ack) {
-        saga.onInventoryReserved(JsonEvents.read(json));
+        saga.onInventoryReserved(read(json));
         ack.acknowledge();
     }
 
     @KafkaListener(topics = Topics.PAYMENT_SUCCEEDED, groupId = "order-service")
     public void paid(String json, Acknowledgment ack) {
-        saga.onPaymentSucceeded(JsonEvents.read(json));
+        saga.onPaymentSucceeded(read(json));
         ack.acknowledge();
     }
 
     @KafkaListener(topics = Topics.PAYMENT_FAILED, groupId = "order-service")
     public void failed(String json, Acknowledgment ack) {
-        saga.onPaymentFailed(JsonEvents.read(json));
+        saga.onPaymentFailed(read(json));
         ack.acknowledge();
+    }
+
+    private static EventEnvelope read(String json) {
+        try {
+            return JsonEvents.read(json);
+        } catch (IllegalArgumentException ex) {
+            throw new PermanentException(ErrorCode.INVALID_REQUEST, ex.getMessage());
+        }
     }
 }

@@ -30,8 +30,7 @@ public class InventoryRedisService {
      * @return 1 acquired, 0 sold out, -1 missing key
      */
     public long tryDecrement(String productId, int quantity) {
-        Long result = redis.execute(scripts.inventoryGate(), List.of(gateKey(productId)), String.valueOf(quantity));
-        return result == null ? -1L : result;
+        return redis.execute(scripts.inventoryGate(), List.of(gateKey(productId)), String.valueOf(quantity));
     }
 
     public void increment(String productId, int quantity) {
@@ -46,6 +45,6 @@ public class InventoryRedisService {
 
     public long rateLimitAllow(String key, int maxPerSecond) {
         Long result = redis.execute(scripts.rateLimit(), List.of(key), String.valueOf(maxPerSecond));
-        return result == null ? 0L : result;
+        return result;
     }
 }

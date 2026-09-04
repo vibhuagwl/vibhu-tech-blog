@@ -26,61 +26,55 @@ package com.example.designpatterns.creational.factory;
  * via @Qualifier / profiles.
  */
 public class PaymentGatewayFactoryDemo {
-  public enum Provider {
-    STRIPE,
-    PAYPAL,
-    ADYEN
-  }
-
-  public interface PaymentGateway {
-    String charge(int amount);
-  }
-
-  public static final class StripeGateway implements PaymentGateway {
-    public String charge(int amount) {
-      return "Stripe charged " + amount;
+    public enum Provider {
+        STRIPE, PAYPAL, ADYEN
     }
-  }
 
-  public static final class PaypalGateway implements PaymentGateway {
-    public String charge(int amount) {
-      return "PayPal charged " + amount;
+    public interface PaymentGateway {
+        String charge(int amount);
     }
-  }
 
-  public static final class AdyenGateway implements PaymentGateway {
-    public String charge(int amount) {
-      return "Adyen charged " + amount;
+    public static final class StripeGateway implements PaymentGateway {
+        public String charge(int amount) {
+            return "Stripe charged " + amount;
+        }
     }
-  }
 
-  public static final class PaymentGatewayFactory {
-    public PaymentGateway create(Provider provider) {
-      return switch (provider) {
-        case STRIPE -> new StripeGateway();
-        case PAYPAL -> new PaypalGateway();
-        case ADYEN -> new AdyenGateway();
-      };
+    public static final class PaypalGateway implements PaymentGateway {
+        public String charge(int amount) {
+            return "PayPal charged " + amount;
+        }
     }
-  }
 
-  public static void run() {
-    System.out.println("=== Factory Method — PaymentGatewayFactoryDemo ===");
-    System.out.println(
-        "PROBLEM: Callers hard-code new StripeGateway() or PaypalGateway(); adding Adyen means"
-            + " editing every checkout and refund path.");
-    System.out.println(
-        "SOLUTION: PaymentGatewayFactory.create(Provider) returns the right PaymentGateway"
-            + " implementation from one branch so callers never instantiate concrete gateways.");
-    System.out.println("STEP 1: Create PaymentGatewayFactory (centralizes provider branching)");
-    var factory = new PaymentGatewayFactory();
-    System.out.println("STEP 2: Request STRIPE gateway without hard-coding new StripeGateway()");
-    var gateway = factory.create(Provider.STRIPE);
-    System.out.println("STEP 3: Charge amount through the product interface");
-    System.out.println("  Result: " + gateway.charge(100));
-  }
+    public static final class AdyenGateway implements PaymentGateway {
+        public String charge(int amount) {
+            return "Adyen charged " + amount;
+        }
+    }
 
-  public static void main(String[] args) {
-    run();
-  }
+    public static final class PaymentGatewayFactory {
+        public PaymentGateway create(Provider provider) {
+            return switch (provider) {
+                case STRIPE -> new StripeGateway();
+                case PAYPAL -> new PaypalGateway();
+                case ADYEN -> new AdyenGateway();
+            };
+        }
+    }
+
+    public static void run() {
+        System.out.println("=== Factory Method — PaymentGatewayFactoryDemo ===");
+        System.out.println("PROBLEM: Callers hard-code new StripeGateway() or PaypalGateway(); adding Adyen means" + " editing every checkout and refund path.");
+        System.out.println("SOLUTION: PaymentGatewayFactory.create(Provider) returns the right PaymentGateway" + " implementation from one branch so callers never instantiate concrete gateways.");
+        System.out.println("STEP 1: Create PaymentGatewayFactory (centralizes provider branching)");
+        var factory = new PaymentGatewayFactory();
+        System.out.println("STEP 2: Request STRIPE gateway without hard-coding new StripeGateway()");
+        var gateway = factory.create(Provider.STRIPE);
+        System.out.println("STEP 3: Charge amount through the product interface");
+        System.out.println("  Result: " + gateway.charge(100));
+    }
+
+    public static void main(String[] args) {
+        run();
+    }
 }

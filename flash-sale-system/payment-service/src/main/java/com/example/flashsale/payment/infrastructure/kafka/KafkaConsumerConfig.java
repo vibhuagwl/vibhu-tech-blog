@@ -1,6 +1,5 @@
 package com.example.flashsale.payment.infrastructure.kafka;
 
-import com.example.flashsale.common.error.FlashSaleException;
 import com.example.flashsale.common.error.PermanentException;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.annotation.Bean;
@@ -22,7 +21,7 @@ public class KafkaConsumerConfig {
         ExponentialBackOff backOff = new ExponentialBackOff(200L, 2.0);
         backOff.setMaxElapsedTime(4_000);
         DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, backOff);
-        handler.addNotRetryableExceptions(PermanentException.class, FlashSaleException.class);
+        handler.addNotRetryableExceptions(PermanentException.class);
         return handler;
     }
 }

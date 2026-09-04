@@ -18,24 +18,24 @@ public class AuthService {
     private final JwtService jwtService;
     private final AppUserRepository appUserRepository;
 
-    public AuthService(
-            AuthenticationManager authenticationManager,
-            JwtService jwtService,
-            AppUserRepository appUserRepository
-    ) {
+    public AuthService(AuthenticationManager authenticationManager, JwtService jwtService,
+            AppUserRepository appUserRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.appUserRepository = appUserRepository;
     }
 
     public LoginResponse login(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.username(), request.password())
-        );
+        Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
+                request.username(),
+                request.password()));
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         AppUser user = appUserRepository.findByUsername(principal.getUsername())
                 .orElseThrow(() -> new IllegalStateException("Authenticated user missing"));
         String token = jwtService.generateToken(user.getUsername(), user.getRole());
-        return new LoginResponse(token, user.getRole().name(), user.getUsername());
+        return new LoginResponse(token,
+                user.getRole()
+                        .name(),
+                user.getUsername());
     }
 }

@@ -2,14 +2,15 @@ package com.example.payment.service;
 
 import com.example.payment.dto.PaymentEventDto;
 import com.example.payment.entity.Payment;
-import java.io.IOException;
-import java.time.Instant;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Component
 public class PaymentEventPublisher {
@@ -24,7 +25,9 @@ public class PaymentEventPublisher {
         emitter.onTimeout(() -> emitters.remove(emitter));
         emitter.onError(ex -> emitters.remove(emitter));
         try {
-            emitter.send(SseEmitter.event().name("connected").data("ok"));
+            emitter.send(SseEmitter.event()
+                    .name("connected")
+                    .data("ok"));
         } catch (IOException e) {
             emitters.remove(emitter);
             emitter.completeWithError(e);
@@ -43,7 +46,9 @@ public class PaymentEventPublisher {
         );
         for (SseEmitter emitter : emitters) {
             try {
-                emitter.send(SseEmitter.event().name("payment-status").data(event));
+                emitter.send(SseEmitter.event()
+                        .name("payment-status")
+                        .data(event));
             } catch (Exception ex) {
                 log.debug("Removing stale SSE emitter: {}", ex.getMessage());
                 emitters.remove(emitter);

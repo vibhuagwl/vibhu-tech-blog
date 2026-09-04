@@ -20,6 +20,8 @@
     <module>distributed-locking</module>
     <module>financial-ai-platform</module>
       <module>flash-sale-system</module>
+      <module>driver-pubsub-system</module>
+      <module>healthcare-appointment-system</module>
     <module>hadron-cashlines-dlq</module>
     <module>idanywhere-oidc-demo</module>
     <module>java-comparable-comparator-demo</module>
@@ -28,8 +30,10 @@
     <module>java-locking-lab</module>
     <module>java-streams-lab</module>
     <module>load-balancer-lab</module>
+      <module>log-storage-service</module>
     <module>oauth-jwt-demo</module>
     <module>react-springboot-interview/backend</module>
+      <module>secure-kafka</module>
     <module>spring-ai-payment-investigator</module>
     <module>spring-api-gateway-lab</module>
     <module>spring-authn-authz-demo</module>

@@ -36,12 +36,19 @@ public class SagaTransaction {
         return s;
     }
 
-    public void transition(SagaStatus next) {
+    public boolean tryTransition(SagaStatus next) {
         if (!status.canTransitionTo(next)) {
-            throw new IllegalStateException(status + " -> " + next);
+            return false;
         }
         this.status = next;
         this.updatedAt = Instant.now();
+        return true;
+    }
+
+    public void transition(SagaStatus next) {
+        if (!tryTransition(next)) {
+            throw new IllegalStateException(status + " -> " + next);
+        }
     }
 
     public SagaStatus getStatus() {

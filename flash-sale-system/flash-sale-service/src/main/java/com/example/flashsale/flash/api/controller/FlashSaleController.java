@@ -13,6 +13,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+/**
+ * HTTP front door to chapter 1. Returns 202 PENDING — the user is not charged on this thread.
+ *
+ * @see com.example.flashsale.common.event.PurchaseStory
+ */
 @RestController
 @RequestMapping("/api/v1/flash-sales")
 public class FlashSaleController {
@@ -45,7 +50,8 @@ public class FlashSaleController {
     }
 
     @PostMapping("/{saleId}/orders")
-    public ResponseEntity<PurchaseAccepted> purchase(@PathVariable String saleId,
+    public ResponseEntity<PurchaseAccepted> purchase(
+            @PathVariable String saleId,
             @Valid @RequestBody PurchaseRequest request,
             @RequestHeader(value = "X-Forwarded-For", defaultValue = "127.0.0.1") String ip,
             Authentication authentication) {

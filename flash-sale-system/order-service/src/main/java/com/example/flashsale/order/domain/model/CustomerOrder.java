@@ -25,6 +25,13 @@ public class CustomerOrder {
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 
+    /**
+     * WHY: concurrent PaymentSucceeded vs user-cancel must not both win. The loser retries and
+     * sees a terminal state.
+     */
+    @Version
+    private Long version;
+
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
@@ -69,16 +76,30 @@ public class CustomerOrder {
         return status;
     }
 
-    public void confirm() {
+    /**
+     * @return true if this call moved PENDING → CONFIRMED. Cancelled orders stay cancelled.
+     */
+    public boolean confirm() {
+        if (status != OrderStatus.PENDING) {
+            return false;
+        }
         this.status = OrderStatus.CONFIRMED;
         this.updatedAt = Instant.now();
+        return true;
     }
 
-    public void cancel() {
-        if (this.status == OrderStatus.CANCELLED) {
-            return;
+    /**
+     * @return true if the order is CANCELLED afterwards. Confirmed orders cannot be undone here.
+     */
+    public boolean cancel() {
+        if (status == OrderStatus.CANCELLED) {
+            return true;
+        }
+        if (status != OrderStatus.PENDING) {
+            return false;
         }
         this.status = OrderStatus.CANCELLED;
         this.updatedAt = Instant.now();
+        return true;
     }
 }

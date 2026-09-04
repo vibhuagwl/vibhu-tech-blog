@@ -18,6 +18,7 @@ yarn-error.log*
 
 # Java / Maven demos
 **/target/
+log-storage-service/data/
 oauth-jwt-demo/**/target/
 spring-whatsapp-demo/**/target/
 spring-distributed-counter-demo/**/target/

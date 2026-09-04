@@ -1,7 +1,9 @@
 package com.example.flashsale.order.infrastructure.outbox;
 
-import com.example.flashsale.common.event.EventEnvelope;
-import com.example.flashsale.common.event.JsonEvents;
+import com.example.flashsale.common.error.PermanentException;
+import com.example.flashsale.common.event.EventPayloads;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -9,10 +11,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Component
 @Profile("!test")
 public class OutboxPublisher {
+    private static final Logger log = LoggerFactory.getLogger(OutboxPublisher.class);
+
     private final OutboxEventRepository repository;
     private final KafkaTemplate<String, String> kafkaTemplate;
 
@@ -25,12 +30,27 @@ public class OutboxPublisher {
     @Transactional
     public void publish() {
         List<OutboxEvent> batch = repository.lockNextBatch(500);
-        for (OutboxEvent e : batch) {
-            EventEnvelope env = JsonEvents.read(e.getPayload());
-            String topic = String.valueOf(env.payload()
-                    .get("topic"));
-            kafkaTemplate.send(topic, e.getPartitionKey(), e.getPayload());
-            e.markPublished();
+        for (OutboxEvent event : batch) {
+            publishOne(event);
+        }
+    }
+
+    private void publishOne(OutboxEvent event) {
+        try {
+            String topic = EventPayloads.requireTopic(event.getPayload());
+            kafkaTemplate.send(topic, event.getPartitionKey(), event.getPayload())
+                    .get(5, TimeUnit.SECONDS);
+            event.markPublished();
+        } catch (PermanentException | IllegalArgumentException poison) {
+            log.error("poison outbox eventId={}", event.getEventId(), poison);
+            event.markFailed();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread()
+                    .interrupt();
+            throw new IllegalStateException("outbox send interrupted", interrupted);
+        } catch (Exception sendFailed) {
+            log.warn("outbox send failed eventId={}", event.getEventId(), sendFailed);
+            throw new IllegalStateException("outbox kafka send failed", sendFailed);
         }
     }
 }

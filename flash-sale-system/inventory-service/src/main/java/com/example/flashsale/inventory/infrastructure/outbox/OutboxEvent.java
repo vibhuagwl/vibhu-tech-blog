@@ -73,4 +73,9 @@ public class OutboxEvent {
         this.status = "PUBLISHED";
         this.publishedAt = Instant.now();
     }
+
+    public void markFailed() {
+        this.status = "FAILED";
+        this.publishedAt = Instant.now();
+    }
 }

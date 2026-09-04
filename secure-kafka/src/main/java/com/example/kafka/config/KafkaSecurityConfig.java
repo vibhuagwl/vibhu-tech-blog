@@ -1,12 +1,13 @@
 package com.example.kafka.config;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Shared Kafka <em>client</em> security properties.
@@ -17,8 +18,7 @@ import org.springframework.util.StringUtils;
 @Component
 public class KafkaSecurityConfig {
 
-    private static final String OAUTH_LOGIN_MODULE =
-            "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule";
+    private static final String OAUTH_LOGIN_MODULE = "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule";
 
     private final KafkaAppProperties properties;
 
@@ -50,7 +50,8 @@ public class KafkaSecurityConfig {
                 props.put(SaslConfigs.SASL_OAUTHBEARER_TOKEN_ENDPOINT_URL, security.getTokenEndpoint());
                 props.put(SaslConfigs.SASL_JAAS_CONFIG, oauthJaas(clientId, clientSecret, security.getScope()));
             } else {
-                props.put(SaslConfigs.SASL_JAAS_CONFIG, jaasForMechanism(security.getSaslMechanism(), clientId, clientSecret));
+                props.put(SaslConfigs.SASL_JAAS_CONFIG,
+                        jaasForMechanism(security.getSaslMechanism(), clientId, clientSecret));
             }
         }
         putSsl(props, security);
@@ -58,8 +59,9 @@ public class KafkaSecurityConfig {
     }
 
     private static boolean usesSasl(String protocol) {
-        return SecurityProtocol.SASL_SSL.name().equals(protocol)
-                || SecurityProtocol.SASL_PLAINTEXT.name().equals(protocol);
+        return SecurityProtocol.SASL_SSL.name()
+                .equals(protocol) || SecurityProtocol.SASL_PLAINTEXT.name()
+                .equals(protocol);
     }
 
     /**
@@ -68,8 +70,7 @@ public class KafkaSecurityConfig {
      * {@code OAuthBearerLoginCallbackHandler} reads (Kafka 3.1+).
      */
     public static String oauthJaas(String clientId, String clientSecret, String scope) {
-        StringBuilder jaas = new StringBuilder(OAUTH_LOGIN_MODULE)
-                .append(" required clientId=\"")
+        StringBuilder jaas = new StringBuilder(OAUTH_LOGIN_MODULE).append(" required clientId=\"")
                 .append(escapeJaas(clientId))
                 .append("\" clientSecret=\"")
                 .append(escapeJaas(clientSecret))
@@ -84,13 +85,10 @@ public class KafkaSecurityConfig {
     }
 
     static String jaasForMechanism(String mechanism, String username, String password) {
-        if ("PLAIN".equalsIgnoreCase(mechanism) || "SCRAM-SHA-256".equalsIgnoreCase(mechanism)
-                || "SCRAM-SHA-512".equalsIgnoreCase(mechanism)) {
-            String module = "PLAIN".equalsIgnoreCase(mechanism)
-                    ? "org.apache.kafka.common.security.plain.PlainLoginModule"
-                    : "org.apache.kafka.common.security.scram.ScramLoginModule";
-            return module + " required username=\"" + escapeJaas(username) + "\" password=\""
-                    + escapeJaas(password) + "\";";
+        if ("PLAIN".equalsIgnoreCase(mechanism) || "SCRAM-SHA-256".equalsIgnoreCase(mechanism) || "SCRAM-SHA-512".equalsIgnoreCase(
+                mechanism)) {
+            String module = "PLAIN".equalsIgnoreCase(mechanism) ? "org.apache.kafka.common.security.plain.PlainLoginModule" : "org.apache.kafka.common.security.scram.ScramLoginModule";
+            return module + " required username=\"" + escapeJaas(username) + "\" password=\"" + escapeJaas(password) + "\";";
         }
         throw new IllegalArgumentException("Unsupported SASL mechanism: " + mechanism);
     }
@@ -108,16 +106,16 @@ public class KafkaSecurityConfig {
             props.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, security.getKeystoreLocation());
             props.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, security.getKeystorePassword());
             props.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG,
-                    StringUtils.hasText(security.getKeyPassword())
-                            ? security.getKeyPassword()
-                            : security.getKeystorePassword());
+                    StringUtils.hasText(security.getKeyPassword()) ? security.getKeyPassword() : security.getKeystorePassword());
             props.put(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, "PKCS12");
         }
         props.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, "https");
     }
 
     private static boolean usesSsl(String protocol) {
-        return SecurityProtocol.SSL.name().equals(protocol) || SecurityProtocol.SASL_SSL.name().equals(protocol);
+        return SecurityProtocol.SSL.name()
+                .equals(protocol) || SecurityProtocol.SASL_SSL.name()
+                .equals(protocol);
     }
 
     private static String escapeJaas(String value) {

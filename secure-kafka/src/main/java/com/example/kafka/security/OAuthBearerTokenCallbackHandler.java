@@ -1,14 +1,15 @@
 package com.example.kafka.security;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import javax.security.auth.callback.Callback;
-import javax.security.auth.callback.UnsupportedCallbackException;
-import javax.security.auth.login.AppConfigurationEntry;
 import org.apache.kafka.common.security.auth.AuthenticateCallbackHandler;
 import org.apache.kafka.common.security.oauthbearer.OAuthBearerTokenCallback;
 import org.springframework.web.client.RestClient;
+
+import javax.security.auth.callback.Callback;
+import javax.security.auth.callback.UnsupportedCallbackException;
+import javax.security.auth.login.AppConfigurationEntry;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Kafka-instantiated SASL login callback (public no-arg constructor).
@@ -22,11 +23,15 @@ public class OAuthBearerTokenCallbackHandler implements AuthenticateCallbackHand
 
     private KafkaOAuthTokenProvider tokenProvider;
 
-    /** Used by Kafka via reflection. */
+    /**
+     * Used by Kafka via reflection.
+     */
     public OAuthBearerTokenCallbackHandler() {
     }
 
-    /** Tests / Spring-owned wiring. */
+    /**
+     * Tests / Spring-owned wiring.
+     */
     public OAuthBearerTokenCallbackHandler(KafkaOAuthTokenProvider tokenProvider) {
         this.tokenProvider = tokenProvider;
     }
@@ -43,7 +48,8 @@ public class OAuthBearerTokenCallbackHandler implements AuthenticateCallbackHand
         if (jaasConfigEntries == null || jaasConfigEntries.isEmpty()) {
             throw new IllegalStateException("OAUTHBEARER JAAS config is required");
         }
-        Map<String, ?> options = jaasConfigEntries.getFirst().getOptions();
+        Map<String, ?> options = jaasConfigEntries.getFirst()
+                .getOptions();
         String clientId = stringValue(options, "clientId");
         String clientSecret = stringValue(options, "clientSecret");
         String scope = stringValue(options, "scope");

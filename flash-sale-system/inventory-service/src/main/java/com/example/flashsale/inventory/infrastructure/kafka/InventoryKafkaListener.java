@@ -1,6 +1,9 @@
 package com.example.flashsale.inventory.infrastructure.kafka;
 
+import com.example.flashsale.common.error.ErrorCode;
+import com.example.flashsale.common.error.PermanentException;
 import com.example.flashsale.common.event.EventEnvelope;
+import com.example.flashsale.common.event.EventPayloads;
 import com.example.flashsale.common.event.JsonEvents;
 import com.example.flashsale.common.kafka.Topics;
 import com.example.flashsale.inventory.application.ReserveInventoryService;
@@ -21,25 +24,30 @@ public class InventoryKafkaListener {
 
     @KafkaListener(topics = Topics.ORDER_REQUESTED, groupId = "inventory-service")
     public void onOrderRequested(String json, Acknowledgment ack) {
-        EventEnvelope env = JsonEvents.read(json);
+        EventEnvelope env = read(json);
         reserveInventoryService.reserve(env);
         ack.acknowledge();
     }
 
     @KafkaListener(topics = Topics.INVENTORY_RELEASE_REQUESTED, groupId = "inventory-service")
     public void onRelease(String json, Acknowledgment ack) {
-        EventEnvelope env = JsonEvents.read(json);
-        String orderId = String.valueOf(env.payload()
-                .get("orderId"));
-        reserveInventoryService.release(orderId, env.eventId());
+        EventEnvelope env = read(json);
+        reserveInventoryService.release(EventPayloads.requireText(env, "orderId"), env.eventId());
         ack.acknowledge();
     }
 
     @KafkaListener(topics = Topics.ORDER_CONFIRMED, groupId = "inventory-service")
     public void onConfirmed(String json, Acknowledgment ack) {
-        EventEnvelope env = JsonEvents.read(json);
-        reserveInventoryService.confirm(String.valueOf(env.payload()
-                .get("orderId")), env.eventId());
+        EventEnvelope env = read(json);
+        reserveInventoryService.confirm(EventPayloads.requireText(env, "orderId"), env.eventId());
         ack.acknowledge();
+    }
+
+    private static EventEnvelope read(String json) {
+        try {
+            return JsonEvents.read(json);
+        } catch (IllegalArgumentException ex) {
+            throw new PermanentException(ErrorCode.INVALID_REQUEST, ex.getMessage());
+        }
     }
 }

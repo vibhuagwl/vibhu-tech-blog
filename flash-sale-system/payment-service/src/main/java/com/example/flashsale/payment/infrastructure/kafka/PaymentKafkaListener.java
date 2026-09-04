@@ -1,5 +1,7 @@
 package com.example.flashsale.payment.infrastructure.kafka;
 
+import com.example.flashsale.common.error.ErrorCode;
+import com.example.flashsale.common.error.PermanentException;
 import com.example.flashsale.common.event.JsonEvents;
 import com.example.flashsale.common.kafka.Topics;
 import com.example.flashsale.payment.application.ProcessPaymentService;
@@ -19,7 +21,11 @@ public class PaymentKafkaListener {
 
     @KafkaListener(topics = Topics.PAYMENT_REQUESTED, groupId = "payment-service")
     public void on(String json, Acknowledgment ack) {
-        service.handle(JsonEvents.read(json));
+        try {
+            service.handle(JsonEvents.read(json));
+        } catch (IllegalArgumentException ex) {
+            throw new PermanentException(ErrorCode.INVALID_REQUEST, ex.getMessage());
+        }
         ack.acknowledge();
     }
 }

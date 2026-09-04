@@ -36,6 +36,7 @@
         <module name="java-locking-lab" />
         <module name="spring-n-plus-one-demo" />
         <module name="rag-service (1) (com.vibhu.aifp)" />
+        <module name="driver-pubsub-system" />
         <module name="tool-gateway" />
         <module name="spring-bloom-filter-lab" />
         <module name="kafka-mcp-server" />
@@ -44,11 +45,13 @@
         <module name="ai-orchestrator (1) (com.vibhu.fai)" />
         <module name="msp-common" />
         <module name="api-service" />
+        <module name="flash-sale-api" />
         <module name="payment-mcp-server" />
         <module name="authorization-server" />
         <module name="spring-cache-lab" />
         <module name="payment-service (1) (com.example.flashsale)" />
         <module name="inventory-service (1) (com.example.flashsale)" />
+        <module name="healthcare-appointment-system" />
         <module name="api-gateway" />
         <module name="web-portal" />
         <module name="flash-sale-common" />
@@ -94,6 +97,8 @@
         <module name="delivery-worker" />
         <module name="resource-server" />
         <module name="spring-microservices-patterns-lab" />
+        <module name="secure-kafka" />
+        <module name="log-storage-service" />
         <module name="whatsapp-common" />
         <module name="spring-encryption-lab" />
       </profile>
@@ -129,16 +134,20 @@
       <module name="customer-service (2) (com.vibhu.security)" options="-parameters" />
       <module name="delivery-worker" options="-parameters" />
       <module name="domain-services" options="-parameters" />
+      <module name="driver-pubsub-system" options="-parameters" />
       <module name="eureka-server" options="-parameters" />
+      <module name="flash-sale-api" options="-parameters" />
       <module name="flash-sale-common" options="-parameters" />
       <module name="flash-sale-service" options="-parameters" />
       <module name="hadron-cashlines-dlq" options="-parameters" />
+      <module name="healthcare-appointment-system" options="-parameters" />
       <module name="idp-standin" options="-parameters" />
       <module name="inventory-service" options="-parameters" />
       <module name="inventory-service (1) (com.example.flashsale)" options="-parameters" />
       <module name="kafka-common" options="-parameters" />
       <module name="kafka-mcp-server" options="-parameters" />
       <module name="lock-service" options="-parameters" />
+      <module name="log-storage-service" options="-parameters" />
       <module name="mcp-financial-server" options="-parameters" />
       <module name="mcp-server" options="-parameters" />
       <module name="message-service" options="-parameters" />
@@ -162,6 +171,7 @@
       <module name="reporting-mcp-server" options="-parameters" />
       <module name="resource-api" options="-parameters" />
       <module name="resource-server" options="-parameters" />
+      <module name="secure-kafka" options="-parameters" />
       <module name="settlement-worker" options="-parameters" />
       <module name="spring-bloom-filter-lab" options="-parameters" />
       <module name="spring-cache-lab" options="-parameters" />

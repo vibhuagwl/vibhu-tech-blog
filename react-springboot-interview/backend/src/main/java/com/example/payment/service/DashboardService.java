@@ -20,13 +20,11 @@ public class DashboardService {
 
     @Transactional(readOnly = true)
     public DashboardMetricsResponse metrics() {
-        return new DashboardMetricsResponse(
-                paymentRepository.count(),
+        return new DashboardMetricsResponse(paymentRepository.count(),
                 paymentRepository.countByStatus(PaymentStatus.SUCCESS),
                 paymentRepository.countByStatus(PaymentStatus.FAILED),
                 paymentRepository.countByStatus(PaymentStatus.PENDING),
                 paymentRepository.countByStatus(PaymentStatus.PROCESSING),
-                customerRepository.count()
-        );
+                customerRepository.count());
     }
 }

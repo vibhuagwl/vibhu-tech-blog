@@ -13,21 +13,21 @@ public class SecurityAuditLogger {
     private static final Logger log = LoggerFactory.getLogger(SecurityAuditLogger.class);
 
     public void kafkaSecurityFailure(Throwable ex, String topic, int partition, long offset) {
-        log.warn(
-                "KAFKA_SECURITY_DENIED topic={} partition={} offset={} type={} message={}",
+        log.warn("KAFKA_SECURITY_DENIED topic={} partition={} offset={} type={} message={}",
                 topic,
                 partition,
                 offset,
-                ex.getClass().getSimpleName(),
+                ex.getClass()
+                        .getSimpleName(),
                 ex.getMessage());
     }
 
     public void publishedToDlt(String sourceTopic, String dltTopic, Throwable ex) {
-        log.warn(
-                "KAFKA_DLT source={} dlt={} type={} message={}",
+        log.warn("KAFKA_DLT source={} dlt={} type={} message={}",
                 sourceTopic,
                 dltTopic,
-                ex.getClass().getSimpleName(),
+                ex.getClass()
+                        .getSimpleName(),
                 ex.getMessage());
     }
 
